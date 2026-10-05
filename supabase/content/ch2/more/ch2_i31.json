@@ -1,0 +1,701 @@
+{
+  "topicId": "ch2_i31",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Edge-Triggered and Master-Slave Timing"
+    },
+    {
+      "type": "paragraph",
+      "text": "The maximum clock frequency comes from following one bit through a register-to-register path. At a clock edge the first flip-flop launches new data, which appears at its Q output after t_pd. The data then passes through the combinational logic (t_logic) and must reach the D input of the second flip-flop at least t_su before the next edge. The clock period therefore has to cover all three delays, using their worst-case (maximum) values, and the slowest path in the circuit, the critical path, sets the clock rate."
+    },
+    {
+      "type": "formula",
+      "latex": "T_{clk} \\ge t_{pd,max} + t_{logic,max} + t_{su}",
+      "plainText": "Setup constraint: T_clk >= t_pd(max) + t_logic(max) + t_su"
+    },
+    {
+      "type": "paragraph",
+      "text": "The hold constraint looks at the same edge instead of the next one. The data launched at an edge must not reach the second flip-flop so quickly that it disturbs the value that flip-flop is still capturing. The fastest (minimum) delays matter here, and the clock period does not appear at all."
+    },
+    {
+      "type": "formula",
+      "latex": "t_{pd,min} + t_{logic,min} \\ge t_{h}",
+      "plainText": "Hold constraint: t_pd(min) + t_logic(min) >= t_h (independent of the clock period)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: setup and hold check\nGiven: t_pd = 10 ns (min 3 ns), t_su = 4 ns, t_h = 2 ns\n       logic delay 18 ns (max), 2 ns (min)\nT_min  = 10 + 18 + 4 = 32 ns\nf_max  = 1 / 32 ns = 31.25 MHz\nAt 25 MHz: T = 40 ns, setup slack = 40 - 32 = +8 ns (met)\nHold slack = 3 + 2 - 2 = +3 ns (met)"
+    },
+    {
+      "type": "paragraph",
+      "text": "To read a timing diagram, first mark every active edge of the device in question. An edge-triggered flip-flop takes the value of D exactly at those marks and ignores D everywhere else. A latch must be traced over each whole enable interval: it follows D while open and freezes the value present when it closes. Changes of D while the latch is closed appear only when it next opens."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: one D waveform, three devices (times in ns)\nCLK HIGH 0-10, 20-30, 40-50, 60-70; D = 1 during 3-14 and 33-46\nPositive-edge D FF, edges 0/20/40/60 : Q = 0, 0, 1, 0\nNegative-edge D FF, edges 10/30/50/70: Q = 1, 0, 0, 0\nD latch (open while CLK = 1):\n  Q -> 1 at 3, holds 1 at 14 (closed), -> 0 at 20 (opens, D = 0)\n  holds 0 at 33 (closed), -> 1 at 40 (opens, D = 1), -> 0 at 46"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "PRE-bar",
+          "CLR-bar",
+          "CLK and D",
+          "Q"
+        ],
+        [
+          "0",
+          "1",
+          "Don't care",
+          "1 (preset)"
+        ],
+        [
+          "1",
+          "0",
+          "Don't care",
+          "0 (clear)"
+        ],
+        [
+          "0",
+          "0",
+          "Don't care",
+          "Q = Q-bar = 1, not allowed"
+        ],
+        [
+          "1",
+          "1",
+          "Rising edge",
+          "D"
+        ],
+        [
+          "1",
+          "1",
+          "No rising edge",
+          "No change"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A master-slave D flip-flop can be built from two D latches with opposite enables. If the master is transparent while CLK = 0 and the slave while CLK = 1, the master tracks D during the LOW level and freezes it when the clock rises, at the same moment as the slave opens and copies it to Q: the result is a positive-edge flip-flop. Swapping the enables gives a negative-edge flip-flop. Because D latches have no feedback from Q to their inputs, this version does not show 1's catching."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in triggering and timing questions:",
+      "items": [
+        "Using the typical instead of the worst-case (largest) propagation delay when computing f_max.",
+        "Forgetting t_su, or adding the hold time into the clock-period sum.",
+        "Assuming a pulse-triggered master-slave JK output changes at the leading (rising) edge of the clock pulse; it changes at the trailing (falling) edge.",
+        "Treating PRESET and CLEAR as synchronous: they act at once, not at the next edge.",
+        "Taking the fastest path as the critical path; the slowest path sets the clock, the fastest path decides hold."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Lowering the clock frequency cures setup violations but never hold violations, because the clock period does not appear in the hold condition. A chip with a hold violation fails at any clock speed until delay is added to the short path."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i31_m001",
+      "questionText": "On a flip-flop logic symbol, a small triangle at the clock input indicates:",
+      "options": [
+        "An edge-triggered clock input",
+        "A level-triggered (transparent) enable",
+        "An active-low asynchronous clear",
+        "A postponed output of a master-slave device"
+      ],
+      "correctIndex": 0,
+      "explanation": "The triangle is the dynamic indicator: the device responds only to a clock transition, not to a level.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m002",
+      "questionText": "A bubble in front of the triangle at the clock input of a flip-flop symbol means the flip-flop is:",
+      "options": [
+        "Positive-edge triggered",
+        "Triggered on both clock edges",
+        "Negative-edge triggered",
+        "Level-sensitive while CLK = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "The bubble inverts the clock, so the device acts on the 1-to-0 (falling) transition.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m003",
+      "questionText": "A positive-edge-triggered flip-flop samples its synchronous inputs:",
+      "options": [
+        "At the 1-to-0 transition of the clock",
+        "At the 0-to-1 transition of the clock",
+        "Throughout the time CLK = 1",
+        "Throughout the time CLK = 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "Positive edge means the rising transition; at all other times the inputs have no effect on the output.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m004",
+      "questionText": "In a master-slave JK flip-flop, which latch is enabled during each clock level?",
+      "options": [
+        "Master while CLK = 0, slave while CLK = 1",
+        "Both master and slave while CLK = 1",
+        "Master only at the rising edge, slave only at the falling edge",
+        "Master while CLK = 1, slave while CLK = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "The master receives the clock and the slave the inverted clock, so the master captures J and K during the HIGH level and the slave copies it to the output during the LOW level.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m005",
+      "questionText": "The setup time of a flip-flop is the minimum time for which the data input must be stable:",
+      "options": [
+        "After the active clock edge",
+        "Between two successive clock edges",
+        "Before the active clock edge",
+        "After the output has changed"
+      ],
+      "correctIndex": 2,
+      "explanation": "Setup time t_su is measured before the edge; the interval after the edge is the hold time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m006",
+      "questionText": "The hold time of a flip-flop is the minimum time for which the data input must remain stable:",
+      "options": [
+        "After the active clock edge",
+        "Before the active clock edge",
+        "For the entire clock period",
+        "Until the preset input is released"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hold time t_h is measured from the active edge onward; the data must not change during it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m007",
+      "questionText": "The asynchronous PRESET and CLEAR inputs of a flip-flop:",
+      "options": [
+        "Take effect only at the next active clock edge",
+        "Act only while the clock is HIGH",
+        "Select which clock edge triggers the flip-flop",
+        "Act immediately, independent of the clock"
+      ],
+      "correctIndex": 3,
+      "explanation": "Direct (asynchronous) inputs bypass the clocked input gates, so they force the output at once whatever the clock is doing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m008",
+      "questionText": "A D flip-flop has active-low PRE-bar and CLR-bar inputs. With PRE-bar = 0 and CLR-bar = 1, the output is:",
+      "options": [
+        "Q = 0 regardless of the clock and D",
+        "Q = 1 regardless of the clock and D",
+        "Q = D at the next clock edge",
+        "Q toggles at each clock edge"
+      ],
+      "correctIndex": 1,
+      "explanation": "An active (LOW) preset forces Q = 1 immediately and holds it there while PRE-bar stays low.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m009",
+      "questionText": "The propagation delay t_CLK-to-Q of a flip-flop is the time between:",
+      "options": [
+        "The active clock edge and the resulting change at the output",
+        "Two successive active clock edges",
+        "A data change and the next clock edge",
+        "The release of CLEAR and the next clock edge"
+      ],
+      "correctIndex": 0,
+      "explanation": "t_pd (clock-to-Q) is how long the output takes to settle after the triggering edge.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m010",
+      "questionText": "Because its output changes at the end of the clock pulse after the inputs were captured during the pulse, a master-slave flip-flop is described as:",
+      "options": [
+        "Level-triggered and transparent",
+        "Asynchronous",
+        "Pulse-triggered",
+        "Triggered on both clock edges"
+      ],
+      "correctIndex": 2,
+      "explanation": "The master reads the inputs during the whole HIGH pulse and the slave updates the output on the trailing edge, so the device is pulse-triggered.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m011",
+      "questionText": "When the setup or hold time of a flip-flop is violated, its output may hover between valid logic levels for an unpredictable time. This condition is called:",
+      "options": [
+        "Race-around",
+        "Metastability",
+        "Ones catching",
+        "Clock skew"
+      ],
+      "correctIndex": 1,
+      "explanation": "A flip-flop sampling a changing input can be left balanced between its two stable states: metastability.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m012",
+      "questionText": "The 7474 TTL IC contains:",
+      "options": [
+        "Four transparent D latches",
+        "Two negative-edge JK flip-flops without preset or clear",
+        "One master-slave JK flip-flop",
+        "Two positive-edge-triggered D flip-flops with preset and clear"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 7474 is a dual positive-edge D flip-flop with active-low preset and clear; the quad transparent latch is the 7475.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m013",
+      "questionText": "An edge-detector circuit ANDs the clock with an inverted and slightly delayed copy of itself. Its output is:",
+      "options": [
+        "A square wave at twice the clock frequency",
+        "A constant logic 1",
+        "A narrow pulse, about one delay wide, at each rising clock edge",
+        "A pulse at each falling edge lasting the whole LOW time"
+      ],
+      "correctIndex": 2,
+      "explanation": "Just after the clock rises, CLK = 1 and the delayed-inverted copy is still 1, so the AND output is 1 only for the length of the delay.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m014",
+      "questionText": "In a D latch, a change on D while the enable is active:",
+      "options": [
+        "Appears at the output after the propagation delay",
+        "Is ignored until the next rising edge",
+        "Is ignored until the enable goes inactive",
+        "Resets the latch"
+      ],
+      "correctIndex": 0,
+      "explanation": "A latch is transparent while enabled, so the output follows D; only edge-triggered devices ignore D between edges.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i31_m015",
+      "questionText": "A D flip-flop has t_pd = 15 ns and t_su = 10 ns. Its Q output feeds the D input of an identical flip-flop directly, with no logic in between. The maximum clock frequency is:",
+      "options": [
+        "66.7 MHz",
+        "100.0 MHz",
+        "200.0 MHz",
+        "40.0 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "T_min = t_pd + t_su = 15 + 10 = 25 ns, so f_max = 1 / 25 ns = 40 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m016",
+      "questionText": "In a register-to-register path, the flip-flops have t_pd = 8 ns and t_su = 5 ns and the logic between them has a delay of 22 ns. The maximum clock frequency is:",
+      "options": [
+        "33.3 MHz",
+        "28.6 MHz",
+        "40.0 MHz",
+        "76.9 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "T_min = 8 + 22 + 5 = 35 ns, so f_max = 1 / 35 ns = 28.6 MHz. Ignoring t_su gives 33.3 MHz; ignoring the logic gives 76.9 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m017",
+      "questionText": "A synchronous circuit must run at 50 MHz using flip-flops with t_pd = 8 ns and t_su = 4 ns. The largest allowed delay of the logic between two flip-flops is:",
+      "options": [
+        "8 ns",
+        "12 ns",
+        "20 ns",
+        "4 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "T = 1 / 50 MHz = 20 ns; t_logic(max) = T - t_pd - t_su = 20 - 8 - 4 = 8 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m018",
+      "questionText": "A circuit is clocked at 100 MHz. The flip-flops have t_pd = 3 ns and t_su = 2 ns, and the logic path between them takes 4 ns. The setup slack is:",
+      "options": [
+        "+3 ns (met)",
+        "-1 ns (violated)",
+        "+1 ns (met)",
+        "+5 ns (met)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Slack = T - (t_pd + t_logic + t_su) = 10 - (3 + 4 + 2) = +1 ns, so the setup requirement is met with 1 ns to spare.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m019",
+      "questionText": "For a level-triggered JK flip-flop with J = K = 1, which relation between the clock HIGH width t_p, the propagation delay t_pd and the clock period T avoids race-around?",
+      "options": [
+        "t_pd < t_p < T",
+        "t_p < t_pd < T",
+        "T < t_pd < t_p",
+        "t_p = t_pd = T"
+      ],
+      "correctIndex": 1,
+      "explanation": "If the clock pulse ends before the output has had time to change (t_p < t_pd), the new output cannot be fed back through the still-enabled gates, so the flip-flop toggles only once per period.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m020",
+      "questionText": "A negative-edge JK flip-flop with J = K = 1 starts with Q = 0. After 5 complete clock pulses (5 falling edges), Q and the number of output changes are:",
+      "options": [
+        "Q = 0, after 5 changes",
+        "Q = 1, after 10 changes",
+        "Q = 0, after 4 changes",
+        "Q = 1, after 5 changes"
+      ],
+      "correctIndex": 3,
+      "explanation": "With J = K = 1 the output toggles once at every falling edge: 5 edges give 5 toggles, and an odd number of toggles from 0 leaves Q = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m021",
+      "questionText": "In a master-slave JK flip-flop, the output Q changes:",
+      "options": [
+        "At the leading (rising) edge of the clock pulse",
+        "Continuously while CLK = 1",
+        "At the trailing (falling) edge of the clock pulse",
+        "Continuously while CLK = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "The slave, which drives Q, is enabled when the clock goes LOW, so the master's state reaches the output at the trailing edge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m022",
+      "questionText": "The clock is HIGH from 0 to 10, 20 to 30, 40 to 50 and 60 to 70 ns (rising edges at 0, 20, 40 and 60 ns). D is 0 until 5 ns, 1 from 5 to 27 ns, 0 from 27 to 52 ns and 1 from 52 ns on. For a positive-edge D flip-flop, Q just after the edges at 20, 40 and 60 ns is:",
+      "options": [
+        "1, 0, 1",
+        "1, 1, 1",
+        "0, 1, 0",
+        "1, 0, 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q takes the value of D at each rising edge: D(20) = 1, D(40) = 0, D(60) = 1. Changes of D between edges are ignored.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m023",
+      "questionText": "Using the same clock and D waveforms (clock HIGH 0 to 10, 20 to 30, 40 to 50, 60 to 70 ns; D = 1 from 5 to 27 ns and from 52 ns on), a negative-edge D flip-flop gives which values of Q after the falling edges at 10, 30, 50 and 70 ns?",
+      "options": [
+        "1, 0, 1, 1",
+        "0, 1, 0, 1",
+        "1, 1, 0, 1",
+        "1, 0, 0, 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Q copies D at each falling edge: D(10) = 1, D(30) = 0, D(50) = 0, D(70) = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m024",
+      "questionText": "A negative-edge-triggered JK flip-flop has Q = 0 and K = 0. While CLK = 1, J pulses briefly to 1 and returns to 0 before the falling edge. After the falling edge Q is:",
+      "options": [
+        "1, because the glitch was stored",
+        "0, because J = 0 at the falling edge",
+        "1, then back to 0 after one propagation delay",
+        "Indeterminate because of race-around"
+      ],
+      "correctIndex": 1,
+      "explanation": "An edge-triggered flip-flop looks at J and K only around the active edge; at the falling edge J = K = 0, so the output holds at 0. It does not suffer from 1's catching.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m025",
+      "questionText": "Why does a master-slave JK flip-flop not suffer from race-around when J = K = 1?",
+      "options": [
+        "The slave is disabled while the master is enabled, so the outputs fed back to the master cannot change during the pulse",
+        "The master has a shorter propagation delay than the slave",
+        "The clock pulse is automatically made narrower than the propagation delay",
+        "J and K are internally forced to 0 while the clock is HIGH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Race-around needs the output to change and feed back while the input gates are still enabled. In the master-slave circuit the outputs are frozen while the master is open, so only one toggle per pulse is possible.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m026",
+      "questionText": "Which statement about a true edge-triggered flip-flop is NOT correct?",
+      "options": [
+        "It samples its inputs only in a short window around the active edge",
+        "It is free from race-around when J = K = 1",
+        "Its inputs must be held stable for the whole time CLK = 1",
+        "It must satisfy both a setup time and a hold time"
+      ],
+      "correctIndex": 2,
+      "explanation": "Holding inputs stable for the whole HIGH time is the requirement of a master-slave (pulse-triggered) device because of 1's catching; an edge-triggered device needs stability only for t_su before and t_h after the edge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m027",
+      "questionText": "A flip-flop has t_PLH = 14 ns and t_PHL = 22 ns, and t_su = 6 ns. Using the worst-case delay and no logic between flip-flops, the maximum clock frequency is:",
+      "options": [
+        "50.0 MHz",
+        "35.7 MHz",
+        "41.7 MHz",
+        "45.5 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "The worst case uses the larger delay, 22 ns: T_min = 22 + 6 = 28 ns, so f_max = 1 / 28 ns = 35.7 MHz. Using t_PLH gives 50 MHz and the average delay gives 41.7 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m028",
+      "questionText": "A master-slave JK flip-flop is clocked with a period of 100 ns at a 40% duty cycle (HIGH for 40% of the period). To avoid 1's catching, J and K must be held stable for at least:",
+      "options": [
+        "60 ns, the clock LOW time",
+        "100 ns, the whole period",
+        "Only the setup and hold window around the falling edge",
+        "40 ns, the whole clock HIGH time"
+      ],
+      "correctIndex": 3,
+      "explanation": "The master is transparent for the whole HIGH time, 0.40 x 100 = 40 ns, and any glitch on J or K during that time can be caught.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m029",
+      "questionText": "In flip-flop data sheets, the recovery time refers to:",
+      "options": [
+        "The time the output takes to settle after a clock edge",
+        "The time the output needs to leave a metastable state",
+        "The minimum time between releasing an asynchronous input (PRESET or CLEAR) and the next active clock edge",
+        "The minimum time the clock must stay LOW"
+      ],
+      "correctIndex": 2,
+      "explanation": "After CLEAR or PRESET is released, the flip-flop needs a short recovery time before a clock edge will be accepted reliably.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m030",
+      "questionText": "A flip-flop requires a minimum clock HIGH width of 20 ns and a minimum clock LOW width of 25 ns. Considering pulse widths only, the maximum clock frequency is:",
+      "options": [
+        "22.2 MHz",
+        "50.0 MHz",
+        "40.0 MHz",
+        "44.4 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "T_min = t_w(H) + t_w(L) = 20 + 25 = 45 ns, so f_max = 1 / 45 ns = 22.2 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m031",
+      "questionText": "Three negative-edge T flip-flops with T = 1 are cascaded, each Q output clocking the next stage. The first stage receives a 16 MHz clock. The frequency at the last Q output is:",
+      "options": [
+        "5.33 MHz",
+        "8 MHz",
+        "1 MHz",
+        "2 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each toggling stage divides by 2: 16 / 2 / 2 / 2 = 2 MHz. Dividing by 3 gives the wrong 5.33 MHz, dividing by 16 the wrong 1 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m032",
+      "questionText": "On a 7474 D flip-flop, PRE-bar and CLR-bar are both driven LOW at the same time. The result is:",
+      "options": [
+        "Q toggles at each clock edge",
+        "A non-allowed condition: Q and Q-bar are both forced HIGH",
+        "PRESET has priority, so Q = 1 and Q-bar = 0",
+        "Both inputs are ignored and Q follows D"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each active direct input forces one output HIGH, so with both active Q = Q-bar = 1; the outputs are not complementary and the final state after release is unpredictable.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m033",
+      "questionText": "A positive-edge D flip-flop has CLR-bar held LOW and D = 1 when a rising clock edge arrives. Q after the edge is:",
+      "options": [
+        "0, because the active clear overrides the clock",
+        "1, because the edge loads D",
+        "It toggles",
+        "Q = Q-bar = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "While CLR-bar is active the output is held at 0 whatever the clock and D do; asynchronous inputs have priority over synchronous ones.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m034",
+      "questionText": "Static timing analysis shows a hold-time violation between two flip-flops. The standard fix is to:",
+      "options": [
+        "Lower the clock frequency",
+        "Raise the clock frequency",
+        "Add delay (buffers) in the data path between the flip-flops",
+        "Remove logic to shorten the data path"
+      ],
+      "correctIndex": 2,
+      "explanation": "A hold violation means new data arrives too soon after the edge. Adding delay in the short path fixes it; the clock period does not appear in the hold condition, so changing the frequency does not help.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m035",
+      "questionText": "Which of the following is NOT a remedy for race-around in a JK flip-flop?",
+      "options": [
+        "Using a master-slave arrangement",
+        "Making the clock HIGH time longer than the propagation delay",
+        "Using an edge-triggered flip-flop",
+        "Making the clock HIGH time shorter than the propagation delay"
+      ],
+      "correctIndex": 1,
+      "explanation": "A HIGH time longer than t_pd is exactly the condition that causes race-around. The other three either break the feedback loop or limit the flip-flop to one change per clock.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m036",
+      "questionText": "A positive-edge D flip-flop has t_su = 5 ns and t_h = 2 ns. D changes 2 ns before a rising clock edge and then stays constant. What happens at that edge?",
+      "options": [
+        "The hold time is violated",
+        "No violation, because D changed before the edge",
+        "Both requirements are met because 2 ns equals t_h",
+        "The setup time is violated, so the captured value is unreliable"
+      ],
+      "correctIndex": 3,
+      "explanation": "D must be stable 5 ns before the edge, but it changed only 2 ns before, so setup is violated and the output may be wrong or metastable. Hold is met because D does not change after the edge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m037",
+      "questionText": "A positive-edge D flip-flop has its Q-bar output connected back to D and is clocked at 20 MHz. The Q output is a square wave of:",
+      "options": [
+        "20 MHz, 50% duty cycle",
+        "10 MHz, 25% duty cycle",
+        "10 MHz, 50% duty cycle",
+        "5 MHz, 50% duty cycle"
+      ],
+      "correctIndex": 2,
+      "explanation": "With D = Q-bar the flip-flop toggles at every rising edge, so Q stays HIGH for one full clock period and LOW for the next: 20 / 2 = 10 MHz with equal HIGH and LOW times.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i31_m038",
+      "questionText": "Clock HIGH from 0 to 10, 20 to 30, 40 to 50 and 60 to 70 ns; D = 1 from 5 to 27 ns and from 52 ns on, otherwise 0; Q starts at 0. For a D latch that is transparent while CLK = 1, at which instants does Q change during 0 to 80 ns?",
+      "options": [
+        "5, 27 and 60 ns",
+        "20, 40 and 60 ns",
+        "10, 30 and 70 ns",
+        "5, 27 and 52 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q follows D at 5 ns and 27 ns because the clock is HIGH then. At 52 ns the latch is closed, so the rise of D appears only when the latch opens again at 60 ns. 20, 40 and 60 ns would be the positive-edge flip-flop.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m039",
+      "questionText": "A master-slave JK flip-flop has Q = 0 and K = 0. While CLK = 1, J pulses briefly to 1 and returns to 0 well before the clock falls. After the falling edge Q is:",
+      "options": [
+        "0, because J = 0 at the falling edge",
+        "1, then back to 0 after one propagation delay",
+        "Indeterminate because of race-around",
+        "1, because the master caught the glitch"
+      ],
+      "correctIndex": 3,
+      "explanation": "The master is a level-sensitive latch while CLK = 1: J = 1, K = 0 with Q = 0 sets it, and J returning to 0 (J = K = 0) only holds it. At the falling edge the slave copies the set state, so Q = 1. This is 1's catching.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m040",
+      "questionText": "A level-triggered JK flip-flop with J = K = 1 starts with Q = 0. The clock is HIGH for 50 ns and t_pd = 12 ns. Assuming Q toggles at every whole multiple of t_pd while CLK = 1 and stops when CLK goes LOW, the number of toggles and the final Q are:",
+      "options": [
+        "1 toggle, Q = 1",
+        "4 toggles, Q = 0",
+        "5 toggles, Q = 1",
+        "4 toggles, Q = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Toggles occur at 12, 24, 36 and 48 ns (floor(50 / 12) = 4); the next would be at 60 ns, after the clock has gone LOW. Four toggles from 0 return Q to 0. This is race-around.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m041",
+      "questionText": "A flip-flop has a minimum clock-to-Q delay of 1.5 ns and a hold time of 3 ns. The shortest logic path to the next flip-flop is 1.0 ns and clock skew is zero. The hold slack is:",
+      "options": [
+        "-0.5 ns (hold violated)",
+        "+0.5 ns (hold met)",
+        "+5.5 ns (hold met)",
+        "-2.0 ns (hold violated)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hold slack = t_pd(min) + t_logic(min) - t_h = 1.5 + 1.0 - 3 = -0.5 ns, so new data reaches the second flip-flop 0.5 ns too early. Ignoring t_pd gives the wrong -2.0 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m042",
+      "questionText": "A synchronous circuit has two register-to-register paths. All flip-flops have t_pd = 5 ns and t_su = 3 ns; path A has 12 ns of logic and path B has 18 ns. The maximum clock frequency of the circuit is:",
+      "options": [
+        "50.0 MHz",
+        "43.5 MHz",
+        "38.5 MHz",
+        "26.3 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each path needs T >= t_pd + t_logic + t_su: A needs 20 ns, B needs 26 ns. The slower (critical) path sets the clock: f_max = 1 / 26 ns = 38.5 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m043",
+      "questionText": "A design must run at 40 MHz. The flip-flops have t_pd = 6 ns and t_su = 4 ns, and each gate in the path between flip-flops has a 3 ns delay. The maximum number of gate levels allowed is:",
+      "options": [
+        "6",
+        "5",
+        "8",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = 1 / 40 MHz = 25 ns; time left for logic = 25 - 6 - 4 = 15 ns; 15 / 3 = 5 gate levels. Ignoring t_su gives 6, ignoring both flip-flop times gives 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m044",
+      "questionText": "A positive-edge D flip-flop has D = 0 permanently and Q = 0. Rising clock edges occur at 0, 100 and 200 ns, and PRE-bar is pulsed LOW from 130 to 150 ns. Ignoring propagation delays, Q during 0 to 300 ns is:",
+      "options": [
+        "0 until 130 ns, 1 from 130 to 150 ns, 0 after 150 ns",
+        "0 until 200 ns, 1 after 200 ns",
+        "0 until 130 ns, 1 from 130 ns onward",
+        "0 until 130 ns, 1 from 130 to 200 ns, 0 after 200 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "The preset acts immediately at 130 ns and sets Q = 1. Releasing it at 150 ns does not change Q; the flip-flop keeps 1 until the next rising edge at 200 ns loads D = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m045",
+      "questionText": "A D flip-flop is built from two D latches in master-slave form. To make it positive-edge triggered, the latch enables must be arranged as:",
+      "options": [
+        "Master transparent while CLK = 1, slave transparent while CLK = 0",
+        "Both latches transparent while CLK = 1",
+        "Master transparent while CLK = 0, slave transparent while CLK = 1",
+        "Both latches transparent while CLK = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "The master tracks D while CLK = 0 and closes when the clock rises, holding the value of D at the rising edge; the slave opens at the same moment and passes it to Q. The opposite arrangement gives a negative-edge flip-flop.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i31_m046",
+      "questionText": "Which statement about flip-flop timing violations is correct?",
+      "options": [
+        "A hold-time violation cannot be removed by lowering the clock frequency",
+        "A setup-time violation cannot be removed by lowering the clock frequency",
+        "Hold time is what limits the maximum clock frequency",
+        "Adding logic delay between flip-flops makes hold violations more likely"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hold condition t_pd(min) + t_logic(min) >= t_h contains no clock period, so frequency does not affect it; setup violations are cured by a longer period. Extra logic delay helps hold, not hurts it.",
+      "difficulty": "hard"
+    }
+  ]
+}

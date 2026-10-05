@@ -1,0 +1,518 @@
+{
+ "topicId": "ch5_t2",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Framing, Error Detection and Correction"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Number of 1s in the data",
+     "Even parity bit added",
+     "Odd parity bit added"
+    ],
+    [
+     "Even, e.g. 1010 (two 1s)",
+     "0, giving 10100",
+     "1, giving 10101"
+    ],
+    [
+     "Odd, e.g. 1011 (three 1s)",
+     "1, giving 10111",
+     "0, giving 10110"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "The three detection methods, from the simplest to the most powerful (parity, checksum, CRC), and why each one misses what it misses:",
+   "items": [
+    "Parity only records whether the count of 1s is even or odd. Every flipped bit toggles that, so one error (or any odd number) is caught, but two errors cancel out and are missed.",
+    "Two-dimensional parity: a single wrong bit makes exactly one row check and one column check fail, and the bit at their crossing is inverted, so it can even be corrected. Four errors on the corners of a rectangle leave every check passing.",
+    "Checksum: the sender adds the data words and sends the one's complement of the sum (not the sum itself). Because addition ignores order, reordered words and errors that cancel in the sum (one word +1, another −1) go undetected. It is cheap in software, so IP, TCP and UDP use it.",
+    "CRC: polynomial (modulo-2) division. A degree-r generator catches every single-bit error, every burst of r bits or fewer and nearly all longer bursts. It is built in hardware from a shift register and XOR gates and protects Ethernet and Wi-Fi frames (CRC-32) and HDLC/PPP frames (CRC-16 or CRC-32).",
+    "Codes such as Hamming can locate and correct errors, but most data links only detect the error and ask for the frame again, because that needs far fewer redundant bits."
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Bit stuffing (HDLC flag 01111110): add a 0 after every five consecutive 1s\nData : 1111111111                 (ten 1s)\nSent : 11111 0 11111 0          = 111110111110\nData : 0111110                    (next data bit is 0 anyway)\nSent : 0 11111 0 0              = 01111100 (still stuffed)\nReceiver: after five 1s, a following 0 is deleted;\n          a following 1 means a flag (or an abort if more 1s follow)\nByte stuffing (PPP: flag 7E, escape 7D, escaped byte XOR 20)\nData : 41 7E 42 7D 43\nSent : 7E | 41 7D 5E 42 7D 5D 43 | 7E"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Internet checksum of the 16-bit words 7A4C, E1B9, 3F62 (hex)\n7A4C + E1B9 = 1 5C05 -> wrap the carry: 5C05 + 1 = 5C06\n5C06 + 3F62 = 9B68       (no carry)\nChecksum = one's complement of 9B68 = FFFF - 9B68 = 6497\nSent: 7A4C E1B9 3F62 6497\nReceiver: 7A4C + E1B9 + 3F62 + 6497 = FFFF (all 1s) -> accept\nE1B9 corrupted to E0B9: sum = FEFF, not all 1s -> error detected"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "CRC: data 11010011, G(x) = x^3 + x + 1 = 1011, r = 3\nDividend = data + 3 zeros = 11010011 000\n1101 xor 1011 = 110, bring down 0 -> 1100\n1100 xor 1011 = 111, bring down 0 -> 1110\n1110 xor 1011 = 101, bring down 1 -> 1011\n1011 xor 1011 = 000, bring down 1 -> 0001 (leading 0: quotient bit 0)\n0001 -> 0010 -> 0100 -> 1000  (quotient bits 0, 0, 0)\n1000 xor 1011 = 011  <- remainder, always r = 3 bits\nQuotient 11110001; codeword = 11010011 011\nReceiver: 11010011011 / 1011 -> remainder 000 -> accept\nBit 4 flipped: 11000011011 / 1011 -> remainder 001 -> discard"
+  },
+  {
+   "type": "formula",
+   "latex": "R(x) = T(x) + E(x),\\quad R(x) \\bmod G(x) = E(x) \\bmod G(x)",
+   "plainText": "R(x) = T(x) + E(x), so R(x) mod G(x) = E(x) mod G(x): the receiver's remainder depends only on the error pattern E(x)"
+  },
+  {
+   "type": "bulletList",
+   "text": "Because G(x) divides the codeword T(x), an error E(x) is missed only when G(x) also divides E(x). That one rule explains every CRC guarantee:",
+   "items": [
+    "Single-bit error, E(x) = x^i: a generator with at least two terms cannot divide x^i, so it is always caught.",
+    "Two isolated errors k bits apart, E(x) = x^i (x^k + 1): missed only if G(x) divides x^k + 1. For x^4 + x + 1 the smallest such k is 15, so two errors fewer than 15 bits apart are always caught.",
+    "Odd number of errors: if (x + 1) is a factor of G(x), then G(1) = 0, while E(1) = 1 for an odd number of terms, so G(x) cannot divide E(x).",
+    "Burst of length L ≤ r: E(x) = x^i B(x) with B(x) of degree L − 1 < r and a constant term, so a degree-r generator with a constant term cannot divide it.",
+    "Longer bursts: length r + 1 escapes with probability 2^−(r−1) and longer bursts with 2^−r, about 2.3 × 10^−10 for CRC-32."
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Hamming code for data 1011001 (m = 7): r = 4 since 2^4 = 16 >= 7 + 4 + 1\nPositions 1..11 from the left, even parity, parity bits at 1, 2, 4, 8\nPos : 1  2  3  4  5  6  7  8  9  10 11\nBit : p1 p2 1  p4 0  1  1  p8 0  0  1\np1 checks 1,3,5,7,9,11 : data 1,0,1,0,1 -> three 1s -> p1 = 1\np2 checks 2,3,6,7,10,11: data 1,1,1,0,1 -> four 1s  -> p2 = 0\np4 checks 4,5,6,7      : data 0,1,1     -> two 1s   -> p4 = 0\np8 checks 8,9,10,11    : data 0,0,1     -> one 1    -> p8 = 1\nCodeword: 10100111001\nReceived 10100111011: p1 passes, p2 fails, p4 passes, p8 fails\nSyndrome = 8 + 2 = 10 -> invert bit 10 -> 10100111001"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Aspect",
+     "Forward error correction (FEC)",
+     "Detection + retransmission (ARQ)"
+    ],
+    [
+     "Redundancy per frame",
+     "Many extra bits in every frame",
+     "A few check bits, e.g. a CRC"
+    ],
+    [
+     "Return channel",
+     "Not needed",
+     "Needed for ACK/NAK"
+    ],
+    [
+     "Cost of an error",
+     "No extra delay; repaired at the receiver",
+     "At least one more round trip"
+    ],
+    [
+     "Best suited to",
+     "Deep-space, satellite, broadcast, real-time media, very noisy radio",
+     "Wired LANs and other low-error links"
+    ],
+    [
+     "Examples",
+     "Hamming, Reed–Solomon, convolutional, LDPC codes",
+     "Stop-and-wait, Go-Back-N, Selective Repeat"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes and special cases:",
+   "items": [
+    "CRC: append r zeros, where r is the degree of G(x), i.e. one fewer than the number of generator bits; keep the remainder's leading zeros (011, not 11).",
+    "The receiver divides the whole received word and does not append zeros again; any nonzero remainder means the frame is discarded.",
+    "Checksum: add the carry back in (end-around carry). Dropping the carry or taking the two's complement gives a wrong checksum.",
+    "Hamming: state the numbering. Here positions are numbered from the left; books that number from the right write the same code in a different bit order.",
+    "A single-error-correcting Hamming code cannot handle two errors: flipping bits 3 and 10 of the codeword above gives syndrome 9 and a wrong correction. Adding one overall parity bit (SEC-DED, d_min = 4) detects the double error instead."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "Remember the receiver's rule for the checksum: adding all the words, including the checksum, must give all 1s (FFFF for 16 bits) for the data to be error-free. For CRC, append r zeros (r = degree) before dividing; for Hamming, the parity bits sit at the power-of-two positions and the failed checks, read as a binary number, give the wrong bit."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch5_t2_m001",
+   "questionText": "Which of the following error-detection methods is the most powerful, i.e. detects the widest range of error patterns, including burst errors?",
+   "options": [
+    "Single parity bit",
+    "Internet checksum",
+    "Cyclic Redundancy Check (CRC)",
+    "They are all equally powerful"
+   ],
+   "correctIndex": 2,
+   "explanation": "CRC uses modulo-2 polynomial division: a degree-r generator catches all single-bit errors, all bursts of up to r bits and nearly all longer bursts. Parity misses every even number of flipped bits, and a checksum misses errors that cancel in the sum.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m002",
+   "questionText": "A sender uses even parity, and the data word already contains an even number of 1s. Which parity bit is appended?",
+   "options": [
+    "1",
+    "0",
+    "It depends on the length of the data word",
+    "No parity bit is appended"
+   ],
+   "correctIndex": 1,
+   "explanation": "Even parity makes the total number of 1s even. The count is already even, so the parity bit is 0 (e.g. 1010 becomes 10100). With odd parity the same data would get a 1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m003",
+   "questionText": "Which OSI layer is responsible for framing, i.e. dividing the bit stream into frames with recognisable start and end boundaries?",
+   "options": [
+    "Physical layer",
+    "Network layer",
+    "Transport layer",
+    "Data link layer"
+   ],
+   "correctIndex": 3,
+   "explanation": "The data link layer (layer 2) packages network-layer packets into frames and marks their boundaries with flags, byte stuffing or bit stuffing. The physical layer only carries raw bits.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m004",
+   "questionText": "Which of the following is a key function of the data link layer?",
+   "options": [
+    "Framing (frame synchronisation) and error detection on a link",
+    "Routing packets between different networks",
+    "Encrypting messages end to end between applications",
+    "Establishing end-to-end connections between processes"
+   ],
+   "correctIndex": 0,
+   "explanation": "Layer 2 delivers frames hop to hop: it frames the data, adds MAC addresses and detects errors, e.g. with a CRC. Routing belongs to the network layer, end-to-end connections to the transport layer, and end-to-end encryption to the upper layers.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m005",
+   "questionText": "Which of the following is an error-detection method used by data link protocols such as Ethernet and HDLC?",
+   "options": [
+    "Diffie–Hellman key exchange",
+    "Round-robin scheduling",
+    "Public-key encryption",
+    "Cyclic Redundancy Check (CRC)"
+   ],
+   "correctIndex": 3,
+   "explanation": "Ethernet carries a CRC-32 in its Frame Check Sequence field and HDLC uses CRC-16 or CRC-32. Diffie–Hellman and public-key encryption are security techniques, and round-robin is a scheduling method.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m006",
+   "questionText": "In the IEEE 802 model the data link layer is split into two sublayers. Which sublayer, defined by IEEE 802.2, identifies the network-layer protocol being carried and can provide flow and error control?",
+   "options": [
+    "Logical Link Control (LLC)",
+    "Media Access Control (MAC)",
+    "Physical Layer Convergence Procedure (PLCP)",
+    "Physical Medium Dependent (PMD)"
+   ],
+   "correctIndex": 0,
+   "explanation": "IEEE 802.2 LLC sits above the MAC sublayer and interfaces with layer 3. The MAC sublayer (802.3, 802.11, …) handles channel access, MAC addressing and the CRC; PLCP and PMD are physical-layer sublayers.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m007",
+   "questionText": "Which type of data link service does classic wired Ethernet (IEEE 802.3) provide?",
+   "options": [
+    "Acknowledged connection-oriented service",
+    "Acknowledged connectionless service",
+    "Unacknowledged connectionless service",
+    "Unacknowledged connection-oriented service"
+   ],
+   "correctIndex": 2,
+   "explanation": "Ethernet sends each frame without setting up a connection and without link-level acknowledgements; a lost or damaged frame is simply dropped and left to higher layers. IEEE 802.11 uses acknowledged connectionless service, and HDLC links can give acknowledged connection-oriented service.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m008",
+   "questionText": "Why is the character-count (byte-count) framing method rarely used on its own?",
+   "options": [
+    "It cannot carry binary data",
+    "A single corrupted count field makes the receiver lose frame synchronisation",
+    "It needs a separate clock wire between the stations",
+    "It limits every frame to 64 bytes"
+   ],
+   "correctIndex": 1,
+   "explanation": "The count tells the receiver where the next frame starts. If noise changes the count, the receiver starts the next frame at the wrong place and cannot easily resynchronise, even when a checksum reveals the error. Flags with byte or bit stuffing avoid this problem.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m009",
+   "questionText": "HDLC uses the flag 01111110 and bit stuffing. Which bit sequence is transmitted between the flags for the data 0111111111111100?",
+   "options": [
+    "01111101111111100",
+    "011111101111110100",
+    "0111101111011110100",
+    "011111011111011100"
+   ],
+   "correctIndex": 3,
+   "explanation": "The data holds thirteen consecutive 1s. A 0 is inserted after the 5th and the 10th of them: 0 11111 0 11111 0 111 00, which is 18 bits. The receiver deletes every 0 that follows five 1s.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m010",
+   "questionText": "An HDLC receiver finds 0111110111110110 between two flags. Which data does it deliver after removing the stuffed bits?",
+   "options": [
+    "0111110111110110",
+    "011111111110110",
+    "01111111111110",
+    "011111011111110"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each 0 that directly follows five consecutive 1s is a stuffed bit: 0 11111 [0] 11111 [0] 11 0, so the data is 01111111111110 (14 bits). Leaving either stuffed 0 in place gives a wrong 15-bit result.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m011",
+   "questionText": "A byte-oriented protocol marks frame boundaries with a FLAG byte and uses an ESC byte for transparency. The payload is A FLAG B ESC C. What is sent between the opening and closing flags?",
+   "options": [
+    "A ESC FLAG B ESC ESC C",
+    "A ESC FLAG B ESC C",
+    "A FLAG FLAG B ESC ESC C",
+    "A FLAG B ESC ESC C"
+   ],
+   "correctIndex": 0,
+   "explanation": "An ESC is inserted before every payload byte that equals FLAG or ESC, so both are escaped: A ESC FLAG B ESC ESC C. The receiver removes each ESC and keeps the byte that follows it as data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m012",
+   "questionText": "A single even-parity bit is appended to each 8-bit character. Which error pattern within a character is guaranteed to be detected?",
+   "options": [
+    "Any two flipped bits",
+    "Any odd number of flipped bits",
+    "Any four flipped bits",
+    "Any error, and its position can be found"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each flipped bit changes the count of 1s by one, so an odd number of flips leaves an odd count and the check fails. An even number of flips (2, 4, …) restores even parity and is missed, and parity never shows which bit is wrong.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m013",
+   "questionText": "A 4 × 4 data block is protected by two-dimensional even parity. Received (4 data bits | row parity): row 1 1011|1, row 2 0110|0, row 3 1001|1, row 4 0011|0; column-parity row 0011|0. Assuming a single-bit error, which data bit is wrong and what should that row be?",
+   "options": [
+    "Row 3, column 3; row 3 should be 1011",
+    "Row 2, column 2; row 2 should be 0010",
+    "The error is detected but cannot be located",
+    "Row 3, column 2; row 3 should be 1101"
+   ],
+   "correctIndex": 3,
+   "explanation": "Only row 3 (1001|1 has three 1s) and column 2 (0, 1, 0, 0 | 0 has one 1) fail their even-parity checks. The wrong bit is at their crossing, row 3 column 2, so 1001 is corrected to 1101.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m014",
+   "questionText": "Which error pattern can escape detection by two-dimensional parity?",
+   "options": [
+    "Any single-bit error",
+    "Any two bit errors in the same row",
+    "Four bit errors at the corners of a rectangle",
+    "Any three bit errors"
+   ],
+   "correctIndex": 2,
+   "explanation": "With four errors on the corners of a rectangle, each affected row and each affected column contains exactly two flipped bits, so every parity check still passes. Any 1, 2 or 3 bit errors leave at least one row or column check failing.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m015",
+   "questionText": "Compute the 16-bit Internet checksum of the three words 9A3C, C5D2 and 4B17 (hex) using one's-complement addition.",
+   "options": [
+    "54D9",
+    "54DA",
+    "AB26",
+    "AB25"
+   ],
+   "correctIndex": 0,
+   "explanation": "9A3C + C5D2 + 4B17 = 1AB25; the carry is wrapped around: AB25 + 1 = AB26. The checksum is its one's complement, FFFF − AB26 = 54D9. Dropping the carry gives 54DA, and AB26 is the sum before complementing.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m016",
+   "questionText": "With the Internet checksum, the receiver adds all the 16-bit words it received, including the checksum, in one's-complement arithmetic (without a final complement). Which result means that no error was detected?",
+   "options": [
+    "0000 (all 0s)",
+    "A value equal to the checksum field",
+    "8000 (only the top bit set)",
+    "FFFF (all 1s)"
+   ],
+   "correctIndex": 3,
+   "explanation": "The checksum is the complement of the data sum, so data sum + checksum = FFFF (all 1s) when nothing has changed; complementing that result would give 0000. Any other sum means an error.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m017",
+   "questionText": "Which of the following errors can the 16-bit Internet checksum fail to detect?",
+   "options": [
+    "A single flipped bit in one data word",
+    "Two 16-bit data words arriving in swapped order",
+    "A single flipped bit in the checksum field",
+    "Three flipped bits inside the same 16-bit word"
+   ],
+   "correctIndex": 1,
+   "explanation": "One's-complement addition does not depend on order, so swapping whole words leaves the sum unchanged and the error is missed. A single-bit error, or an odd number of flips inside one word, always changes the sum; a CRC would catch the reordering.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m018",
+   "questionText": "A CRC uses the generator polynomial x^4 + x + 1. What is the divisor bit pattern, and how many 0s does the sender append to the data before dividing?",
+   "options": [
+    "11001; 4 zeros",
+    "10011; 5 zeros",
+    "10011; 4 zeros",
+    "1011; 3 zeros"
+   ],
+   "correctIndex": 2,
+   "explanation": "The coefficients from x^4 down to x^0 are 1, 0, 0, 1, 1, so the divisor is 10011. The degree is 4, so 4 zeros are appended and the CRC remainder has 4 bits.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m019",
+   "questionText": "The data 1010011101 is protected with the CRC generator 10011 (x^4 + x + 1). What remainder does the sender append?",
+   "options": [
+    "1111",
+    "0100",
+    "1101",
+    "0010"
+   ],
+   "correctIndex": 3,
+   "explanation": "Append 4 zeros (degree 4) and divide 10100111010000 by 10011 using XOR: the 4-bit remainder is 0010, so 1010011101 0010 is sent. Dividing without appending the zeros gives 1111, a common mistake.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m020",
+   "questionText": "The data 110101 is sent with a CRC generated by G(x) = x^3 + x + 1. Which complete codeword is transmitted?",
+   "options": [
+    "110101111",
+    "110101100",
+    "110101101",
+    "110101000"
+   ],
+   "correctIndex": 0,
+   "explanation": "G(x) = 1011 has degree 3, so 110101000 is divided by 1011, leaving remainder 111, which replaces the three zeros: 110101 111. Dividing without the appended zeros gives 100, and appending four zeros gives 101.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m021",
+   "questionText": "A receiver uses the CRC generator 1101 (x^3 + x^2 + 1) and divides the entire received word 1011011011 by it. What remainder does it get, and what does it conclude?",
+   "options": [
+    "000; the frame is accepted",
+    "011; an error is detected",
+    "010; an error is detected",
+    "111; an error is detected"
+   ],
+   "correctIndex": 2,
+   "explanation": "Dividing 1011011011 by 1101 with XOR leaves 010. A nonzero remainder means the frame is corrupted and is discarded. 011 is just the last three received bits, and 111 comes from wrongly appending three more zeros at the receiver.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m022",
+   "questionText": "When is forward error correction (FEC) preferred over error detection with retransmission (ARQ)?",
+   "options": [
+    "On a low-error wired LAN with a fast return path",
+    "When the round-trip delay is very long or there is no return channel, as on deep-space or broadcast links",
+    "When frames are short and the receiver has very little processing power",
+    "Whenever a CRC is used for detection"
+   ],
+   "correctIndex": 1,
+   "explanation": "FEC lets the receiver repair errors without asking again, which matters when a retransmission would take too long (deep space, satellite, real-time media) or is impossible (one-way broadcast). On clean wired links a CRC plus the occasional retransmission needs far less redundancy.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m023",
+   "questionText": "Ethernet protects each frame with a 32-bit CRC in its Frame Check Sequence (FCS) field. Which burst errors is this CRC guaranteed to detect?",
+   "options": [
+    "Only bursts of up to 16 bits",
+    "All bursts of any length",
+    "All bursts of length 33 bits or less",
+    "All bursts of length 32 bits or less"
+   ],
+   "correctIndex": 3,
+   "explanation": "A generator of degree r with a constant term detects every burst of length r or less; for CRC-32, r = 32. A 33-bit burst escapes with probability about 2^−31 and longer bursts with about 2^−32, so not every burst is guaranteed.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m024",
+   "questionText": "A CRC uses the poorly chosen generator G(x) = x^3 + 1 (1001). Which error pattern can pass undetected?",
+   "options": [
+    "Two flipped bits exactly 3 positions apart",
+    "Any single-bit error",
+    "Any burst of length 3 or less",
+    "Two flipped bits exactly 2 positions apart"
+   ],
+   "correctIndex": 0,
+   "explanation": "An error E(x) is missed only if G(x) divides it. Two bits k apart give E(x) = x^i (x^k + 1), and for k = 3 this equals x^i G(x), so the remainder is 0. G(x) has two terms (single errors caught) and degree 3 (bursts of 3 or less caught), and it does not divide x^2 + 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m025",
+   "questionText": "Which statement about CRC is NOT correct?",
+   "options": [
+    "The remainder always has one bit fewer than the generator",
+    "A CRC is mainly used to correct burst errors at the receiver without retransmission",
+    "A generator with the factor (x + 1) detects every odd number of bit errors",
+    "In the basic CRC scheme, the transmitted codeword is exactly divisible by the generator"
+   ],
+   "correctIndex": 1,
+   "explanation": "CRC is a detection code: the data link layer discards a frame with a nonzero remainder and relies on retransmission. The other three are standard CRC properties (r-bit remainder, odd errors caught with the (x + 1) factor, codeword divisible by G(x)).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m026",
+   "questionText": "What is the Hamming distance between the words 1011001 and 1100100?",
+   "options": [
+    "2",
+    "3",
+    "5",
+    "4"
+   ],
+   "correctIndex": 2,
+   "explanation": "1011001 XOR 1100100 = 0111101, which contains five 1s, so the words differ in 5 positions. 2 is the number of positions in which they agree.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t2_m027",
+   "questionText": "A code has the four codewords 000000, 011011, 101101 and 110110. What is its minimum Hamming distance, and how many bit errors can it guarantee to detect and to correct?",
+   "options": [
+    "d_min = 4; detects up to 4, corrects 2",
+    "d_min = 4; detects up to 3, corrects 1",
+    "d_min = 3; detects up to 2, corrects 1",
+    "d_min = 4; detects up to 3, corrects 2"
+   ],
+   "correctIndex": 1,
+   "explanation": "Every pair of codewords differs in 4 positions (e.g. 011011 XOR 101101 = 110110), so d_min = 4. It detects d_min − 1 = 3 errors and corrects ⌊(d_min − 1)/2⌋ = 1 error.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m028",
+   "questionText": "Encode the data 0110 with an even-parity Hamming(7,4) code. Positions are numbered 1–7 from the left, parity bits occupy positions 1, 2 and 4, and the data bits fill positions 3, 5, 6 and 7 in order. What is the codeword?",
+   "options": [
+    "0001110",
+    "0110011",
+    "0110110",
+    "1100110"
+   ],
+   "correctIndex": 3,
+   "explanation": "d3 = 0, d5 = 1, d6 = 1, d7 = 0. p1 = d3⊕d5⊕d7 = 1, p2 = d3⊕d6⊕d7 = 1, p4 = d5⊕d6⊕d7 = 0, so the codeword is 1 1 0 0 1 1 0 = 1100110. 0001110 is the odd-parity version.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t2_m029",
+   "questionText": "A receiver gets 0101100 from the same even-parity Hamming(7,4) code (positions 1–7 from the left, parity at 1, 2, 4, data at 3, 5, 6, 7). Assuming at most one bit error, which bit is wrong and which data was sent?",
+   "options": [
+    "Bit 6; data 0110",
+    "Bit 3; data 0100",
+    "Bit 3; data 1100",
+    "Bit 4; data 0100"
+   ],
+   "correctIndex": 2,
+   "explanation": "Check 1 (positions 1, 3, 5, 7: 0, 0, 1, 0) fails, check 2 (2, 3, 6, 7: 1, 0, 0, 0) fails and check 4 (4, 5, 6, 7: 1, 1, 0, 0) passes, so the syndrome is 011 = 3. Inverting bit 3 gives 0111100, whose data bits are 1100. Reading the syndrome backwards (110 = 6) is the classic mistake.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t2_m030",
+   "questionText": "What is the largest number of data bits that a single-error-correcting Hamming code with 5 parity bits can protect?",
+   "options": [
+    "26",
+    "27",
+    "31",
+    "32"
+   ],
+   "correctIndex": 0,
+   "explanation": "The condition is 2^r ≥ m + r + 1: 32 ≥ m + 6, so m ≤ 26, which gives the Hamming(31,26) code. 31 is the total codeword length, and 27 comes from forgetting the +1 for the no-error case.",
+   "difficulty": "medium"
+  }
+ ]
+}

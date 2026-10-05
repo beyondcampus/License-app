@@ -1,0 +1,749 @@
+{
+  "topicId": "ch3_i61",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Using STL Containers Correctly"
+    },
+    {
+      "type": "paragraph",
+      "text": "A vector keeps its size() elements inside one block that has room for capacity() elements. When push_back finds size() equal to capacity(), it allocates a larger block, moves every existing element across, constructs the new element there and frees the old block, which is why every iterator into the vector becomes invalid at that moment. Implementations grow the capacity geometrically (typically by a factor of 1.5 or 2) rather than by a fixed amount, so reallocations become rarer as the vector grows. reserve(n) allocates room for at least n elements without changing size(), and shrink_to_fit() asks the vector to give back unused space."
+    },
+    {
+      "type": "formula",
+      "latex": "\\sum_{i=0}^{k} 2^{i} = 2^{k+1} - 1 < 2n \\quad (2^{k} < n)",
+      "plainText": "With doubling capacity, n push_backs copy at most 1 + 2 + 4 + ... + 2^k = 2^(k+1) - 1 < 2n elements in total (where 2^k < n), so the average cost per push_back is constant (amortised O(1))."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\n#include <map>\n#include <string>\nusing namespace std;\nint main() {\n    map<string, int> stock = {{\"pen\", 5}};\n    auto r = stock.insert({\"pen\", 9});\n    cout << r.second << \" \" << stock[\"pen\"] << \"\\n\";\n    if (stock.find(\"ink\") == stock.end()) cout << \"no ink\\n\";\n    int n = stock[\"ink\"];\n    cout << n << \" \" << stock.size() << \"\\n\";\n    stock[\"cap\"] = 2;\n    for (auto &p : stock) cout << p.first << \"=\" << p.second << \" \";\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n0 5\nno ink\n0 2\ncap=2 ink=0 pen=5\n\nline 7   insert finds \"pen\" already present: returns {iterator, false}, value stays 5\nline 8   prints r.second (0) and stock[\"pen\"] (5)\nline 9   find returns end() for a missing key and inserts nothing: no ink\nline 10  operator[] inserts {\"ink\", 0} and returns 0\nline 11  prints 0 and the new size 2\nline 12  operator[] inserts \"cap\" and assigns 2\nline 13  keys are visited in sorted order: cap, ink, pen"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\nint main() {\n    vector<int> v = {4, 7, 4, 1, 4, 9};\n    auto newEnd = remove(v.begin(), v.end(), 4);\n    cout << v.size() << \" \" << (newEnd - v.begin()) << \"\\n\";\n    v.erase(newEnd, v.end());\n    for (auto it = v.begin(); it != v.end(); )\n        if (*it == 1) it = v.erase(it); else ++it;\n    for (int x : v) cout << x << \" \";\n    cout << \"| size \" << v.size() << \"\\n\";\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n6 3\n7 9 | size 2\n\nline 7   remove shifts the kept values 7 1 9 to the front and returns\n         an iterator to index 3; the size is still 6\nline 8   prints 6 and the logical length 3\nline 9   erase(newEnd, end()) deletes the 3 leftover slots, leaving 7 1 9\nline 10  the loop advances only when it did not erase\nline 11  erasing 1 returns an iterator to 9, which is then tested\nline 12  prints the remaining elements 7 9\nline 13  prints | size 2"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Container and operation",
+          "Iterators invalidated",
+          "Still valid"
+        ],
+        [
+          "vector push_back or insert that reallocates",
+          "All iterators, pointers and references",
+          "None"
+        ],
+        [
+          "vector insert or erase without reallocation",
+          "Those at or after the position, and end()",
+          "Those before the position"
+        ],
+        [
+          "deque push_front or push_back",
+          "All iterators",
+          "Pointers and references to elements"
+        ],
+        [
+          "deque insert or erase in the middle",
+          "All iterators, pointers and references",
+          "None"
+        ],
+        [
+          "list insert or erase",
+          "Only those to the erased elements",
+          "All others"
+        ],
+        [
+          "set or map insert or erase",
+          "Only those to the erased elements (insert invalidates none)",
+          "All others"
+        ],
+        [
+          "unordered_map insert that causes a rehash",
+          "All iterators",
+          "Pointers and references to elements"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Every algorithm states the weakest iterator category it needs, and it can be used with a container only if the container's iterators are at least that strong. find, count and accumulate need only input iterators, so they work on every container and even on an input stream. binary_search and max_element need forward iterators, reverse needs bidirectional ones, and sort needs random-access iterators, which is why sort accepts vector, deque, array and plain pointers but not list or set. A set or map is already sorted, so its member find() runs in O(log n), much faster than the generic linear find()."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Need",
+          "Container",
+          "Reason"
+        ],
+        [
+          "Fast access by index, adding at the end",
+          "vector",
+          "Contiguous storage: O(1) v[i], amortised O(1) push_back"
+        ],
+        [
+          "Adding and removing at both ends",
+          "deque",
+          "O(1) push_front and push_back, still indexable"
+        ],
+        [
+          "Frequent insertion or removal in the middle",
+          "list",
+          "O(1) insert or erase at a known position, no shifting"
+        ],
+        [
+          "Unique values kept in sorted order",
+          "set",
+          "Balanced tree that rejects duplicates, O(log n)"
+        ],
+        [
+          "Look up a value by key, keys sorted",
+          "map",
+          "Key-value tree, O(log n) find and insert"
+        ],
+        [
+          "Look up by key when order does not matter",
+          "unordered_map",
+          "Hash table, O(1) average"
+        ],
+        [
+          "Always take the largest (or smallest) next",
+          "priority_queue",
+          "Binary heap: O(1) top, O(log n) push and pop"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that give wrong output or undefined behaviour:",
+      "items": [
+        "Keeping an iterator, pointer or reference into a vector across push_back or insert: a reallocation leaves it dangling.",
+        "Erasing inside a loop with v.erase(it); ++it; instead of it = v.erase(it); the old iterator is invalid after erase.",
+        "Calling remove() and expecting the size to shrink: remove only shifts the kept elements and must be followed by erase.",
+        "Using m[key] just to test whether a key exists: it inserts a default value; use find() or count() instead.",
+        "Calling binary_search on an unsorted range, or std::sort on a list (use l.sort()).",
+        "Expecting an unordered_map or unordered_set to print in insertion or sorted order: its order is unspecified.",
+        "Reading v[i] with i >= v.size(): no check is made; use at() when a bounds check is wanted."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Output shortcuts: set and map print in ascending key order; set and map silently drop a repeated key while multiset and multimap keep it; stack pops in the reverse order of pushing, queue in the same order; priority_queue always pops the largest element first (the smallest with greater<T>). For vector questions track size() and the element list after every call; capacity() is only guaranteed to be at least size(), or at least n after reserve(n)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i61_m001",
+      "questionText": "The Standard Template Library is built from three main components that work together. Which set names them?",
+      "options": [
+        "Classes, objects and methods",
+        "Templates, macros and namespaces",
+        "Streams, buffers and files",
+        "Containers, algorithms and iterators"
+      ],
+      "correctIndex": 3,
+      "explanation": "Containers store the data, algorithms such as sort and find process it, and iterators connect the two by giving every algorithm a uniform way to walk through any container. Function objects and allocators are supporting pieces.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m002",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v;\nv.push_back(4);\nv.push_back(7);\nv.push_back(9);\ncout << v.size() << \" \" << v.front() << \" \" << v.back();",
+      "options": [
+        "3 4 9",
+        "3 9 4",
+        "2 4 9",
+        "3 4 7"
+      ],
+      "correctIndex": 0,
+      "explanation": "push_back appends at the end, so the vector holds 4 7 9: size() is 3, front() is the first element 4 and back() is the last element 9.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m003",
+      "questionText": "Which STL container adapter gives last-in, first-out (LIFO) access through push(), pop() and top()?",
+      "options": [
+        "queue",
+        "stack",
+        "deque",
+        "priority_queue"
+      ],
+      "correctIndex": 1,
+      "explanation": "stack exposes only its top element, so the element pushed last is removed first. queue is FIFO, priority_queue removes the largest element first, and deque is a full sequence container rather than an adapter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m004",
+      "questionText": "What does this fragment print? Assume <iostream> and <stack> are included and using namespace std; is in effect.\n\nstack<int> s;\ns.push(1);\ns.push(2);\ns.push(3);\ns.pop();\ncout << s.top() << \" \" << s.size();",
+      "options": [
+        "3 2",
+        "1 2",
+        "2 2",
+        "2 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "After the three pushes 3 is on top; pop() removes it, so top() now returns 2 and two elements remain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m005",
+      "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\nqueue<int> q;\nq.push(10);\nq.push(20);\nq.push(30);\nq.pop();\ncout << q.front() << \" \" << q.back();",
+      "options": [
+        "10 30",
+        "10 20",
+        "20 30",
+        "30 20"
+      ],
+      "correctIndex": 2,
+      "explanation": "queue is FIFO: pop() removes the oldest element 10, leaving 20 at the front and 30 at the back.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m006",
+      "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s = {5, 3, 5, 1, 3};\ncout << s.size() << \" \";\nfor (int x : s) cout << x;",
+      "options": [
+        "5 11335",
+        "3 135",
+        "3 531",
+        "5 53513"
+      ],
+      "correctIndex": 1,
+      "explanation": "A set stores each key only once and keeps its keys in ascending order, so the repeated 5 and 3 are ignored: s is {1, 3, 5} with size 3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m007",
+      "questionText": "Which header must be included to use std::accumulate?",
+      "options": [
+        "<numeric>",
+        "<algorithm>",
+        "<functional>",
+        "<iterator>"
+      ],
+      "correctIndex": 0,
+      "explanation": "accumulate, like inner_product and partial_sum, is a numeric algorithm declared in <numeric>; sort, find, count and reverse are declared in <algorithm>.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m008",
+      "questionText": "Which STL container is implemented as a doubly linked list, allowing constant-time insertion and removal anywhere once you hold an iterator to the position?",
+      "options": [
+        "vector",
+        "deque",
+        "forward_list",
+        "list"
+      ],
+      "correctIndex": 3,
+      "explanation": "std::list nodes are linked to both neighbours, so it can be traversed in both directions and nodes can be inserted or unlinked in O(1). forward_list is singly linked, while vector and deque shift elements for a middle insertion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m009",
+      "questionText": "For a container c, what does c.end() return?",
+      "options": [
+        "An iterator to the last element",
+        "A copy of the last element's value",
+        "An iterator positioned one past the last element, which must not be dereferenced",
+        "A null pointer that marks the end of the data"
+      ],
+      "correctIndex": 2,
+      "explanation": "STL ranges are half-open, [begin, end): end() is a past-the-end position used only for comparison, which is why an empty container has begin() == end().",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m010",
+      "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\npriority_queue<int> pq;\npq.push(3);\npq.push(8);\npq.push(5);\ncout << pq.top() << \" \" << pq.size();",
+      "options": [
+        "3 3",
+        "8 3",
+        "5 3",
+        "8 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "A default priority_queue is a max-heap, so top() returns the largest element, 8. top() only reads the element; it does not remove it, so all three elements remain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m011",
+      "questionText": "Which container stores key-value pairs in a hash table, giving average O(1) lookup by key but no guaranteed order when it is iterated?",
+      "options": [
+        "unordered_map",
+        "map",
+        "multimap",
+        "set"
+      ],
+      "correctIndex": 0,
+      "explanation": "unordered_map hashes each key into a bucket, so find and insert take constant time on average and the iteration order is unspecified. map and multimap are sorted trees with O(log n) operations, and set stores keys only.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m012",
+      "questionText": "For a std::vector v, what does v.capacity() report?",
+      "options": [
+        "The number of elements currently stored in v",
+        "The largest number of elements any vector could ever hold on the system",
+        "The number of bytes occupied by the stored elements",
+        "How many elements v can hold in its current allocation before it has to reallocate"
+      ],
+      "correctIndex": 3,
+      "explanation": "capacity() is always at least size(). size() counts the stored elements, max_size() is the theoretical upper limit, and none of these functions reports bytes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m013",
+      "questionText": "Which container keeps its elements sorted automatically and also allows the same value to be stored more than once?",
+      "options": [
+        "set",
+        "unordered_set",
+        "vector",
+        "multiset"
+      ],
+      "correctIndex": 3,
+      "explanation": "multiset is an ordered tree like set but does not reject duplicates. set rejects repeated keys, unordered_set is unordered and unique, and vector keeps insertion order without sorting.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m014",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {9, 2, 7, 4};\nsort(v.begin(), v.end());\ncout << binary_search(v.begin(), v.end(), 7);\ncout << binary_search(v.begin(), v.end(), 5);",
+      "options": [
+        "11",
+        "10",
+        "01",
+        "00"
+      ],
+      "correctIndex": 1,
+      "explanation": "After sorting, v is 2 4 7 9. binary_search returns the bool true for 7 and false for 5, and cout prints bool values as 1 and 0 by default.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i61_m015",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {2, 7, 2, 5, 2};\ncout << count(v.begin(), v.end(), 2) << \" \";\ncout << find(v.begin(), v.end(), 5) - v.begin();",
+      "options": [
+        "3 3",
+        "3 4",
+        "1 3",
+        "2 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "count returns how many elements equal 2, which is 3. find returns an iterator to the first 5, and subtracting v.begin() gives its zero-based index, 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m016",
+      "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmap<char, int> m;\nm['c'] = 3;\nm['a'] = 1;\nm['b'] = 2;\nm['a'] += 10;\nfor (auto &p : m) cout << p.first << p.second;",
+      "options": [
+        "c3a11b2",
+        "a1b2c3",
+        "a11b2c3",
+        "c3b2a11"
+      ],
+      "correctIndex": 2,
+      "explanation": "A map keeps its keys sorted, so iteration visits a, b, c whatever the insertion order. m['a'] += 10 finds the existing key and changes its value from 1 to 11.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m017",
+      "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmap<int, int> m = {{1, 10}, {2, 20}};\nint a = m.count(3);\nint b = m[3];\nint c = m.count(3);\ncout << a << b << c << m.size();",
+      "options": [
+        "0013",
+        "0002",
+        "0012",
+        "0003"
+      ],
+      "correctIndex": 0,
+      "explanation": "count(3) returns 0 and inserts nothing. m[3] finds no key 3, so it inserts the pair {3, 0} and returns 0; afterwards count(3) is 1 and the size has grown from 2 to 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m018",
+      "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s;\nauto r1 = s.insert(4);\nauto r2 = s.insert(4);\ncout << r1.second << r2.second << s.size();",
+      "options": [
+        "112",
+        "102",
+        "011",
+        "101"
+      ],
+      "correctIndex": 3,
+      "explanation": "set::insert returns a pair<iterator, bool> whose bool is true only when a new element was added. The second insert of 4 is rejected, so the flags print as 1 and 0 and the size stays 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m019",
+      "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmultimap<int, char> mm;\nmm.insert({2, 'b'});\nmm.insert({1, 'a'});\nmm.insert({2, 'c'});\ncout << mm.size() << mm.count(2) << mm.begin()->second;",
+      "options": [
+        "21a",
+        "32a",
+        "32b",
+        "31a"
+      ],
+      "correctIndex": 1,
+      "explanation": "multimap allows repeated keys, so all three pairs are stored and count(2) is 2. Elements are kept in key order, so begin() is the pair with key 1, whose value is 'a'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m020",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4, 5};\nv.erase(v.begin() + 1);\nv.insert(v.begin(), 9);\nfor (int x : v) cout << x;",
+      "options": [
+        "92345",
+        "19345",
+        "91345",
+        "91245"
+      ],
+      "correctIndex": 2,
+      "explanation": "v.begin() + 1 refers to the element 2, so erase leaves 1 3 4 5. insert puts 9 before the given position, which is the front, giving 9 1 3 4 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m021",
+      "questionText": "What happens when this fragment is compiled and run? Assume <iostream>, <list> and <algorithm> are included and using namespace std; is in effect.\n\nlist<int> l = {3, 1, 2};\nsort(l.begin(), l.end());\ncout << l.front();",
+      "options": [
+        "It compiles and prints 1",
+        "It compiles and prints 3, because sort works on a copy of the list",
+        "It does not compile: std::sort needs random-access iterators, and list iterators are only bidirectional",
+        "It compiles, but throws an exception at run time because a list cannot be indexed"
+      ],
+      "correctIndex": 2,
+      "explanation": "std::sort jumps through the range with it + n and subtracts iterators, which list iterators cannot do, so the template fails to instantiate. A list is sorted with its member function l.sort().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m022",
+      "questionText": "What must be true before std::binary_search(first, last, value) can give a meaningful result?",
+      "options": [
+        "The range must already be sorted in the order used by the comparison (operator< by default)",
+        "The container must be a set or a map",
+        "The range must not contain duplicate values",
+        "The range must be a vector or a plain array, because binary_search accepts only random-access iterators"
+      ],
+      "correctIndex": 0,
+      "explanation": "binary_search repeatedly halves the range, so it relies on the elements being sorted. Duplicates are allowed, and forward iterators are enough (random-access ones only make it faster).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m023",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {3, 6, 9};\nauto it = find(v.begin(), v.end(), 5);\ncout << (it == v.end()) << \" \" << (it - v.begin());",
+      "options": [
+        "0 -1",
+        "1 -1",
+        "0 3",
+        "1 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "find returns the end iterator, not -1, when the value is absent. end() is one past the last element, so it - v.begin() equals the size, 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m024",
+      "questionText": "What does this fragment print? Assume <iostream> and <deque> are included and using namespace std; is in effect.\n\ndeque<int> d;\nd.push_back(1);\nd.push_front(2);\nd.push_back(3);\nd.push_front(4);\nfor (int x : d) cout << x;",
+      "options": [
+        "1234",
+        "4213",
+        "2413",
+        "3124"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each push_front places the element before all existing ones and each push_back after them: [1] then [2 1] then [2 1 3] then [4 2 1 3].",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m025",
+      "questionText": "A program stores it = v.begin() for a std::vector v and then calls v.push_back(x), which makes size() exceed the old capacity(). What is true about it afterwards?",
+      "options": [
+        "it stays valid, because push_back adds only at the end and never moves existing elements",
+        "it is invalidated, because the elements were moved to a new block of memory; using it is undefined behaviour",
+        "it now refers to the newly added element x",
+        "it stays valid, but pointers and references to the elements are invalidated"
+      ],
+      "correctIndex": 1,
+      "explanation": "When the capacity is exceeded, vector allocates a larger block, moves the elements into it and frees the old block, so every iterator, pointer and reference to its elements is invalidated. Without a reallocation only end() would be invalidated.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m026",
+      "questionText": "Erasing one element from the middle of which container invalidates only the iterators to the erased element, leaving all other iterators valid?",
+      "options": [
+        "vector",
+        "deque",
+        "string",
+        "list"
+      ],
+      "correctIndex": 3,
+      "explanation": "list nodes are separate allocations, so unlinking one node leaves the others in place. vector and string shift the later elements, invalidating iterators at and after the erase point, and a deque erase in the middle invalidates all iterators.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m027",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v;\nv.reserve(10);\nv.push_back(1);\nv.push_back(2);\ncout << v.size() << \" \" << (v.capacity() >= 10);",
+      "options": [
+        "10 1",
+        "12 1",
+        "2 1",
+        "2 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "reserve(10) only allocates room, so capacity() becomes at least 10 while size() stays 0. The two push_backs make the size 2 and fit without any reallocation, so capacity() >= 10 is still true (1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m028",
+      "questionText": "What does this fragment print? Assume <iostream>, <queue>, <vector> and <functional> are included and using namespace std; is in effect.\n\npriority_queue<int, vector<int>, greater<int>> pq;\nfor (int x : {5, 1, 8, 3}) pq.push(x);\npq.pop();\ncout << pq.top() << \" \" << pq.size();",
+      "options": [
+        "3 3",
+        "5 3",
+        "1 3",
+        "3 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "With greater<int> as the comparator the priority_queue is a min-heap, so the smallest element is on top. pop() removes 1, leaving {3, 5, 8}: top() is 3 and size() is 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m029",
+      "questionText": "For containers holding n elements, which of these operations takes time proportional to n?",
+      "options": [
+        "d.push_front(x) on a deque",
+        "l.insert(it, x) on a list, given an iterator it",
+        "v.insert(v.begin(), x) on a vector",
+        "s.find(x) on a set"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inserting at the front of a vector shifts all n elements one place, so it is O(n). deque::push_front and list::insert at a known position are O(1), and set::find is O(log n) in a balanced tree.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m030",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {10, 20, 30, 40, 50};\nauto it = v.begin() + 1;\nit += 2;\ncout << *it << \" \" << it[-1] << \" \" << (v.end() - it);",
+      "options": [
+        "40 30 1",
+        "30 20 2",
+        "40 50 2",
+        "40 30 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "it starts at index 1 and moves to index 3, so *it is 40 and it[-1], the element before it, is 30. end() is at position 5, so v.end() - it = 5 - 3 = 2. Random-access iterators support all of these operations.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m031",
+      "questionText": "What category of iterator do std::set and std::map provide?",
+      "options": [
+        "Random-access, like the iterators of vector",
+        "Bidirectional: ++ and -- are allowed, but not it + n or it[n]",
+        "Forward only: ++ is allowed but -- is not",
+        "Output only: elements can be written through them but not read"
+      ],
+      "correctIndex": 1,
+      "explanation": "Tree-based containers can step to the next or previous node in key order, which makes their iterators bidirectional. They cannot jump n positions in one step, so it + 3 does not compile (std::next(it, 3) walks one step at a time).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m032",
+      "questionText": "Which numbered line causes a compile error? Assume <iostream> and <stack> are included and using namespace std; is in effect.\n\nstack<int> s;                  // line 1\ns.push(5);                     // line 2\ncout << s.top();               // line 3\nfor (int x : s) cout << x;     // line 4",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "stack is a container adapter with no begin() or end(), so a range-based for loop over it cannot compile. push, pop, top, empty and size are its whole interface.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m033",
+      "questionText": "What does this fragment print? Assume <iostream>, <map>, <string> and <stdexcept> are included and using namespace std; is in effect.\n\nmap<string, int> m = {{\"a\", 1}};\ntry {\n    cout << m.at(\"a\") << \" \";\n    cout << m.at(\"b\") << \" \";\n} catch (const out_of_range &) {\n    cout << \"missing \" << m.size();\n}",
+      "options": [
+        "1 missing 1",
+        "1 missing 2",
+        "1 0",
+        "missing 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "at() checks the key: m.at(\"a\") prints 1, but m.at(\"b\") throws out_of_range instead of inserting, so control jumps to the handler. Output already printed stays on the screen, and the map still has one element.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m034",
+      "questionText": "What does this fragment print? Assume <iostream>, <string> and <unordered_map> are included and using namespace std; is in effect.\n\nunordered_map<string, int> freq;\nstring w[] = {\"to\", \"be\", \"or\", \"not\", \"to\", \"be\"};\nfor (const string &s : w) freq[s]++;\ncout << freq.size() << \" \" << freq[\"to\"] << \" \";\ncout << freq.count(\"is\") << \" \" << freq.size();",
+      "options": [
+        "6 2 0 6",
+        "4 2 0 4",
+        "4 1 0 4",
+        "4 2 1 5"
+      ],
+      "correctIndex": 1,
+      "explanation": "freq[s]++ creates a counter the first time a word appears, so there are 4 distinct keys and \"to\" was counted twice. count(\"is\") returns 0 without inserting anything, so the size is still 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m035",
+      "questionText": "An iterator it refers to an element of a std::map. Several new keys are then inserted into the map. What happens to it?",
+      "options": [
+        "It is invalidated, because inserting may rebalance the tree",
+        "It remains valid but may now refer to a different key",
+        "It remains valid and still refers to the same element",
+        "It becomes equal to end()"
+      ],
+      "correctIndex": 2,
+      "explanation": "Tree nodes are never moved when the tree is rebalanced; only their links change. So insertion into a map or set invalidates no iterators, and erase invalidates only iterators to the erased element.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m036",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> a = {1, 2, 3};\nvector<int> b = a;\nvector<int> &c = a;\nb[0] = 7;\nc[1] = 8;\ncout << a[0] << a[1] << \" \" << b[0] << b[1];",
+      "options": [
+        "18 72",
+        "78 78",
+        "12 72",
+        "18 78"
+      ],
+      "correctIndex": 0,
+      "explanation": "Copying a vector copies all of its elements (a deep copy), so changing b does not affect a. c is a reference, just another name for a, so c[1] = 8 changes a. Result: a is 1 8 3 and b is 7 2 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m037",
+      "questionText": "Which statement about std::vector is NOT correct?",
+      "options": [
+        "Its elements are stored contiguously, so for a non-empty vector<int> v, &v[0] can be passed where an int* array is expected",
+        "v.at(i) checks the index and throws std::out_of_range when it is invalid",
+        "v[i] throws std::out_of_range when i >= v.size()",
+        "A push_back can invalidate every iterator into the vector"
+      ],
+      "correctIndex": 2,
+      "explanation": "operator[] performs no bounds check; using an out-of-range index is undefined behaviour. Only at() checks and throws out_of_range. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i61_m038",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector>, <algorithm> and <numeric> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4};\nreverse(v.begin(), v.begin() + 3);\ncout << v[0] << v[3] << \" \";\ncout << accumulate(v.begin(), v.end(), 10);",
+      "options": [
+        "41 20",
+        "34 20",
+        "24 20",
+        "34 10"
+      ],
+      "correctIndex": 1,
+      "explanation": "The range [begin, begin + 3) covers only indices 0 to 2, so v becomes 3 2 1 4 and v[0], v[3] print 3 and 4. accumulate adds every element to the initial value: 10 + 3 + 2 + 1 + 4 = 20.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m039",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <numeric> are included and using namespace std; is in effect.\n\nvector<double> v = {1.5, 2.5, 3.5};\ncout << accumulate(v.begin(), v.end(), 0) << \" \";\ncout << accumulate(v.begin(), v.end(), 0.0);",
+      "options": [
+        "7.5 7.5",
+        "7 7.5",
+        "6 7",
+        "6 7.5"
+      ],
+      "correctIndex": 3,
+      "explanation": "The running total has the type of the initial value. With the int 0 every partial sum is truncated: 0 + 1.5 gives 1, 1 + 2.5 gives 3, 3 + 3.5 gives 6. With 0.0 the total stays a double: 1.5 + 2.5 + 3.5 = 7.5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m040",
+      "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4, 5, 6};\nfor (auto it = v.begin(); it != v.end(); ) {\n    if (*it % 2 == 0)\n        it = v.erase(it);\n    else\n        ++it;\n}\ncout << v.size() << \" \" << v[1];",
+      "options": [
+        "3 3",
+        "3 5",
+        "6 2",
+        "3 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "erase removes the element, shifts the rest left and returns an iterator to the element now at that position, so the loop increments only when nothing was erased. The even numbers are removed, leaving 1 3 5: size 3 and v[1] = 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m041",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {3, 1, 3, 2, 3};\nauto e = remove(v.begin(), v.end(), 3);\ncout << v.size() << \" \";\nv.erase(e, v.end());\ncout << v.size() << \" \" << v[0] << v[1];",
+      "options": [
+        "2 2 12",
+        "5 2 12",
+        "5 5 12",
+        "5 2 13"
+      ],
+      "correctIndex": 1,
+      "explanation": "remove cannot change a container's size: it shifts the kept elements 1 and 2 to the front and returns the new logical end, so size() is still 5. erase(e, v.end()) then deletes the leftover tail, leaving size 2 with elements 1 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m042",
+      "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\npriority_queue<int> pq;\nfor (int x : {10, 4, 3, 1}) pq.push(x);\nwhile (pq.size() > 1) {\n    int a = pq.top(); pq.pop();\n    int b = pq.top(); pq.pop();\n    pq.push(a - b);\n}\ncout << pq.top();",
+      "options": [
+        "2",
+        "4",
+        "-16",
+        "6"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each round removes the two largest values and pushes their difference: {10, 4, 3, 1} gives 10 - 4 = 6, then {6, 3, 1} gives 6 - 3 = 3, then {3, 1} gives 3 - 1 = 2. One element is left, so the loop stops and 2 is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m043",
+      "questionText": "What does this fragment print? Assume <iostream> and <list> are included and using namespace std; is in effect.\n\nlist<int> l = {1, 2, 3};\nauto it = l.begin();\n++it;\nl.insert(it, 9);\nl.erase(l.begin());\ncout << *it << \" \";\nfor (int x : l) cout << x;",
+      "options": [
+        "9 923",
+        "2 1923",
+        "2 923",
+        "3 923"
+      ],
+      "correctIndex": 2,
+      "explanation": "it refers to 2. insert puts 9 before 2 and returns an iterator to the new node, but it itself still refers to 2 because list insertion invalidates nothing. Erasing the first node (1) leaves 9 2 3, and it is unaffected.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m044",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {15, 22, 7, 30, 11};\nsort(v.begin(), v.end(), [](int a, int b) {\n    return a % 10 < b % 10;\n});\ncout << v[0] << \" \" << v[2] << \" \" << v[4];",
+      "options": [
+        "7 15 30",
+        "0 2 7",
+        "7 22 30",
+        "30 22 7"
+      ],
+      "correctIndex": 3,
+      "explanation": "The comparator orders by last digit: 30 (0), 11 (1), 22 (2), 15 (5), 7 (7). All the last digits differ, so the order is fully determined, and v[0], v[2], v[4] are 30, 22 and 7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m045",
+      "questionText": "Assume a vector's capacity becomes 1 at the first push_back and doubles every time an insertion finds the vector full (1, 2, 4, 8, 16, ...). Starting from an empty vector, 16 push_back calls are made. In total, how many already-stored elements are copied (or moved) into new storage by the reallocations?",
+      "options": [
+        "16",
+        "31",
+        "8",
+        "15"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reallocations happen when the 2nd, 3rd, 5th and 9th elements are added, copying 1 + 2 + 4 + 8 = 15 existing elements; the 16th element still fits in capacity 16. The total stays below 2n, which is why push_back is O(1) amortised.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i61_m046",
+      "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s;\nmultiset<int> ms;\nfor (int i = 0; i < 10; i++) {\n    s.insert(i % 4);\n    ms.insert(i % 4);\n}\ncout << s.size() << \" \" << ms.size() << \" \" << ms.count(1);",
+      "options": [
+        "4 10 3",
+        "4 10 2",
+        "10 10 3",
+        "4 4 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "i % 4 produces 0 1 2 3 0 1 2 3 0 1. The set keeps each distinct value once (4 elements), the multiset keeps all 10, and the value 1 occurs for i = 1, 5 and 9, so ms.count(1) is 3.",
+      "difficulty": "hard"
+    }
+  ]
+}

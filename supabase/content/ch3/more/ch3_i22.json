@@ -1,0 +1,707 @@
+{
+  "topicId": "ch3_i22",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Layout Rules, Union Reads and Bit Fields"
+    },
+    {
+      "type": "paragraph",
+      "text": "The compiler lays out a structure with two rules. Before each member it rounds the current offset up to the next multiple of that member's alignment, and after the last member it rounds the total up to a multiple of the largest alignment in the structure. The first rule lets the processor fetch every member in one aligned access; the second keeps every element of an array of the structure aligned, because element i starts at i × sizeof(struct). The first member is always at offset 0, so a structure and its first member have the same address."
+    },
+    {
+      "type": "formula",
+      "latex": "o_k = \\left\\lceil e_{k-1} / a_k \\right\\rceil a_k,\\quad e_k = o_k + s_k",
+      "plainText": "offset o_k of member k = end e_(k-1) of the previous member rounded up to a multiple of its alignment a_k; its end e_k = o_k + size s_k"
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{sizeof} = \\left\\lceil e_n / A \\right\\rceil A,\\quad A = \\max_k a_k",
+      "plainText": "sizeof(struct) = end e_n of the last member rounded up to a multiple of the largest member alignment A"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <stddef.h>\nstruct Rec  { char tag; double val; short id; };\nstruct Rec2 { double val; short id; char tag; };\nint main(void) {\n    printf(\"%zu %zu %zu\\n\", offsetof(struct Rec, val),\n           offsetof(struct Rec, id), sizeof(struct Rec));\n    printf(\"%zu %zu\\n\", offsetof(struct Rec2, tag), sizeof(struct Rec2));\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (char 1, short 2, double 8 bytes, each aligned to its own size):\n8 16 24\n10 16\nRec : tag 0 | pad 1-7 | val 8-15 | id 16-17 | tail pad 18-23 -> 24\n      13 bytes of data + 11 bytes of padding\nRec2: val 0-7 | id 8-9 | tag 10 | tail pad 11-15 -> 16\n      13 bytes of data + 3 bytes of padding\nOrdering the members from largest to smallest alignment saves 8 bytes per record."
+    },
+    {
+      "type": "paragraph",
+      "text": "A union holds one value at a time, so the safe rule is to read the member that was written last. C also guarantees two other reads: inspecting the bytes of any member through an unsigned char array (the byte values then depend on the machine, for example on endianness), and reading the shared leading members of structures that begin with the same member types (a common initial sequence). Reading some other member reinterprets the stored bits, so its value depends on the representation. A tagged union pairs the union with an enum that records which member is live, as in the program below."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nenum Kind { INT, REAL };\nstruct Val {\n    enum Kind k;\n    union { int i; double d; } u;   /* one of the two at a time */\n};\nvoid show(struct Val v) {\n    if (v.k == INT) printf(\"int %d\\n\", v.u.i);\n    else            printf(\"real %.2f\\n\", v.u.d);\n}\nint main(void) {\n    struct Val a = {INT, {.i = 42}}, b = {REAL, {.d = 0.5}};\n    show(a); show(b); printf(\"%zu\\n\", sizeof(struct Val));\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (enum 4 bytes, double 8 bytes and 8-byte aligned):\nint 42\nreal 0.50\n16\na.k == INT, so show reads a.u.i, the member that was written: 42.\nb.k == REAL, so show reads b.u.d: 0.50. Neither call reads the other member.\nsizeof: k at 0-3, 4 padding bytes, union (8 bytes, align 8) at 8-15 -> 16."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Situation",
+          "Rule",
+          "Example"
+        ],
+        [
+          "Plain initialiser with too few values",
+          "Remaining members become 0",
+          "{5} for {a, b, c} gives 5 0 0"
+        ],
+        [
+          "Designated initialiser",
+          "Named member set; later positional values continue after it",
+          "{.b = 7, 8} sets b = 7, c = 8"
+        ],
+        [
+          "Union initialiser",
+          "First member unless a designator is used",
+          "{.d = 2.5} sets d"
+        ],
+        [
+          "Unsigned bit field of width w",
+          "Holds 0 to 2^w − 1; larger values keep the low w bits",
+          "v : 3 assigned 10 stores 2"
+        ],
+        [
+          "Unnamed bit field of width 0",
+          "Next bit field starts a new unit",
+          "unsigned : 0;"
+        ],
+        [
+          "Plain int bit field",
+          "Signedness is implementation-defined",
+          "use signed or unsigned explicitly"
+        ],
+        [
+          "enum constant",
+          "Previous value + 1 unless assigned; duplicates allowed",
+          "{A = 3, B, C = 1, D} gives 3 4 1 2"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "Predicting sizeof by adding member sizes: add the padding before members and the tail padding after the last one.",
+        "Comparing structures with memcmp: padding bytes may differ even when every member is equal, so compare member by member.",
+        "In C a tag is not a type name: write struct item x; unless a typedef exists (C++ allows item x;).",
+        "A #define used as a type is text substitution: with #define PS struct P *, the declaration PS a, b; makes only a a pointer, whereas a typedef names the whole pointer type.",
+        "Copying a structure copies array members deeply but pointer members only as addresses, so two copies can share the pointed-to data."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For a sizeof question, write the offsets member by member: round up to each member's alignment, then round the end up to the largest alignment. If the question states no sizes or alignment, the expected textbook answer is \"sum of the members\" for a structure and \"largest member\" for a union."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i22_m001",
+      "questionText": "What does the declaration struct Book { char title[40]; float price; }; do by itself, before any variable of the type is declared?",
+      "options": [
+        "It allocates 44 bytes of memory under the name Book",
+        "It declares a variable named Book with two members",
+        "It defines a new type (a template); no memory is allocated until a variable of the type is declared",
+        "Nothing usable: struct Book cannot be used until a typedef is added"
+      ],
+      "correctIndex": 2,
+      "explanation": "A structure definition only describes the layout of a type. Memory is reserved when a variable such as struct Book b; is declared, and struct Book can be used directly without any typedef.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m002",
+      "questionText": "Which marked line of this fragment causes a compile error?\n\nstruct { int a; } x = {1}, y;\nstruct { int a; } z;\ny = x;           /* A */\nz.a = x.a;       /* B */\nz = x;           /* C */\ny.a = z.a + 1;   /* D */",
+      "options": [
+        "Line A",
+        "Line B",
+        "Line C",
+        "Line D"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every untagged struct definition creates a new, distinct type. x and y come from the same declaration, so y = x is fine, and copying int members is fine, but z has a different (though identical-looking) type, so z = x is an assignment between incompatible types.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m003",
+      "questionText": "What does the following fragment print?\n\nstruct T { int a, b, c; };\nstruct T t = {5};\nprintf(\"%d %d %d\", t.a, t.b, t.c);",
+      "options": [
+        "5 0 0",
+        "5 5 5",
+        "5 followed by two unpredictable values",
+        "Compile error: too few initialisers"
+      ],
+      "correctIndex": 0,
+      "explanation": "When a brace initialiser lists fewer values than there are members, the remaining members are set to 0, even for a local variable. So a = 5, b = 0 and c = 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m004",
+      "questionText": "What does the following fragment print?\n\nstruct T { int a, b, c; };\nstruct T t = {.c = 3, .a = 1};\nprintf(\"%d %d %d\", t.a, t.b, t.c);",
+      "options": [
+        "3 1 0",
+        "1 0 3",
+        "1 3 0",
+        "0 1 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Designated initialisers (C99) set members by name, in any order: a = 1 and c = 3. The member that is not mentioned, b, becomes 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m005",
+      "questionText": "What does the following fragment print?\n\nstruct T { int a, b, c, d; };\nstruct T t = {.b = 7, 8};\nprintf(\"%d %d %d %d\", t.a, t.b, t.c, t.d);",
+      "options": [
+        "8 7 0 0",
+        "7 8 0 0",
+        "0 7 0 8",
+        "0 7 8 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "A positional value written after a designator initialises the member that follows the designated one, so 8 goes to c. Members that receive no value, a and d, become 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m006",
+      "questionText": "What does the following fragment print?\n\nstruct In { int x, y; };\nstruct Out { int a; struct In in; int b; };\nstruct Out o = {1, {2}, 3};\nprintf(\"%d %d %d %d\", o.a, o.in.x, o.in.y, o.b);",
+      "options": [
+        "1 2 3 0",
+        "1 2 0 3",
+        "1 0 2 3",
+        "Compile error: in.y has no initialiser"
+      ],
+      "correctIndex": 1,
+      "explanation": "The inner braces {2} initialise only the nested structure: in.x = 2 and the rest of it, in.y, becomes 0. The value 3 then goes to the next outer member, b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m007",
+      "questionText": "What does the following fragment print? (<string.h> is included.)\n\nstruct S { char name[10]; int age; };\nstruct S s = {\"Ram\", 20};\nprintf(\"%zu %zu\", sizeof(s.name), strlen(s.name));",
+      "options": [
+        "3 3",
+        "4 3",
+        "10 4",
+        "10 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof gives the declared size of the array member, 10 bytes, whatever it contains. strlen counts the characters before the terminating '\\0': R, a, m = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m008",
+      "questionText": "Which marked line of this fragment causes a compile error? (<string.h> is included.)\n\nstruct T { int id; char name[10]; } t;\nt.id = 5;                  /* A */\nt.name = \"Asha\";           /* B */\nt.name[0] = 'A';           /* C */\nstrcpy(t.name, \"Asha\");    /* D */",
+      "options": [
+        "Line A",
+        "Line B",
+        "Line C",
+        "Line D"
+      ],
+      "correctIndex": 1,
+      "explanation": "name is an array, and an array cannot be assigned with =; its contents must be copied with strcpy (line D) or element by element (line C). Assigning to the int member (line A) is normal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m009",
+      "questionText": "What does the following fragment print?\n\nstruct P { int x; } s = {5};\nint y = ++s.x * 2;\nprintf(\"%d %d\", s.x, y);",
+      "options": [
+        "6 12",
+        "5 12",
+        "6 10",
+        "5 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "The dot operator binds tighter than ++, so ++s.x means ++(s.x): x becomes 6 and y = 6 × 2 = 12.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m010",
+      "questionText": "What does the following fragment print?\n\nstruct Date { int d, m, y; };\nstruct Emp { int id; struct Date join; };\nstruct Emp e = {7, {1, 4, 2020}};\nprintf(\"%d-%d\", e.join.m, e.id);",
+      "options": [
+        "4-7",
+        "1-7",
+        "7-4",
+        "2020-7"
+      ],
+      "correctIndex": 0,
+      "explanation": "e.join is the nested Date {1, 4, 2020}, so e.join.m is 4; e.id is 7. Members of a nested structure are reached by chaining the dot operator.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m011",
+      "questionText": "What does the following fragment print?\n\nstruct In { int v; };\nstruct Out { struct In a, b; };\nstruct Out o = {{1}, {2}};\no.b = o.a;\no.a.v = 9;\nprintf(\"%d %d\", o.a.v, o.b.v);",
+      "options": [
+        "9 9",
+        "1 1",
+        "9 2",
+        "9 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "o.b = o.a copies the value 1 into b; the two nested structures remain separate objects. Changing o.a.v to 9 afterwards does not affect o.b.v, which stays 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m012",
+      "questionText": "In C (not C++), the declaration struct Outer { struct Inner { int a; } in; int b; }; appears at file scope. Which statement is correct?",
+      "options": [
+        "struct Inner is visible only inside Outer and must be written Outer::Inner elsewhere",
+        "Defining one structure inside another is a compile error in C",
+        "struct Inner can also be used on its own later in the file, because in C the inner tag has the same scope as struct Outer",
+        "The member in takes no memory because Inner is defined inside Outer"
+      ],
+      "correctIndex": 2,
+      "explanation": "C has no class scope for tags, so a structure defined inside another is declared in the enclosing (here file) scope and struct Inner x; is valid later. Outer::Inner is the C++ rule, and in is a real member occupying sizeof(struct Inner) bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m013",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1 byte, int 4 bytes and 4-byte aligned), what does this fragment print?\n\nstruct A { char c; int i; };\nstruct B { char d; struct A a; char e; };\nprintf(\"%zu\", sizeof(struct B));",
+      "options": [
+        "7",
+        "10",
+        "12",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "struct A is 1 + 3 padding + 4 = 8 bytes with alignment 4. In B: d at 0, 3 padding bytes, a at 4–11, e at 12, then 3 tail padding bytes to reach a multiple of 4: 16.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m014",
+      "questionText": "On a typical 64-bit compiler with default alignment (int 4 bytes, double 8 bytes), what does this fragment print? (<stddef.h> is included.)\n\nunion U { int i; double d; char c; };\nprintf(\"%zu %zu %zu\", offsetof(union U, i),\n       offsetof(union U, d), offsetof(union U, c));",
+      "options": [
+        "0 0 0",
+        "0 4 12",
+        "0 8 16",
+        "0 4 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every member of a union begins at the start of the union, so all three offsets are 0. Increasing offsets such as 0 8 16 would describe a structure, whose members follow one another.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m015",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1, int 4, double 8 bytes, each aligned to its own size), what does this fragment print?\n\nstruct S { int a; char b; double c; };\nunion U { int a; char b; double c; };\nprintf(\"%zu %zu\", sizeof(struct S), sizeof(union U));",
+      "options": [
+        "13 8",
+        "16 8",
+        "16 13",
+        "24 8"
+      ],
+      "correctIndex": 1,
+      "explanation": "Structure: a at 0–3, b at 4, 3 padding bytes, c at 8–15, total 16 (13 bytes of data + 3 padding). Union: the members overlap, so the size is that of the largest member, 8, already a multiple of the 8-byte alignment.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m016",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1 byte, double 8 bytes and 8-byte aligned), what does this fragment print?\n\nstruct X { char a; double b; char c; };\nstruct Y { double b; char a; char c; };\nprintf(\"%zu %zu\", sizeof(struct X), sizeof(struct Y));",
+      "options": [
+        "10 10",
+        "24 24",
+        "24 16",
+        "16 16"
+      ],
+      "correctIndex": 2,
+      "explanation": "X: a at 0, 7 padding, b at 8–15, c at 16, 7 tail padding = 24. Y: b at 0–7, a at 8, c at 9, 6 tail padding = 16. The members are the same; placing the largest first saves 8 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m017",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1, short 2, int 4 bytes, each aligned to its own size), what does this fragment print? (<stddef.h> is included.)\n\nstruct S { char a; int b; char c; short d; };\nprintf(\"%zu %zu %zu\", offsetof(struct S, b),\n       offsetof(struct S, d), sizeof(struct S));",
+      "options": [
+        "1 6 8",
+        "4 9 11",
+        "4 12 16",
+        "4 10 12"
+      ],
+      "correctIndex": 3,
+      "explanation": "a at 0, 3 padding, b at 4–7, c at 8, 1 padding so that d starts at the even offset 10, d at 10–11. The end, 12, is already a multiple of 4, so sizeof is 12 (8 bytes of data + 4 of padding).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m018",
+      "questionText": "On a typical compiler sizeof(struct { int i; char c; }) is 8: the char is followed by 3 padding bytes at the end of the structure. Why is this tail padding added?",
+      "options": [
+        "To leave room for a terminating '\\0' after the char member",
+        "Because every structure must occupy a multiple of 8 bytes",
+        "So that in an array of these structures every element, and therefore its int member, stays 4-byte aligned",
+        "Because a char member is always stored in 4 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Element i of an array starts at i × sizeof(struct); with a size of 5 the int of the second element would sit at offset 5. The size is therefore rounded up to a multiple of the largest member alignment (4), not to a multiple of 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m019",
+      "questionText": "What does the following fragment print?\n\nunion U { int i; float f; } u;\nu.i = 10;\nprintf(\"%d \", u.i);\nu.f = 2.5f;\nprintf(\"%.1f\", u.f);",
+      "options": [
+        "10 12.5",
+        "10 2.5",
+        "10 10.0",
+        "2 2.5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each printf reads the member that was written last, which is always well defined: first u.i = 10, then u.f = 2.5 after the float has overwritten the shared storage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m020",
+      "questionText": "What does the following fragment print?\n\nstruct A { int tag; int x; };\nstruct B { int tag; double y; };\nunion U { struct A a; struct B b; } u;\nu.a.tag = 2;\nu.a.x = 5;\nprintf(\"%d\", u.b.tag);",
+      "options": [
+        "2",
+        "5",
+        "0",
+        "7"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both structures begin with an int tag (a common initial sequence), and C guarantees that this shared prefix may be read through either member of the union. u.b.tag occupies the same bytes as u.a.tag, so it is 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m021",
+      "questionText": "C11 allows an anonymous union inside a structure. What does this fragment print?\n\nstruct Val {\n    int isInt;\n    union { int i; double d; };\n};\nstruct Val v[2] = {{1, {.i = 7}}, {0, {.d = 2.5}}};\nfor (int k = 0; k < 2; k++)\n    if (v[k].isInt) printf(\"[%d]\", v[k].i);\n    else printf(\"[%.1f]\", v[k].d);",
+      "options": [
+        "[7][0.0]",
+        "[7][2.5]",
+        "[7][2]",
+        "Compile error: the union has no member name"
+      ],
+      "correctIndex": 1,
+      "explanation": "Members of an anonymous union are accessed as if they belonged to the enclosing structure, so v[k].i and v[k].d are valid. The isInt tag selects the member that was actually initialised: 7 for v[0] and 2.5 for v[1].",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m022",
+      "questionText": "Given union U { int i; double d; };, which declaration stores 2.5 in member d?",
+      "options": [
+        "union U u = {.d = 2.5};",
+        "union U u = {2.5};",
+        "union U u = {.i = 2.5};",
+        "union U u; u = 2.5;"
+      ],
+      "correctIndex": 0,
+      "explanation": "A brace initialiser without a designator initialises the first member, so {2.5} and {.i = 2.5} both store 2 (converted to int) in i. The designator .d names the member to initialise; assigning a double to a whole union variable is a compile error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m023",
+      "questionText": "Assume unsigned int is 4 bytes. Which statement about the value printed by this fragment is correct?\n\nunion { unsigned int n; unsigned char b[4]; } u;\nu.n = 0x01020304;\nprintf(\"%d\", u.b[0]);",
+      "options": [
+        "It is always 1, the most significant byte",
+        "It is always 4, because b[0] keeps only the low 8 bits of n",
+        "It is 10, the sum of the four bytes",
+        "It is 4 on a little-endian machine and 1 on a big-endian machine"
+      ],
+      "correctIndex": 3,
+      "explanation": "b[0] is the byte at the lowest address of n. A little-endian machine (such as x86) stores the least significant byte 0x04 there and a big-endian machine stores 0x01, so the result depends on the byte order.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m024",
+      "questionText": "Which statement about unions in C is NOT correct?",
+      "options": [
+        "A union can have a structure as one of its members",
+        "A union variable can be assigned to another union variable of the same type",
+        "All members of a union can hold independent values at the same time",
+        "Every member of a union starts at the same address"
+      ],
+      "correctIndex": 2,
+      "explanation": "Union members overlap in one block of storage, so writing one member overwrites the others and only one value is held at a time. The other three statements are true.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m025",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1, int 4, double 8 bytes, each aligned to its own size), what does this fragment print?\n\nunion U {\n    struct { int x; char c; } s;\n    double d;\n    char arr[13];\n};\nprintf(\"%zu\", sizeof(union U));",
+      "options": [
+        "13",
+        "24",
+        "29",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "Member sizes: s = 4 + 1 + 3 padding = 8, d = 8 and arr = 13. The largest is 13, and the union must be a multiple of the alignment of double (8), so 13 is rounded up to 16.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m026",
+      "questionText": "Given struct F { unsigned int a : 3; } f;, which operation on f.a is NOT allowed?",
+      "options": [
+        "Taking its address, as in &f.a",
+        "Assigning a value, as in f.a = 5",
+        "Using it in an expression, as in f.a + 1",
+        "Printing it, as in printf(\"%d\", f.a)"
+      ],
+      "correctIndex": 0,
+      "explanation": "A bit field need not start on a byte boundary, so it has no address: &f.a is a compile error, and pointers to or arrays of bit fields are impossible. Reading and writing its value is normal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m027",
+      "questionText": "What does the following fragment print?\n\nstruct { unsigned int v : 3; } b = {0};\nfor (int i = 0; i < 10; i++)\n    b.v++;\nprintf(\"%d\", b.v);",
+      "options": [
+        "10",
+        "2",
+        "7",
+        "0"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 3-bit unsigned field holds 0 to 7 and wraps modulo 2^3 = 8. After 10 increments it holds 10 mod 8 = 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m028",
+      "questionText": "Assume unsigned int is 32 bits and that a bit field which does not fit in the bits left in the current unsigned int starts a new unsigned int (the usual behaviour). What does this fragment print?\n\nstruct B {\n    unsigned int a : 20;\n    unsigned int b : 20;\n    unsigned int c : 12;\n};\nprintf(\"%zu\", sizeof(struct B));",
+      "options": [
+        "4",
+        "7",
+        "8",
+        "12"
+      ],
+      "correctIndex": 2,
+      "explanation": "a uses 20 bits of the first unit, leaving 12; b needs 20, so it starts a second unit, leaving 12 bits there, which c fills exactly. Two 4-byte units give 8 bytes (the 52 bits would need only 7 bytes, but storage is allocated in whole units).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m029",
+      "questionText": "What is the effect of the unnamed field in struct F { unsigned a : 3; unsigned : 0; unsigned b : 3; };?",
+      "options": [
+        "It is a compile error, because every bit field must have a name",
+        "It reserves zero bits and has no effect on the layout",
+        "It makes b a signed field",
+        "It forces b to start at the beginning of the next unsigned int allocation unit"
+      ],
+      "correctIndex": 3,
+      "explanation": "An unnamed bit field of width 0 tells the compiler to stop packing into the current unit, so b begins in a new unit. With 32-bit units the structure becomes 8 bytes instead of 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m030",
+      "questionText": "A date is packed as struct D { unsigned day : 5; unsigned month : 4; unsigned year : 7; };, where year holds the number of years after 2000. What is the latest calendar year that can be stored, and how many bits do the three fields use in total?",
+      "options": [
+        "2128, using 16 bits",
+        "2127, using 16 bits",
+        "2127, using 32 bits",
+        "2063, using 16 bits"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 7-bit unsigned field holds 0 to 2^7 − 1 = 127, so the latest year is 2000 + 127 = 2127. The fields use 5 + 4 + 7 = 16 bits (on a typical compiler they share one 4-byte unsigned int, so sizeof is 4).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m031",
+      "questionText": "Which statement about bit fields in C11 is correct?",
+      "options": [
+        "An array of bit fields can be declared, as in unsigned int f[4] : 2;",
+        "The width of a bit field may be larger than the number of bits in its type",
+        "Whether a plain int bit field (declared without signed or unsigned) can hold negative values is implementation-defined",
+        "A pointer of type unsigned int * may point to a bit-field member"
+      ],
+      "correctIndex": 2,
+      "explanation": "For a bit field declared as plain int, the standard lets the implementation decide whether it is signed or unsigned. Arrays of bit fields, widths larger than the type and pointers to bit fields are all invalid.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m032",
+      "questionText": "Given typedef struct Node { int v; } NodeT;, which declaration inside main causes a compile error?",
+      "options": [
+        "struct NodeT c;",
+        "NodeT a;",
+        "struct Node b;",
+        "NodeT *p = NULL;"
+      ],
+      "correctIndex": 0,
+      "explanation": "NodeT is an alias for the complete type struct Node, not a structure tag, so struct NodeT names a different, never-defined structure, and a variable of that incomplete type cannot be declared. The other three declarations are valid.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m033",
+      "questionText": "What does the following fragment print?\n\ntypedef struct { int v; } Item, *ItemPtr;\nItem it = {4};\nItemPtr p = &it;\np->v *= 3;\nprintf(\"%d\", it.v);",
+      "options": [
+        "4",
+        "7",
+        "Compile error: ItemPtr is not a type",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "The typedef defines two names: Item for the structure and ItemPtr for a pointer to it. p points to it, so p->v *= 3 changes it.v from 4 to 12.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m034",
+      "questionText": "Which marked lines of this C fragment (inside main) fail to compile?\n\nstruct K { const int id; int v; };\nstruct K a = {1, 10};   /* Line 1 */\nstruct K b = a;         /* Line 2 */\nb.v = 20;               /* Line 3 */\nb.id = 2;               /* Line 4 */\na = b;                  /* Line 5 */",
+      "options": [
+        "Line 4 only",
+        "Lines 2 and 4",
+        "Lines 4 and 5",
+        "Lines 2, 4 and 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "A const member can get its value only through initialisation, so Line 1 and Line 2 (which initialises b as a copy of a) are valid, and Line 3 changes an ordinary member. Line 4 assigns to the const member, and Line 5 assigns the whole structure, which is not allowed for a structure with a const member because it would overwrite id.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m035",
+      "questionText": "What does the following fragment print?\n\nenum E { A = 3, B, C = 1, D,\n         F = B + D };\nprintf(\"%d %d %d\", B, D, F);",
+      "options": [
+        "4 5 9",
+        "4 2 6",
+        "1 3 4",
+        "4 2 7"
+      ],
+      "correctIndex": 1,
+      "explanation": "B follows A = 3, so B = 4. C is set to 1, so D = 2. F = B + D = 4 + 2 = 6; an enumerator may be defined using earlier ones.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m036",
+      "questionText": "Which statement about enumerations in C is correct?",
+      "options": [
+        "Two constants in the same enumeration may have the same value",
+        "The constants must be listed in increasing order of value",
+        "The first constant is 1 unless a value is assigned",
+        "Assigning an int that is not one of the listed constants to an enum variable is a compile error"
+      ],
+      "correctIndex": 0,
+      "explanation": "enum { LOW = 1, ONE = 1 }; is legal, and constants may appear in any order of value. The first constant defaults to 0, and C lets any int value be stored in an enum variable without an error.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m037",
+      "questionText": "What does the following fragment print?\n\nenum Level { LOW = 1, MID, HIGH };\nenum Level l = MID;\nswitch (l) {\n    case LOW:  printf(\"L\");\n    case MID:  printf(\"M\");\n    case HIGH: printf(\"H\"); break;\n    default:   printf(\"D\");\n}",
+      "options": [
+        "M",
+        "MHD",
+        "MH",
+        "LMH"
+      ],
+      "correctIndex": 2,
+      "explanation": "MID = 2, so control jumps to case MID and prints M. Without a break it falls through to case HIGH and prints H, and that break leaves the switch before default.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m038",
+      "questionText": "What does the following fragment print?\n\nenum { MON, TUE, WED, NDAYS };\nint hours[NDAYS] = {8, 6, 7};\nprintf(\"%d %d\", NDAYS, hours[TUE]);",
+      "options": [
+        "4 6",
+        "3 6",
+        "3 8",
+        "4 7"
+      ],
+      "correctIndex": 1,
+      "explanation": "The constants are MON = 0, TUE = 1, WED = 2 and NDAYS = 3, so the array has 3 elements and hours[TUE] is hours[1] = 6. Placing a count constant last is a common idiom.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m039",
+      "questionText": "Compared with a group of #define constants, what is an advantage of declaring the constants as an enum?",
+      "options": [
+        "enum constants can hold floating-point values such as 2.5",
+        "enum constants can be changed while the program runs",
+        "enum constants occupy memory, so their addresses can be passed to functions",
+        "The compiler assigns successive values automatically, and the names obey C's scope rules"
+      ],
+      "correctIndex": 3,
+      "explanation": "Enumeration constants are integer constants numbered automatically (0, 1, 2 … unless assigned) and, unlike macros, they have scope and are known to the compiler and debugger. They must be integers, cannot change and have no address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m040",
+      "questionText": "What does the following fragment print?\n\nstruct S { char n[8]; };\nstruct S a = {\"Ram\"}, b;\nb = a;\nb.n[0] = 'P';\nprintf(\"%s %s\", a.n, b.n);",
+      "options": [
+        "Ram Pam",
+        "Pam Pam",
+        "Ram Ram",
+        "Pam Ram"
+      ],
+      "correctIndex": 0,
+      "explanation": "Structure assignment copies every member, including all 8 bytes of the array n, so b gets its own copy of \"Ram\". Changing b.n[0] makes b.n \"Pam\" while a.n stays \"Ram\".",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m041",
+      "questionText": "What does the following fragment print?\n\nchar buf[] = \"cat\";\nstruct S { char a[4]; char *p; };\nstruct S x = {\"dog\", buf}, y;\ny = x;\ny.a[0] = 'f';\ny.p[0] = 'b';\nprintf(\"%s %s %s %s\", x.a, x.p, y.a, y.p);",
+      "options": [
+        "dog cat fog bat",
+        "dog bat fog bat",
+        "fog bat fog bat",
+        "fog cat fog bat"
+      ],
+      "correctIndex": 1,
+      "explanation": "y = x copies the array a (so y gets its own \"dog\") but copies only the address in p, so x.p and y.p both point to buf. y.a[0] = 'f' changes only y.a (\"fog\"), while y.p[0] = 'b' changes buf, which is seen through both pointers (\"bat\").",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m042",
+      "questionText": "s1 and s2 are variables of the same structure type. Which operation is NOT permitted on them as whole structures?",
+      "options": [
+        "s1 = s2",
+        "sizeof(s1)",
+        "s1 != s2",
+        "&s1"
+      ],
+      "correctIndex": 2,
+      "explanation": "C has no equality or relational operators for structures, so s1 != s2 (like s1 == s2) is a compile error; compare member by member. Assignment, sizeof and taking the address are all allowed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m043",
+      "questionText": "For struct { int a; char b; } s;, which statement is always true in standard C?",
+      "options": [
+        "(void *)&s == (void *)&s.b",
+        "sizeof s == sizeof(int) + sizeof(char)",
+        "The compiler may store b before a in memory",
+        "(void *)&s == (void *)&s.a, because there is never padding before the first member"
+      ],
+      "correctIndex": 3,
+      "explanation": "The first member is at offset 0, so a structure and its first member share the same address. Padding may make sizeof s larger than the sum (typically 8, not 5), and members are always stored in the order in which they are declared.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i22_m044",
+      "questionText": "What does the following fragment print?\n\nenum Kind { INT, DBL };\nstruct Num { enum Kind k; union { int i; double d; } v; };\nstruct Num a = {DBL, {.d = 2.5}}, b = a;\nb.k = INT;\nb.v.i = 4;\nprintf(\"%d %.1f %d\", a.k, a.v.d, b.v.i);",
+      "options": [
+        "1 2.5 4",
+        "0 2.5 4",
+        "1 4.0 4",
+        "1 0.0 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "DBL is the second enumerator, so a.k is 1. b = a copies the whole structure, union included, so b has its own storage: writing b.v.i = 4 leaves a.v.d at 2.5. Every read uses the member last written in that object.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i22_m045",
+      "questionText": "Why is memcmp(&a, &b, sizeof a) == 0 NOT a reliable way to test whether two structure variables have equal members?",
+      "options": [
+        "memcmp cannot be applied to structures; the call is a compile error",
+        "memcmp compares only the first member of each structure",
+        "The padding bytes between or after the members may hold different values even when every member is equal",
+        "memcmp stops at the first zero byte, like strcmp"
+      ],
+      "correctIndex": 2,
+      "explanation": "memcmp compares every byte, padding included, and the contents of padding bytes are unspecified, so two structures with equal members can compare unequal. Compare the members one by one instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i22_m046",
+      "questionText": "Only struct item { int n; }; has been defined (there is no typedef). Which declaration inside main compiles in C?",
+      "options": [
+        "item a;",
+        "struct item item;",
+        "struct a item;",
+        "item struct b;"
+      ],
+      "correctIndex": 1,
+      "explanation": "Structure tags live in their own name space, so a variable may even be called item: struct item item; is legal. In C the tag alone is not a type name (item a; is valid only in C++), struct a is an undefined, incomplete type, and item struct b; is not valid syntax.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,645 @@
+{
+  "topicId": "ch3_i32",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Object Lifetime, Copies and Clean-up"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every object's life is bracketed by exactly one constructor call and, unless it is leaked, one destructor call. Where the object lives decides when its constructor runs: a local object at its definition, a global object before main() starts, a static local object the first time control passes its definition, a heap object at new, and a temporary where the expression creates it. Destruction mirrors this: locals die at the closing brace of their block, temporaries at the end of the full expression (the semicolon), heap objects only at delete, and static and global objects after main() returns, last constructed first destroyed. Inside one object, member objects are constructed in declaration order before the constructor body runs, and destroyed in the reverse order after the destructor body."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Kind of object",
+          "Constructor runs",
+          "Destructor runs"
+        ],
+        [
+          "Local (automatic)",
+          "At its definition, each time the block is entered",
+          "At the closing brace of its block"
+        ],
+        [
+          "Global (namespace scope)",
+          "Before main() starts",
+          "After main() returns"
+        ],
+        [
+          "static local",
+          "The first time control reaches its definition",
+          "After main() returns"
+        ],
+        [
+          "Heap (new or new[])",
+          "When the new expression is evaluated",
+          "Only when delete or delete[] is applied"
+        ],
+        [
+          "Temporary, e.g. T(4);",
+          "Where the expression creates it",
+          "At the end of the full expression (the semicolon)"
+        ],
+        [
+          "Array elements and member objects",
+          "Elements in index order; members in declaration order",
+          "In the reverse order"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct T {\n    int id;\n    T(int i) : id(i) { cout << \"C\" << id << \" \"; }\n    ~T() { cout << \"D\" << id << \" \"; }\n};\nT g(1);\nvoid f() { static T s(2); T loc(3); }\nint main() {\n    f(); f();\n    T(4);\n    T *p = new T(5); T m(6);\n    delete p;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "before main : global g(1) is built                        C1\n1st f()     : static s(2) built once; loc(3) born and dies C2 C3 D3\n2nd f()     : s already exists; loc(3) born and dies      C3 D3\nT(4);       : the temporary dies at its semicolon          C4 D4\nnew T(5)    : heap object, lives until delete              C5\nT m(6)      : local object of main                         C6\ndelete p    : destructor of the heap object                D5\nmain ends   : m dies                                       D6\nafter main  : statics in reverse order: s, then g          D2 D1\nOutput: C1 C2 C3 D3 C3 D3 C4 D4 C5 C6 D5 D6 D2 D1"
+    },
+    {
+      "type": "formula",
+      "latex": "N_{\\text{dtor}} = N_{\\text{default}} + N_{\\text{param}} + N_{\\text{copy}} + N_{\\text{move}} - N_{\\text{leaked}}",
+      "plainText": "destructor calls by the end of the program = default + parameterised + copy + move constructor calls − heap objects never deleted"
+    },
+    {
+      "type": "paragraph",
+      "text": "The copy constructor runs whenever a new object is initialised from an existing one: T b = a;, T b(a);, T b{a};, and passing an object to a function by value. Since C++17, initialising an object from a temporary of the same type builds it in place, so T x = T(5); and return T(5); call only T(int) and no copy constructor. Returning a named local object may also skip the copy (named return value optimisation), so textbook counts that include that copy can differ from what a real compiler prints. Assignment a = b; between two existing objects never calls a constructor; it calls operator=."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass Buf {\npublic:\n    int *p;\n    Buf(int v) : p(new int(v)) {}\n    Buf(const Buf &o) : p(new int(*o.p)) { cout << \"copy \"; }\n    Buf &operator=(const Buf &o) { *p = *o.p; cout << \"assign \"; return *this; }\n    ~Buf() { delete p; }\n};\nint main() {\n    Buf a(1); Buf b = a; Buf c(9); c = a;\n    *a.p = 5;\n    cout << *a.p << *b.p << *c.p;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Buf a(1)  : a.p -> new int holding 1\nBuf b = a : the copy constructor gives b its own int (1)  -> \"copy \"\nBuf c(9)  : c.p -> new int holding 9\nc = a     : operator= copies the value 1 into c's int     -> \"assign \"\n*a.p = 5  : only a's int changes; b and c still hold 1\nOutput: copy assign 511\nWith the compiler's shallow versions, all three p would hold one\naddress: the line would print 555 and the three destructors would then\ndelete one int three times, which is undefined behaviour."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Special member",
+          "Compiler-generated version",
+          "What a class owning heap memory needs"
+        ],
+        [
+          "Destructor ~T()",
+          "Does nothing with pointer members",
+          "delete or delete[] the owned block"
+        ],
+        [
+          "Copy constructor T(const T &)",
+          "Copies the pointer value (shallow copy)",
+          "Allocate a new block and copy the contents (deep copy)"
+        ],
+        [
+          "Copy assignment operator=",
+          "Copies the pointer value; the old block leaks",
+          "Copy the contents into its own block (or free and reallocate), then return *this"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Traps in constructor and destructor questions:",
+      "items": [
+        "Members are initialised in the order they are declared in the class, whatever order the initialiser list uses; a member initialised from a later-declared member reads an uninitialised value.",
+        "A constructor whose parameters all have defaults, such as W(int x = 5), is also a default constructor, so declaring W() as well makes W w; ambiguous.",
+        "explicit on a one-argument constructor blocks T t = 5; and calls such as f(5) that need an implicit conversion, while T t(5); and T t = T(5); still compile.",
+        "T(4); on its own line creates and immediately destroys a temporary, so its constructor and destructor output appear together at that point.",
+        "A static local object is constructed only on the first call and destroyed after main() returns, not at the end of each call.",
+        "An object created with new whose pointer is lost is never destroyed, so its destructor output never appears; every new[] also needs delete[]."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Never let two objects own the same heap block. If a class has a destructor that deletes a pointer member, the compiler's shallow copy constructor and assignment make two objects delete one block, which is undefined behaviour. Either write all three members (rule of three) or forbid copying with T(const T &) = delete;."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i32_m001",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass A {\n    int v;\npublic:\n    A() { v = 1; }\n    A(int x) { v = x; }\n    int get() { return v; }\n};\nint main() {\n    A p, q(7);\n    cout << p.get() + q.get();\n}",
+      "options": [
+        "8",
+        "7",
+        "1",
+        "Compile error: p needs an argument"
+      ],
+      "correctIndex": 0,
+      "explanation": "p is created with the default constructor (v = 1) and q with the parameterised constructor (v = 7), so 1 + 7 = 8 is printed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m002",
+      "questionText": "In C++, a default constructor is a constructor that:",
+      "options": [
+        "Is always generated by the compiler and never written by the programmer",
+        "Can be called without any arguments",
+        "Takes a reference to an object of the same class",
+        "Has the return type void"
+      ],
+      "correctIndex": 1,
+      "explanation": "A default constructor is any constructor that can be called with no arguments: one with no parameters, or one whose parameters all have default values. The programmer may write it, a copy constructor is the one taking a reference, and constructors have no return type.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m003",
+      "questionText": "When does the compiler implicitly declare a default constructor for a class?",
+      "options": [
+        "Always, even when the class declares other constructors",
+        "Only when the class has no data members",
+        "Only when the class declares no constructor of its own",
+        "Only when the class also declares a destructor"
+      ],
+      "correctIndex": 2,
+      "explanation": "The implicit default constructor is provided only if the class declares no constructor at all. As soon as any constructor such as B(int) is written, B b; needs a user-written default constructor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m004",
+      "questionText": "Which marked line causes a compile error?\n\nclass B {\npublic:\n    B(int) {}\n};\nint main() {\n    B a(3);        // line 1\n    B b;           // line 2\n    B c = B(4);    // line 3\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "None; all three lines compile"
+      ],
+      "correctIndex": 1,
+      "explanation": "Declaring B(int) stops the compiler from supplying a default constructor, so B b; (line 2) has no matching constructor. Lines 1 and 3 both call B(int).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m005",
+      "questionText": "Defining several constructors in one class that differ in the number or types of their parameters is called:",
+      "options": [
+        "Constructor overriding",
+        "Copy construction",
+        "Constructor inheritance",
+        "Constructor overloading"
+      ],
+      "correctIndex": 3,
+      "explanation": "Several constructors with different parameter lists in one class is constructor overloading; the arguments given when an object is created select one of them. Overriding refers to virtual functions redefined in a derived class.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m006",
+      "questionText": "What is the essential difference between Box *p = new Box; and Box *q = (Box *) malloc(sizeof(Box)); ?",
+      "options": [
+        "malloc runs Box's constructor, but new does not",
+        "new allocates memory and then runs Box's constructor; malloc only allocates raw, unconstructed memory",
+        "Both run the constructor; only the syntax differs",
+        "new allocates the object on the stack and malloc on the heap"
+      ],
+      "correctIndex": 1,
+      "explanation": "new obtains memory and then runs the constructor, returning a typed Box*; malloc returns raw memory of the requested size and never runs a constructor. Both allocate from the free store (heap).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m007",
+      "questionText": "What is meant by a dynamic constructor in C++?",
+      "options": [
+        "A constructor that allocates memory with new while the object is being created, so that each object can get storage of the size it needs",
+        "A constructor declared virtual, so that the version to be called is chosen at run time",
+        "The default constructor that the compiler generates when a class declares no constructor",
+        "A constructor that runs only for objects created with new, never for local objects"
+      ],
+      "correctIndex": 0,
+      "explanation": "Allocating memory for an object's data at the moment the object is constructed is called dynamic construction: for example Str(const char *s) { len = strlen(s); p = new char[len + 1]; strcpy(p, s); }, with a destructor that frees p using delete[]. It runs for local and heap objects alike, and a constructor can never be declared virtual.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m008",
+      "questionText": "sizeof(Box) is 12 bytes. For the statement Box *p = new Box[5]; how many bytes are needed for the objects, and how many times does Box's default constructor run?",
+      "options": [
+        "12 bytes, 1 constructor call",
+        "60 bytes, 1 constructor call",
+        "60 bytes, 5 constructor calls",
+        "17 bytes, 5 constructor calls"
+      ],
+      "correctIndex": 2,
+      "explanation": "new Box[5] needs 5 × 12 = 60 bytes for the objects (an implementation may add a little bookkeeping space) and runs the default constructor once per element, 5 times.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m009",
+      "questionText": "What happens when delete is applied to a pointer whose value is nullptr?",
+      "options": [
+        "The program crashes with an access violation",
+        "Compile error: delete needs a non-null pointer",
+        "It throws std::bad_alloc",
+        "Nothing happens; deleting a null pointer is a safe no-op"
+      ],
+      "correctIndex": 3,
+      "explanation": "The language defines delete on a null pointer as doing nothing. That is why setting a pointer to nullptr after deleting it makes an accidental second delete harmless.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m010",
+      "questionText": "A class declares no copy constructor. What does the copy constructor supplied by the compiler do?",
+      "options": [
+        "It copies each data member in turn (member-wise copy), so a pointer member of the copy points to the same memory as the original",
+        "It allocates new heap memory for every pointer member and copies the pointed-to data (deep copy)",
+        "It copies only the public data members",
+        "Nothing: copying an object of such a class is a compile error"
+      ],
+      "correctIndex": 0,
+      "explanation": "The implicit copy constructor copies each member in turn (a member-wise, shallow copy): a pointer is copied as an address, not the memory it points to. Classes that own heap memory therefore need their own deep-copying version.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m011",
+      "questionText": "Which of the following can NOT be declared virtual in C++?",
+      "options": [
+        "A destructor",
+        "A constructor",
+        "An ordinary public member function",
+        "An overloaded operator member function"
+      ],
+      "correctIndex": 1,
+      "explanation": "A constructor builds an object whose exact type must already be known, so constructors cannot be virtual. Destructors, ordinary member functions and operator functions can all be virtual.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m012",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Acc {\n    int bal;\npublic:\n    Acc(int b) : bal(b) {}\n    void dep(int x) { bal += x; }\n    int get() { return bal; }\n};\nint main() {\n    Acc *p = new Acc(100), *q = p;\n    p->dep(50); q->dep(25);\n    cout << p->get();\n    delete p;\n}",
+      "options": [
+        "150",
+        "125",
+        "175",
+        "Compile error: q is not an object"
+      ],
+      "correctIndex": 2,
+      "explanation": "p and q hold the address of the same heap object, so both deposits change one balance: 100 + 50 + 25 = 175. The object is freed once with delete p.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i32_m013",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass V {\npublic:\n    V() { cout << \"0\"; }\n    V(int) { cout << \"1\"; }\n    V(double) { cout << \"2\"; }\n    V(int, int) { cout << \"3\"; }\n};\nint main() {\n    V a, b(4), c(4.5), d(1, 2), e('x');\n}",
+      "options": [
+        "01231",
+        "01232",
+        "1231",
+        "Compile error: e('x') is ambiguous"
+      ],
+      "correctIndex": 0,
+      "explanation": "The arguments select the constructor: none → V(), 4 → V(int), 4.5 → V(double), (1, 2) → V(int, int). For 'x', promotion from char to int beats conversion to double, so V(int) runs: 01231.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m014",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass R {\n    int l, w;\npublic:\n    R(int a = 2, int b = 3) : l(a), w(b) {}\n    int area() { return l * w; }\n};\nint main() {\n    R x, y(4), z(4, 5);\n    cout << x.area() + y.area() + z.area();\n}",
+      "options": [
+        "34",
+        "26",
+        "Compile error: R x; needs a default constructor",
+        "38"
+      ],
+      "correctIndex": 3,
+      "explanation": "Missing trailing arguments take their defaults: x is 2 × 3 = 6, y is 4 × 3 = 12 and z is 4 × 5 = 20, so 6 + 12 + 20 = 38. A constructor whose parameters all have defaults also serves as the default constructor.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m015",
+      "questionText": "Which part of this code causes a compile error?\n\nclass W {\npublic:\n    W() {}\n    W(int x = 5) {}\n};\nint main() {\n    W a(3);    // line 1\n    W b;       // line 2\n}",
+      "options": [
+        "The class definition, because W() and W(int x = 5) cannot be declared together",
+        "Line 1, because W a(3) is ambiguous",
+        "Line 2, because W b could call either W() or W(int x = 5)",
+        "Nothing; W b simply calls W()"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both constructor declarations are legal, and W a(3) can only call W(int). W b; could call W() or W(int x = 5) using the default argument, so line 2 is an ambiguous call.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m016",
+      "questionText": "Which constructor, placed in the public section of class K below, compiles?\n\nclass K {\n    const int n;\npublic:\n    // constructor goes here\n};",
+      "options": [
+        "K(int v) { n = v; }",
+        "K(int v) : n(v) {}",
+        "K(int v) { K::n = v; }",
+        "K(int v) { int n = v; }"
+      ],
+      "correctIndex": 1,
+      "explanation": "A const member must be given its value when the object is created, which only the member initialiser list can do. Assigning to it in the body is an error, and declaring a local n leaves the member uninitialised, which is also an error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m017",
+      "questionText": "Which constructor for Car compiles?\n\nclass Eng {\npublic:\n    Eng(int hp) {}\n};\nclass Car {\n    Eng e;\npublic:\n    // constructor goes here\n};",
+      "options": [
+        "Car() {}",
+        "Car() { e = Eng(4); }",
+        "Car() : e(4) {}",
+        "Car() { Eng e(4); }"
+      ],
+      "correctIndex": 2,
+      "explanation": "Member objects are constructed before the constructor body runs, and Eng has no default constructor, so e must receive its argument in the initialiser list. Every other version would first need Eng().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m018",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass D {\n    int a, b;\npublic:\n    D(int x, int y) : a(x), b(y) { cout << \"2\"; }\n    D(int x) : D(x, x) { cout << \"1\"; }\n    D() : D(7) { cout << \"0\"; }\n};\nint main() {\n    D d;\n}",
+      "options": [
+        "012",
+        "210",
+        "0",
+        "Compile error: a constructor cannot call another constructor"
+      ],
+      "correctIndex": 1,
+      "explanation": "D() delegates to D(7), which delegates to D(7, 7) (C++11 delegating constructors). The target constructor finishes before the delegating one's body runs, so the bodies print 2, then 1, then 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m019",
+      "questionText": "Which marked lines fail to compile?\n\nclass E {\npublic:\n    explicit E(int) {}\n};\nvoid take(E) {}\nint main() {\n    E a(1);       // line 1\n    E b = 2;      // line 2\n    E c = E(3);   // line 3\n    take(4);      // line 4\n}",
+      "options": [
+        "Line 2 only",
+        "Line 4 only",
+        "Lines 1 and 3",
+        "Lines 2 and 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "An explicit constructor cannot be used for implicit conversions, so the copy-initialisation E b = 2 and the call take(4), which would convert 4 to E, are rejected. Direct initialisation E a(1) and the explicit E(3) are allowed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m020",
+      "questionText": "Class Logger declares its only constructor in the private section. What happens when this program is compiled?\n\nclass Logger {\n    Logger() {}\npublic:\n    void log() {}\n};\nint main() {\n    Logger g;\n}",
+      "options": [
+        "Compile error: the constructor is private, so main() cannot create a Logger object",
+        "It compiles, because constructors are always accessible",
+        "It compiles, because the compiler adds a public default constructor",
+        "It compiles, but creating g throws an exception at run time"
+      ],
+      "correctIndex": 0,
+      "explanation": "A private constructor can be called only by the class's own members and friends, so Logger g; in main() is rejected. This is how classes such as singletons control where objects are created.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m021",
+      "questionText": "What is printed by the following program?\n\n#include <iostream>\nusing namespace std;\nclass B {\npublic:\n    B() {}\n    B(const B &) { cout << \"c\"; }\n    B &operator=(const B &) { cout << \"=\"; return *this; }\n};\nvoid f(B x) {}\nint main() {\n    B a;\n    B b = a;  B c(a);\n    c = b; f(c);\n    B d{b};\n}",
+      "options": [
+        "ccccc",
+        "=c=cc",
+        "cc=cc",
+        "cc=c"
+      ],
+      "correctIndex": 2,
+      "explanation": "B b = a, B c(a), passing c by value and B d{b} each create a new object from an existing one, so each calls the copy constructor. c = b assigns to an object that already exists and calls operator=: output cc=cc.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m022",
+      "questionText": "What does the following program print?\n\n#include <iostream>\nusing namespace std;\nclass C {\npublic:\n    C() { cout << \"D\"; }\n    C(const C &) { cout << \"K\"; }\n    ~C() { cout << \"X\"; }\n};\nvoid f(C c) {}\nvoid g(C &c) {}\nint main() {\n    C a;\n    f(a);\n    g(a);\n}",
+      "options": [
+        "DKXX",
+        "DKKXXX",
+        "DX",
+        "DKX"
+      ],
+      "correctIndex": 0,
+      "explanation": "Creating a prints D. Passing a by value to f makes a copy (K) that is destroyed when the call ends (X); g takes a reference, so no copy is made, and a is destroyed at the end of main (X).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m023",
+      "questionText": "Why is the parameter of a copy constructor normally declared as const Box & rather than Box &?",
+      "options": [
+        "Because a copy constructor with a non-const reference parameter is not allowed",
+        "So that const objects can also be copied, and the object being copied cannot be modified by mistake",
+        "Because const makes the copy run faster",
+        "Because const turns the copy constructor into a default constructor"
+      ],
+      "correctIndex": 1,
+      "explanation": "Box(Box &) is a legal copy constructor, but it cannot accept a const Box, and it would allow the source to be changed. const Box & accepts both const and non-const objects and promises not to modify them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m024",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass S {\npublic:\n    int *p;\n    S(int v) { p = new int(v); }\n};\nint main() {\n    S a(5);\n    S b = a;\n    *b.p = 9;\n    cout << *a.p;\n    delete a.p;\n}",
+      "options": [
+        "5",
+        "0",
+        "Compile error: S has no copy constructor",
+        "9"
+      ],
+      "correctIndex": 3,
+      "explanation": "The compiler-generated copy constructor copies the pointer value, so a.p and b.p point to the same int. Writing 9 through b.p is therefore seen through a.p.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m025",
+      "questionText": "Class Buf has no user-written copy constructor. What happens when this program runs?\n\nclass Buf {\n    int *p;\npublic:\n    Buf() { p = new int[4]; }\n    ~Buf() { delete[] p; }\n};\nint main() {\n    Buf a;\n    Buf b = a;\n}",
+      "options": [
+        "Each object frees its own separate array, and the program ends normally",
+        "Both destructors delete[] the same array, which is undefined behaviour (often a crash)",
+        "Compile error: Buf needs a user-written copy constructor",
+        "Only a's destructor runs, because b is just a copy"
+      ],
+      "correctIndex": 1,
+      "explanation": "The implicit copy constructor copies the pointer, so a and b refer to the same array. At the end of main both destructors delete[] it, and freeing one block twice is undefined behaviour.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m026",
+      "questionText": "A class allocates memory with new in its constructor and frees it in a user-written destructor. According to the rule of three, which two other members should it normally also define?",
+      "options": [
+        "The default constructor and a parameterised constructor",
+        "A friend function and a static member function",
+        "The copy constructor and the copy assignment operator",
+        "A virtual function and a conversion operator"
+      ],
+      "correctIndex": 2,
+      "explanation": "Rule of three: a class that needs a user-written destructor to release a resource almost always needs a user-written copy constructor and copy assignment operator too, so that copies neither share nor leak that resource.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m027",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nint main() {\n    T a(1), b(2);\n    { T c(3); }\n    T d(4);\n}",
+      "options": [
+        "C1C2C3D3C4D4D2D1",
+        "C1C2C3C4D4D3D2D1",
+        "C1C2C3D3C4D1D2D4",
+        "C1C2C3D3C4D4D1D2"
+      ],
+      "correctIndex": 0,
+      "explanation": "a and b are built in order; c is built and destroyed inside the inner block; d is built next. At the end of main the remaining locals die in reverse order of construction: d, b, a.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m028",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass In {\npublic:\n    In() { cout << \"i\"; }\n    ~In() { cout << \"~i\"; }\n};\nclass Out {\n    In m;\npublic:\n    Out() { cout << \"o\"; }\n    ~Out() { cout << \"~o\"; }\n};\nint main() { Out x; }",
+      "options": [
+        "oi~i~o",
+        "io~i~o",
+        "oi~o~i",
+        "io~o~i"
+      ],
+      "correctIndex": 3,
+      "explanation": "The member object m is constructed before the body of Out's constructor runs, and destroyed after the body of Out's destructor has finished: i, o, ~o, ~i.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m029",
+      "questionText": "What is the output of the following program, compiled as C++17?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    int v;\npublic:\n    P(int x) : v(x) { cout << v; }\n    ~P() { cout << -v; }\n};\nint main() {\n    P a[3] = { P(1), P(2), P(3) };\n}",
+      "options": [
+        "123-1-2-3",
+        "123-3-2-1",
+        "321-1-2-3",
+        "Compile error: an array of objects needs a default constructor"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each element is constructed from its own initialiser in index order, printing 123 (C++17 guarantees that they are built in place, with no temporary copies; before C++17 this was only an optional optimisation). Array elements are destroyed in reverse order, printing -3-2-1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m030",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nint main() {\n    T *p = new T(5);\n    T q(6);\n    delete p;\n    cout << \"E\";\n}",
+      "options": [
+        "C5C6ED6D5",
+        "C5C6D6ED5",
+        "C5C6D5ED6",
+        "C5C6ED5D6"
+      ],
+      "correctIndex": 2,
+      "explanation": "A heap object is destroyed exactly when delete is applied, so D5 appears before E. The local q is destroyed at the end of main, so D6 comes last.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m031",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nint main() {\n    T *p = new T(1);\n    { T *q = new T(2); T r(3); }\n    delete p;\n}",
+      "options": [
+        "C1C2C3D3D1",
+        "C1C2C3D3D2D1",
+        "C1C2C3D2D3D1",
+        "C1C2C3D1D2D3"
+      ],
+      "correctIndex": 0,
+      "explanation": "The object made by new T(2) is never deleted, so its destructor never runs even though the pointer q goes out of scope (a memory leak). r dies at the inner brace (D3) and delete p destroys T(1) (D1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m032",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass N {\npublic:\n    int v = 3;\n    ~N() { cout << v; }\n};\nint main() {\n    N *a = new N[3];\n    for (int i = 0; i < 3; i++) a[i].v += i;\n    delete[] a;\n}",
+      "options": [
+        "345",
+        "333",
+        "5",
+        "543"
+      ],
+      "correctIndex": 3,
+      "explanation": "The elements start at 3 and become 3, 4 and 5. delete[] runs the destructors from the last element to the first, printing 543.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i32_m033",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass P {\npublic:\n    P(char c) { cout << c; }\n};\nclass Q {\n    P y, x;\npublic:\n    Q() : x('x'), y('y') { cout << \"Q\"; }\n};\nint main() { Q q; }",
+      "options": [
+        "xyQ",
+        "Qxy",
+        "yxQ",
+        "Qyx"
+      ],
+      "correctIndex": 2,
+      "explanation": "Members are always initialised in the order they are declared in the class (y, then x), whatever order the initialiser list uses. The constructor body runs after all members exist, so the output is yxQ.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m034",
+      "questionText": "Consider the class below. What is true after M m(5); is executed?\n\nclass M {\n    int a, b;\npublic:\n    M(int x) : b(x), a(b + 1) {}\n};",
+      "options": [
+        "a is 6 and b is 5, because the initialiser list is processed from left to right",
+        "b is 5, but a is initialised first, from the not-yet-initialised b, so a's value is undefined (undefined behaviour)",
+        "Compile error: the initialiser list must name the members in declaration order",
+        "a is 1 and b is 5, because b is zero before it is initialised"
+      ],
+      "correctIndex": 1,
+      "explanation": "a is declared before b, so a is initialised first, from b + 1, while b is still uninitialised; reading it is undefined behaviour. Compilers accept the code and at most warn (for example -Wreorder).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m035",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass D {\npublic:\n    int *p;\n    D(int v) : p(new int(v)) {}\n    D(const D &o) : p(new int(*o.p)) {}\n    ~D() { delete p; }\n};\nint main() {\n    D a(5);\n    D b = a;  *b.p += 4;\n    D c = b;  *c.p *= 2;\n    cout << *a.p << \" \" << *b.p << \" \" << *c.p;\n}",
+      "options": [
+        "5 9 18",
+        "18 18 18",
+        "5 9 10",
+        "5 5 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "The user-written copy constructor gives each copy its own int (deep copy): b starts at 5 and becomes 9, c is copied from b (9) and becomes 18, and a keeps 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m036",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nT g(0);\nvoid f() { static T s(5); T l(6); }\nint main() {\n    f(); f();\n    T m(7);\n}",
+      "options": [
+        "C0C5C6D6D5C5C6D6D5C7D7D0",
+        "C0C5C6D6C6D6C7D7D0D5",
+        "C0C5C6D6C6D6C7D5D0D7",
+        "C0C5C6D6C6D6C7D7D5D0"
+      ],
+      "correctIndex": 3,
+      "explanation": "g is built before main (C0); the static s is built only on the first call (C5), while l is built and destroyed on each call (C6D6 twice); then m gives C7D7. After main, static objects die in reverse order of construction: s (D5), then g (D0).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m037",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nint main() {\n    T a(1);\n    T(2);\n    T b(3);\n}",
+      "options": [
+        "C1C2C3D3D2D1",
+        "C1C2D2C3D3D1",
+        "C1C3D3D1",
+        "C1C2D2C3D1D3"
+      ],
+      "correctIndex": 1,
+      "explanation": "T(2); creates a temporary that is destroyed at the end of that statement, so C2 is immediately followed by D2. The named objects die at the end of main in reverse order: D3, then D1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m038",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int id;\npublic:\n    T(int i) : id(i) { cout << \"C\" << id; }\n    ~T() { cout << \"D\" << id; }\n};\nint main() {\n    T a(1);\n    a = T(2);\n    cout << \"|\";\n}",
+      "options": [
+        "C1C2D2|D1",
+        "C1C2|D2D1",
+        "C1C2D2|D2",
+        "C1D1C2|D2"
+      ],
+      "correctIndex": 2,
+      "explanation": "The temporary T(2) is built, copied into a by the compiler-generated assignment operator, and destroyed at the semicolon (D2). a now holds id 2, so its destructor after | prints D2, not D1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m039",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nint n = 0;\nclass E {\n    int id;\npublic:\n    E() : id(++n) { cout << \"C\" << id; }\n    ~E() { cout << \"D\" << id; }\n};\nint main() {\n    E *p = new E[2];\n    E x;\n    delete[] p;\n}",
+      "options": [
+        "C1C2C3D2D1D3",
+        "C1C2C3D1D2D3",
+        "C1C2C3D3D2D1",
+        "C1C2C3D2D3D1"
+      ],
+      "correctIndex": 0,
+      "explanation": "new E[2] builds ids 1 and 2, then x gets id 3. delete[] p destroys the array elements in reverse order (D2 D1), and x is destroyed at the end of main (D3).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i32_m040",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nint c = 0, d = 0;\nclass Z {\npublic:\n    Z() { c++; }\n    Z(const Z &) { c++; }\n    ~Z() { d++; }\n};\nvoid f(Z a, Z b) { Z t; }\nint main() {\n    Z x; f(x, x);\n    { Z y[2]; }\n    cout << c << \" \" << d;\n}",
+      "options": [
+        "4 3",
+        "5 5",
+        "6 6",
+        "6 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "x makes c = 1; f(x, x) copies twice and builds t (c = 4), and t and both parameters are destroyed once the call is over (d = 3). y[2] adds two objects (c = 6) destroyed at the brace (d = 5), while x is still alive when the line is printed.",
+      "difficulty": "hard"
+    }
+  ]
+}

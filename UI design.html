@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamPrep Pro - Interactive Prototype</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-orange: #f97316;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --border-color: #334155;
+            --code-bg: #090d16;
+            --nav-bg: #0b1329;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #020617;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Top Bar Controls for Switching Screens outside phone */
+        .desktop-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+
+        /* Mobile Device Frame */
+        .phone-frame {
+            width: 380px;
+            height: 780px;
+            background-color: var(--bg-color);
+            border-radius: 40px;
+            border: 12px solid #334155;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 28px;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-sub);
+            background-color: var(--card-bg);
+        }
+
+        /* Screen Wrapper */
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* App Bar */
+        .app-bar {
+            padding: 14px 16px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .app-bar-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background-color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .badge-streak {
+            background-color: rgba(249, 115, 22, 0.2);
+            color: var(--accent-orange);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Main Content Padding */
+        .content {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+        }
+
+        /* Cards Styling */
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .progress-title {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background-color: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--accent-blue);
+            border-radius: 4px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .subject-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .subject-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+        }
+
+        .subject-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subject-name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .subject-meta {
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        /* Tabs UI */
+        .tab-group {
+            display: flex;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 3px;
+            gap: 4px;
+        }
+
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px 0;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 9px;
+            color: var(--text-sub);
+            cursor: pointer;
+        }
+
+        .tab-item.active {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+
+        /* MCQ Engine UI */
+        .timer-badge {
+            background-color: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #a7f3d0;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        .option-btn {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 10px;
+            color: var(--text-main);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .option-btn.correct {
+            background-color: rgba(34, 197, 94, 0.15);
+            border-color: var(--accent-green);
+            color: #86efac;
+        }
+
+        .explanation-box {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid var(--accent-blue);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 12px;
+            color: #93c5fd;
+            line-height: 1.4;
+            margin-top: 8px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .btn-secondary {
+            flex: 1;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            flex: 1;
+            background-color: var(--accent-blue);
+            border: none;
+            color: white;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* Formula Sheet UI */
+        .formula-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .formula-title {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }
+
+        .formula-math {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            text-align: center;
+            background-color: var(--code-bg);
+            padding: 10px;
+            border-radius: 8px;
+            color: #60a5fa;
+            border: 1px dashed var(--border-color);
+        }
+
+        /* Flashcard Component */
+        .flashcard {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            height: 240px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .flashcard-response {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .flash-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+
+        .flash-hard { background-color: #ef4444; }
+        .flash-good { background-color: #eab308; }
+        .flash-easy { background-color: #22c55e; }
+
+        /* Bottom Nav Bar */
+        .bottom-nav {
+            background-color: var(--nav-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-sub);
+            font-size: 10px;
+            cursor: pointer;
+            width: 20%;
+        }
+
+        .nav-item.active {
+            color: var(--accent-blue);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        /* Ad Banner Placeholder */
+        .ad-banner {
+            background-color: #000000;
+            border-top: 1px solid var(--border-color);
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #64748b;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Desktop Screen Selector Bar -->
+    <div class="desktop-nav">
+        <button class="nav-btn active" onclick="switchScreen('dashboard')">1. Dashboard</button>
+        <button class="nav-btn" onclick="switchScreen('chapter-list')">2. Chapter List</button>
+        <button class="nav-btn" onclick="switchScreen('theory-reader')">3. Theory Reader</button>
+        <button class="nav-btn" onclick="switchScreen('mcq-practice')">4. MCQ Practice</button>
+        <button class="nav-btn" onclick="switchScreen('formula-sheet')">5. Formulas</button>
+        <button class="nav-btn" onclick="switchScreen('analytics')">6. Analytics</button>
+        <button class="nav-btn" onclick="switchScreen('flashcards')">7. Flashcards</button>
+    </div>
+
+    <div class="phone-frame">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span>9:41</span>
+            <span>📶 🔋</span>
+        </div>
+
+        <!-- 1. DASHBOARD SCREEN -->
+        <div id="screen-dashboard" class="screen active">
+            <div class="app-bar">
+                <div class="user-profile">
+                    <div class="avatar">S</div>
+                    <div>
+                        <div style="font-size: 13px; font-weight: bold;">ExamPrep Pro</div>
+                        <div style="font-size: 11px; color: var(--text-sub);">Offline Mode</div>
+                    </div>
+                </div>
+                <div class="badge-streak">🔥 5 Days</div>
+            </div>
+
+            <div class="content">
+                <div class="card">
+                    <div class="progress-title">
+                        <span>Overall Readiness</span>
+                        <span>68%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: 68%;"></div>
+                    </div>
+                </div>
+
+                <div class="section-title">Select Subject Module</div>
+
+                <div class="subject-card" onclick="switchScreen('chapter-list')">
+                    <div class="subject-header">
+                        <span style="font-size: 20px;">⚡</span>
+                        <span class="subject-name">Chap 1: Basic Electrical & EDC</span>
+                    </div>
+                    <div class="subject-meta">12 Topics • 75 MCQs • Formula Sheet</div>
+                </div>
+
+                <div class="subject-card" onclick="switchScreen('mcq-practice')">
+                    <div class="subject-header">
+                        <span style="font-size: 20px;">💻</span>
+                        <span class="subject-name">Chap 2: Digital Logic & Micro</span>
+                    </div>
+                    <div class="subject-meta">14 Topics • 115 MCQs • Pin Diagrams</div>
+                </div>
+
+                <div class="subject-card" onclick="switchScreen('theory-reader')">
+                    <div class="subject-header">
+                        <span style="font-size: 20px;">👨‍💻</span>
+                        <span class="subject-name">Chap 3: C & C++ Programming</span>
+                    </div>
+                    <div class="subject-meta">11 Topics • 75 MCQs • Code Samples</div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-item active" onclick="switchScreen('dashboard')"><span class="nav-icon">🏠</span>Home</div>
+                <div class="nav-item" onclick="switchScreen('chapter-list')"><span class="nav-icon">📚</span>Chapters</div>
+                <div class="nav-item" onclick="switchScreen('mcq-practice')"><span class="nav-icon">📝</span>Practice</div>
+                <div class="nav-item" onclick="switchScreen('analytics')"><span class="nav-icon">📊</span>Stats</div>
+                <div class="nav-item" onclick="switchScreen('flashcards')"><span class="nav-icon">🎴</span>Cards</div>
+            </div>
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 2. CHAPTER LIST SCREEN -->
+        <div id="screen-chapter-list" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('dashboard')">←</button>
+                    Basic Electrical & EDC
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="tab-group">
+                    <div class="tab-item active">Theory</div>
+                    <div class="tab-item">Practice</div>
+                </div>
+
+                <div class="subject-card" onclick="switchScreen('theory-reader')">
+                    <div class="subject-name">1.1 Circuit Theorems</div>
+                    <div class="subject-meta">Thevenin's, Norton's, KCL, KVL</div>
+                    <div class="progress-bar-bg" style="margin-top: 6px;">
+                        <div class="progress-bar-fill" style="width: 80%;"></div>
+                    </div>
+                </div>
+
+                <div class="subject-card" onclick="switchScreen('theory-reader')">
+                    <div class="subject-name">1.2 Semiconductor Diodes</div>
+                    <div class="subject-meta">P-N Junction, Diode Equation</div>
+                    <div class="progress-bar-bg" style="margin-top: 6px;">
+                        <div class="progress-bar-fill" style="width: 45%;"></div>
+                    </div>
+                </div>
+
+                <div class="subject-card" onclick="switchScreen('theory-reader')">
+                    <div class="subject-name">1.3 Transistors (BJT & FET)</div>
+                    <div class="subject-meta">Configurations, Biasing Circuits</div>
+                    <div class="progress-bar-bg" style="margin-top: 6px;">
+                        <div class="progress-bar-fill" style="width: 20%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 3. THEORY READER SCREEN -->
+        <div id="screen-theory-reader" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('chapter-list')">←</button>
+                    Semiconductor Diodes
+                </div>
+                <span>❤️</span>
+            </div>
+
+            <div class="content">
+                <div class="tab-group">
+                    <div class="tab-item active">Concepts</div>
+                    <div class="tab-item" onclick="switchScreen('formula-sheet')">Formulas</div>
+                    <div class="tab-item">Notes</div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title" style="margin-bottom: 8px;">Diode Current Equation</div>
+                    <p style="font-size: 13px; color: var(--text-sub); line-height: 1.5;">
+                        The ideal diode equation models the current flowing through a p-n junction diode as a function of voltage applied:
+                    </p>
+                    <div class="formula-math" style="margin: 12px 0;">
+                        I_D = I_S * (e^(V_D / (n*V_T)) - 1)
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-sub);">
+                        Where I_S is saturation current, V_T is thermal voltage (26mV at room temp), and n is ideality factor.
+                    </p>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-secondary" onclick="switchScreen('formula-sheet')">Formula Sheet</button>
+                    <button class="btn-primary" onclick="switchScreen('mcq-practice')">Practice MCQs</button>
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 4. MCQ PRACTICE SCREEN -->
+        <div id="screen-mcq-practice" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('dashboard')">←</button>
+                    Digital Logic
+                </div>
+                <div class="timer-badge">⏱ 28s</div>
+            </div>
+
+            <div class="content">
+                <div class="progress-title">
+                    <span>Question 5 of 20</span>
+                    <span>Single Choice</span>
+                </div>
+
+                <div class="card">
+                    <div style="font-size: 14px; font-weight: 500;">
+                        In 8086 Microprocessor, if CS = 2000H and IP = 0005H, what is the calculated Physical Address?
+                    </div>
+                    
+                    <div class="code-block">
+Physical Address = (CS × 16) + IP
+                    </div>
+
+                    <div class="option-btn">A. 20050H <span>⚪</span></div>
+                    <div class="option-btn correct">B. 20005H <span>✓</span></div>
+                    <div class="option-btn">C. 200500H <span>⚪</span></div>
+                    <div class="option-btn">D. 2005H <span>⚪</span></div>
+
+                    <div class="explanation-box">
+                        <strong>Explanation:</strong><br>
+                        Physical Address = (2000H × 10H) + 0005H = 20000H + 0005H = 20005H.
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-secondary">Bookmark</button>
+                    <button class="btn-primary" onclick="switchScreen('analytics')">Next Question</button>
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 5. FORMULA CHEAT SHEET SCREEN -->
+        <div id="screen-formula-sheet" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('dashboard')">←</button>
+                    Formula Cheatsheet
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="tab-group">
+                    <div class="tab-item active">Chapter 1</div>
+                    <div class="tab-item">Chapter 2</div>
+                    <div class="tab-item">Chapter 3</div>
+                </div>
+
+                <div class="formula-card">
+                    <div class="formula-title">Resonant Frequency (LC Circuit)</div>
+                    <div class="formula-math">f_r = 1 / (2 * π * √(L * C))</div>
+                </div>
+
+                <div class="formula-card">
+                    <div class="formula-title">K-Map Boolean Minimization</div>
+                    <div class="formula-math">F = A·B + A'·C + B·C</div>
+                </div>
+
+                <div class="formula-card">
+                    <div class="formula-title">Pointer Syntax in C++</div>
+                    <div class="formula-math">int *ptr = &variable;</div>
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 6. ANALYTICS & RESULTS SCREEN -->
+        <div id="screen-analytics" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('dashboard')">←</button>
+                    Results & Analytics
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 13px; color: var(--text-sub);">Latest Mock Score</div>
+                    <div style="font-size: 32px; font-weight: bold; color: var(--accent-green); margin: 6px 0;">18 / 20</div>
+                    <div style="font-size: 12px; color: var(--text-sub);">90% Accuracy Rate</div>
+                </div>
+
+                <div class="section-title">Accuracy by Chapter</div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; height: 100px; padding-top: 10px;">
+                        <div style="display:flex; flex-direction:column; align-items:center; flex:1;">
+                            <div style="height:70px; width:24px; background:var(--accent-blue); border-radius:4px;"></div>
+                            <span style="font-size:10px; margin-top:4px;">Chap 1</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:center; flex:1;">
+                            <div style="height:90px; width:24px; background:var(--accent-green); border-radius:4px;"></div>
+                            <span style="font-size:10px; margin-top:4px;">Chap 2</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:center; flex:1;">
+                            <div style="height:50px; width:24px; background:var(--accent-orange); border-radius:4px;"></div>
+                            <span style="font-size:10px; margin-top:4px;">Chap 3</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">Topics to Review</div>
+                <div class="card" style="font-size: 12px; color: var(--text-sub);">
+                    ⚠️ 8086 Addressing Modes (Digital Logic)<br>
+                    ⚠️ Dynamic Memory Allocation (C++)
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+        <!-- 7. FLASHCARDS SCREEN -->
+        <div id="screen-flashcards" class="screen">
+            <div class="app-bar">
+                <div class="app-bar-title">
+                    <button class="back-btn" onclick="switchScreen('dashboard')">←</button>
+                    Flashcards
+                </div>
+                <span style="font-size: 12px; color: var(--text-sub);">5 / 30</span>
+            </div>
+
+            <div class="content">
+                <div class="flashcard">
+                    <div style="font-size: 11px; color: var(--accent-blue); text-transform: uppercase; font-weight: bold; margin-bottom: 8px;">C++ Programming</div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 12px;">What is a Pointer?</div>
+                    <div style="font-size: 12px; color: var(--text-sub);">Tap to Reveal Answer</div>
+                </div>
+
+                <div class="flashcard-response">
+                    <button class="flash-btn flash-hard">Hard<br><span style="font-weight:normal; font-size:10px;">(2 days)</span></button>
+                    <button class="flash-btn flash-good">Good<br><span style="font-weight:normal; font-size:10px;">(7 days)</span></button>
+                    <button class="flash-btn flash-easy">Easy<br><span style="font-weight:normal; font-size:10px;">(1 month)</span></button>
+                </div>
+            </div>
+
+            <div class="ad-banner">AdMob Banner Placeholder</div>
+        </div>
+
+    </div>
+
+    <script>
+        function switchScreen(screenName) {
+            // Hide all screens
+            const screens = document.querySelectorAll('.screen');
+            screens.forEach(s => s.classList.remove('active'));
+
+            // Show selected screen
+            const targetScreen = document.getElementById('screen-' + screenName);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+            }
+
+            // Update external Desktop Nav buttons state
+            const buttons = document.querySelectorAll('.desktop-nav .nav-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            const btnIndexMap = {
+                'dashboard': 0,
+                'chapter-list': 1,
+                'theory-reader': 2,
+                'mcq-practice': 3,
+                'formula-sheet': 4,
+                'analytics': 5,
+                'flashcards': 6
+            };
+            
+            if (btnIndexMap[screenName] !== undefined) {
+                buttons[btnIndexMap[screenName]].classList.add('active');
+            }
+        }
+    </script>
+</body>
+</html>

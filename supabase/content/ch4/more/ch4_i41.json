@@ -1,0 +1,686 @@
+{
+  "topicId": "ch4_i41",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: From Program to Optimised GCD Processor"
+    },
+    {
+      "type": "paragraph",
+      "text": "Vahid's conversion of a program into an FSMD is mechanical, with one template for each kind of statement. An assignment becomes one state that holds that action. A loop becomes a condition state whose true branch enters the body and whose false branch leads to a join state, and the last state of the body returns to the condition state. An if-else becomes a condition state with one path per branch, all paths ending in a join state. Applying the templates literally produces many states that do no work, which is exactly what FSMD optimisation later removes."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: GCD program -> FSMD with Vahid's templates\n1    : while(1) test (always true)        -> 2\n2    : go_i = 0 -> 2 ;  go_i = 1         -> 2-J\n2-J  : join                               -> 3\n3    : x = x_i                            -> 4\n4    : y = y_i                            -> 5\n5    : x != y -> 6 ;  x = y              -> 5-J\n6    : x < y  -> 7 ;  x >= y             -> 8\n7    : y = y - x -> 6-J      8 : x = x - y -> 6-J\n6-J  : join -> 5             5-J : join -> 9\n9    : d_o = x -> 1-J        1-J : join -> 1\nTotal 13 states: binary needs ceil(log2 13) = 4 flip-flops, one-hot needs 13"
+    },
+    {
+      "type": "paragraph",
+      "text": "Optimising this FSMD removes every state that does no useful work. State 1 tests the constant 1, so it goes, and states 2 and 2-J merge into one wait state. States 3 and 4 merge because x = x_i and y = y_i do not depend on each other, and the tests x != y and x < y merge into a single three-way decision in state 5. The join states 5-J, 6-J and 1-J disappear because their transitions can be taken directly from the states before them (5-J's exit from the decision state, 6-J's return from states 7 and 8, and 1-J's return from state 9), leaving six states: wait, load, decide, y = y - x, x = x - y and output. Each loop iteration now costs 2 clock cycles instead of 4."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: clock cycles for x_i = 27, y_i = 12 (one state = one cycle)\n(27,12) -> (15,12) -> (3,12) -> (3,9) -> (3,6) -> (3,3)    s = 5 subtractions\nUnoptimised, from state 3 up to state 9 inclusive:\n  states 3,4 = 2  +  s x (5, 6, 7 or 8, 6-J) = 4s  +  final 5, 5-J, 9 = 3\n  cycles = 4s + 5 = 25\nOptimised, from the merged load state up to the output state:\n  load = 1  +  s x (5, 7 or 8) = 2s  +  final 5, 9 = 2\n  cycles = 2s + 3 = 13          saving = 12 cycles (48%)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The controller is a state register plus combinational logic. Its inputs are the n_s present-state bits and the n_i status and external inputs, and its outputs are the n_s next-state bits and the n_o control signals. Written as a truth table it therefore has 2^(n_s + n_i) rows, which is also the number of words if the logic is stored in a ROM. For the unoptimised GCD controller, with 4 state bits, inputs go_i, x_neq_y and x_lt_y and outputs x_sel, y_sel, x_ld, y_ld and d_ld, that is 128 words of 9 bits; real designs minimise the table with don't-cares instead of storing it whole."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{ROM bits} = 2^{\\,n_s + n_i} \\times (n_s + n_o),\\qquad n_{sel} = \\lceil \\log_2 k \\rceil",
+      "plainText": "ROM bits = 2^(n_s + n_i) x (n_s + n_o); select lines of a k-input multiplexer = ceil(log2 k)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Encoding",
+          "Flip-flops for 13 states",
+          "Strength",
+          "Weakness"
+        ],
+        [
+          "Binary",
+          "4",
+          "Fewest flip-flops",
+          "Deeper next-state and output logic; several bits can toggle per transition"
+        ],
+        [
+          "One-hot",
+          "13",
+          "Simple, fast logic: each output is an OR of state bits",
+          "Most flip-flops; 8179 of the 8192 codes are unused"
+        ],
+        [
+          "Gray",
+          "4",
+          "Only one bit changes between consecutive states, lowering switching power",
+          "Helps only when transitions follow the code sequence"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: should the two GCD subtractors be shared?\nArea (gate equivalents): SUB = 40, 8-bit 2-to-1 MUX = 24\n  unshared: 2 x SUB = 80          shared: SUB + 2 x MUX = 40 + 48 = 88\nDelay: unshared T = tcq + tsub + tmux + tsu = 1 + 6 + 1 + 0.5 = 8.5 ns\n       shared   T = 8.5 + 1 (input mux)                   = 9.5 ns\nVerdict: sharing a small 8-bit subtractor costs area AND speed here;\n         sharing pays off for large units such as multipliers or dividers."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes when designing and optimising custom processors:",
+      "items": [
+        "Counting one-hot flip-flops as ceil(log2 N): one-hot needs N flip-flops, binary needs ceil(log2 N).",
+        "Merging dependent assignments: in x = a + b; y = x + 1 the second statement needs the new x, but a merged state would read the old one.",
+        "Sharing one functional unit between two operations in the same state, which both need it in the same clock cycle.",
+        "Adding the delays of separate register-to-register paths: the clock period is set by the single longest path, not by their sum.",
+        "Forgetting the extra states, and therefore extra cycles, when a slow operation is separated into several states.",
+        "Treating the FSMD as the controller: the controller FSM exists only after the datapath has been built."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For state-count questions apply the templates literally: one state per assignment, a condition state plus a join state for each loop and each if-else. Then count flip-flops as ceil(log2 N) for binary and N for one-hot. For GCD cycle counts, first trace the operand pairs to find the number of subtractions s, then use 4s + 5 (unoptimised) or 2s + 3 (optimised)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i41_m001",
+      "questionText": "In a CMOS logic gate, when does a pMOS transistor conduct (act as a closed switch)?",
+      "options": [
+        "When its gate input is logic 1 (high)",
+        "When its gate input is logic 0 (low)",
+        "Only while the clock is high",
+        "Only when its source and drain are both at logic 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "A pMOS transistor conducts when its gate is low, while an nMOS transistor conducts when its gate is high. CMOS gates pair a pMOS pull-up network with an nMOS pull-down network so that exactly one of them conducts for each input combination.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m002",
+      "questionText": "The function F(a, b, c) = a'b'c + a'bc + ab'c + abc is minimised with a Karnaugh map. What is the simplest sum-of-products form?",
+      "options": [
+        "F = a'c",
+        "F = a + c",
+        "F = c",
+        "F = bc + a'c"
+      ],
+      "correctIndex": 2,
+      "explanation": "The four minterms (1, 3, 5, 7) are exactly the cells where c = 1, so they form one group of four in which a and b both change, giving F = c.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m003",
+      "questionText": "Which of the following register-transfer (RT) level components is sequential rather than combinational?",
+      "options": [
+        "Multiplexer",
+        "Decoder",
+        "Magnitude comparator",
+        "Counter"
+      ],
+      "correctIndex": 3,
+      "explanation": "A counter stores its present count in flip-flops and changes it on clock edges, so its output depends on stored state. Multiplexers, decoders and comparators have outputs that depend only on their present inputs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m004",
+      "questionText": "Which combinational component converts an n-bit binary code into 2^n output lines, exactly one of which is active?",
+      "options": [
+        "Multiplexer",
+        "Encoder",
+        "Decoder",
+        "Comparator"
+      ],
+      "correctIndex": 2,
+      "explanation": "A decoder activates the single output selected by its n-bit input, for example to produce one-hot register load enables or state signals. An encoder performs the reverse mapping.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m005",
+      "questionText": "In a datapath, register R can be loaded from five different sources through one multiplexer. What is the minimum number of select lines the controller must drive for that multiplexer?",
+      "options": [
+        "3",
+        "5",
+        "2",
+        "4"
+      ],
+      "correctIndex": 0,
+      "explanation": "A k-input multiplexer needs ceil(log2 k) select lines: ceil(log2 5) = ceil(2.32) = 3. Two lines can choose among only four sources, and five lines would be a one-hot select.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m006",
+      "questionText": "What does register-transfer level (RTL) design describe?",
+      "options": [
+        "A circuit as registers plus the combinational operations that transform and move data between them in each clock cycle",
+        "The layout of transistors and wires on the chip",
+        "Only the Boolean equations of combinational gates, with no storage elements",
+        "The instruction set seen by an assembly-language programmer"
+      ],
+      "correctIndex": 0,
+      "explanation": "At RT level a design is expressed as registers, functional units, multiplexers and buses, and what is transferred between registers in each clock cycle, as in an FSMD. Gate-level and layout descriptions come later in the flow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m007",
+      "questionText": "Which statement about Moore and Mealy finite-state machines is NOT correct?",
+      "options": [
+        "In a Moore machine the outputs are a function of the present state only",
+        "A Moore machine's outputs change as soon as an input changes, even between clock edges",
+        "A Mealy machine's outputs can respond to an input change within the same clock cycle",
+        "For the same behaviour, a Mealy machine often needs fewer states than a Moore machine"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because a Moore machine's outputs depend only on the stored state, they change only after a clock edge updates the state register. It is the Mealy machine whose outputs follow input changes between clock edges.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m008",
+      "questionText": "An FSM must output 1 whenever the last three input bits are 1, 0, 1, with overlapping allowed (the input 10101 gives two detections). What are the minimum numbers of states for a Mealy and for a Moore implementation?",
+      "options": [
+        "Mealy 3, Moore 4",
+        "Mealy 4, Moore 3",
+        "Mealy 3, Moore 3",
+        "Mealy 2, Moore 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Mealy machine needs the states 'nothing useful seen', 'seen 1' and 'seen 10', and produces the 1 on the transition that completes 101. A Moore machine needs one more state, 'seen 101', whose output is 1, giving 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m009",
+      "questionText": "Which of the following is NOT an advantage of a custom single-purpose processor over a general-purpose processor running the same function?",
+      "options": [
+        "Higher performance for that function",
+        "Lower power consumption",
+        "Smaller size for that function",
+        "The ability to run a different program after the product has shipped"
+      ],
+      "correctIndex": 3,
+      "explanation": "A custom single-purpose processor is hard-wired for one algorithm, so it can be fast, small and power-efficient for that task but cannot be reprogrammed. Flexibility, like low NRE cost, is the strength of the general-purpose processor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m010",
+      "questionText": "In Vahid and Givargis's RT-level method, which sequence correctly orders the design steps of a custom single-purpose processor?",
+      "options": [
+        "Write the program, convert it to an FSMD, create the datapath, then derive the controller FSM from the FSMD and the datapath",
+        "Build the controller FSM, write the program, create the datapath, then derive the FSMD",
+        "Create the datapath, write the program, convert it to an FSMD, then choose the state encoding",
+        "Convert to an FSMD, write the program, derive the controller, then create the datapath"
+      ],
+      "correctIndex": 0,
+      "explanation": "The behaviour is captured as a program and turned into an FSMD; a datapath is allocated for its variables and operations; only then is the controller FSM obtained by replacing actions with control signals and conditions with status signals.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m011",
+      "questionText": "What distinguishes a finite-state machine with datapath (FSMD) from a plain FSM?",
+      "options": [
+        "An FSMD has no clock and changes state asynchronously",
+        "An FSMD can have only Moore-type outputs",
+        "An FSMD adds declared variables, so its states can contain arithmetic actions on them and its transitions can test conditions on them",
+        "An FSMD always uses one-hot state encoding, while an FSM uses binary encoding"
+      ],
+      "correctIndex": 2,
+      "explanation": "An FSMD extends the FSM model with variables and data operations: states carry actions such as x = x - y and transitions carry conditions such as x < y. It is the intermediate model between a program and the datapath-plus-controller implementation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m012",
+      "questionText": "Using Vahid's templates for converting a program into an FSMD (each assignment gets its own state; a loop gets a condition state and a join state), how many states does the fragment 'while (c) { a = a + 1; }' produce?",
+      "options": [
+        "1",
+        "2",
+        "4",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loop becomes a condition state that tests c, one state for a = a + 1 that returns to the condition state, and a join state reached when c is false: 3 states.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m013",
+      "questionText": "Using Vahid's program-to-FSMD templates (one state per assignment; a branch gets a condition state whose paths all end in a join state), how many states does 'if (c) a = b; else a = d;' produce?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "One condition state tests c, one state performs a = b, one performs a = d, and both paths meet in a join state: 4 states. The join state can later be removed during FSMD optimisation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m014",
+      "questionText": "The program below is converted to an FSMD with Vahid's templates: every assignment gets its own state, and each while loop, including the outer while (1), gets a condition state plus a join state. How many states does the FSMD have, and how many flip-flops does a binary-encoded state register need?\n\nwhile (1) {\n  while (!start);\n  sum = 0;\n  i = 0;\n  while (i < 8) {\n    sum = sum + x_i;\n    i = i + 1;\n  }\n  s_o = sum;\n}",
+      "options": [
+        "11 states; 4 flip-flops",
+        "8 states; 3 flip-flops",
+        "11 states; 3 flip-flops",
+        "13 states; 4 flip-flops"
+      ],
+      "correctIndex": 0,
+      "explanation": "Three loops give 3 condition states and 3 join states, and the five assignments (sum = 0, i = 0, the two body statements and s_o = sum) give 5 more: 11 states. ceil(log2 11) = 4 flip-flops, because 3 bits provide only 8 codes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m015",
+      "questionText": "Why do Vahid's program-to-FSMD templates create join states such as 5-J and 6-J in the GCD FSMD?",
+      "options": [
+        "They give every loop and branch one common exit point where the separate paths meet, so the templates can be chained mechanically; they perform no action and are usually removed during optimisation",
+        "They hold the arithmetic actions of the loop body",
+        "They synchronise the controller with a second clock domain",
+        "They store the return address of the loop so that it can be repeated"
+      ],
+      "correctIndex": 0,
+      "explanation": "A join state is an empty state where the paths of a branch, or the exit of a loop, come together. Because it does no work, its outgoing transition can be folded into the states before it, which is how 5-J and 6-J disappear in the optimised GCD FSMD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m016",
+      "questionText": "Why can state 1 of Vahid's unoptimised GCD FSMD, generated from the outer while (1), be eliminated during FSMD optimisation?",
+      "options": [
+        "Its only transition condition is the constant 1, so it always goes to the same next state and performs no action",
+        "It performs the subtraction, which can be moved into the datapath",
+        "It is equivalent to the output state d_o = x",
+        "It is needed only for simulation, because while (1) cannot be synthesised"
+      ],
+      "correctIndex": 0,
+      "explanation": "State 1 tests a condition that is always true and has no action, so the transitions into it can go straight to its successor. The same reasoning removes the join states whose only job is to pass control on.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m017",
+      "questionText": "Two consecutive FSMD states are to be merged into one state, in which both assignments complete at the same clock edge using the register values from the start of that state. Which pair of assignments CANNOT be merged without changing the result?",
+      "options": [
+        "x = a; y = b",
+        "x = a + b; y = a - b",
+        "x = 0; y = 0",
+        "x = a + b; y = x + 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a merged state y would be computed from the old value of x, not from a + b, so y = x + 1 must stay in a later state. The other pairs have no data dependency and can share one state, as x = x_i and y = y_i do in the optimised GCD FSMD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m018",
+      "questionText": "The C loop below ends with sum = 10. A designer merges the two loop-body assignments into one FSMD state, where both registers are updated at the same clock edge from their values at the start of the state. With i and sum both starting at 0, what does the hardware produce?\n\ni = 0; sum = 0;\nwhile (i < 4) {\n  i = i + 1;\n  sum = sum + i;\n}",
+      "options": [
+        "sum = 10, the same as the C program",
+        "sum = 6",
+        "sum = 4",
+        "sum = 15"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the merged state sum adds the old i: 0 + 0, then + 1, + 2 and + 3, giving 6 when i reaches 4, instead of 1 + 2 + 3 + 4 = 10. Because sum reads the new i, the assignments are dependent and must stay in separate states, or the merged state must compute sum = sum + i + 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m019",
+      "questionText": "A straight-line FSMD passes through 11 states once each. One state contains a multiplication with an 18 ns delay; every other state needs at most 6 ns. Design A clocks at 18 ns so that the multiply fits in one state. Design B separates the multiply into 3 states and clocks at 6 ns. What are the execution times of A and B?",
+      "options": [
+        "198 ns and 66 ns",
+        "198 ns and 78 ns",
+        "198 ns and 72 ns",
+        "66 ns and 78 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "A: 11 states x 18 ns = 198 ns. B: the multiply now takes 3 states, so 10 + 3 = 13 states x 6 ns = 78 ns, about 2.5 times faster; 11 x 6 = 66 ns forgets the two extra states.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m020",
+      "questionText": "A custom processor is built from the program below with Vahid and Givargis's one-to-one rules: one register for each variable and one for the output s_o (n_i is an input port, not a register), one functional unit for each arithmetic or comparison operation (no sharing), and a 2-to-1 multiplexer in front of any register written from two sources. What does the datapath contain?\n\nsum = 0; i = 0;\nwhile (i < n_i) { sum = sum + i; i = i + 1; }\ns_o = sum;",
+      "options": [
+        "2 registers, 3 functional units, 2 multiplexers",
+        "3 registers, 2 functional units, 2 multiplexers",
+        "3 registers, 3 functional units, 2 multiplexers",
+        "3 registers, 3 functional units, no multiplexers"
+      ],
+      "correctIndex": 2,
+      "explanation": "Registers: sum, i and s for the output. Functional units: a less-than comparator for i < n_i and two adders (sum + i and i + 1). sum and i are each written from the constant 0 and from an adder, so each needs a 2-to-1 multiplexer, while s is loaded only from sum.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m021",
+      "questionText": "A datapath has four registers, each with a load enable. Three registers are fed through 2-to-1 multiplexers and the fourth through a 4-to-1 multiplexer, and an ALU performs 8 functions selected by a binary code. How many control bits must the controller supply in every state?",
+      "options": [
+        "12",
+        "11",
+        "17",
+        "9"
+      ],
+      "correctIndex": 0,
+      "explanation": "Load enables 4 + multiplexer selects 1 + 1 + 1 + 2 = 5 + ALU function code ceil(log2 8) = 3, giving 4 + 5 + 3 = 12 control bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m022",
+      "questionText": "In the GCD datapath, register x is loaded through a 2-to-1 multiplexer that selects either the input x_i or the subtractor output x - y. To carry out the FSMD action x = x - y, what must the controller do in that state?",
+      "options": [
+        "Set x_sel to choose x_i and set x_ld = 1",
+        "Set x_sel to choose the subtractor output and set x_ld = 0",
+        "Set x_sel to choose the subtractor output and set x_ld = 1, keeping y_ld = 0",
+        "Set d_ld = 1 so that the result appears on d_o"
+      ],
+      "correctIndex": 2,
+      "explanation": "The multiplexer must route x - y to the input of x, and the load enable must be 1 so that x captures it at the clock edge; y_ld stays 0 so y keeps its value. This is how each FSMD action is replaced by control-signal settings in the controller.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m023",
+      "questionText": "In the GCD processor the comparator output x_lt_y goes from the datapath to the controller, and x_ld goes from the controller to the datapath. What are these two signals called?",
+      "options": [
+        "x_lt_y is a status signal and x_ld is a control signal",
+        "x_lt_y is a control signal and x_ld is a status signal",
+        "Both are status signals",
+        "Both are data signals on the result bus"
+      ],
+      "correctIndex": 0,
+      "explanation": "Status signals report conditions from the datapath to the controller (x_lt_y, x_neq_y). Control signals are set by the controller to steer the datapath: register loads such as x_ld and multiplexer selects such as x_sel.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m024",
+      "questionText": "In Vahid's GCD datapath the output d_o is driven by a separate register d, loaded by d_ld in the output state, rather than directly by register x. Why?",
+      "options": [
+        "Because a register such as x cannot drive an output port",
+        "So that d_o holds the finished result steadily while x and y are reloaded and changed by the next computation",
+        "Because register d performs the final subtraction",
+        "So that the controller needs fewer states"
+      ],
+      "correctIndex": 1,
+      "explanation": "Register x changes throughout every computation, so connecting it to d_o would expose intermediate values. Register d captures the result once, in the output state, so d_o shows only finished results.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m025",
+      "questionText": "Which of the following is NOT an input to the combinational (next-state and output) logic of a custom processor's controller?",
+      "options": [
+        "The present-state bits from the state register",
+        "Status signals from the datapath, such as x_lt_y",
+        "External control inputs, such as go_i",
+        "The full n-bit data value held in datapath register x"
+      ],
+      "correctIndex": 3,
+      "explanation": "The controller sees data only through 1-bit status signals produced by comparators in the datapath; the data words themselves stay in the datapath. Its inputs are the present state, the status signals and external control inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m026",
+      "questionText": "The unoptimised GCD controller has 13 states in a binary-encoded state register, 3 inputs (go_i, x_neq_y, x_lt_y) and 5 control outputs (x_sel, y_sel, x_ld, y_ld, d_ld). Its combinational logic is implemented as a ROM addressed by the state bits and the inputs, whose words hold the next state and the control outputs. What is the ROM size?",
+      "options": [
+        "117 bits",
+        "640 bits",
+        "1152 bits",
+        "144 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "State bits = ceil(log2 13) = 4, so the address has 4 + 3 = 7 bits and the ROM has 2^7 = 128 words. Each word holds 4 next-state bits + 5 outputs = 9 bits, so the ROM holds 128 x 9 = 1152 bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m027",
+      "questionText": "A 4-state Moore controller uses binary state codes Q1Q0: S0 = 00 (wait), S1 = 01 (load x from x_i), S2 = 10 (x = x - y) and S3 = 11 (output). The load signal x_ld must be 1 in S1 and S2 only. Which expression gives x_ld?",
+      "options": [
+        "x_ld = Q0",
+        "x_ld = Q1 + Q0",
+        "x_ld = Q1'Q0",
+        "x_ld = Q1 XOR Q0"
+      ],
+      "correctIndex": 3,
+      "explanation": "x_ld = Q1'Q0 + Q1Q0', which is Q1 XOR Q0. Q1 + Q0 would also assert x_ld in S3 (11), and Q0 alone would assert it in S3 but not in S2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m028",
+      "questionText": "The GCD processor works on 8-bit unsigned inputs x_i and y_i, and its datapath uses 8-bit unsigned registers and subtractors with no borrow or sign handling. Why can the subtraction results never be negative?",
+      "options": [
+        "The controller clears a borrow flag after every subtraction",
+        "The registers are made twice the input width so that negative values fit",
+        "The subtractor saturates at zero whenever the result would be negative",
+        "Each subtraction takes the smaller value from the larger (y - x only when x < y, x - y only when x > y), so no result is ever negative"
+      ],
+      "correctIndex": 3,
+      "explanation": "The FSMD subtracts only after the comparator has shown which operand is smaller, so the result is never negative and never exceeds the larger input. That is why unsigned registers of the input width are enough.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m029",
+      "questionText": "Which statement about one-hot state encoding of an N-state controller is correct?",
+      "options": [
+        "It uses N flip-flops, one per state, which usually makes the next-state and output logic simpler and faster",
+        "It needs ceil(log2 N) flip-flops, the fewest possible",
+        "It leaves no unused state codes",
+        "It is another name for Gray encoding"
+      ],
+      "correctIndex": 0,
+      "explanation": "One-hot sets exactly one of N flip-flops to 1, so each output is simply the OR of the flip-flops of the states that assert it and the next-state logic is shallow. The cost is N flip-flops instead of ceil(log2 N), with 2^N - N codes unused.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m030",
+      "questionText": "A controller's states are visited mostly in one fixed sequence. Which state encoding assigns codes so that consecutive states differ in only one bit, reducing flip-flop switching and hence dynamic power?",
+      "options": [
+        "One-hot encoding",
+        "Binary (sequential) encoding",
+        "Gray encoding",
+        "Output encoding, where the state codes are chosen equal to the output values"
+      ],
+      "correctIndex": 2,
+      "explanation": "In Gray encoding successive codes differ in exactly one bit, so each common transition toggles a single flip-flop. Binary counting can toggle several bits at once, for example 011 to 100.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m031",
+      "questionText": "A controller with 5 states is given a 3-bit binary state register. In how many different ways can distinct 3-bit codes be assigned to the 5 states (the reason synthesis tools use heuristics instead of trying every encoding of a large FSM)?",
+      "options": [
+        "120",
+        "56",
+        "40,320",
+        "6720"
+      ],
+      "correctIndex": 3,
+      "explanation": "The first state can take any of 8 codes, the next any of the remaining 7, and so on: 8 x 7 x 6 x 5 x 4 = 6720 assignments. 5! = 120 counts only the orderings, and C(8, 5) = 56 ignores which state receives which code.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m032",
+      "questionText": "A Moore controller has the state table below (next state for input x = 0 and x = 1, and the output z). After state minimisation, how many states remain?\n\nState  x=0  x=1  z\nA      B    C    0\nB      D    E    0\nC      F    E    0\nD      A    G    1\nE      A    G    1\nF      D    E    0\nG      B    C    0",
+      "options": [
+        "3",
+        "4",
+        "5",
+        "7"
+      ],
+      "correctIndex": 1,
+      "explanation": "Splitting by output gives {A, B, C, F, G} and {D, E}; successor groups then split the first block into {A, G} (both successors with z = 0), {B, F} (both with z = 1) and {C} (one of each). A further pass changes nothing, so {A, G}, {B, F}, {C} and {D, E} remain: 4 states.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m033",
+      "questionText": "An FSMD has three states. S1 computes t1 = a + b and t2 = c + d, S2 computes t3 = t1 + t2, and S3 computes t4 = t3 + a, t5 = t3 + b and t6 = t3 + c. Additions in the same state need separate adders, but adders may be shared between states. What is the minimum number of adders, compared with one-to-one allocation?",
+      "options": [
+        "2 instead of 6",
+        "1 instead of 6",
+        "3 instead of 6",
+        "6 instead of 6, because no sharing is possible"
+      ],
+      "correctIndex": 2,
+      "explanation": "The minimum equals the largest number of additions in any one state: max(2, 1, 3) = 3. One-to-one allocation uses one adder per operation, 6, so sharing saves 3 adders at the cost of multiplexers on the adder inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m034",
+      "questionText": "An FSMD passes through states S1 to S8 in order. Each variable is live from the state that writes it to the last state that reads it, inclusive: a S1-S3, b S2-S4, f S3-S5, c S4-S6, d S5-S8, e S7-S8. Two variables may share a register only if their live ranges have no state in common. What is the minimum number of registers?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "6"
+      ],
+      "correctIndex": 1,
+      "explanation": "At most 3 variables are live in the same state (a, b, f in S3; b, f, c in S4; f, c, d in S5), so 3 registers are needed, and 3 suffice: R1 = a, c, e; R2 = b, d; R3 = f. One-to-one allocation would use 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m035",
+      "questionText": "Which pair of operations in an FSMD can be bound to a single shared subtractor?",
+      "options": [
+        "a - b and c - d, both in state S3",
+        "y - x in state S6 and x - y in state S7",
+        "x - y and x + y, both in state S4",
+        "Any two subtractions, whatever states they are in"
+      ],
+      "correctIndex": 1,
+      "explanation": "A functional unit can be shared only by operations that are never needed in the same clock cycle, i.e. operations in different states; the GCD subtractions y - x and x - y qualify. Two subtractions in the same state need two subtractors.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m036",
+      "questionText": "A datapath uses an adder in state S2 and a subtractor in state S5. The designer replaces both with one ALU that can add or subtract. Which statement is correct?",
+      "options": [
+        "The ALU needs no extra control, because it detects from its inputs which operation is needed",
+        "The controller must also drive the ALU's function-select input, and input multiplexers are needed if the two operations read different registers",
+        "The change is impossible, because an ALU can be used in only one state",
+        "The ALU replaces the controller, so the FSM is no longer needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "A multi-function unit can be shared by operations in different states, but the controller must set its function code in each state. Multiplexers are needed on the ALU inputs when the two operations take their operands from different registers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m037",
+      "questionText": "An 8-bit subtractor costs 40 gate equivalents and an 8-bit 2-to-1 multiplexer costs 24. The GCD datapath's two subtractors (x - y and y - x) are replaced by one shared subtractor with a 2-to-1 multiplexer on each of its two inputs. What is the effect on datapath area?",
+      "options": [
+        "Area falls by 40 gate equivalents",
+        "Area falls by 16 gate equivalents",
+        "No change",
+        "Area rises by 8 gate equivalents"
+      ],
+      "correctIndex": 3,
+      "explanation": "Unshared: 2 x 40 = 80 gate equivalents. Shared: 40 + 2 x 24 = 88, so sharing adds 8 gate equivalents here and also lengthens the critical path; it pays off only when the shared unit is much larger than the multiplexers it needs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m038",
+      "questionText": "In the GCD datapath the longest path runs from register x (clock-to-Q 1 ns) through a subtractor (6 ns) and the 2-to-1 register-input multiplexer (1 ns) to the setup of register x (0.5 ns). Sharing one subtractor for x - y and y - x adds a 1 ns 2-to-1 multiplexer in front of each subtractor input. For a computation that takes 15 clock cycles, what are the execution times without and with sharing?",
+      "options": [
+        "127.5 ns and 142.5 ns",
+        "127.5 ns and 127.5 ns",
+        "127.5 ns and 157.5 ns",
+        "142.5 ns and 127.5 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unshared: T = 1 + 6 + 1 + 0.5 = 8.5 ns, so 15 x 8.5 = 127.5 ns. Shared: the two input multiplexers work in parallel and add one 1 ns delay, so T = 9.5 ns and 15 x 9.5 = 142.5 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m039",
+      "questionText": "A custom processor has three register-to-register paths: register x to subtractor to multiplexer to register x (1 + 6 + 1 + 0.5 ns); register x to comparator to controller next-state logic to state register (1 + 4 + 2 + 0.5 ns); state register to output logic to multiplexer select to register x (1 + 1.5 + 1 + 0.5 ns). What is the maximum clock frequency?",
+      "options": [
+        "50 MHz",
+        "133 MHz",
+        "250 MHz",
+        "117.6 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "The clock period must cover the slowest path: max(8.5, 7.5, 4.0) = 8.5 ns, so f_max = 1 / 8.5 ns = 117.6 MHz. Adding the paths (20 ns, 50 MHz) is wrong because they all operate in parallel within the same cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m040",
+      "questionText": "According to Vahid and Givargis, when optimising a custom single-purpose processor, at which level are the largest improvements usually obtained?",
+      "options": [
+        "State encoding of the controller",
+        "The original program (algorithm)",
+        "Transistor sizing",
+        "Register sharing in the datapath"
+      ],
+      "correctIndex": 1,
+      "explanation": "A better algorithm changes the number of operations and iterations fundamentally, as in GCD, where the modulo version needs about log(max) iterations instead of up to max(x, y). FSMD, datapath and FSM optimisations then refine that result.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i41_m041",
+      "questionText": "GCD(100, 3) is computed two ways. Version 1 repeats 'if (x < y) y = y - x; else x = x - y;' while x != y. Version 2 (Euclid) repeats 'r = x mod y; x = y; y = r;' while y != 0. How many loop iterations does each version perform?",
+      "options": [
+        "33 and 2",
+        "35 and 3",
+        "35 and 2",
+        "100 and 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "Version 1 subtracts 3 from x 33 times (100 down to 1), then (1, 3) to (1, 2) to (1, 1): 35 iterations. Version 2 goes (100, 3) to (3, 1) to (1, 0): 2 iterations, trading a much larger divider for far fewer iterations.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m042",
+      "questionText": "In the optimised GCD FSMD, state 5 chooses among three successors: y = y - x (when x < y), x = x - y (when x > y) and d_o = x (when x = y). What is the minimum number of 1-bit status signals the datapath must send to the controller for this decision?",
+      "options": [
+        "1",
+        "3",
+        "4",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Three outcomes need at least ceil(log2 3) = 2 bits, for example x_lt_y and x_neq_y, since x > y is x_neq_y AND NOT x_lt_y. A single bit can distinguish only two outcomes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m043",
+      "questionText": "For operands needing s subtractions, the unoptimised 13-state GCD FSMD takes 4s + 5 clock cycles from loading the operands to writing d_o, while the optimised 6-state FSMD takes 2s + 3. How many clock cycles does the optimisation save for x_i = 45 and y_i = 12?",
+      "options": [
+        "14",
+        "12",
+        "29",
+        "15"
+      ],
+      "correctIndex": 0,
+      "explanation": "The pairs run (45, 12), (33, 12), (21, 12), (9, 12), (9, 3), (6, 3), (3, 3), so s = 6. Unoptimised 4 x 6 + 5 = 29 cycles and optimised 2 x 6 + 3 = 15 cycles, a saving of 14 cycles.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m044",
+      "questionText": "A GPP at 100 MHz runs the GCD loop with 6 instructions per iteration at an average CPI of 1.5. A custom GCD processor at 50 MHz takes 2 clock cycles per iteration. For 1000 iterations, how do they compare?",
+      "options": [
+        "The custom processor is 4.5 times faster",
+        "The GPP is 2.25 times faster",
+        "The custom processor is 2.25 times faster",
+        "The custom processor is 1.5 times faster"
+      ],
+      "correctIndex": 2,
+      "explanation": "GPP: 1000 x 6 x 1.5 = 9000 cycles x 10 ns = 90 µs. Custom: 1000 x 2 = 2000 cycles x 20 ns = 40 µs, so the custom processor is 90 / 40 = 2.25 times faster; the cycle ratio 9 / 2 = 4.5 ignores its slower clock.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i41_m045",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. x and y are signals of type unsigned(7 downto 0) initialised to 5 and 9. What are x and y after two rising edges of clk?\n\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    x <= y;\n    y <= x + 1;\n  end if;\nend process;",
+      "options": [
+        "x = 9, y = 6",
+        "x = 6, y = 10",
+        "x = 10, y = 11",
+        "x = 9, y = 10"
+      ],
+      "correctIndex": 1,
+      "explanation": "Signal assignments take effect together when the process suspends, so both right-hand sides use the old values: edge 1 gives x = 9 and y = 5 + 1 = 6, edge 2 gives x = 6 and y = 9 + 1 = 10. Reading the assignments one after another as in C would give x = 10, y = 11.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i41_m046",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. x, y and d_o are unsigned(7 downto 0), x_i = 20, y_i = 8, and st starts in S_LOAD. The case statement below is inside 'if rising_edge(clk) then'. After how many rising edges does st first equal S_DONE, and what is d_o then?\n\ncase st is\n  when S_LOAD => x <= x_i; y <= y_i; st <= S_CMP;\n  when S_CMP  => if x < y then st <= S_SUBY;\n                 elsif x > y then st <= S_SUBX;\n                 else st <= S_OUT; end if;\n  when S_SUBY => y <= y - x; st <= S_CMP;\n  when S_SUBX => x <= x - y; st <= S_CMP;\n  when S_OUT  => d_o <= x; st <= S_DONE;\n  when S_DONE => null;\nend case;",
+      "options": [
+        "5 edges, d_o = 4",
+        "8 edges, d_o = 4",
+        "9 edges, d_o = 4",
+        "9 edges, d_o = 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "The operands go (20, 8), (12, 8), (4, 8), (4, 4), so s = 3 subtractions. Edges: S_LOAD 1 + S_CMP 4 + subtraction states 3 + S_OUT 1 = 9 (that is 2s + 3), and d_o = 4.",
+      "difficulty": "hard"
+    }
+  ]
+}

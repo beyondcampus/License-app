@@ -1,0 +1,693 @@
+{
+ "topicId": "ch2_i14",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Karnaugh Maps"
+  },
+  {
+   "type": "paragraph",
+   "text": "Why does a rectangle of 2^k cells always collapse to one product term? Two adjacent cells differ in one variable X, so their minterms are PX and PX', and PX + PX' = P. Two adjacent pairs that differ in a second variable Y combine again in the same way, so a block of 4 loses two variables and a block of 8 loses three. In the language of n-dimensional cubes, a valid group is a subcube: its cell numbers agree in n - k bit positions and take every combination in the other k. That is why a group must be a power of two in size and why an L-shape or a diagonal never works."
+  },
+  {
+   "type": "formula",
+   "latex": "P X + P \\overline{X} = P \\;\\Rightarrow\\; 2^k \\text{ adjacent cells} \\to 1 \\text{ term}",
+   "plainText": "PX + PX' = P, applied k times, merges 2^k adjacent cells into one product term"
+  },
+  {
+   "type": "heading",
+   "text": "Worked Example: Prime Implicant Chart and a Redundant Group"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "F(A,B,C,D) = Σm(3,4,5,7,9,13,14,15)\n\n  AB\\CD  00  01  11  10\n   00     0   0   1   0\n   01     1   1   1   0\n   11     0   1   1   1\n   10     0   1   0   0\n\nPrime implicants: A'BC' (4,5)  A'CD (3,7)  ABC (14,15)\n                  AC'D (9,13)  BD (5,7,13,15)\nEssential: m4 only in A'BC', m3 only in A'CD,\n           m14 only in ABC,  m9 only in AC'D\nThe four EPIs already cover 5, 7, 13, 15, so BD is redundant.\nF = A'BC' + A'CD + ABC + AC'D   (4 terms, 12 literals)"
+  },
+  {
+   "type": "paragraph",
+   "text": "The centre square BD is the largest group on the map, and choosing it first is the classic mistake: it leaves m3, m4, m9 and m14 needing four more pairs, giving five terms. Always pick essential prime implicants first, then cover what is left. A useful habit is to start from 1-cells that have only one possible group (isolated or corner cells), because the group through such a cell is always essential."
+  },
+  {
+   "type": "heading",
+   "text": "Five-Variable Maps"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "F(A,B,C,D,E) = Σm(0,2,5,7,8,10,16,18,21,23,24,26)\nTwo 16-cell maps over BCDE: left A = 0 (m0-m15), right A = 1 (m16-m31)\nCells in the same position (m and m + 16) are adjacent.\n\nA = 0 map 1s: 0,2,8,10 (corners) and 5,7\nA = 1 map 1s: 16,18,24,26 (corners) and 21,23\nCorners in both maps: 8 cells, C = 0 and E = 0 fixed  -> C'E'\n5,7,21,23: B = 0, C = 1, E = 1 fixed                  -> B'CE\nF = C'E' + B'CE"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Aspect",
+     "Karnaugh map",
+     "Quine–McCluskey"
+    ],
+    [
+     "Method",
+     "Visual grouping of adjacent cells",
+     "Tabular: combine terms differing in one bit"
+    ],
+    [
+     "Practical size",
+     "Up to 4 variables, 5 or 6 with care",
+     "Any number; suited to software"
+    ],
+    [
+     "Finds PIs by",
+     "Largest rectangles containing no 0",
+     "Terms never combined (unticked)"
+    ],
+    [
+     "Chooses cover by",
+     "Inspection, essential groups first",
+     "PI chart, then Petrick's method if cyclic"
+    ],
+    [
+     "Don't-cares",
+     "Marked X, used when helpful",
+     "Included in the combining step, not in the chart"
+    ],
+    [
+     "Error risk",
+     "Missed wrap-around groups",
+     "Long hand working for many minterms"
+    ]
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Quine–McCluskey for F(A,B,C) = Σm(0,1,2,3,5,7)\nGroup by count of 1s:  0: 000 | 1: 001, 010 | 2: 011, 101 | 3: 111\nPairs:  0,1 = 00-   0,2 = 0-0   1,3 = 0-1   1,5 = -01\n        2,3 = 01-   3,7 = -11   5,7 = 1-1        (all ticked)\nQuads:  0,1,2,3 = 0--  (A')     1,3,5,7 = --1  (C)\nNo further combination: prime implicants A' and C, both essential\nF = A' + C"
+  },
+  {
+   "type": "paragraph",
+   "text": "Hazards come from the same map. In a two-level SOP circuit, if two adjacent 1-cells are covered by different groups, a change of the one variable that separates them switches one AND gate off while the other switches on, and unequal delays can let the output dip to 0 (a static-1 hazard). The cure is to add the redundant group that bridges the two cells, which is the consensus term; for F = A'B + AC the hazard occurs with B = 1, C = 1 while A changes, and the bridging term is BC. POS circuits suffer the dual static-0 hazard, and a dynamic hazard (several bounces during one intended change) arises only in multi-level circuits."
+  },
+  {
+   "type": "warning",
+   "text": "Common K-map slips: labelling columns 00, 01, 10, 11 instead of Gray order; forgetting that the outer edges and the four corners wrap around; writing a group of 0s as a product instead of a sum with complemented constants; covering don't-cares that do not enlarge a group; and selecting the biggest group first instead of the essential ones, which can leave a redundant term in the answer."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i14_m001",
+   "questionText": "A two-variable K-map has 1s in cells m1, m2 and m3 (variables A, B). The minimal SOP expression is:",
+   "options": [
+    "A'B + AB'",
+    "AB",
+    "A + B",
+    "A' + B'"
+   ],
+   "correctIndex": 2,
+   "explanation": "Cells m1 and m3 form the column B = 1, giving B; m2 and m3 form the row A = 1, giving A. The overlapping pairs give F = A + B, the OR function.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m002",
+   "questionText": "Simplify F(A,B,C) = Σm(1,3,5,7) using a K-map.",
+   "options": [
+    "A'C",
+    "C",
+    "C'",
+    "A + C"
+   ],
+   "correctIndex": 1,
+   "explanation": "The four 1s (001, 011, 101, 111) all have C = 1 while A and B take every value, so one group of four gives F = C.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m003",
+   "questionText": "Simplify F(A,B,C) = Σm(0,1,4,5) using a K-map.",
+   "options": [
+    "B'",
+    "A'B'",
+    "C'",
+    "B'C'"
+   ],
+   "correctIndex": 0,
+   "explanation": "m0, m1, m4 and m5 are 000, 001, 100 and 101: only B is constant (B = 0), so the group of four reads B'.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m004",
+   "questionText": "The minimal SOP form of F(A,B,C) = Σm(0,2,5,7) is:",
+   "options": [
+    "A'C' + AC",
+    "A'B' + AB",
+    "B'C' + BC",
+    "A ⊕ C"
+   ],
+   "correctIndex": 0,
+   "explanation": "m0 and m2 (A = 0, C = 0) pair to A'C'; m5 and m7 (A = 1, C = 1) pair to AC. F = A'C' + AC, which is the XNOR of A and C, not the XOR.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m005",
+   "questionText": "A 4-variable K-map (A, B, C, D) has 1s only in m0, m2, m8 and m10. The simplified expression is:",
+   "options": [
+    "A'C'",
+    "BD",
+    "B'D'",
+    "B'D"
+   ],
+   "correctIndex": 2,
+   "explanation": "m0, m2, m8 and m10 are the four corner cells (0000, 0010, 1000, 1010). A and C vary while B = 0 and D = 0, so F = B'D'.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m006",
+   "questionText": "Simplify F(A,B,C,D) = Σm(1,3,9,11).",
+   "options": [
+    "A'D",
+    "B'C",
+    "BD'",
+    "B'D"
+   ],
+   "correctIndex": 3,
+   "explanation": "The cells 0001, 0011, 1001 and 1011 keep B = 0 and D = 1 while A and C change; the group of four (wrapping top to bottom) gives B'D.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m007",
+   "questionText": "In a 5-variable K-map, a valid group of 4 cells produces a product term with how many literals?",
+   "options": [
+    "2",
+    "4",
+    "1",
+    "3"
+   ],
+   "correctIndex": 3,
+   "explanation": "A group of 2^k cells eliminates k variables. With n = 5 and k = 2 the term keeps 5 - 2 = 3 literals.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m008",
+   "questionText": "How many cells does a 5-variable Karnaugh map contain?",
+   "options": [
+    "25",
+    "16",
+    "32",
+    "64"
+   ],
+   "correctIndex": 2,
+   "explanation": "One cell per minterm: 2^5 = 32 cells, usually drawn as two 16-cell maps side by side.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m009",
+   "questionText": "In a 4-variable K-map (A, B, C, D, with A the most significant bit), which cells are adjacent to cell m5?",
+   "options": [
+    "m4, m6, m1, m9",
+    "m1, m4, m6, m13",
+    "m4, m6, m7, m13",
+    "m1, m4, m7, m13"
+   ],
+   "correctIndex": 3,
+   "explanation": "m5 = 0101. Changing one bit at a time gives 1101 = m13, 0001 = m1, 0111 = m7 and 0100 = m4; m6 (0110) differs from m5 in two bits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m010",
+   "questionText": "Which set of cells is NOT a valid group in a 4-variable K-map (A, B, C, D)?",
+   "options": [
+    "m0, m5, m10, m15",
+    "m0, m2, m8, m10",
+    "m1, m3, m9, m11",
+    "m4, m5, m12, m13"
+   ],
+   "correctIndex": 0,
+   "explanation": "m0, m5, m10 and m15 lie on a diagonal; each differs from its neighbour in two variables, so they are not adjacent. The other sets are the corners (B'D'), B'D and BC', all valid groups of four.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m011",
+   "questionText": "Simplify F(A,B,C,D) = Σm(0,1,4,5,10,11,14,15).",
+   "options": [
+    "A'B' + AB",
+    "A'C' + AC",
+    "B'C' + BC",
+    "A ⊕ C"
+   ],
+   "correctIndex": 1,
+   "explanation": "m0, m1, m4, m5 have A = 0, C = 0 (group A'C'); m10, m11, m14, m15 have A = 1, C = 1 (group AC). F = A'C' + AC.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m012",
+   "questionText": "The minimal SOP for F(A,B,C,D) = Σm(0,2,5,7,8,10,13,15) is:",
+   "options": [
+    "B ⊕ D",
+    "BD + B'D'",
+    "AD + A'D'",
+    "CD + C'D'"
+   ],
+   "correctIndex": 1,
+   "explanation": "The corners 0, 2, 8, 10 give B'D' and the centre block 5, 7, 13, 15 gives BD, so F = BD + B'D' (B XNOR D).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m013",
+   "questionText": "Simplify F(A,B,C,D) = Σm(0,1,2,3,4,5,6,7,8,10).",
+   "options": [
+    "A' + B'D",
+    "A'B' + D'",
+    "A' + B'D'",
+    "A' + BD'"
+   ],
+   "correctIndex": 2,
+   "explanation": "The top two rows (m0 to m7) form a group of 8 = A'. m8 and m10 join m0 and m2 in the corner group B'D'. F = A' + B'D'.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m014",
+   "questionText": "Find the minimal SOP of F(A,B,C,D) = Σm(0,1,2,5,8,9,10).",
+   "options": [
+    "B'C' + B'D' + A'C'D",
+    "B'D' + A'C'D",
+    "B'C' + B'D' + BC'D",
+    "B'C' + A'C'D + AB'D'"
+   ],
+   "correctIndex": 0,
+   "explanation": "Groups: m0, m1, m8, m9 give B'C'; the corners m0, m2, m8, m10 give B'D'; m1 and m5 give A'C'D. All three are essential, so F = B'C' + B'D' + A'C'D.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m015",
+   "questionText": "Find the minimal POS of F(A,B,C,D) = Σm(0,1,2,5,8,9,10).",
+   "options": [
+    "(A + B)(C + D)(B + D')",
+    "(A' + B')(C' + D')(B' + D)",
+    "(A' + B')(C' + D')(B + D')",
+    "(A' + B')(C' + D)"
+   ],
+   "correctIndex": 1,
+   "explanation": "Group the 0s: row AB = 11 gives AB, column CD = 11 gives CD, and m4, m6, m12, m14 give BD'. So F' = AB + CD + BD' and, by De Morgan, F = (A' + B')(C' + D')(B' + D).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m016",
+   "questionText": "F(A,B,C,D) = Σm(1,3,7,11,15) + d(0,2,5). Which of the following is a minimal SOP for F?",
+   "options": [
+    "CD + A'B'",
+    "CD + B'D",
+    "AD + A'B'",
+    "CD + A'C'"
+   ],
+   "correctIndex": 0,
+   "explanation": "CD covers m3, m7, m11, m15. m1 still needs a group: A'B' (using d0, d2) or A'D (using d5) both work with two literals, so CD + A'B' is minimal (CD + A'D is equally minimal). B'D, AD and A'C' each cover a 0-cell (m9 or m4).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m017",
+   "questionText": "For F(A,B,C,D) = Σm(1,3,7,11,15) + d(0,2,5), the minimal POS expression is:",
+   "options": [
+    "(A' + D)(C + D)",
+    "(A + C)D",
+    "D(A' + C)",
+    "(A' + C)(B' + D)"
+   ],
+   "correctIndex": 2,
+   "explanation": "Grouping the 0s (with d0 and d2 taken as 0) gives D' (the eight cells with D = 0) and AC' (m8, m9, m12, m13). F' = D' + AC', so F = D(A' + C).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m018",
+   "questionText": "F(A,B,C) = Σm(0,1,2,5,6,7). How many essential prime implicants does F have?",
+   "options": [
+    "0",
+    "1",
+    "2",
+    "3"
+   ],
+   "correctIndex": 0,
+   "explanation": "Every 1-cell is covered by two prime implicants (A'B', A'C', B'C, BC', AB, AC form a ring of pairs), so no PI is essential. This is a cyclic function; a minimal cover still needs 3 of the 6 PIs, e.g. A'B' + BC' + AC.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m019",
+   "questionText": "For F(A,B,C,D) = Σm(1,5,6,7,11,12,13,15), the group BD (cells m5, m7, m13, m15) is:",
+   "options": [
+    "An essential prime implicant",
+    "Not a prime implicant, because it can be enlarged to a group of 8",
+    "Required, because m15 is covered by no other prime implicant",
+    "A prime implicant that is not needed in the minimal SOP"
+   ],
+   "correctIndex": 3,
+   "explanation": "The four essential PIs A'C'D, A'BC, ABC' and ACD already cover m5, m7, m13 and m15, so BD is a redundant prime implicant: F = A'C'D + A'BC + ABC' + ACD.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m020",
+   "questionText": "A 5-variable K-map is drawn as two 16-cell maps, one for A = 0 (m0 to m15) and one for A = 1 (m16 to m31). Which cell of the A = 1 map is adjacent to m3?",
+   "options": [
+    "m18",
+    "m27",
+    "m17",
+    "m19"
+   ],
+   "correctIndex": 3,
+   "explanation": "Cells in the same position of the two maps differ only in A, so m3 (00011) is adjacent to m3 + 16 = m19 (10011). m18, m27 and m17 each differ from m3 in two bits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m021",
+   "questionText": "Using a 5-variable K-map, simplify F(A,B,C,D,E) = Σm(0,2,4,6,9,13,21,23,25,29,31).",
+   "options": [
+    "A'B'E' + BD'E + ABE",
+    "A'B'E' + BC'E + ACE",
+    "A'B'E' + BD'E + ACE",
+    "A'E' + BD'E + ACE"
+   ],
+   "correctIndex": 2,
+   "explanation": "m0, m2, m4, m6 give A'B'E'; m9, m13, m25, m29 (same positions in both maps) give BD'E; m21, m23, m29, m31 give ACE. All three are essential.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m022",
+   "questionText": "A circuit with BCD input ABCD (A = MSB) must output 1 when the digit is 5 or more. Using the codes 1010 to 1111 as don't-cares, the minimal SOP is:",
+   "options": [
+    "A + BD + CD",
+    "A + B'D + BC",
+    "BD + BC",
+    "A + BD + BC"
+   ],
+   "correctIndex": 3,
+   "explanation": "1s at m5 to m9, don't-cares at m10 to m15. The bottom two rows (with Xs) give A, m5, m7 with m13, m15 give BD, and m6, m7 with m14, m15 give BC. F = A + BD + BC.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m023",
+   "questionText": "Simplify F(A,B,C,D) = Σm(0,4,8,12).",
+   "options": [
+    "A'B'",
+    "CD",
+    "C'D'",
+    "C'D"
+   ],
+   "correctIndex": 2,
+   "explanation": "The four cells form the column CD = 00 across all four rows. A and B vary, C = 0 and D = 0, so F = C'D'.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m024",
+   "questionText": "A 4-variable K-map has 1s only in m5, m7, m13 and m15. The simplified function is:",
+   "options": [
+    "BC",
+    "BD",
+    "AD",
+    "B'D"
+   ],
+   "correctIndex": 1,
+   "explanation": "The cells 0101, 0111, 1101, 1111 form the centre square; B = 1 and D = 1 are constant, so F = BD.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m025",
+   "questionText": "The minimal SOP of F(A,B,C) = Σm(1,2,3,5,7) is:",
+   "options": [
+    "C + A'B",
+    "C + AB'",
+    "A'C + B",
+    "B + C"
+   ],
+   "correctIndex": 0,
+   "explanation": "m1, m3, m5, m7 form the group C. m2 pairs with m3 (A = 0, B = 1) to give A'B. F = C + A'B.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m026",
+   "questionText": "When F(A,B,C,D) = A + B'C is plotted on a 4-variable K-map, how many cells contain 1?",
+   "options": [
+    "10",
+    "8",
+    "12",
+    "6"
+   ],
+   "correctIndex": 0,
+   "explanation": "A covers the 8 cells with A = 1. B'C covers 4 cells, 2 of which (A = 1) are already counted, adding m2 and m3. Total = 8 + 2 = 10.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m027",
+   "questionText": "On a 4-variable K-map (A, B, C, D), the product term AC' occupies how many cells?",
+   "options": [
+    "2",
+    "4",
+    "8",
+    "6"
+   ],
+   "correctIndex": 1,
+   "explanation": "AC' fixes two of the four variables and leaves B and D free, so it covers 2^2 = 4 cells (m8, m9, m12, m13).",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m028",
+   "questionText": "The minimal POS of F(A,B,C) = Σm(0,1,2,3,6) is:",
+   "options": [
+    "(A + B')(A + C)",
+    "(A' + B')(A' + C)",
+    "(A' + B)(A' + C)",
+    "(A' + B)(A' + C')"
+   ],
+   "correctIndex": 3,
+   "explanation": "The 0s are m4, m5, m7. m4 and m5 (A = 1, B = 0) give the sum term (A' + B); m5 and m7 (A = 1, C = 1) give (A' + C'). F = (A' + B)(A' + C').",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m029",
+   "questionText": "F(A,B,C,D) = ΠM(3,7,11,15). The minimal POS form is:",
+   "options": [
+    "(C' + D')",
+    "(C + D)",
+    "(A' + C' + D')",
+    "(C' + D)(C + D')"
+   ],
+   "correctIndex": 0,
+   "explanation": "The four 0s form the column CD = 11 (C = 1, D = 1). A group of 0s is written as a sum with each constant variable complemented, so F = (C' + D').",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m030",
+   "questionText": "For F(A,B,C) = Σm(0,1,2,3,4), grouping the 0-cells of the K-map gives the complement F' as:",
+   "options": [
+    "A'B' + A'C'",
+    "AB + BC",
+    "AB + AC",
+    "A + BC"
+   ],
+   "correctIndex": 2,
+   "explanation": "The 0s are m5, m6, m7. m6, m7 give AB and m5, m7 give AC, so F' = AB + AC (and F = A' + B'C').",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m031",
+   "questionText": "In the Quine–McCluskey method, combining the minterms m4 (0100) and m6 (0110) produces the term:",
+   "options": [
+    "01-0",
+    "0-10",
+    "011-",
+    "01-1"
+   ],
+   "correctIndex": 0,
+   "explanation": "The two codes differ only in the third bit (C), which is replaced by a dash: 01-0, i.e. A'BD'.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m032",
+   "questionText": "In the first step of the Quine–McCluskey tabulation method, the minterms are arranged in groups according to:",
+   "options": [
+    "The number of 1s in their binary representation",
+    "Their decimal value in ascending order",
+    "The number of variables that appear complemented in the final answer",
+    "The Gray-code position of each minterm on the K-map"
+   ],
+   "correctIndex": 0,
+   "explanation": "Only terms in neighbouring groups (1s count differing by one) can differ in a single bit, so grouping by the count of 1s limits the comparisons that must be made.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m033",
+   "questionText": "Which pair of minterms can be combined in the first stage of the Quine–McCluskey method?",
+   "options": [
+    "m6 and m9",
+    "m5 and m7",
+    "m2 and m4",
+    "m3 and m12"
+   ],
+   "correctIndex": 1,
+   "explanation": "m5 = 0101 and m7 = 0111 differ in exactly one bit, giving 01-1. 6/9 (0110/1001) differ in four bits, 2/4 in two bits and 3/12 in four bits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m034",
+   "questionText": "In a Quine–McCluskey table for a 4-variable function, the minterm m13 is placed in the group of terms containing:",
+   "options": [
+    "Two 1s",
+    "Three 1s",
+    "Four 1s",
+    "One 1"
+   ],
+   "correctIndex": 1,
+   "explanation": "13 = 1101 in binary, which contains three 1s.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m035",
+   "questionText": "At the end of the Quine–McCluskey tabulation, the prime implicants are:",
+   "options": [
+    "The terms produced in the final stage only",
+    "The original minterms of the first column",
+    "The terms that were combined the greatest number of times",
+    "The terms that were never combined (never ticked) at any stage"
+   ],
+   "correctIndex": 3,
+   "explanation": "A term that cannot be combined with any other differs from all of them in more than one bit, so it cannot be enlarged; every unticked term, from any column, is a prime implicant.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m036",
+   "questionText": "The main advantage of the Quine–McCluskey method over the Karnaugh map is that it:",
+   "options": [
+    "Always gives an expression with fewer literals than a K-map",
+    "Does not need prime implicants",
+    "Cannot use don't-care conditions, so it is simpler",
+    "Is a systematic procedure that can be programmed and used for many variables"
+   ],
+   "correctIndex": 3,
+   "explanation": "Both methods find the same minimal result; Quine–McCluskey replaces visual grouping with a table-driven algorithm, which suits computers and functions with more than four or five variables.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m037",
+   "questionText": "In the second stage of the Quine–McCluskey method, which pair of terms can be combined?",
+   "options": [
+    "01-0 and 0-10",
+    "01-0 and 11-0",
+    "1-01 and 10-1",
+    "-011 and 0-11"
+   ],
+   "correctIndex": 1,
+   "explanation": "Two terms combine only if their dashes are in the same positions and they differ in exactly one other bit. 01-0 and 11-0 differ only in the first bit, giving -1-0 (BD'). The other pairs have dashes in different positions.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m038",
+   "questionText": "A function whose prime implicant chart contains no essential prime implicant (every minterm is covered by at least two PIs) is called:",
+   "options": [
+    "An incompletely specified function",
+    "A cyclic function",
+    "A self-dual function",
+    "A degenerate function"
+   ],
+   "correctIndex": 1,
+   "explanation": "In a cyclic chart no column has a single mark, so selection must be made by trial or by Petrick's method. Incompletely specified refers to don't-cares, which is a different idea.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m039",
+   "questionText": "A static-1 hazard in a combinational circuit is:",
+   "options": [
+    "A momentary 1 at the output when it should remain 0 during a single input change",
+    "Several output transitions when the output should change only once",
+    "An output permanently stuck at 1 because of a faulty gate",
+    "A momentary 0 at the output when it should remain 1 during a single input change"
+   ],
+   "correctIndex": 3,
+   "explanation": "Static-1 means the correct output is 1 before and after the change but a glitch to 0 appears because of unequal path delays. The first option describes a static-0 hazard and the second a dynamic hazard.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m040",
+   "questionText": "F = AB' + BC has a static-1 hazard when A = 1, C = 1 and B changes. Which term must be added to remove it without changing the function?",
+   "options": [
+    "A'C",
+    "AC",
+    "AB",
+    "B'C"
+   ],
+   "correctIndex": 1,
+   "explanation": "The consensus of AB' and BC (eliminating B) is AC. It covers both cells 101 and 111, so the output is held at 1 while B switches, and AB' + BC + AC equals AB' + BC.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m041",
+   "questionText": "For the two-level SOP circuit F = A'C' + AB, a static-1 hazard can occur when:",
+   "options": [
+    "B = 0, C = 0 and A changes",
+    "A = 1, B = 1 and C changes",
+    "B = 1, C = 0 and A changes",
+    "A = 0, C = 0 and B changes"
+   ],
+   "correctIndex": 2,
+   "explanation": "Cells 010 and 110 are both 1 but are covered by different terms (A'C' and AB), so when A switches one AND gate turns off as the other turns on. With B = 0, C = 0 the output really changes; in the other two cases a single term stays 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i14_m042",
+   "questionText": "In a two-level POS realisation, a static-0 hazard is removed by:",
+   "options": [
+    "Adding a redundant product term that covers the adjacent 1-cells",
+    "Adding a redundant sum term that covers the pair of adjacent 0-cells",
+    "Removing every non-essential sum term",
+    "Replacing the OR gates by XOR gates"
+   ],
+   "correctIndex": 1,
+   "explanation": "POS is the dual of SOP: two adjacent 0-cells covered by different sum terms can glitch to 1, and the cure is the consensus sum term that covers both.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m043",
+   "questionText": "Which statement about don't-care conditions in a K-map is NOT correct?",
+   "options": [
+    "A don't-care may be treated as 1 or 0, whichever gives larger groups",
+    "In a BCD input circuit the codes 1010 to 1111 can be treated as don't-cares",
+    "Every don't-care cell must be covered by at least one group",
+    "A group made only of don't-cares adds an unnecessary term"
+   ],
+   "correctIndex": 2,
+   "explanation": "Don't-cares are optional: they are included only when they enlarge a group of 1s and are otherwise left uncovered.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m044",
+   "questionText": "A prime implicant of a Boolean function is:",
+   "options": [
+    "A group containing exactly one 1-cell",
+    "A term that must appear in every minimal expression",
+    "A product term whose group cannot be enlarged without including a 0-cell",
+    "A product term containing all n variables"
+   ],
+   "correctIndex": 2,
+   "explanation": "A prime implicant is a maximal group. A term that must appear in every minimal expression is an essential PI, and a term with all n variables is a minterm.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i14_m045",
+   "questionText": "In a 6-variable K-map, each cell is adjacent to how many other cells?",
+   "options": [
+    "4",
+    "8",
+    "12",
+    "6"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each cell is adjacent to the cells that differ from it in exactly one variable; with 6 variables there are 6 such cells.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i14_m046",
+   "questionText": "Find the minimal SOP of F(A,B,C,D) = Σm(0,1,4,5,6,7,8,9,10,14).",
+   "options": [
+    "B'C' + A'B + ACD'",
+    "B'C' + A'B + AB'D'",
+    "B'C' + A'B + CD'",
+    "A'C' + A'B + ACD'"
+   ],
+   "correctIndex": 0,
+   "explanation": "Essential PIs: B'C' (m0, m1, m8, m9) and A'B (m4 to m7). m10 and m14 remain; the single group ACD' covers both. AB'D' misses m14, CD' includes the 0-cell m2, and A'C' leaves m8, m9 uncovered.",
+   "difficulty": "hard"
+  }
+ ]
+}

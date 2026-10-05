@@ -1,0 +1,533 @@
+{
+  "topicId": "ch5_i63",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: TLS, IPsec and VPNs"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on SSL/TLS, IPsec and VPNs, cleaned up and corrected:",
+      "items": [
+        "SSL/TLS secures a connection between two applications running over TCP, mainly HTTPS on port 443, but also mail (SMTPS 465, IMAPS 993, POP3S 995) and many other protocols. It authenticates the server with a certificate (the client optionally) and encrypts and integrity-protects the data, which defends against eavesdropping, tampering and man-in-the-middle attacks as long as the certificate is checked.",
+        "The handshake in outline: the client says hello and lists what it supports, the server sends its certificate, the client verifies it, both agree on a cipher suite and exchange key material, and all further data is encrypted with fast symmetric session keys. https:// and the padlock show that this happened with the named site.",
+        "Correction: SSL 2.0 and 3.0 are prohibited (SSL 3.0 was broken by the POODLE attack in 2014), and TLS 1.0 and 1.1 were deprecated in 2021 (RFC 8996); use TLS 1.2 or 1.3. 'SSL certificate' survives only as a name.",
+        "Correction: in TLS 1.3 the key in the server's certificate encrypts nothing. It signs the handshake (the CertificateVerify message), and the session keys come from an ephemeral (EC)DHE exchange.",
+        "IPsec authenticates the sender, protects integrity, encrypts (ESP only; AH never encrypts) and rejects replayed packets. 'Tunnel mode encrypts the entire packet' means the entire original packet: the new outer IP header stays readable so that routers can forward it.",
+        "A VPN client encrypts traffic to a VPN gateway, which decrypts and forwards it, so destinations see the gateway's address. It protects you from the local network, for example public Wi-Fi, but the VPN operator sees what leaves the gateway, so a commercial VPN moves trust rather than removing it."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Trace: a full TLS 1.3 handshake (RTT = 50 ms, TCP starts at t = 0)\nt = 0     C -> S  TCP SYN;  the SYN-ACK arrives at t = 50\nt = 50    C -> S  ClientHello: versions, cipher suites, SNI, key_share (X25519)\nt = 100   S -> C  ServerHello: TLS_AES_128_GCM_SHA256 + server key_share\n                  (both sides now derive handshake keys from the ECDHE secret)\n                  {EncryptedExtensions} {Certificate}\n                  {CertificateVerify: signature over the transcript so far}\n                  {Finished: HMAC over the whole transcript}\nt = 100   C -> S  {Finished} + the first request, under the traffic keys\nt = 150   S -> C  the first response bytes arrive\nWith a full TLS 1.2 handshake the request would leave at t = 150, not 100\n{ } = encrypted, so even the certificate is hidden from eavesdroppers"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Version",
+          "Year and specification",
+          "Status today",
+          "Main reason"
+        ],
+        [
+          "SSL 2.0",
+          "1995 (Netscape)",
+          "Prohibited (RFC 6176)",
+          "Weak MACs, no protection of the handshake"
+        ],
+        [
+          "SSL 3.0",
+          "1996 (Netscape, later RFC 6101)",
+          "Prohibited (RFC 7568: must not be used)",
+          "POODLE attack on its CBC padding"
+        ],
+        [
+          "TLS 1.0",
+          "1999, RFC 2246",
+          "Deprecated (RFC 8996)",
+          "BEAST attack, MD5/SHA-1 in the handshake"
+        ],
+        [
+          "TLS 1.1",
+          "2006, RFC 4346",
+          "Deprecated (RFC 8996)",
+          "No AEAD ciphers, MD5/SHA-1 in the handshake"
+        ],
+        [
+          "TLS 1.2",
+          "2008, RFC 5246",
+          "Acceptable with ECDHE and AEAD",
+          "Still allows weak options if misconfigured"
+        ],
+        [
+          "TLS 1.3",
+          "2018, RFC 8446",
+          "Preferred",
+          "1-RTT, forward secrecy, AEAD only"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Forward secrecy means that stealing a server's long-term private key later does not expose sessions recorded earlier. With RSA key transport the client encrypts the pre-master secret under the certificate's public key, so whoever obtains the private key can decrypt every recorded handshake and derive its session keys; with ephemeral (EC)DHE the certificate key only signs, and the DH secrets are erased after the handshake. TLS 1.3 therefore removed static RSA and static DH key exchange, together with CBC and RC4 ciphers, compression (abused by the CRIME attack) and renegotiation. Its optional 0-RTT early data can be replayed by an attacker, so servers accept it only for requests that are safe to repeat."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Protocol and mode",
+          "Encrypted",
+          "Integrity-protected"
+        ],
+        [
+          "AH, transport",
+          "Nothing",
+          "Payload and the unchanging fields of the IP header"
+        ],
+        [
+          "AH, tunnel",
+          "Nothing",
+          "Whole inner packet and the unchanging fields of the new outer header"
+        ],
+        [
+          "ESP, transport",
+          "Upper-layer payload (e.g. TCP segment) and ESP trailer",
+          "ESP header, payload and trailer; not the IP header"
+        ],
+        [
+          "ESP, tunnel",
+          "Whole original packet and ESP trailer",
+          "ESP header, inner packet and trailer; not the outer header"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "L_{ESP} = 20 + 8 + L_{IV} + b\\left\\lceil \\frac{L_{in} + 2}{b} \\right\\rceil + L_{ICV}",
+      "plainText": "ESP tunnel-mode length = 20 (new IPv4 header) + 8 (SPI and sequence number) + IV + b x ceil((inner packet + 2) / b) + ICV, where b is the cipher block size (16 for AES-CBC, 4 for AES-GCM alignment) and the 2 bytes are Pad Length and Next Header"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example: ESP tunnel overhead and the largest safe TCP MSS\nSettings: AES-CBC (IV 16, block b = 16), HMAC-SHA1-96 (ICV 12)\nInner packet 1,300 bytes: 1,300 + 2 (Pad Length, Next Header) = 1,302\n  pad to a multiple of 16 -> 1,312 (10 padding bytes)\n  total = 20 + 8 + 16 + 1,312 + 12 = 1,368 bytes (68 bytes of overhead)\nPath MTU 1,500: room for the encrypted part = 1,500 - 20 - 8 - 16 - 12\n  = 1,444, but it must be whole blocks: floor(1,444 / 16) x 16 = 1,440\n  largest inner packet = 1,440 - 2 = 1,438 bytes\n  largest TCP MSS = 1,438 - 20 (inner IP) - 20 (TCP) = 1,398 bytes\nWithout IPsec the MSS would be 1,460. Bigger inner packets must be\n  fragmented (or dropped if DF is set), so VPN gateways clamp the MSS"
+    },
+    {
+      "type": "bulletList",
+      "text": "Security associations and IKE in practice:",
+      "items": [
+        "An SA is one-way: a two-way ESP connection needs two SAs, each with its own 32-bit SPI chosen by the receiver and stored in the Security Association Database (SAD). The Security Policy Database (SPD) decides for each packet whether to protect it, let it bypass IPsec or discard it.",
+        "IKEv2 (RFC 7296) needs 4 messages in 2 round trips: IKE_SA_INIT agrees algorithms and runs Diffie-Hellman with nonces, and IKE_AUTH proves the identities (certificates, pre-shared key or EAP) under encryption and creates the first child SA. CREATE_CHILD_SA later adds SAs or rekeys.",
+        "IKEv1 used Main Mode (6 messages) or Aggressive Mode (3 messages, identities sent in clear) for phase 1, then Quick Mode (3 messages) to set up the IPsec SAs.",
+        "Anti-replay: each SA's 32-bit sequence number (64-bit with extended sequence numbers) grows by one per packet; the receiver keeps a sliding window, 64 packets by default, and drops packets that fall left of the window or were already seen.",
+        "NAT traversal: when IKE detects a NAT, IKE and ESP move to UDP port 4500 and ESP is wrapped in UDP, giving the NAT ports to translate. AH cannot pass a NAT, because it authenticates the addresses that NAT rewrites.",
+        "ESP with NULL encryption gives integrity without confidentiality and, unlike AH, passes through NAT; AH additionally protects the unchanging fields of the outer IP header."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Remote-access VPNs come in two families. IPsec clients (often IKEv2) work at layer 3 and give the laptop an address inside the company network, while SSL/TLS VPNs (a clientless browser portal or a TLS-based client) usually run over TCP port 443, which passes nearly every hotel or café firewall; OpenVPN, for example, defaults to UDP 1194 but is often set to TCP 443 for this reason. WireGuard is a newer, much simpler layer-3 VPN over UDP with a fixed set of modern algorithms (Curve25519, ChaCha20-Poly1305). With split tunnelling only traffic for the company's networks enters the tunnel and other Internet traffic goes out directly; full tunnelling sends everything through the company, where it can be inspected."
+    },
+    {
+      "type": "examTip",
+      "text": "AH = integrity and authentication only (IP protocol 51, fails through NAT); ESP = encryption plus integrity (protocol 50); an SA is one-way and is found by its SPI; IKE uses UDP 500 and NAT traversal UDP 4500. TLS 1.2 needs 2 RTT and TLS 1.3 needs 1 RTT, plus 1 RTT for TCP. For overhead questions list every added field (new IP header 20, ESP header 8, IV, padding to the block size including the 2-byte trailer, ICV) before adding them up."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: saying transport mode hides the IP addresses (only tunnel mode does); saying AH encrypts; forgetting that an SA covers one direction only; leaving out the 2-byte ESP trailer or the padding in size questions; and calling TLS 'SSL' as if SSL were still acceptable. A VPN protects the path to the VPN gateway, not beyond it, so it is no substitute for HTTPS."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i63_m001",
+      "questionText": "What does VPN stand for?",
+      "options": [
+        "Virtual Private Network",
+        "Very Private Network",
+        "Virtual Public Network",
+        "Verified Private Network"
+      ],
+      "correctIndex": 0,
+      "explanation": "A VPN is a virtual private network: an encrypted tunnel across a shared public network that lets remote hosts or sites behave as if they were on one private network.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m002",
+      "questionText": "Which of the following best describes a VPN?",
+      "options": [
+        "A hardware firewall that blocks incoming connections",
+        "A secure, encrypted connection (a tunnel) across an untrusted network such as the Internet",
+        "A DNS resolution service",
+        "A peer-to-peer file-sharing protocol"
+      ],
+      "correctIndex": 1,
+      "explanation": "A VPN wraps private traffic in encrypted, authenticated packets so that it can cross the Internet safely; IPsec and TLS-based VPNs are the common types. A firewall may terminate VPN tunnels, but it is not itself a VPN.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m003",
+      "questionText": "At which layer does IPsec provide security?",
+      "options": [
+        "Application layer",
+        "Transport layer",
+        "Network layer",
+        "Physical layer"
+      ],
+      "correctIndex": 2,
+      "explanation": "IPsec protects the IP packets themselves, so TCP, UDP, ICMP and every application above them are covered without any change to the applications. TLS, by contrast, sits above TCP and protects one connection at a time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m004",
+      "questionText": "Which protocol suite is most commonly used to build secure site-to-site VPNs between the gateways of two offices?",
+      "options": [
+        "FTP",
+        "BGP",
+        "SMTP",
+        "IPsec"
+      ],
+      "correctIndex": 3,
+      "explanation": "IPsec, with ESP in tunnel mode and IKE for key exchange, is the standard for gateway-to-gateway VPNs. FTP transfers files, BGP exchanges routes between autonomous systems and SMTP carries e-mail, and none of them provides this security.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m005",
+      "questionText": "What does SSL/TLS add to a TCP connection?",
+      "options": [
+        "Authentication of the server (and optionally the client), plus encryption and integrity protection of the data",
+        "Packet sequencing and retransmission of lost segments",
+        "Bandwidth reservation along the path",
+        "Flow control between the sender and the receiver"
+      ],
+      "correctIndex": 0,
+      "explanation": "TLS adds the security services: certificate-based authentication, confidentiality and integrity. Sequencing, retransmission and flow control are already done by TCP underneath, and SSL itself is obsolete, so today this means TLS 1.2 or 1.3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m006",
+      "questionText": "Which statement about SSL and TLS is correct today?",
+      "options": [
+        "SSL 3.0 is newer and stronger than TLS 1.2",
+        "All SSL versions, and also TLS 1.0 and 1.1, are deprecated; secure connections should use TLS 1.2 or TLS 1.3",
+        "HTTPS still requires SSL 3.0 for compatibility",
+        "SSL and TLS are unrelated protocols with different purposes"
+      ],
+      "correctIndex": 1,
+      "explanation": "TLS 1.0 (1999) was the IETF's successor to Netscape's SSL 3.0. SSL 2.0 and 3.0 are prohibited (RFC 6176 and RFC 7568; POODLE broke SSL 3.0), and RFC 8996 deprecated TLS 1.0 and 1.1 in 2021.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m007",
+      "questionText": "Which transport protocol and port does IKE use to negotiate IPsec security associations when there is no NAT on the path?",
+      "options": [
+        "TCP port 443",
+        "UDP port 53",
+        "UDP port 500",
+        "TCP port 22"
+      ],
+      "correctIndex": 2,
+      "explanation": "IKE runs over UDP port 500; when a NAT is detected, IKE and ESP move to UDP port 4500 (NAT traversal). Port 443 is HTTPS, 53 is DNS and 22 is SSH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m008",
+      "questionText": "What does the STARTTLS command do in SMTP, IMAP and POP3?",
+      "options": [
+        "It upgrades a connection that began in plain text on the protocol's normal port to TLS, before any credentials or message data are sent",
+        "It opens a second connection on a dedicated TLS-only port",
+        "It encrypts the message end to end, so that no mail server can read it",
+        "It starts an IPsec tunnel between the two mail servers"
+      ],
+      "correctIndex": 0,
+      "explanation": "With STARTTLS the two sides first talk in clear (for example SMTP on port 587 or 25) and then run the TLS handshake on the same connection. It protects only that hop, and an active attacker who strips the STARTTLS offer can force plain text unless TLS is required.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m009",
+      "questionText": "TLS needs a reliable, in-order byte stream and therefore runs over TCP. Which protocol gives the same kind of security to UDP-based applications, such as WebRTC or some VPN clients?",
+      "options": [
+        "SSH",
+        "S/MIME",
+        "DTLS (Datagram TLS)",
+        "L2TP"
+      ],
+      "correctIndex": 2,
+      "explanation": "DTLS adapts TLS to datagrams by adding explicit sequence numbers and coping with loss and reordering itself. SSH secures remote logins over TCP, S/MIME secures e-mail messages, and L2TP is a tunnelling protocol with no encryption of its own.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i63_m010",
+      "questionText": "Which option correctly matches each security protocol with the layer at which it protects traffic?",
+      "options": [
+        "IPsec: transport layer; TLS: network layer; WPA2: application layer; PGP: data link layer",
+        "IPsec: data link layer; TLS: application layer; WPA2: network layer; PGP: transport layer",
+        "IPsec: network layer; TLS: data link layer; WPA2: physical layer; PGP: transport layer",
+        "IPsec: network layer; TLS: just above TCP, below the application; WPA2: data link layer (Wi-Fi); PGP: application layer"
+      ],
+      "correctIndex": 3,
+      "explanation": "IPsec protects IP packets, TLS protects a TCP byte stream just above the transport layer, WPA2 encrypts Wi-Fi frames at the data link layer, and PGP protects the message itself at the application layer. Lower-layer protection covers all traffic between two points, while higher-layer protection travels end to end with the data.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m011",
+      "questionText": "An attacker records many TLS 1.2 sessions with a server and, years later, steals the server's RSA private key. Which of the recorded sessions can he now decrypt?",
+      "options": [
+        "Every recorded session, whatever key exchange was used",
+        "None, because TLS never uses the certificate's key for anything",
+        "Only the sessions that used ECDHE key exchange",
+        "The sessions that used RSA key transport, in which the client encrypted the pre-master secret with the server's RSA public key; sessions that used ephemeral (EC)DHE stay safe"
+      ],
+      "correctIndex": 3,
+      "explanation": "With RSA key transport the stolen key decrypts the recorded pre-master secret and hence every session key. With ephemeral (EC)DHE the RSA key only signs the handshake and the DH secrets are discarded, which is forward secrecy; TLS 1.3 therefore allows only (EC)DHE.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m012",
+      "questionText": "Which of the following was removed from TLS in version 1.3?",
+      "options": [
+        "AES-GCM authenticated encryption",
+        "Static RSA key transport, in which the client encrypts a pre-master secret with the server's RSA public key",
+        "Ephemeral elliptic-curve Diffie-Hellman key exchange",
+        "X.509 certificates for server authentication"
+      ],
+      "correctIndex": 1,
+      "explanation": "TLS 1.3 removed static RSA and static DH key exchange, CBC and RC4 ciphers, compression and renegotiation, keeping only AEAD ciphers and (EC)DHE. Certificates are still used, but only to sign the handshake.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m013",
+      "questionText": "In the TLS 1.2 cipher suite TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, which component authenticates the server?",
+      "options": [
+        "ECDHE",
+        "AES_256_GCM",
+        "SHA384",
+        "ECDSA, the signature algorithm of the key in the server's certificate"
+      ],
+      "correctIndex": 3,
+      "explanation": "The server signs its ephemeral ECDHE parameters with the ECDSA private key that matches its certificate, which proves its identity. ECDHE agrees the keys, AES-256-GCM encrypts and authenticates the records, and SHA-384 is the hash used by the key-derivation function (PRF).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m014",
+      "questionText": "What is the purpose of the Finished messages at the end of a TLS handshake?",
+      "options": [
+        "They close the TCP connection once the handshake is over",
+        "Each side sends a MAC, computed with the new keys, over the entire handshake transcript, so that any tampering with earlier handshake messages, such as a cipher-suite downgrade, is detected",
+        "They carry the server's certificate chain",
+        "They tell the certificate authority that the session has started"
+      ],
+      "correctIndex": 1,
+      "explanation": "The hello messages travel before any keys exist, so an attacker could try to alter them; the Finished messages prove that both sides saw the same handshake and hold the same keys. Without 0-RTT or False Start, the client sends application data only after it has verified the server's Finished.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m015",
+      "questionText": "On public Wi-Fi an attacker intercepts a user's connection to https://bank.example and presents his own self-signed certificate for bank.example. What normally defeats this attack?",
+      "options": [
+        "Nothing needs to, because TLS encryption alone stops the attacker from reading the data",
+        "The TCP checksum detects the forged certificate",
+        "The browser cannot chain the certificate to a trusted root CA, so it shows an error and does not continue; the attack works only if the user clicks through the warning or a rogue root certificate has been installed",
+        "The access point's WPA2 encryption blocks the attacker's certificate"
+      ],
+      "correctIndex": 2,
+      "explanation": "The attacker terminates the TLS connection himself, so encryption alone would protect nothing; it is the certificate check that ties the keys to the real bank. HSTS makes browsers refuse to let users click through such errors on sites that use it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m016",
+      "questionText": "Why does IPsec AH fail when a NAT device sits between the two peers, while ESP with NAT traversal works?",
+      "options": [
+        "AH packets are larger than the NAT device's MTU",
+        "NAT devices drop every encrypted packet",
+        "AH's integrity check covers the addresses in the outer IP header, which NAT rewrites, so the check fails; ESP does not authenticate the outer header, and NAT traversal wraps ESP in UDP port 4500 so that the NAT has ports to translate",
+        "AH runs over TCP, which NAT cannot translate"
+      ],
+      "correctIndex": 2,
+      "explanation": "AH authenticates the unchanging fields of the IP header, including the addresses, so any address translation makes every packet look forged. ESP's ICV covers only the ESP header, payload and trailer, and the UDP wrapper gives the NAT a port pair to work with.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m017",
+      "questionText": "Two IPsec gateways exchange ESP-protected traffic in both directions. How many ESP security associations do they need, and how does a receiver find the SA an arriving packet belongs to?",
+      "options": [
+        "Two SAs, one for each direction; the receiver finds the SA from the SPI in the ESP header (together with the destination address and protocol)",
+        "One SA, found from the pair of IP addresses",
+        "Four SAs, one per host and direction, found from the TCP port numbers",
+        "Two SAs, found from the IKE port number 500"
+      ],
+      "correctIndex": 0,
+      "explanation": "An SA is one-way, so two-way traffic needs a pair, each with its own SPI chosen by the receiving side. The receiver looks the SPI up in its Security Association Database to get the keys and algorithms for that packet.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m018",
+      "questionText": "An observer on the Internet captures a packet of a site-to-site VPN that uses ESP in tunnel mode. What can he read?",
+      "options": [
+        "The inner hosts' IP addresses and TCP port numbers, but not the data",
+        "Nothing at all, not even the outer IP header",
+        "The two gateways' IP addresses, the SPI, the sequence number and the packet's length, but not the inner addresses, the port numbers or the data",
+        "Everything, because ESP in tunnel mode only authenticates the packet"
+      ],
+      "correctIndex": 2,
+      "explanation": "The new outer IP header and the ESP header (SPI and sequence number) must stay in clear for routing and SA lookup, while the whole original packet, including its header and ports, is encrypted. Only the size and timing of packets still leak, which allows limited traffic analysis.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m019",
+      "questionText": "In IKEv2, what happens in the first two exchanges, IKE_SA_INIT and IKE_AUTH?",
+      "options": [
+        "IKE_SA_INIT sends each peer's password in clear, and IKE_AUTH checks it against a RADIUS server",
+        "IKE_SA_INIT negotiates algorithms and runs a Diffie-Hellman exchange with nonces to create the IKE SA; IKE_AUTH then authenticates the peers (with certificates or a pre-shared key) under that protection and sets up the first child SA for ESP or AH",
+        "IKE_SA_INIT creates the ESP SA directly, without any Diffie-Hellman exchange",
+        "Both exchanges are TCP handshakes on port 443"
+      ],
+      "correctIndex": 1,
+      "explanation": "The four messages (two round trips) first establish shared keys and then prove identities inside the encrypted IKE SA, so the identities are hidden from passive observers. Further child SAs and rekeying use CREATE_CHILD_SA exchanges (RFC 7296).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m020",
+      "questionText": "A company links its Kathmandu and Pokhara offices over the Internet so that any host at one site can reach any host at the other, with the two gateways doing all the encryption. Which IPsec configuration fits best?",
+      "options": [
+        "AH in transport mode between every pair of hosts",
+        "ESP in transport mode between the two gateways only",
+        "AH in tunnel mode, because AH encrypts the whole packet",
+        "ESP in tunnel mode between the two gateways, as a site-to-site VPN"
+      ],
+      "correctIndex": 3,
+      "explanation": "Tunnel mode lets the gateways wrap every packet between the sites in a new header addressed gateway to gateway, so the hosts need no IPsec software, and ESP supplies the encryption. Transport mode between the gateways would protect only traffic addressed to the gateways themselves, and AH never encrypts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m021",
+      "questionText": "A salesperson's IPsec VPN client often fails on hotel networks, while the company's SSL/TLS VPN client works there. What is the most likely reason?",
+      "options": [
+        "The SSL/TLS VPN does not encrypt the traffic, so the hotel firewall lets it through",
+        "IPsec works only over IPv6",
+        "The SSL/TLS VPN uses TCP port 22, which hotels always open",
+        "The SSL/TLS VPN runs over port 443 like ordinary HTTPS, which hotel firewalls and NATs almost always allow, whereas IPsec needs UDP 500 and 4500 or IP protocol 50, which are often blocked"
+      ],
+      "correctIndex": 3,
+      "explanation": "Guest networks usually allow web traffic but may block other ports and protocols, and plain ESP has no ports for a NAT to translate. A TLS-based VPN looks like HTTPS to the network and so gets through, while still encrypting everything inside the tunnel.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m022",
+      "questionText": "A traveller connects to a commercial VPN service before browsing on hotel Wi-Fi. Which statement is correct?",
+      "options": [
+        "No one, including the VPN provider, can see which sites the traveller visits",
+        "The hotel network sees only encrypted traffic to the VPN server and websites see the VPN server's address, but the VPN provider can see the traffic leaving its server, so the traveller must trust the provider",
+        "Websites still see the traveller's hotel IP address",
+        "HTTPS is no longer needed, because the VPN encrypts the traffic all the way to each website"
+      ],
+      "correctIndex": 1,
+      "explanation": "The tunnel ends at the VPN server, which decrypts and forwards the traffic, so beyond it the data is protected only by what the application itself uses, such as HTTPS. A VPN therefore moves trust from the local network to the VPN provider rather than removing it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m023",
+      "questionText": "What does the 8-byte ESP header that follows the IP header contain?",
+      "options": [
+        "The 32-bit Security Parameter Index (SPI) and the 32-bit sequence number",
+        "The source and destination port numbers",
+        "The Pad Length and Next Header fields",
+        "The initialisation vector and the integrity check value"
+      ],
+      "correctIndex": 0,
+      "explanation": "The SPI identifies the SA and the sequence number provides anti-replay protection. Padding, Pad Length and Next Header form the encrypted ESP trailer, the IV (when the cipher needs one) starts the payload, and the ICV comes last.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m024",
+      "questionText": "IPsec AH in transport mode with HMAC-SHA1-96 is applied to a 1,000-byte IPv4 packet. The AH header has 12 bytes of fixed fields (Next Header, Payload Length, Reserved, SPI, Sequence Number) followed by the 96-bit ICV. What is the size of the protected packet?",
+      "options": [
+        "1,012 bytes",
+        "1,044 bytes",
+        "1,024 bytes",
+        "1,108 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The ICV is 96 / 8 = 12 bytes, so AH adds 12 + 12 = 24 bytes and transport mode keeps the original IP header: 1,000 + 24 = 1,024 bytes. 1,012 forgets the ICV, 1,044 adds a new 20-byte IP header as in tunnel mode, and 1,108 counts the ICV as 96 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i63_m025",
+      "questionText": "The RTT between a client and a server is 60 ms; processing and transmission times are ignored, and neither TLS False Start nor 0-RTT is used. Counting from the moment the client sends its TCP SYN, when can the client send its first byte of application data with (i) a full TLS 1.2 handshake, (ii) a resumed TLS 1.2 session (abbreviated handshake) and (iii) a full TLS 1.3 handshake?",
+      "options": [
+        "(i) 180 ms, (ii) 120 ms, (iii) 120 ms",
+        "(i) 120 ms, (ii) 60 ms, (iii) 60 ms",
+        "(i) 180 ms, (ii) 180 ms, (iii) 120 ms",
+        "(i) 180 ms, (ii) 120 ms, (iii) 60 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "TCP takes 1 RTT (60 ms), after which the ClientHello goes out. A full TLS 1.2 handshake then needs 2 more RTTs (180 ms), while an abbreviated TLS 1.2 resumption and a full TLS 1.3 handshake each need 1 (120 ms); only TLS 1.3 0-RTT resumption could send data with the ClientHello at 60 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i63_m026",
+      "questionText": "A gateway protects a 1,000-byte IPv4 packet with ESP in tunnel mode, using AES-CBC (16-byte IV, 16-byte blocks) and HMAC-SHA-256-128 (16-byte ICV). The encrypted part (inner packet, padding, 1-byte Pad Length and 1-byte Next Header) must be a whole number of blocks. How long is the resulting packet, including the new 20-byte IPv4 header?",
+      "options": [
+        "1,062 bytes",
+        "1,048 bytes",
+        "1,052 bytes",
+        "1,068 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Encrypted part: 1,000 + 2 = 1,002 bytes, padded up to 1,008 (63 blocks, 6 padding bytes); total = 20 (new IP) + 8 (SPI and sequence) + 16 (IV) + 1,008 + 16 (ICV) = 1,068 bytes. 1,062 forgets the padding, 1,048 the new IP header and 1,052 the ICV.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i63_m027",
+      "questionText": "A VPN uses ESP in tunnel mode with a new 20-byte IPv4 header, the 8-byte ESP header, a 16-byte IV, a 16-byte ICV and AES blocks of 16 bytes (the encrypted part includes the 2-byte trailer). The path MTU is 1,492 bytes (PPPoE). What is the largest TCP MSS the inner hosts can use without fragmentation, assuming 20-byte inner IPv4 and TCP headers without options?",
+      "options": [
+        "1,390 bytes",
+        "1,382 bytes",
+        "1,452 bytes",
+        "1,398 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Room for the encrypted part: 1,492 − 20 − 8 − 16 − 16 = 1,432 bytes, rounded down to whole blocks = 1,424; the largest inner packet is 1,424 − 2 = 1,422 bytes, so MSS = 1,422 − 40 = 1,382 bytes. 1,390 skips the rounding to whole blocks, 1,398 leaves out the IV and 1,452 ignores IPsec altogether.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i63_m028",
+      "questionText": "A server sends a 100,000-byte file over TLS 1.3 with AES-128-GCM, filling each record with the maximum 16,384 bytes of plaintext. Each record adds a 5-byte header, a 1-byte inner content type and a 16-byte authentication tag, with no padding. How many bytes of TLS records are sent?",
+      "options": [
+        "100,154 bytes",
+        "100,147 bytes",
+        "100,035 bytes",
+        "100,022 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "ceil(100,000 / 16,384) = 7 records (six of 16,384 bytes and one of 1,696), each with 5 + 1 + 16 = 22 bytes of overhead, so 100,000 + 7 × 22 = 100,154 bytes. 100,147 forgets the content-type byte, 100,035 counts only the headers and 100,022 ignores the 16,384-byte record limit.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i63_m029",
+      "questionText": "A 1,000-byte HTTP request is sent over TLS 1.3 (22 bytes of record overhead), TCP and IPv4 (20-byte headers each, no options). The resulting packet then goes through an ESP tunnel using AES-GCM: a new 20-byte IPv4 header, the 8-byte ESP header, an 8-byte IV and a 16-byte ICV, with padding only to make inner packet + padding + 2-byte trailer a multiple of 4 bytes (GCM needs no block padding). How long is the packet on the Internet?",
+      "options": [
+        "1,124 bytes",
+        "1,116 bytes",
+        "1,096 bytes",
+        "1,108 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Inner packet = 1,000 + 22 + 20 + 20 = 1,062 bytes; 1,062 + 2 = 1,064 is already a multiple of 4, so no padding; total = 20 + 8 + 8 + 1,064 + 16 = 1,116 bytes. 1,124 pads to 16-byte blocks as for CBC, 1,096 leaves out the new IP header and 1,108 the IV.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i63_m030",
+      "questionText": "An ESP receiver uses an anti-replay window of 64 packets. The highest sequence number received so far is 1000, and every number from 937 to 1000 has arrived except 950 and 960. Packets with these sequence numbers now arrive, in this order and all with valid ICVs: 950, 1000, 1040, 960, 1020. Which does the receiver accept?",
+      "options": [
+        "950, 1040 and 1020 are accepted; 1000 and 960 are dropped",
+        "950, 1040, 960 and 1020 are accepted; only 1000 is dropped",
+        "Only 1040 is accepted, because every packet numbered below the highest one seen is dropped",
+        "All five are accepted, because each has a valid ICV"
+      ],
+      "correctIndex": 0,
+      "explanation": "950 lies in the window 937–1000 and is new, so it is accepted; 1000 is a duplicate; 1040 is new and moves the window to 977–1040. 960 now falls left of the window and is dropped even though it never arrived before, while 1020 is inside the window and new, so it is accepted.",
+      "difficulty": "hard"
+    }
+  ]
+}

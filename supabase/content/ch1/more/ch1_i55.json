@@ -1,0 +1,700 @@
+{
+ "topicId": "ch1_i55",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Timing Relaxation Oscillators"
+  },
+  {
+   "type": "paragraph",
+   "text": "Every timing constant in this subtopic comes from one rule for a capacitor charging through a resistor towards a final voltage: the time to move from a start voltage to an end voltage is t = RC ln((V_final − V_start)/(V_final − V_end)). In the 555 astable the capacitor charges towards V_CC from 1/3 V_CC to 2/3 V_CC, so the ratio is (2/3)/(1/3) = 2 and t = RC ln 2 = 0.693RC; the discharge towards 0 from 2/3 to 1/3 V_CC also gives a ratio of 2. In the 555 monostable the capacitor starts from 0 V, the ratio is 1/(1/3) = 3 and t = RC ln 3 = 1.0986RC, which is rounded to 1.1RC. Because every voltage in the ratio is a fixed fraction of V_CC, the supply cancels out."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: design a 555 astable for f = 1 kHz, D = 75 %, C = 0.1 µF\nDuty: (R_A + R_B)/(R_A + 2R_B) = 0.75\n  R_A + R_B = 0.75R_A + 1.5R_B  ->  0.25R_A = 0.5R_B  ->  R_A = 2R_B\nFrequency: R_A + 2R_B = 1.44/(f C) = 1.44/(1000 × 0.1 × 10^-6) = 14.4 kΩ\n  4R_B = 14.4 kΩ  ->  R_B = 3.6 kΩ,  R_A = 7.2 kΩ\nCheck: t_H = 0.693 × 10.8 kΩ × 0.1 µF = 0.748 ms\n       t_L = 0.693 × 3.6 kΩ × 0.1 µF = 0.249 ms\n       T = 0.998 ms (f ≈ 1 kHz), D = 0.748/0.998 = 75 %"
+  },
+  {
+   "type": "paragraph",
+   "text": "An op-amp astable is an inverting Schmitt trigger whose output charges C through R into the inverting input. The capacitor swings between +βV_sat and −βV_sat while charging towards ±V_sat, so each half-period is RC ln((1 + β)/(1 − β)). With R_1 = R_2 (β = 0.5) the period is 2RC ln 3 = 2.2RC, and choosing β ≈ 0.462 (R_2 ≈ 0.86R_1) makes the logarithm equal to 1, so T = 2RC. A non-inverting Schmitt trigger (input through R_1 to the non-inverting input, R_2 from the output back to the same node, inverting input grounded) has trip points ±(R_1/R_2)V_sat instead."
+  },
+  {
+   "type": "formula",
+   "latex": "T = 2RC\\,\\ln\\frac{1+\\beta}{1-\\beta},\\qquad \\beta = \\frac{R_2}{R_1 + R_2}",
+   "plainText": "T = 2RC·ln((1 + β)/(1 − β)), β = R2/(R1 + R2)  (op-amp astable)"
+  },
+  {
+   "type": "paragraph",
+   "text": "In the square-triangle function generator a non-inverting Schmitt trigger drives an integrator whose output is fed back to the trigger input. The integrator output ramps at V_sat/(RC) and reverses whenever it reaches a trip point, so the triangle peaks are ±(R_1/R_2)V_sat. Covering 2(R_1/R_2)V_sat in each half-period gives T/2 = 2(R_1/R_2)RC, that is f = R_2/(4R_1RC). The frequency is changed with R or C and the amplitude with the ratio R_1/R_2, so the two adjustments are independent."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: triangle-square generator, V_sat = ±12 V\nSchmitt: R_1 = 10 kΩ (input), R_2 = 20 kΩ (feedback); integrator R = 10 kΩ, C = 0.01 µF\nTriangle peak = (R_1/R_2) V_sat = (10/20) × 12 = 6 V  ->  12 V peak-to-peak\nf = R_2 / (4 R_1 R C) = 20k / (4 × 10k × 10k × 0.01 µF)\n  = 2 / (4 × 10^-4 s) = 5 kHz\nSquare output: ±12 V at 5 kHz, 50 % duty"
+  },
+  {
+   "type": "paragraph",
+   "text": "In the UJT oscillator the capacitor charges towards V_BB and the UJT fires at V_P ≈ ηV_BB, so with V_D neglected the charging ratio is V_BB/(V_BB − ηV_BB) = 1/(1 − η), which is where ln(1/(1 − η)) comes from; η = 0.632 gives ln 2.72 = 1 and T ≈ RC. Oscillation needs R small enough to supply the peak-point current I_P at V_P and large enough that it cannot hold the valley current I_V, otherwise the UJT latches on: (V_BB − V_V)/I_V < R < (V_BB − V_P)/I_P. A ramp generator becomes truly linear when the capacitor is charged by a constant current I, because the slope is then I/C instead of an exponential."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 3: UJT oscillator, η = 0.6, V_BB = 12 V, V_D = 0.7 V\nR = 47 kΩ, C = 0.1 µF, I_P = 5 µA, V_V = 1.5 V, I_V = 4 mA\nV_P = ηV_BB + V_D = 7.2 + 0.7 = 7.9 V\nf ≈ 1/(RC ln(1/(1 − η))) = 1/(4.7 ms × ln 2.5) = 1/(4.7 ms × 0.916) ≈ 232 Hz\nR_max = (V_BB − V_P)/I_P = 4.1 V / 5 µA = 820 kΩ\nR_min = (V_BB − V_V)/I_V = 10.5 V / 4 mA = 2.63 kΩ\n47 kΩ lies between the limits, so the circuit oscillates"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Circuit",
+     "Capacitor swing",
+     "Timing result"
+    ],
+    [
+     "555 astable (charge)",
+     "1/3 V_CC to 2/3 V_CC towards V_CC",
+     "t_H = 0.693(R_A + R_B)C"
+    ],
+    [
+     "555 astable (discharge)",
+     "2/3 V_CC to 1/3 V_CC towards 0",
+     "t_L = 0.693R_BC"
+    ],
+    [
+     "555 monostable",
+     "0 to 2/3 V_CC towards V_CC",
+     "T = 1.1RC (ln 3)"
+    ],
+    [
+     "Op-amp astable",
+     "−βV_sat to +βV_sat towards +V_sat",
+     "T/2 = RC ln((1 + β)/(1 − β))"
+    ],
+    [
+     "UJT oscillator",
+     "V_V to V_P towards V_BB",
+     "T ≈ RC ln(1/(1 − η))"
+    ],
+    [
+     "Constant-current ramp",
+     "Linear, slope I/C",
+     "t = CΔV/I"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes in waveform-generator problems:",
+   "items": [
+    "Writing R_A + R_B instead of R_A + 2R_B in the 555 astable frequency: the capacitor discharges through R_B only, but the period contains both intervals.",
+    "Swapping the duty-cycle expression: the output is high while C charges, so D = (R_A + R_B)/(R_A + 2R_B), always above 50 % without a diode across R_B.",
+    "Using 0.693 for the 555 monostable: its capacitor starts from 0 V, so the constant is ln 3 ≈ 1.1.",
+    "Taking a single trip point as the hysteresis: V_H is the full difference V_UT − V_LT, which is 2βV_sat for a symmetrical Schmitt trigger.",
+    "Forcing pin 5 of a 555 changes both thresholds (to V_C and V_C/2) and therefore the timing; the 0.693 and 1.1 constants hold only when pin 5 is left at 2/3 V_CC."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For any RC timing question, write t = RC ln((V_final − V_start)/(V_final − V_end)) first; the 0.693, 1.1, 2.2 and ln(1/(1 − η)) constants all drop out of it, so you never need to memorise them separately."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch1_i55_m001",
+   "questionText": "A monostable multivibrator has:",
+   "options": [
+    "Two stable states",
+    "Two quasi-stable states and no stable state",
+    "One stable state and one quasi-stable state",
+    "One stable state and two quasi-stable states"
+   ],
+   "correctIndex": 2,
+   "explanation": "A monostable rests in its stable state; a trigger moves it to the quasi-stable state, from which it returns by itself after a time set by RC. Two quasi-stable states describe the astable, two stable states the bistable.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m002",
+   "questionText": "In a 555 astable circuit, the timing capacitor discharges through R_B into which pin?",
+   "options": [
+    "Pin 7 (discharge)",
+    "Pin 5 (control voltage)",
+    "Pin 2 (trigger)",
+    "Pin 4 (reset)"
+   ],
+   "correctIndex": 0,
+   "explanation": "The internal discharge transistor at pin 7 turns on when the flip-flop resets, so C discharges through R_B into pin 7. Pins 2 and 6 only sense the capacitor voltage, and pin 4 is the reset.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m003",
+   "questionText": "In most 555 circuits, pin 5 (control voltage) is connected to ground through a 0.01 µF capacitor. Why?",
+   "options": [
+    "To bypass noise on the internal 2/3 V_CC threshold reference",
+    "To set the output frequency",
+    "To discharge the timing capacitor",
+    "To protect the output against short circuits"
+   ],
+   "correctIndex": 0,
+   "explanation": "Pin 5 connects directly to the 2/3 V_CC point of the internal divider. The capacitor bypasses supply noise there so the thresholds, and therefore the timing, stay steady; it takes no part in setting the frequency.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m004",
+   "questionText": "How does a Schmitt trigger differ from a simple open-loop comparator?",
+   "options": [
+    "It uses negative feedback, which gives a linear output",
+    "It uses positive feedback, which gives two different switching thresholds",
+    "It has no feedback, so it has a single threshold",
+    "It uses an LC tank to set its switching frequency"
+   ],
+   "correctIndex": 1,
+   "explanation": "Positive feedback from the output to the non-inverting input moves the reference point when the output switches. This gives an upper and a lower trip point, and the gap between them is the hysteresis.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m005",
+   "questionText": "A symmetrical square wave is applied to an ideal op-amp integrator. The output waveform is:",
+   "options": [
+    "A sine wave",
+    "A sawtooth with a fast flyback",
+    "A train of narrow spikes",
+    "A triangular wave"
+   ],
+   "correctIndex": 3,
+   "explanation": "A constant input voltage gives a ramp of constant slope at the integrator output, and the slope reverses each half-cycle, so the output is a triangle. Narrow spikes come from a differentiator.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m006",
+   "questionText": "The horizontal time-base (sweep) voltage of an analogue CRO is produced by a:",
+   "options": [
+    "Bistable multivibrator",
+    "Sawtooth (ramp) generator",
+    "Schmitt trigger",
+    "Crystal oscillator"
+   ],
+   "correctIndex": 1,
+   "explanation": "The beam must move across the screen at a steady rate and then fly back quickly, which needs a linear ramp followed by a fast reset: a sawtooth.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m007",
+   "questionText": "Hysteresis in a Schmitt trigger is useful mainly because it:",
+   "options": [
+    "Increases the voltage gain of the comparator",
+    "Prevents repeated false switching when a noisy input lingers near the threshold",
+    "Makes the output waveform sinusoidal",
+    "Removes the need for a power supply"
+   ],
+   "correctIndex": 1,
+   "explanation": "Once the output has switched, the threshold moves away from the input, so small noise excursions cannot switch it back. This removes chatter on slow or noisy inputs.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m008",
+   "questionText": "The intrinsic stand-off ratio η of a unijunction transistor is:",
+   "options": [
+    "R_B2/(R_B1 + R_B2)",
+    "R_B1/R_B2",
+    "(R_B1 + R_B2)/R_B1",
+    "R_B1/(R_B1 + R_B2)"
+   ],
+   "correctIndex": 3,
+   "explanation": "With the emitter open, the base-1 resistance R_B1 and the base-2 resistance R_B2 form a divider across V_BB, and η = R_B1/R_BB = R_B1/(R_B1 + R_B2), typically 0.5 to 0.8.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m009",
+   "questionText": "Which part of the UJT characteristic lets a UJT relaxation oscillator discharge its capacitor quickly?",
+   "options": [
+    "The cut-off region below the peak point",
+    "The saturation region beyond the valley point",
+    "The reverse-breakdown region of the emitter junction",
+    "The negative-resistance region between the peak and valley points"
+   ],
+   "correctIndex": 3,
+   "explanation": "Beyond the peak point, the emitter voltage falls as the emitter current rises: a negative resistance. This lets the UJT dump the capacitor charge rapidly until the valley point is reached.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m010",
+   "questionText": "A 555 monostable uses R = 10 kΩ and C = 4.7 µF. The output pulse width is approximately:",
+   "options": [
+    "32.6 ms",
+    "5.17 ms",
+    "51.7 ms",
+    "67.7 ms"
+   ],
+   "correctIndex": 2,
+   "explanation": "T = 1.1RC = 1.1 × 10 kΩ × 4.7 µF = 1.1 × 47 ms = 51.7 ms. Using 0.693 gives 32.6 ms and using 1.44 gives 67.7 ms, both wrong for the monostable.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m011",
+   "questionText": "A symmetrical transistor astable multivibrator has both base resistors 10 kΩ and both coupling capacitors 0.1 µF. Its frequency is approximately:",
+   "options": [
+    "725 Hz",
+    "1.45 kHz",
+    "1.0 kHz",
+    "362 Hz"
+   ],
+   "correctIndex": 0,
+   "explanation": "T = 0.69(R_1C_1 + R_2C_2) = 0.69 × 2 × 1 ms = 1.38 ms, so f = 1/1.38 ms ≈ 725 Hz. Using only one half-period gives 1.45 kHz.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m012",
+   "questionText": "An inverting op-amp Schmitt trigger has R_1 = 90 kΩ from the output to the non-inverting input, R_2 = 10 kΩ from that input to ground, and V_sat = ±10 V. The hysteresis width is:",
+   "options": [
+    "1 V",
+    "2.22 V",
+    "2 V",
+    "20 V"
+   ],
+   "correctIndex": 2,
+   "explanation": "β = R_2/(R_1 + R_2) = 10/100 = 0.1, so V_UT = +1 V and V_LT = −1 V. Hysteresis V_H = 2βV_sat = 2 V; 1 V is just one trip point.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m013",
+   "questionText": "In a basic 555 astable circuit with no diode across R_B, the output high time is:",
+   "options": [
+    "Always shorter than the low time",
+    "Always longer than the low time",
+    "Always equal to the low time",
+    "Independent of R_A"
+   ],
+   "correctIndex": 1,
+   "explanation": "t_H = 0.693(R_A + R_B)C and t_L = 0.693R_BC, so t_H exceeds t_L by 0.693R_AC. The duty cycle therefore stays above 50 percent.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m014",
+   "questionText": "A 555 astable runs from V_CC = 9 V with pin 5 connected only to a bypass capacitor. The timing-capacitor voltage swings between:",
+   "options": [
+    "0 V and 6 V",
+    "3 V and 6 V",
+    "0 V and 9 V",
+    "4.5 V and 9 V"
+   ],
+   "correctIndex": 1,
+   "explanation": "In astable mode C cycles between the comparator thresholds, 1/3 V_CC = 3 V and 2/3 V_CC = 6 V. It starts from 0 V only on the first cycle after switch-on.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch1_i55_m015",
+   "questionText": "A 555 astable uses R_A = 4.7 kΩ, R_B = 10 kΩ and C = 0.1 µF. The output frequency is approximately:",
+   "options": [
+    "980 Hz",
+    "405 Hz",
+    "5.83 kHz",
+    "583 Hz"
+   ],
+   "correctIndex": 3,
+   "explanation": "f = 1.44/((R_A + 2R_B)C) = 1.44/(24.7 kΩ × 0.1 µF) = 1.44/2.47 ms ≈ 583 Hz. Using R_A + R_B gives 980 Hz, and omitting the 1.44 gives 405 Hz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m016",
+   "questionText": "For a 555 astable with R_A = 4.7 kΩ and R_B = 10 kΩ, the duty cycle of the output is approximately:",
+   "options": [
+    "59.5 %",
+    "40.5 %",
+    "68.0 %",
+    "19.0 %"
+   ],
+   "correctIndex": 0,
+   "explanation": "D = (R_A + R_B)/(R_A + 2R_B) = 14.7/24.7 = 0.595, that is 59.5 %. 40.5 % is the fraction of the period for which the output is low.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m017",
+   "questionText": "A 555 astable has R_A = 1 kΩ, R_B = 10 kΩ and C = 10 nF. The output low time is:",
+   "options": [
+    "76.2 µs",
+    "69.3 µs",
+    "145.5 µs",
+    "6.93 µs"
+   ],
+   "correctIndex": 1,
+   "explanation": "The output is low while C discharges through R_B alone: t_L = 0.693R_BC = 0.693 × 10 kΩ × 10 nF = 69.3 µs. 76.2 µs is the high time, 0.693(R_A + R_B)C.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m018",
+   "questionText": "A 555 astable with R_A = R_B = 4.8 kΩ must oscillate at 1 kHz. The timing capacitor required is:",
+   "options": [
+    "0.1 µF",
+    "0.15 µF",
+    "0.069 µF",
+    "0.05 µF"
+   ],
+   "correctIndex": 0,
+   "explanation": "C = 1.44/((R_A + 2R_B)f) = 1.44/(14.4 kΩ × 1000 Hz) = 0.1 µF. Using R_A + R_B = 9.6 kΩ would give 0.15 µF.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m019",
+   "questionText": "A 555 astable has an ideal diode across R_B, so C charges through R_A only and discharges through R_B. With R_A = R_B = 10 kΩ, the duty cycle is:",
+   "options": [
+    "66.7 %",
+    "50 %",
+    "75 %",
+    "33.3 %"
+   ],
+   "correctIndex": 1,
+   "explanation": "With the diode, t_H = 0.693R_AC and t_L = 0.693R_BC, so D = R_A/(R_A + R_B) = 50 %. Without the diode the same resistors give 20/30 = 66.7 %.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m020",
+   "questionText": "A 555 monostable must give a 10 ms pulse with C = 1 µF. The timing resistor needed is approximately:",
+   "options": [
+    "14.4 kΩ",
+    "10 kΩ",
+    "9.09 kΩ",
+    "6.94 kΩ"
+   ],
+   "correctIndex": 2,
+   "explanation": "T = 1.1RC gives R = T/(1.1C) = 10 ms/(1.1 × 1 µF) = 9.09 kΩ. Taking T = RC gives 10 kΩ and using 0.693 gives 14.4 kΩ.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m021",
+   "questionText": "A standard (non-retriggerable) 555 monostable is triggered, and a second short trigger pulse arrives while its output is still high. The output pulse:",
+   "options": [
+    "Is unchanged and still ends 1.1RC after the first trigger",
+    "Is doubled in width",
+    "Ends immediately",
+    "Is extended to end 1.1RC after the second trigger"
+   ],
+   "correctIndex": 0,
+   "explanation": "While C is charging, the flip-flop is already set, so a further short trigger has no effect and the output falls when C reaches 2/3 V_CC. Extending the pulse on each trigger is the behaviour of a retriggerable monostable such as the 74123.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m022",
+   "questionText": "An inverting Schmitt trigger has R_1 = 20 kΩ from the output to the non-inverting input, R_2 = 10 kΩ from that input to ground, and V_sat = ±12 V. The upper trip point is:",
+   "options": [
+    "+6 V",
+    "+8 V",
+    "+2 V",
+    "+4 V"
+   ],
+   "correctIndex": 3,
+   "explanation": "β = R_2/(R_1 + R_2) = 10/30 = 1/3, so V_UT = βV_sat = 12/3 = +4 V. Using R_2/R_1 would give 6 V, and using R_1/(R_1 + R_2) would give 8 V.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m023",
+   "questionText": "A non-inverting Schmitt trigger has the input applied through R_1 = 10 kΩ to the non-inverting input, R_2 = 100 kΩ from the output back to that input, the inverting input grounded, and V_sat = ±13 V. The hysteresis is:",
+   "options": [
+    "1.3 V",
+    "2.6 V",
+    "2.36 V",
+    "26 V"
+   ],
+   "correctIndex": 1,
+   "explanation": "For the non-inverting form, V_UT = +(R_1/R_2)V_sat = 1.3 V and V_LT = −1.3 V, so V_H = 2.6 V. The inverting-form ratio R_1/(R_1 + R_2) would give 2.36 V.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m024",
+   "questionText": "A sine wave of 0.8 V peak is applied to a Schmitt trigger whose trip points are +1 V and −1 V. The output:",
+   "options": [
+    "Is a square wave at the input frequency",
+    "Is a square wave at twice the input frequency",
+    "Follows the input linearly",
+    "Stays at one saturation level and does not switch"
+   ],
+   "correctIndex": 3,
+   "explanation": "The output switches only when the input crosses V_UT or V_LT. A 0.8 V peak never reaches ±1 V, so the output stays wherever it started.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m025",
+   "questionText": "An op-amp astable (square-wave relaxation oscillator) uses R = 10 kΩ and C = 0.1 µF in the timing path, with equal feedback-divider resistors (β = 0.5). Its frequency is approximately:",
+   "options": [
+    "455 Hz",
+    "500 Hz",
+    "910 Hz",
+    "721 Hz"
+   ],
+   "correctIndex": 0,
+   "explanation": "T = 2RC ln((1 + β)/(1 − β)) = 2 × 1 ms × ln 3 = 2.197 ms, so f ≈ 455 Hz. Taking T = 2RC gives 500 Hz, and using a single half-period gives 910 Hz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m026",
+   "questionText": "For an op-amp astable, T = 2RC ln((1 + β)/(1 − β)). The feedback fraction β that makes the period exactly 2RC is approximately:",
+   "options": [
+    "0.5",
+    "0.632",
+    "0.368",
+    "0.462"
+   ],
+   "correctIndex": 3,
+   "explanation": "T = 2RC needs ln((1 + β)/(1 − β)) = 1, so (1 + β)/(1 − β) = e and β = (e − 1)/(e + 1) = 0.462. With β = 0.5 the period would be 2.2RC.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m027",
+   "questionText": "A square-triangle generator uses a non-inverting Schmitt trigger (input resistor R_1 = 10 kΩ, feedback resistor R_2 = 20 kΩ) and an integrator with R = 20 kΩ and C = 0.05 µF. Using f = R_2/(4R_1RC), the frequency is:",
+   "options": [
+    "250 Hz",
+    "1 kHz",
+    "125 Hz",
+    "500 Hz"
+   ],
+   "correctIndex": 3,
+   "explanation": "f = R_2/(4R_1RC) = 20k/(4 × 10k × 20k × 0.05 µF) = 2/(4 × 1 ms) = 500 Hz. Inverting the ratio R_2/R_1 gives 125 Hz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m028",
+   "questionText": "In a square-triangle generator the Schmitt trigger has R_1 = 10 kΩ (input) and R_2 = 20 kΩ (feedback), and the op-amps saturate at ±14 V. The peak-to-peak amplitude of the triangular wave is:",
+   "options": [
+    "14 V",
+    "7 V",
+    "28 V",
+    "9.33 V"
+   ],
+   "correctIndex": 0,
+   "explanation": "The triangle turns round at the trip points ±(R_1/R_2)V_sat = ±7 V, so its peak-to-peak value is 14 V. 7 V is the peak, and 28 V is the square-wave peak-to-peak value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m029",
+   "questionText": "A UJT with η = 0.65 is operated with V_BB = 20 V. Taking the emitter diode drop as 0.7 V, the peak-point voltage is:",
+   "options": [
+    "13.0 V",
+    "7.7 V",
+    "13.7 V",
+    "12.3 V"
+   ],
+   "correctIndex": 2,
+   "explanation": "V_P = ηV_BB + V_D = 0.65 × 20 + 0.7 = 13.7 V. Leaving out V_D gives 13.0 V; using (1 − η) gives 7.7 V.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m030",
+   "questionText": "A UJT has interbase resistances R_B1 = 6 kΩ and R_B2 = 4 kΩ. Its intrinsic stand-off ratio η and interbase resistance R_BB are:",
+   "options": [
+    "η = 0.6, R_BB = 10 kΩ",
+    "η = 0.4, R_BB = 10 kΩ",
+    "η = 1.5, R_BB = 2.4 kΩ",
+    "η = 0.6, R_BB = 2.4 kΩ"
+   ],
+   "correctIndex": 0,
+   "explanation": "R_BB = R_B1 + R_B2 = 10 kΩ (the two are in series), and η = R_B1/R_BB = 6/10 = 0.6. 2.4 kΩ would be the parallel combination, which does not apply.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m031",
+   "questionText": "A UJT relaxation oscillator uses R = 10 kΩ, C = 0.1 µF and a UJT with η = 0.632. Using f ≈ 1/(RC ln(1/(1 − η))), its frequency is approximately:",
+   "options": [
+    "632 Hz",
+    "1.58 kHz",
+    "500 Hz",
+    "1 kHz"
+   ],
+   "correctIndex": 3,
+   "explanation": "ln(1/(1 − 0.632)) = ln 2.72 ≈ 1, so f ≈ 1/RC = 1/(10 kΩ × 0.1 µF) = 1/1 ms = 1 kHz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m032",
+   "questionText": "A transistor astable multivibrator has R_1 = 10 kΩ, C_1 = 0.1 µF, R_2 = 20 kΩ and C_2 = 0.1 µF. The output frequency is approximately:",
+   "options": [
+    "333 Hz",
+    "966 Hz",
+    "241 Hz",
+    "483 Hz"
+   ],
+   "correctIndex": 3,
+   "explanation": "T = 0.69(R_1C_1 + R_2C_2) = 0.69 × (1 ms + 2 ms) = 2.07 ms, so f = 1/2.07 ms ≈ 483 Hz. Leaving out the 0.69 gives 333 Hz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m033",
+   "questionText": "Why does the frequency of a 555 astable hardly change when V_CC is raised from 9 V to 12 V?",
+   "options": [
+    "The internal comparators regulate V_CC to a fixed value",
+    "The thresholds and the charging voltage both scale with V_CC, so the times depend only on R and C",
+    "The capacitor is charged by an internal constant-current source",
+    "The discharge transistor clamps the capacitor voltage to 5 V"
+   ],
+   "correctIndex": 1,
+   "explanation": "The capacitor charges towards V_CC between 1/3 V_CC and 2/3 V_CC. A higher V_CC charges it faster but also moves both thresholds up in proportion, so the time ratio, and hence 0.693RC, does not change.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m034",
+   "questionText": "To make the ramp of a sawtooth generator as linear as possible, the timing capacitor should be charged from:",
+   "options": [
+    "A resistor connected to a low supply voltage",
+    "A voltage source through an inductor",
+    "A Zener diode connected directly across it",
+    "A constant-current source"
+   ],
+   "correctIndex": 3,
+   "explanation": "With a constant current I, dV/dt = I/C is constant, so the ramp is a straight line. Charging through a resistor gives an exponential, which gets worse the closer the capacitor voltage comes to the supply.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m035",
+   "questionText": "A 1 µF capacitor is charged by a constant current of 0.5 mA. The time for its voltage to ramp from 0 V to 10 V is:",
+   "options": [
+    "2 ms",
+    "200 ms",
+    "20 ms",
+    "0.2 ms"
+   ],
+   "correctIndex": 2,
+   "explanation": "For constant-current charging, t = CΔV/I = 1 µF × 10 V/0.5 mA = 20 ms, because the slope is I/C = 0.5 V/ms.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m036",
+   "questionText": "Which statement about multivibrators is NOT correct?",
+   "options": [
+    "An astable multivibrator needs no external trigger",
+    "A bistable multivibrator needs two timing capacitors to set its period",
+    "A monostable multivibrator returns to its stable state by itself after a time set by RC",
+    "A bistable multivibrator changes state only when it is triggered"
+   ],
+   "correctIndex": 1,
+   "explanation": "A bistable has no period: it stays in either stable state until triggered, so it has no timing capacitors (at most small speed-up capacitors). The other three statements are correct.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch1_i55_m037",
+   "questionText": "A 555 monostable runs from V_CC = 12 V with R = 10 kΩ and C = 1 µF, but pin 5 is held at 9 V by an external source, so the upper threshold becomes 9 V. The output pulse width becomes approximately:",
+   "options": [
+    "11.0 ms",
+    "6.93 ms",
+    "13.9 ms",
+    "7.5 ms"
+   ],
+   "correctIndex": 2,
+   "explanation": "C charges from 0 towards 12 V and the pulse ends at 9 V: T = RC ln(12/(12 − 9)) = 10 ms × ln 4 = 13.9 ms. The usual 1.1RC = 11 ms applies only when the threshold is 8 V (2/3 V_CC).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m038",
+   "questionText": "A ±5 V, 1 kHz symmetrical square wave drives an ideal op-amp integrator with R = 10 kΩ and C = 0.1 µF. The peak-to-peak amplitude of the triangular output is:",
+   "options": [
+    "5 V",
+    "2.5 V",
+    "1.25 V",
+    "10 V"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each half-period lasts 0.5 ms and the slope is V/(RC) = 5 V/1 ms = 5 V/ms, so the output changes by 5 × 0.5 = 2.5 V peak-to-peak (V_pp = V_sq T/(2RC)).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m039",
+   "questionText": "A 555 astable must produce 2 kHz at a duty cycle of 60 % using C = 0.01 µF. The required resistors are:",
+   "options": [
+    "R_A = 14.4 kΩ, R_B = 28.8 kΩ",
+    "R_A = 28.8 kΩ, R_B = 14.4 kΩ",
+    "R_A = 24 kΩ, R_B = 24 kΩ",
+    "R_A = 7.2 kΩ, R_B = 14.4 kΩ"
+   ],
+   "correctIndex": 0,
+   "explanation": "(R_A + R_B)/(R_A + 2R_B) = 0.6 gives 0.4R_A = 0.2R_B, so R_B = 2R_A. Then R_A + 2R_B = 5R_A = 1.44/(2000 × 0.01 µF) = 72 kΩ, so R_A = 14.4 kΩ and R_B = 28.8 kΩ.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m040",
+   "questionText": "A 555 astable with C = 0.1 µF has an output high time of 3 ms and a low time of 1 ms. The value of R_A is approximately:",
+   "options": [
+    "43.3 kΩ",
+    "14.4 kΩ",
+    "28.9 kΩ",
+    "57.7 kΩ"
+   ],
+   "correctIndex": 2,
+   "explanation": "t_L = 0.693R_BC gives R_B = 1 ms/(0.693 × 0.1 µF) = 14.4 kΩ. t_H = 0.693(R_A + R_B)C gives R_A + R_B = 43.3 kΩ, so R_A = 43.3 − 14.4 = 28.9 kΩ.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m041",
+   "questionText": "An inverting Schmitt trigger has R_1 = 40 kΩ from the output (±12 V) to the non-inverting input and R_2 = 10 kΩ from that input to a reference of +5 V instead of ground. The upper and lower trip points are:",
+   "options": [
+    "7.4 V and 2.6 V",
+    "2.4 V and −2.4 V",
+    "6.4 V and 1.6 V",
+    "8.0 V and 0 V"
+   ],
+   "correctIndex": 2,
+   "explanation": "By superposition, V+ = V_ref R_1/(R_1 + R_2) + V_out R_2/(R_1 + R_2) = 5 × 0.8 ± 12 × 0.2 = 4 ± 2.4 V. So V_UT = 6.4 V and V_LT = 1.6 V, centred on 4 V, not on 5 V.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m042",
+   "questionText": "A UJT relaxation oscillator uses R = 22 kΩ, C = 0.22 µF and a UJT with η = 0.7. Using f ≈ 1/(RC ln(1/(1 − η))), the frequency is approximately:",
+   "options": [
+    "172 Hz",
+    "207 Hz",
+    "579 Hz",
+    "86 Hz"
+   ],
+   "correctIndex": 0,
+   "explanation": "RC = 4.84 ms and ln(1/0.3) = 1.204, so T = 5.83 ms and f ≈ 172 Hz. Using ln(1/η) instead gives 579 Hz; omitting the logarithm gives 207 Hz.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m043",
+   "questionText": "A UJT oscillator has V_BB = 15 V, η = 0.6, V_D = 0.7 V, peak-point current I_P = 10 µA, valley voltage V_V = 2 V and valley current I_V = 5 mA. For oscillation, the charging resistor R must lie in the range:",
+   "options": [
+    "3 kΩ < R < 1.5 MΩ",
+    "0.4 kΩ < R < 970 kΩ",
+    "2.6 kΩ < R < 530 kΩ",
+    "2.6 kΩ < R < 970 kΩ"
+   ],
+   "correctIndex": 2,
+   "explanation": "V_P = 0.6 × 15 + 0.7 = 9.7 V. R_max = (V_BB − V_P)/I_P = 5.3 V/10 µA = 530 kΩ and R_min = (V_BB − V_V)/I_V = 13 V/5 mA = 2.6 kΩ.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m044",
+   "questionText": "A square-triangle generator (f = R_2/(4R_1RC)) has Schmitt resistors R_1 = 10 kΩ (input) and R_2 = 30 kΩ (feedback) and an integrator capacitor C = 0.01 µF. The integrator resistor R needed for f = 1 kHz is:",
+   "options": [
+    "8.33 kΩ",
+    "75 kΩ",
+    "300 kΩ",
+    "150 kΩ"
+   ],
+   "correctIndex": 1,
+   "explanation": "R = R_2/(4R_1fC) = 3/(4 × 1000 × 0.01 µF) = 3/(40 µs) = 75 kΩ. Using R_1/R_2 instead gives 8.33 kΩ, and dropping the 4 gives 300 kΩ.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m045",
+   "questionText": "A transistor astable multivibrator must give a 1 kHz output with half-periods t_1 = 0.25 ms and t_2 = 0.75 ms, where t_1 = 0.69R_1C_1 and t_2 = 0.69R_2C_2. With R_1 = R_2 = 10 kΩ, the capacitors are:",
+   "options": [
+    "C_1 = 25 nF, C_2 = 75 nF",
+    "C_1 = 109 nF, C_2 = 36.2 nF",
+    "C_1 = 36.2 nF, C_2 = 109 nF",
+    "C_1 = 18.1 nF, C_2 = 54.3 nF"
+   ],
+   "correctIndex": 2,
+   "explanation": "C_1 = t_1/(0.69R_1) = 0.25 ms/6.9 kΩ = 36.2 nF and C_2 = 0.75 ms/6.9 kΩ = 109 nF. Leaving out the 0.69 gives 25 nF and 75 nF.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch1_i55_m046",
+   "questionText": "A 555 astable runs from V_CC = 12 V with R_A = 10 kΩ and R_B = 20 kΩ. If the output is taken as 12 V when high and 0 V when low, its average (DC) value is:",
+   "options": [
+    "7.2 V",
+    "6 V",
+    "4.8 V",
+    "8 V"
+   ],
+   "correctIndex": 0,
+   "explanation": "D = (R_A + R_B)/(R_A + 2R_B) = 30/50 = 0.6, so V_avg = D × V_CC = 0.6 × 12 = 7.2 V. 4.8 V would be (1 − D)V_CC, and 6 V assumes a 50 % duty cycle.",
+   "difficulty": "hard"
+  }
+ ]
+}

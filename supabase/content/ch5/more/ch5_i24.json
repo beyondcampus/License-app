@@ -1,0 +1,493 @@
+{
+  "topicId": "ch5_i24",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: MAC Addressing, ARP, PPP and WAN Links"
+    },
+    {
+      "type": "paragraph",
+      "text": "ARP exists because the two layers speak different languages: the network layer addresses packets with logical IP addresses, while the data link layer can deliver a frame only to a physical MAC address, so every link needs a translation. It works in three steps: the sender broadcasts “Who has 192.168.1.5?”, the owner of that address answers “I do, my MAC is …”, and the sender keeps the answer in its ARP cache for later packets. RARP did the reverse, MAC to IP, for diskless machines at boot, but it is obsolete and was replaced by BOOTP and then DHCP. PPP connects exactly two devices over a direct link, such as a dial-up modem connection, a DSL line (as PPPoE) or a serial link between routers, and adds authentication and error detection: a frame whose FCS fails is simply discarded, because PPP does not retransmit."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "ARP field (IPv4 over Ethernet)",
+          "Size (bytes)",
+          "Value in a request"
+        ],
+        [
+          "Hardware type / protocol type",
+          "2 + 2",
+          "1 (Ethernet) / 0x0800 (IPv4)"
+        ],
+        [
+          "Hardware length / protocol length",
+          "1 + 1",
+          "6 / 4"
+        ],
+        [
+          "Operation",
+          "2",
+          "1 = request (2 = reply)"
+        ],
+        [
+          "Sender MAC / sender IP",
+          "6 + 4",
+          "The requester's own addresses"
+        ],
+        [
+          "Target MAC",
+          "6",
+          "00:00:00:00:00:00 (still unknown)"
+        ],
+        [
+          "Target IP",
+          "4",
+          "The address being resolved; total 28 bytes"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: A (192.168.1.10, MAC 00:1A:2B:00:00:0A) sends to B (192.168.1.5) on the same /24\n1. A's ARP cache has no entry for 192.168.1.5\n2. A -> all: Ethernet dst FF:FF:FF:FF:FF:FF, type 0x0806, ARP operation 1\n             'who has 192.168.1.5? tell 192.168.1.10 at 00:1A:2B:00:00:0A'\n3. Every host reads it; only B answers, and B also caches A's mapping from the request\n4. B -> A:   Ethernet dst 00:1A:2B:00:00:0A, type 0x0806, ARP operation 2\n             '192.168.1.5 is at 00:1A:2B:00:00:05'\n5. A caches 192.168.1.5 -> 00:1A:2B:00:00:05 and sends the IP packet (type 0x0800)\nOff-subnet destination such as 8.8.8.8: A ARPs for its default gateway's IP instead;\nthe frame goes to the gateway's MAC while the IP header still says 8.8.8.8"
+    },
+    {
+      "type": "paragraph",
+      "text": "The first byte of a MAC address carries two flag bits. Its least significant bit, the I/G bit, is 0 for an individual (unicast) address and 1 for a group (multicast) address, and it is the very first bit on an Ethernet wire because each byte is sent least significant bit first. The next bit, U/L, is 0 for a universally administered address built on an IEEE-assigned OUI and 1 for a locally administered one, such as the random addresses phones use for Wi-Fi privacy or the 02:42:… addresses Docker gives containers. IPv4 multicast groups map onto MAC addresses by placing the low 23 bits of the group address after the prefix 01:00:5E, so 2^5 = 32 groups share each multicast MAC and the receiving host must still check the destination IP address."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: IPv4 multicast group 224.0.0.251 (mDNS) -> Ethernet MAC\n224.0.0.251 = 1110 0000 . 0000 0000 . 0000 0000 . 1111 1011\nLow 23 bits = 000 0000 . 0000 0000 . 1111 1011 -> 00:00:FB\nMAC = 01:00:5E, then a 0 bit, then those 23 bits = 01:00:5E:00:00:FB\n224.128.0.251 and 225.0.0.251 map to the same MAC (32 groups in all)\nWorked example 2: MAC 02:42:AC:11:00:02\nFirst byte 0x02 = 0000 0010 -> I/G bit 0 = unicast, U/L bit 1 = locally administered"
+    },
+    {
+      "type": "formula",
+      "latex": "N_{cells} = \\left\\lceil \\frac{L + 8}{48} \\right\\rceil,\\qquad \\eta = \\frac{L}{53\\,N_{cells}}",
+      "plainText": "ATM with AAL5: a packet of L bytes plus the 8-byte AAL5 trailer is padded to a multiple of 48 bytes, so it needs N = ceil((L + 8) / 48) cells of 53 bytes, and the efficiency is L / (53 × N)."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: IP packets over ATM with AAL5 (8-byte trailer, pad to a multiple of 48)\n1000-byte packet: (1000 + 8) / 48 = 21 -> 21 cells, no padding needed\n  bytes on the line = 21 x 53 = 1113 -> efficiency 1000 / 1113 = 89.8 %\n40-byte TCP ACK:  (40 + 8) / 48 = 1 -> 1 cell of 53 bytes -> efficiency 75.5 %\n41-byte packet:   (41 + 8) / 48 = 1.02 -> 2 cells = 106 bytes -> efficiency 38.7 %\nCompare the raw cell efficiency 48 / 53 = 90.6 %: the trailer and padding cost extra"
+    },
+    {
+      "type": "bulletList",
+      "text": "PPP in more detail:",
+      "items": [
+        "Byte stuffing (RFC 1662): a data byte 0x7E is sent as 0x7D 0x5E and a byte 0x7D as 0x7D 0x5D (the escape byte, then the original byte XOR 0x20); control characters below 0x20 are escaped too unless LCP negotiates this away with the ACCM option.",
+        "LCP options include the MRU (default 1500 bytes), the authentication protocol, a magic number that detects looped-back links, and compression of the address/control and protocol fields.",
+        "IPCP, the NCP for IPv4, lets the ISP assign the client's IP address and DNS servers; IPV6CP only negotiates a 64-bit interface identifier, and the IPv6 address itself then comes from SLAAC or DHCPv6.",
+        "PPPoE (RFC 2516) carries PPP over Ethernet for DSL: a discovery stage (PADI, PADO, PADR, PADS) finds the access concentrator and a session ID, and the 6-byte PPPoE header plus the 2-byte PPP protocol field cut the MTU from 1500 to 1492 bytes.",
+        "Multilink PPP bundles several physical links into one logical link and spreads fragments across them."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: CHAP authentication (RFC 1994) after LCP has agreed on CHAP with MD5\nAuthenticator -> peer: Challenge (identifier 7, random challenge value C)\nPeer -> authenticator: Response  (identifier 7, MD5(7 || shared secret || C), name)\nAuthenticator computes the same hash from its own copy of the secret and compares\nAuthenticator -> peer: Success (or Failure, and the link is terminated)\nRepeated at random intervals with a new challenge, so an old response cannot be replayed\nPAP for comparison: peer -> authenticator: user name + password in clear text; ACK or NAK"
+    },
+    {
+      "type": "paragraph",
+      "text": "HDLC is the parent of a family of WAN link protocols: LAPB for X.25, LAPD for the ISDN D channel, LAPF for Frame Relay and the HDLC-like framing of PPP. Frame Relay traffic contracts use the committed information rate (CIR), the committed burst Bc = CIR × Tc allowed in each measurement interval Tc, and an excess burst Be: data up to Bc is forwarded normally, data between Bc and Bc + Be is forwarded but marked discard eligible (DE = 1) so that a congested switch drops it first, and anything beyond Bc + Be is discarded at once, while the FECN and BECN bits warn the end systems of congestion. X.25 works in three layers (X.21 physical, LAPB link and the packet layer protocol) and checks errors at every hop, which is exactly the work Frame Relay removed. An MPLS shim header is 32 bits: a 20-bit label, 3 traffic-class bits, a bottom-of-stack bit S and an 8-bit TTL, and label switch routers push, swap or pop labels as packets cross the network."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: ARP requests are broadcast but replies are unicast; ARP works only within one link, so a host never ARPs for a remote destination, only for its gateway; RARP (MAC to IP) is obsolete and replaced by DHCP; the ATM header is 5 bytes and the payload 48, not the other way round; a Frame Relay DLCI has only local significance, so the two ends of one virtual circuit may use different numbers; and PAP sends the password in clear text."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i24_m001",
+      "questionText": "What is the main purpose of a MAC address?",
+      "options": [
+        "To identify a network interface on the local link, so that frames reach the right device",
+        "To identify the IP version in use",
+        "To identify a host end to end across the Internet",
+        "To encrypt the frames sent on the link"
+      ],
+      "correctIndex": 0,
+      "explanation": "A MAC address is a 48-bit hardware address used for delivery within one LAN or link, and routers replace the MAC header at every hop. End-to-end identification across networks is the job of the IP address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m002",
+      "questionText": "What does ARP stand for?",
+      "options": [
+        "Advanced Routing Protocol",
+        "Address Resolution Protocol",
+        "Automatic Repeat Protocol",
+        "Address Relay Protocol"
+      ],
+      "correctIndex": 1,
+      "explanation": "ARP is the Address Resolution Protocol (RFC 826), which finds the MAC address that belongs to an IP address on the local network. Automatic Repeat reQuest (ARQ) is an error-control method, not ARP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m003",
+      "questionText": "RARP (Reverse ARP) was used by a host to find:",
+      "options": [
+        "A MAC address from a known IP address",
+        "An IP address from a domain name",
+        "Its IP address from its known MAC address",
+        "An IP address from a port number"
+      ],
+      "correctIndex": 2,
+      "explanation": "RARP let a diskless machine that knew only its MAC address ask a server for its IP address at boot. It is obsolete: BOOTP and then DHCP replaced it, because they also supply the subnet mask, gateway and DNS servers and can be relayed across routers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m004",
+      "questionText": "What does a host's ARP table (ARP cache) store?",
+      "options": [
+        "The IP addresses of DNS servers",
+        "Routing paths to remote networks",
+        "TCP connection states",
+        "Recently resolved IP-to-MAC address mappings, each with a timeout"
+      ],
+      "correctIndex": 3,
+      "explanation": "The ARP cache keeps IP-to-MAC mappings learned from ARP replies (and requests) so that later packets need no new broadcast; entries age out after a timeout, typically a few minutes. Routes are kept in the routing table.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m005",
+      "questionText": "A frame has the destination MAC address 3A:9C:10:00:4E:21. What kind of address is it?",
+      "options": [
+        "Unicast, universally administered",
+        "Multicast, universally administered",
+        "Unicast, locally administered",
+        "Multicast, locally administered"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first byte 0x3A = 0011 1010. Its least significant bit (I/G) is 0, so the address is unicast, and the next bit (U/L) is 1, so it is locally administered rather than built on an IEEE OUI.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m006",
+      "questionText": "A MAC address has a 24-bit OUI followed by 24 bits assigned by the manufacturer. How many distinct addresses can a manufacturer assign under one OUI?",
+      "options": [
+        "2^24 = 16,777,216",
+        "2^48 ≈ 2.8 × 10^14",
+        "2^24 − 2 = 16,777,214",
+        "2^12 = 4096"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 24 vendor bits give 2^24 = 16,777,216 combinations, and none is reserved in the way IP subnets reserve network and broadcast addresses. 2^48 is the size of the whole MAC address space.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m007",
+      "questionText": "An IPv4 multicast datagram for group 239.129.1.5 is sent on an Ethernet LAN. Which destination MAC address does the frame use?",
+      "options": [
+        "01:00:5E:81:01:05",
+        "01:00:5E:01:01:05",
+        "00:00:5E:01:01:05",
+        "01:00:5E:EF:81:01"
+      ],
+      "correctIndex": 1,
+      "explanation": "The MAC is 01:00:5E followed by a 0 bit and the low 23 bits of the group address. 129 = 1000 0001, and dropping its top bit leaves 000 0001, so the last three bytes are 01:01:05, giving 01:00:5E:01:01:05; 01:00:5E:81:01:05 wrongly copies all 24 bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m008",
+      "questionText": "Which statement about ARP messages on an Ethernet LAN is correct?",
+      "options": [
+        "Both the ARP request and the ARP reply are broadcast",
+        "The ARP request is unicast to the router and the reply is broadcast",
+        "The ARP request is broadcast to FF:FF:FF:FF:FF:FF and the reply is unicast to the requester",
+        "ARP messages travel inside IP datagrams with protocol number 0x0806"
+      ],
+      "correctIndex": 2,
+      "explanation": "The requester does not yet know the target's MAC address, so the request must be broadcast; the target knows the requester's MAC from the request and replies to it directly. ARP is carried straight in Ethernet frames with EtherType 0x0806, not inside IP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m009",
+      "questionText": "Which EtherType value identifies an ARP message inside an Ethernet frame?",
+      "options": [
+        "0x0800",
+        "0x86DD",
+        "0x8035",
+        "0x0806"
+      ],
+      "correctIndex": 3,
+      "explanation": "ARP uses EtherType 0x0806. 0x0800 is IPv4, 0x86DD is IPv6 and 0x8035 was used by RARP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m010",
+      "questionText": "Host A (192.168.1.10/24, default gateway 192.168.1.1) sends its first packet to 8.8.8.8 with an empty ARP cache. Which IP address does its ARP request ask about?",
+      "options": [
+        "8.8.8.8",
+        "192.168.1.1",
+        "192.168.1.255",
+        "255.255.255.255"
+      ],
+      "correctIndex": 1,
+      "explanation": "8.8.8.8 is outside 192.168.1.0/24, so A must hand the packet to its default gateway and needs the gateway's MAC address; it therefore ARPs for 192.168.1.1. ARP never resolves addresses beyond the local link.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m011",
+      "questionText": "Host A (10.0.0.5/24) sends an IP packet to host B (10.0.1.7/24) through router R, whose interface on A's network is 10.0.0.1. Which destination addresses does the frame leaving A carry?",
+      "options": [
+        "Destination MAC = B's MAC, destination IP = 10.0.1.7",
+        "Destination MAC = R's MAC, destination IP = 10.0.0.1",
+        "Destination MAC = R's MAC, destination IP = 10.0.1.7",
+        "Destination MAC = FF:FF:FF:FF:FF:FF, destination IP = 10.0.1.7"
+      ],
+      "correctIndex": 2,
+      "explanation": "A sees that 10.0.1.7 is not in 10.0.0.0/24, so it sends the frame to the next hop: R's MAC address, learned by ARP for 10.0.0.1. The IP header keeps the final destination 10.0.1.7, and R builds a new frame towards B.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m012",
+      "questionText": "Right after its interface comes up, a host sends an ARP request asking for its own IP address. What is this gratuitous ARP mainly used for?",
+      "options": [
+        "Detecting another host that already uses the same IP address and updating other hosts' ARP caches",
+        "Obtaining an IP address from a server",
+        "Finding the MAC address of the default gateway",
+        "Measuring the round-trip time to the switch"
+      ],
+      "correctIndex": 0,
+      "explanation": "If any host answers a gratuitous ARP, the address is already in use; if not, the announcement refreshes the mapping in other hosts' caches, which is also how a standby router or server takes over an address after failover.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m013",
+      "questionText": "A router answers ARP requests on behalf of hosts on another network, replying with its own MAC address so that traffic for them is sent to the router. This is called:",
+      "options": [
+        "Gratuitous ARP",
+        "Reverse ARP",
+        "Inverse ARP",
+        "Proxy ARP"
+      ],
+      "correctIndex": 3,
+      "explanation": "In proxy ARP (RFC 1027) the router answers for the remote hosts and then forwards the frames it receives. Inverse ARP finds the IP address at the far end of a Frame Relay DLCI, and reverse ARP maps a MAC address to an IP address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m014",
+      "questionText": "Why is ARP spoofing (ARP cache poisoning) possible, and what counters it on a switched LAN?",
+      "options": [
+        "ARP replies are not authenticated, so hosts accept forged mappings; dynamic ARP inspection on switches checks them against trusted bindings",
+        "ARP runs over TCP, whose sequence numbers can be guessed; SYN cookies counter it",
+        "ARP requests are unicast, so they can be intercepted; broadcasting them counters it",
+        "ARP entries never expire; rebooting the router counters it"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hosts accept unsolicited or forged ARP replies because ARP has no authentication, so an attacker can map the gateway's IP to its own MAC and sit in the middle. Dynamic ARP inspection drops ARP packets that do not match the DHCP-snooping bindings; static entries also help on small networks.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m015",
+      "questionText": "An ARP message for IPv4 over Ethernet is 28 bytes long. How many pad bytes does the Ethernet frame carrying it need?",
+      "options": [
+        "0",
+        "18",
+        "36",
+        "46"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ARP message is 2 + 2 + 1 + 1 + 2 + 6 + 4 + 6 + 4 = 28 bytes, but the Ethernet data field must be at least 46 bytes, so 46 − 28 = 18 pad bytes are added and the frame is 14 + 46 + 4 = 64 bytes. 36 wrongly pads up to 64 bytes of data.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m016",
+      "questionText": "In PPP, which protocol establishes, configures and tests the data link before any network-layer traffic flows?",
+      "options": [
+        "IPCP",
+        "CHAP",
+        "NCP",
+        "LCP"
+      ],
+      "correctIndex": 3,
+      "explanation": "The Link Control Protocol negotiates options such as the MRU, authentication method and magic number, and tests the link. NCPs such as IPCP run only afterwards to configure each network-layer protocol, and CHAP is an authentication protocol.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m017",
+      "questionText": "A home router connects to its ISP over PPPoE and receives its public IPv4 address during PPP setup. Which protocol assigns it?",
+      "options": [
+        "LCP",
+        "PAP",
+        "IPCP, an NCP for IPv4",
+        "ARP"
+      ],
+      "correctIndex": 2,
+      "explanation": "After LCP and authentication, the IP Control Protocol (an NCP) negotiates the IPv4 address and can also supply DNS server addresses. LCP configures only the link and PAP only authenticates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m018",
+      "questionText": "What is the correct order of PPP phases for a link that uses authentication?",
+      "options": [
+        "Dead, Establish (LCP), Authenticate, Network (NCP), Open, Terminate",
+        "Dead, Authenticate, Establish (LCP), Network (NCP), Open, Terminate",
+        "Establish (NCP), Network (LCP), Authenticate, Open, Dead",
+        "Dead, Network (NCP), Establish (LCP), Open, Authenticate, Terminate"
+      ],
+      "correctIndex": 0,
+      "explanation": "The link starts dead, LCP establishes it, the optional authentication (PAP or CHAP) follows, NCPs such as IPCP configure the network layer, data flows in the open state and LCP finally terminates the link. Authentication cannot come before LCP, because LCP negotiates which method to use.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m019",
+      "questionText": "Why is the Address field of a PPP frame always 0xFF?",
+      "options": [
+        "It carries the destination IP address in compressed form",
+        "A point-to-point link has only one possible receiver, so the all-stations address is used and no real addressing is needed",
+        "It marks the start of the frame",
+        "It shows that the frame contains an LCP message"
+      ],
+      "correctIndex": 1,
+      "explanation": "PPP keeps the HDLC frame layout but, with only two ends on the link, fixes the address at 0xFF (all stations) and the control field at 0x03; LCP can even negotiate leaving both out. The start of a frame is marked by the flag 0x7E, and the Protocol field identifies LCP (0xC021).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m020",
+      "questionText": "PPP with HDLC-like framing (RFC 1662) must send the payload bytes 7E 41 7D 42. Assuming only the flag and escape bytes need escaping, which bytes are transmitted between the flags?",
+      "options": [
+        "7D 7E 41 7D 7D 42",
+        "7E 41 7D 42",
+        "7D 5E 41 7D 42",
+        "7D 5E 41 7D 5D 42"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each 0x7E or 0x7D in the data is replaced by the escape byte 0x7D followed by the original byte XOR 0x20: 7E becomes 7D 5E and 7D becomes 7D 5D, while 41 and 42 pass unchanged. Putting 7D in front of an unchanged byte is the simplified textbook form of byte stuffing, not the exact PPP rule.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m021",
+      "questionText": "Why is the MTU on a PPPoE DSL link usually 1492 bytes rather than 1500?",
+      "options": [
+        "The 6-byte PPPoE header and the 2-byte PPP protocol field use 8 bytes of the 1500-byte Ethernet payload",
+        "The 8-byte preamble must fit inside the Ethernet payload",
+        "PPP adds a 4-byte FCS and 4 bytes of flags inside the payload",
+        "DSL lines cannot carry frames longer than 1492 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "PPPoE puts a 6-byte header and the 2-byte PPP protocol ID inside the Ethernet data field, leaving 1500 − 8 = 1492 bytes for the IP packet. PPPoE frames carry no PPP flags or FCS because Ethernet's own CRC protects them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m022",
+      "questionText": "In PPP CHAP (RFC 1994) with MD5, how does the peer compute its Response value?",
+      "options": [
+        "As the MD5 hash of the password alone",
+        "As the MD5 hash of the identifier, the shared secret and the challenge, concatenated",
+        "By encrypting the password with DES, using the challenge as the key",
+        "By returning the challenge unchanged together with the user name"
+      ],
+      "correctIndex": 1,
+      "explanation": "The response is MD5(identifier ‖ secret ‖ challenge); the authenticator computes the same value from its own copy of the secret. A hash of the password alone would be the same every time and could simply be replayed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m023",
+      "questionText": "Which HDLC-based protocol is the data link layer of X.25?",
+      "options": [
+        "LAPD",
+        "LAPF",
+        "LAPB",
+        "PPP"
+      ],
+      "correctIndex": 2,
+      "explanation": "X.25 uses LAPB (Link Access Procedure, Balanced) between the DTE and the network. LAPD serves the ISDN D channel, LAPF serves Frame Relay, and PPP uses HDLC-like framing for point-to-point links.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m024",
+      "questionText": "In Frame Relay, what identifies a virtual circuit on a link?",
+      "options": [
+        "A VPI/VCI pair",
+        "A 20-bit label",
+        "A logical channel number",
+        "The DLCI (data link connection identifier)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Frame Relay marks each frame with a DLCI, normally 10 bits long and significant only on the local link. VPI/VCI belongs to ATM, the 20-bit label to MPLS and the logical channel number to X.25.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i24_m025",
+      "questionText": "A Frame Relay circuit has CIR = 64 kbps, measurement interval Tc = 1 s and excess burst Be = 32 kbits. In one interval the user sends 120 kbits. How much of this data is forwarded but marked discard eligible (DE = 1)?",
+      "options": [
+        "56 kbits",
+        "32 kbits",
+        "24 kbits",
+        "0 kbits"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bc = CIR × Tc = 64 kbits is forwarded normally; the next Be = 32 kbits (up to Bc + Be = 96 kbits) is forwarded with DE = 1; the remaining 120 − 96 = 24 kbits are discarded. 56 kbits would mark all the excess as DE.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m026",
+      "questionText": "A 1500-byte IP packet is carried over ATM using AAL5, which adds an 8-byte trailer and pads to a multiple of 48 bytes. How many cells are needed, and what is the efficiency (IP bytes divided by bytes on the line)?",
+      "options": [
+        "31 cells, 91.3%",
+        "32 cells, 90.6%",
+        "29 cells, 97.6%",
+        "32 cells, 88.4%"
+      ],
+      "correctIndex": 3,
+      "explanation": "(1500 + 8) / 48 = 31.4, so 32 cells are needed, occupying 32 × 53 = 1696 bytes, and the efficiency is 1500 / 1696 = 88.4%. 90.6% is only the raw 48/53 cell efficiency, and 29 cells wrongly divides by 53 instead of 48.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i24_m027",
+      "questionText": "Why does ATM use small, fixed-size 53-byte cells?",
+      "options": [
+        "To keep queuing and packetisation delay low and predictable for voice and video, and to allow fast hardware switching",
+        "To reduce header overhead compared with large frames",
+        "To avoid the need for virtual circuits",
+        "So that each cell fits in an Ethernet minimum frame"
+      ],
+      "correctIndex": 0,
+      "explanation": "Short fixed cells mean a voice cell never waits long behind a large data packet, and fixed sizes make switching simple enough for hardware. The price is a relatively high header overhead (5 of every 53 bytes), and ATM is built on virtual circuits (VPI/VCI).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m028",
+      "questionText": "Which statement comparing X.25 and Frame Relay is correct?",
+      "options": [
+        "Frame Relay performs error control and retransmission at every switch, unlike X.25",
+        "X.25 checks and corrects errors at every hop, while Frame Relay only discards bad frames and leaves recovery to the end systems",
+        "Both carry data in fixed 53-byte cells",
+        "X.25 is connectionless, while Frame Relay is connection-oriented"
+      ],
+      "correctIndex": 1,
+      "explanation": "X.25 was designed for noisy analogue lines and does error and flow control hop by hop; Frame Relay assumes clean digital links, checks the FCS and silently drops bad frames, leaving retransmission to protocols such as TCP. Both are connection-oriented, using virtual circuits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m029",
+      "questionText": "Which statement about the MPLS shim header is correct?",
+      "options": [
+        "It sits between the layer 2 header and the IP header and carries a 20-bit label, 3 traffic-class bits, a bottom-of-stack bit and an 8-bit TTL",
+        "It replaces the IP header and carries 32-bit source and destination labels",
+        "It is placed after the TCP header and carries a 16-bit label",
+        "It is a 5-byte header with VPI and VCI fields"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 32-bit MPLS header (20 + 3 + 1 + 8 bits) is inserted between layers 2 and 3, which is why MPLS is called layer 2.5, and several headers can be stacked. VPI and VCI belong to the 5-byte ATM cell header.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i24_m030",
+      "questionText": "A packet travels from host A across two routers to host B, with no NAT on the path. Which addresses are rewritten at every router hop?",
+      "options": [
+        "The source and destination IP addresses",
+        "Only the destination IP address",
+        "The source and destination MAC addresses",
+        "No addresses change at all"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each router removes the incoming frame and builds a new one with its own outgoing MAC as source and the next hop's MAC as destination. The IP addresses stay the same end to end (only the TTL and header checksum change).",
+      "difficulty": "medium"
+    }
+  ]
+}

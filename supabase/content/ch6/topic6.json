@@ -1,0 +1,1007 @@
+{
+  "parent": {
+    "id": "ch6_p6",
+    "title": "Three-Dimensional Transformations"
+  },
+  "subtopics": [
+    {
+      "id": "ch6_t6",
+      "title": "3D Translation, Rotation & Scaling",
+      "subtitle": "4 × 4 homogeneous matrices, rotation about x, y and z, fixed-point scaling and inverses",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "3D Homogeneous Coordinates"
+          },
+          {
+            "type": "paragraph",
+            "text": "In three dimensions a point (x, y, z) is written in homogeneous form as the column vector (x, y, z, 1). Every basic transformation — translation, rotation, scaling, reflection and shear — then becomes a 4 × 4 matrix, and the transformed point is P' = M · P. The extra fourth coordinate is what lets translation, which is an addition, be expressed as a matrix multiplication, so any sequence of transformations can be multiplied into one composite matrix. If a homogeneous point comes out as (X, Y, Z, w) with w ≠ 1, the Cartesian point is recovered by dividing: (X/w, Y/w, Z/w)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Conventions used throughout this topic (Hearn & Baker):",
+            "items": [
+              "Right-handed coordinate system: curl the fingers of the right hand from +x to +y and the thumb points along +z.",
+              "Column vectors, so the matrix is written to the left of the point and composite matrices are read right to left (the rightmost matrix is applied first).",
+              "A positive rotation angle θ is counterclockwise when looking from the positive end of the rotation axis towards the origin.",
+              "The last row of an affine 4 × 4 matrix is always (0, 0, 0, 1); only perspective projection changes it."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Translation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Translation moves every point by the same offset (t_x, t_y, t_z): x' = x + t_x, y' = y + t_y, z' = z + t_z. In the 4 × 4 matrix the offsets sit in the fourth column of the first three rows, and the upper-left 3 × 3 block is the identity. An object is translated by translating each of its defining vertices; for a polygon mesh the edges and faces follow automatically. Example: translating P(2, 3, 4) by T(1, −2, 5) gives P'(3, 1, 9)."
+          },
+          {
+            "type": "formula",
+            "latex": "T(t_x,t_y,t_z)=\\begin{bmatrix}1&0&0&t_x\\\\0&1&0&t_y\\\\0&0&1&t_z\\\\0&0&0&1\\end{bmatrix}",
+            "plainText": "T = [1 0 0 tx; 0 1 0 ty; 0 0 1 tz; 0 0 0 1]"
+          },
+          {
+            "type": "heading",
+            "text": "Rotation About the Coordinate Axes"
+          },
+          {
+            "type": "paragraph",
+            "text": "A 3D rotation needs an axis as well as an angle. Rotation about the z-axis is exactly the familiar 2D rotation with z left unchanged. The equations for the x- and y-axes are obtained by the cyclic permutation x → y → z → x: replace x by y, y by z and z by x in the z-axis equations to get rotation about x, and apply the permutation once more to get rotation about y. Because of this cycle the y-axis equations look as if the sine signs are swapped (x' = z sin θ + x cos θ, z' = z cos θ − x sin θ) — this is correct, not a misprint."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Axis",
+                "Changed coordinates",
+                "Unchanged"
+              ],
+              [
+                "z-axis R_z(θ)",
+                "x' = x cos θ − y sin θ;  y' = x sin θ + y cos θ",
+                "z' = z"
+              ],
+              [
+                "x-axis R_x(θ)",
+                "y' = y cos θ − z sin θ;  z' = y sin θ + z cos θ",
+                "x' = x"
+              ],
+              [
+                "y-axis R_y(θ)",
+                "z' = z cos θ − x sin θ;  x' = z sin θ + x cos θ",
+                "y' = y"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "R_z(\\theta)=\\begin{bmatrix}\\cos\\theta&-\\sin\\theta&0&0\\\\\\sin\\theta&\\cos\\theta&0&0\\\\0&0&1&0\\\\0&0&0&1\\end{bmatrix}",
+            "plainText": "Rz = [cos -sin 0 0; sin cos 0 0; 0 0 1 0; 0 0 0 1]"
+          },
+          {
+            "type": "bulletList",
+            "text": "Worked rotation examples with θ = 90° (cos θ = 0, sin θ = 1):",
+            "items": [
+              "About z: (1, 0, 0) → x' = 1·0 − 0·1 = 0, y' = 1·1 + 0·0 = 1, so the point becomes (0, 1, 0).",
+              "About x: (0, 1, 0) → y' = 1·0 − 0·1 = 0, z' = 1·1 + 0·0 = 1, so the point becomes (0, 0, 1).",
+              "About y: (0, 0, 1) → z' = 1·0 − 0·1 = 0, x' = 1·1 + 0·0 = 1, so the point becomes (1, 0, 0).",
+              "Each positive quarter-turn carries one axis onto the next in the cycle x → y → z → x, a quick check on sign conventions."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Scaling"
+          },
+          {
+            "type": "paragraph",
+            "text": "Scaling about the origin multiplies each coordinate by its own factor: x' = s_x·x, y' = s_y·y, z' = s_z·z, giving a diagonal matrix diag(s_x, s_y, s_z, 1). Equal factors give uniform scaling that preserves shape; unequal factors distort it. Scaling about the origin also moves the object, so to scale in place about a fixed point (x_f, y_f, z_f) we translate the fixed point to the origin, scale, and translate back: T(x_f, y_f, z_f)·S·T(−x_f, −y_f, −z_f). Example: scaling P(3, 4, 5) by 2 about (2, 2, 2) gives x' = 2·3 + (1 − 2)·2 = 4, and similarly y' = 6, z' = 8, so P' = (4, 6, 8)."
+          },
+          {
+            "type": "formula",
+            "latex": "x'=s_x\\,x+(1-s_x)\\,x_f,\\quad y'=s_y\\,y+(1-s_y)\\,y_f,\\quad z'=s_z\\,z+(1-s_z)\\,z_f",
+            "plainText": "x' = sx·x + (1 − sx)·xf, and likewise for y and z"
+          },
+          {
+            "type": "heading",
+            "text": "Inverse Transformations"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Transformation",
+                "Inverse",
+                "Remark"
+              ],
+              [
+                "Translation T(t_x, t_y, t_z)",
+                "T(−t_x, −t_y, −t_z)",
+                "Negate the offsets"
+              ],
+              [
+                "Rotation R(θ)",
+                "R(−θ) = R(θ) transposed",
+                "Rotation matrices are orthogonal"
+              ],
+              [
+                "Scaling S(s_x, s_y, s_z)",
+                "S(1/s_x, 1/s_y, 1/s_z)",
+                "Needs all factors non-zero"
+              ],
+              [
+                "Composite M = M3·M2·M1",
+                "M1⁻¹·M2⁻¹·M3⁻¹",
+                "Invert each and reverse the order"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P' = M\\cdot P,\\quad P=\\begin{bmatrix}x & y & z & 1\\end{bmatrix}^T",
+            "plainText": "P' = M·P with P = (x, y, z, 1) as a column vector"
+          },
+          {
+            "type": "formula",
+            "latex": "R_x(\\theta):\\; y'=y\\cos\\theta-z\\sin\\theta,\\;\\; z'=y\\sin\\theta+z\\cos\\theta,\\;\\; x'=x",
+            "plainText": "Rx: y' = y cos θ − z sin θ, z' = y sin θ + z cos θ, x' = x"
+          },
+          {
+            "type": "formula",
+            "latex": "R_y(\\theta):\\; z'=z\\cos\\theta-x\\sin\\theta,\\;\\; x'=z\\sin\\theta+x\\cos\\theta,\\;\\; y'=y",
+            "plainText": "Ry: z' = z cos θ − x sin θ, x' = z sin θ + x cos θ, y' = y"
+          },
+          {
+            "type": "formula",
+            "latex": "R^{-1}(\\theta)=R(-\\theta)=R^T(\\theta)",
+            "plainText": "Inverse rotation = rotation by −θ = transpose"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "To recall any axis rotation, write the z-axis equations and cycle x → y → z → x. MCQs often test the y-axis case, where x' = x cos θ + z sin θ and z' = −x sin θ + z cos θ."
+          },
+          {
+            "type": "warning",
+            "text": "Scaling or rotating about the origin also moves an object that is not at the origin. For a fixed point or pivot, translate it to the origin first and translate back afterwards."
+          },
+          {
+            "type": "note",
+            "text": "Some books (for example with row vectors, P' = P·M) write the transposed matrices and read composites left to right; the resulting points are the same."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_t6_01",
+          "title": "3D translation matrix",
+          "latex": "T=\\begin{bmatrix}1&0&0&t_x\\\\0&1&0&t_y\\\\0&0&1&t_z\\\\0&0&0&1\\end{bmatrix}",
+          "plainText": "x' = x + tx, y' = y + ty, z' = z + tz",
+          "description": "Shifts every point by (t_x, t_y, t_z); the offsets occupy the fourth column."
+        },
+        {
+          "id": "f_ch6_t6_02",
+          "title": "Rotation about z-axis",
+          "latex": "x'=x\\cos\\theta-y\\sin\\theta,\\;\\; y'=x\\sin\\theta+y\\cos\\theta,\\;\\; z'=z",
+          "plainText": "x' = x cos θ − y sin θ, y' = x sin θ + y cos θ, z' = z",
+          "description": "The 2D rotation extended to 3D with z unchanged; cycle x→y→z→x for the other axes."
+        },
+        {
+          "id": "f_ch6_t6_03",
+          "title": "Rotation about y-axis",
+          "latex": "x'=x\\cos\\theta+z\\sin\\theta,\\;\\; z'=-x\\sin\\theta+z\\cos\\theta,\\;\\; y'=y",
+          "plainText": "x' = x cos θ + z sin θ, z' = −x sin θ + z cos θ, y' = y",
+          "description": "Note the apparently swapped sine signs, which come from the cyclic permutation."
+        },
+        {
+          "id": "f_ch6_t6_04",
+          "title": "Fixed-point scaling",
+          "latex": "S_f = T(x_f,y_f,z_f)\\cdot S(s_x,s_y,s_z)\\cdot T(-x_f,-y_f,-z_f)",
+          "plainText": "Sf = T(xf, yf, zf) · S(sx, sy, sz) · T(−xf, −yf, −zf)",
+          "description": "Scales an object in place about (x_f, y_f, z_f) without moving that point."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_t6_01",
+          "front": "What cyclic permutation turns the z-axis rotation equations into the x-axis ones?",
+          "back": "Replace x → y, y → z and z → x. Applying it again gives the y-axis rotation equations.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_t6_02",
+          "front": "Why do 3D graphics use 4 × 4 homogeneous matrices?",
+          "back": "The fourth coordinate lets translation be a matrix multiplication, so all transformations can be concatenated into one composite matrix.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_t6_03",
+          "front": "What is the inverse of a 3D rotation matrix?",
+          "back": "R(−θ), which equals the transpose of R(θ), because rotation matrices are orthogonal.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_t6_04",
+          "front": "How do you scale an object about a fixed point (x_f, y_f, z_f)?",
+          "back": "Translate by (−x_f, −y_f, −z_f), scale, then translate back by (x_f, y_f, z_f): T·S·T⁻¹.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_t6_n01",
+          "questionText": "In a right-handed system, the point (0, 1, 0) is rotated by +90° about the x-axis. The resulting point is:",
+          "options": [
+            "(0, −1, 0)",
+            "(1, 0, 0)",
+            "(0, 0, 1)",
+            "(0, 0, −1)"
+          ],
+          "correctIndex": 2,
+          "explanation": "For R_x, y' = y cos θ − z sin θ = 0 and z' = y sin θ + z cos θ = 1, with x unchanged, giving (0, 0, 1).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_t6_n02",
+          "questionText": "The point (3, 4, 5) is scaled by a uniform factor of 2 about the fixed point (2, 2, 2). Its new position is:",
+          "options": [
+            "(4, 6, 8)",
+            "(6, 8, 10)",
+            "(5, 6, 7)",
+            "(8, 10, 12)"
+          ],
+          "correctIndex": 0,
+          "explanation": "x' = s·x + (1 − s)·x_f = 6 − 2 = 4; likewise y' = 8 − 2 = 6 and z' = 10 − 2 = 8.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_t6_n03",
+          "questionText": "Which of the following is the inverse of the 3D rotation matrix R_y(θ)?",
+          "options": [
+            "R_y(θ) itself",
+            "The transpose of R_y(θ)",
+            "R_x(θ)",
+            "R_y(90° − θ)"
+          ],
+          "correctIndex": 1,
+          "explanation": "Rotation matrices are orthogonal, so the inverse equals the transpose, which is also R_y(−θ).",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch6_i61",
+      "title": "3D Reflection, Shear & Composite Transformations",
+      "subtitle": "Plane reflections, z-axis shear, matrix concatenation and rotation about an arbitrary axis",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Reflection About the Principal Planes"
+          },
+          {
+            "type": "paragraph",
+            "text": "A 3D reflection mirrors an object through a plane (or, less often, a line or a point). Reflection about a principal coordinate plane simply negates the coordinate perpendicular to that plane, so its matrix is the identity with one −1 on the diagonal. A reflection converts a right-handed description of an object into a left-handed one, which is why it cannot be produced by any sequence of pure rotations. Reflection about an arbitrary plane is built as a composite: move the plane onto a principal plane, reflect, and move it back."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Reflection about",
+                "Equations",
+                "Matrix diagonal"
+              ],
+              [
+                "xy-plane (z = 0)",
+                "x' = x, y' = y, z' = −z",
+                "(1, 1, −1, 1)"
+              ],
+              [
+                "yz-plane (x = 0)",
+                "x' = −x, y' = y, z' = z",
+                "(−1, 1, 1, 1)"
+              ],
+              [
+                "xz-plane (y = 0)",
+                "x' = x, y' = −y, z' = z",
+                "(1, −1, 1, 1)"
+              ],
+              [
+                "Origin (point)",
+                "x' = −x, y' = −y, z' = −z",
+                "(−1, −1, −1, 1)"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "RF_{xy}=\\begin{bmatrix}1&0&0&0\\\\0&1&0&0\\\\0&0&-1&0\\\\0&0&0&1\\end{bmatrix}",
+            "plainText": "Reflection about xy-plane: diag(1, 1, −1, 1)"
+          },
+          {
+            "type": "heading",
+            "text": "Shear in 3D"
+          },
+          {
+            "type": "paragraph",
+            "text": "A shear slides points parallel to a plane by an amount proportional to their distance from it. Shear relative to the z-axis changes x and y in proportion to z while leaving z unchanged: x' = x + a·z, y' = y + b·z, z' = z. Similar shears exist relative to the x- and y-axes. In general each off-diagonal position of the upper-left 3 × 3 block can hold a shear parameter, giving six directional shear parameters (x by y, x by z, y by x, y by z, z by x, z by y). Example: with a = 1, b = 2 the point (1, 1, 2) becomes (1 + 2, 1 + 4, 2) = (3, 5, 2)."
+          },
+          {
+            "type": "formula",
+            "latex": "SH_z=\\begin{bmatrix}1&0&a&0\\\\0&1&b&0\\\\0&0&1&0\\\\0&0&0&1\\end{bmatrix}",
+            "plainText": "z-axis shear: x' = x + a·z, y' = y + b·z, z' = z"
+          },
+          {
+            "type": "heading",
+            "text": "Composite Transformations"
+          },
+          {
+            "type": "paragraph",
+            "text": "A composite transformation is a sequence of basic transformations multiplied into one 4 × 4 matrix. With column vectors, M = M_n ··· M_2 · M_1 applies M_1 first, so matrices are written right to left in the order they act. Matrix multiplication is associative but not commutative: translating then rotating is generally different from rotating then translating. Two successive translations, two rotations about the same axis, or two scalings do commute and simply add (translations, angles) or multiply (scale factors)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Why composite matrices are efficient:",
+            "items": [
+              "The sequence is multiplied once (a few 4 × 4 products) and the single result is applied to every vertex.",
+              "Applying a 4 × 4 affine matrix to a point costs about 9 multiplications and 9 additions (the last row is fixed), whatever the number of steps in the sequence.",
+              "For a model with thousands of vertices this is far cheaper than applying each basic transformation to every vertex in turn.",
+              "Graphics hardware and APIs such as OpenGL keep a current transformation (matrix stack) for exactly this reason."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Rotation About an Arbitrary Axis"
+          },
+          {
+            "type": "paragraph",
+            "text": "Let the axis pass through P1(x1, y1, z1) and P2, with unit direction vector u = (a, b, c) and d = √(b² + c²). The idea is to move the axis onto the z-axis, perform the easy rotation R_z(θ), and then undo the alignment. The full composite is R(θ) = T⁻¹ · R_x⁻¹(α) · R_y⁻¹(β) · R_z(θ) · R_y(β) · R_x(α) · T, where T = T(−x1, −y1, −z1). If the axis is already parallel to a coordinate axis, only translate–rotate–translate back is needed."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Rotation by θ about axis P1→P2, u = (a, b, c) unit, d = sqrt(b² + c²)\n1. T(−P1): translate so the axis passes through the origin\n2. Rx(α): rotate about x into the xz-plane, cos α = c/d, sin α = b/d\n3. Ry(β): rotate about y onto the z-axis, cos β = d, sin β = −a\n4. Rz(θ): perform the required rotation\n5. Ry⁻¹(β): undo step 3\n6. Rx⁻¹(α): undo step 2\n7. T(+P1): undo step 1 (inverses applied in reverse order)"
+          },
+          {
+            "type": "bulletList",
+            "text": "Worked composite: scale by 2 about the fixed point (2, 2, 2), applied to P(3, 4, 5):",
+            "items": [
+              "Step 1, T(−2, −2, −2): (3, 4, 5) → (1, 2, 3).",
+              "Step 2, S(2, 2, 2): (1, 2, 3) → (2, 4, 6).",
+              "Step 3, T(2, 2, 2): (2, 4, 6) → (4, 6, 8).",
+              "Composite M = T(2, 2, 2)·S(2, 2, 2)·T(−2, −2, −2) has diagonal (2, 2, 2, 1) and fourth column (−2, −2, −2, 1); M·P gives (4, 6, 8) in one multiplication."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "M = M_n\\cdots M_2\\, M_1,\\qquad P' = M\\cdot P",
+            "plainText": "M = Mn ··· M2 · M1 (M1 applied first); P' = M·P"
+          },
+          {
+            "type": "formula",
+            "latex": "R(\\theta)=T^{-1}R_x^{-1}(\\alpha)R_y^{-1}(\\beta)R_z(\\theta)R_y(\\beta)R_x(\\alpha)T",
+            "plainText": "R(θ) = T⁻¹·Rx⁻¹(α)·Ry⁻¹(β)·Rz(θ)·Ry(β)·Rx(α)·T"
+          },
+          {
+            "type": "formula",
+            "latex": "d=\\sqrt{b^2+c^2},\\quad \\cos\\alpha=\\frac{c}{d},\\quad \\sin\\alpha=\\frac{b}{d}",
+            "plainText": "d = √(b² + c²), cos α = c/d, sin α = b/d"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For reflection about a coordinate plane, negate the coordinate that is NOT in the plane's name: xy-plane flips z, yz-plane flips x, xz-plane flips y."
+          },
+          {
+            "type": "warning",
+            "text": "Order matters: with column vectors the rightmost matrix acts first. When undoing an alignment sequence, apply the inverses in the reverse order."
+          },
+          {
+            "type": "note",
+            "text": "A reflection has determinant −1 and reverses handedness; rotations have determinant +1. This is why no combination of rotations can produce a mirror image."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i61_01",
+          "title": "Reflection about xy-plane",
+          "latex": "x'=x,\\quad y'=y,\\quad z'=-z",
+          "plainText": "x' = x, y' = y, z' = −z",
+          "description": "Negates the coordinate perpendicular to the mirror plane; the other planes work the same way."
+        },
+        {
+          "id": "f_ch6_i61_02",
+          "title": "Shear relative to z-axis",
+          "latex": "x'=x+a\\,z,\\quad y'=y+b\\,z,\\quad z'=z",
+          "plainText": "x' = x + a·z, y' = y + b·z, z' = z",
+          "description": "Slides x and y in proportion to z while z is unchanged."
+        },
+        {
+          "id": "f_ch6_i61_03",
+          "title": "Rotation about arbitrary axis",
+          "latex": "R(\\theta)=T^{-1}R_x^{-1}(\\alpha)R_y^{-1}(\\beta)R_z(\\theta)R_y(\\beta)R_x(\\alpha)T",
+          "plainText": "R(θ) = T⁻¹·Rx⁻¹(α)·Ry⁻¹(β)·Rz(θ)·Ry(β)·Rx(α)·T",
+          "description": "Align the axis with z, rotate by θ, then undo the alignment in reverse order."
+        },
+        {
+          "id": "f_ch6_i61_04",
+          "title": "Inverse of a composite",
+          "latex": "(M_3 M_2 M_1)^{-1}=M_1^{-1}M_2^{-1}M_3^{-1}",
+          "plainText": "(M3·M2·M1)⁻¹ = M1⁻¹·M2⁻¹·M3⁻¹",
+          "description": "Invert each factor and reverse their order."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i61_01",
+          "front": "What does reflection about the yz-plane do to a point (x, y, z)?",
+          "back": "It gives (−x, y, z): only the x-coordinate, perpendicular to the yz-plane, is negated.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i61_02",
+          "front": "List the steps to rotate an object about an arbitrary axis.",
+          "back": "Translate the axis through the origin, rotate about x then y to align it with z, rotate by θ about z, then apply the inverse rotations and translation in reverse order.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch6_i61_03",
+          "front": "Why form a composite matrix instead of applying each transformation separately?",
+          "back": "The matrices are multiplied once, and each vertex is then transformed by a single 4 × 4 multiplication, saving a large amount of computation.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i61_04",
+          "front": "How many independent shear parameters does a 3D affine matrix have?",
+          "back": "Six: the off-diagonal entries of the upper-left 3 × 3 block, one for each coordinate sheared by each other coordinate.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i61_n01",
+          "questionText": "Reflecting the point (2, −3, 5) about the xz-plane gives:",
+          "options": [
+            "(2, −3, −5)",
+            "(−2, −3, 5)",
+            "(−2, 3, −5)",
+            "(2, 3, 5)"
+          ],
+          "correctIndex": 3,
+          "explanation": "The xz-plane is y = 0, so reflection about it negates only y: (2, 3, 5).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i61_n02",
+          "questionText": "A z-axis shear x' = x + a·z, y' = y + b·z, z' = z with a = 1 and b = 2 is applied to the point (1, 1, 2). The result is:",
+          "options": [
+            "(3, 3, 2)",
+            "(3, 5, 2)",
+            "(2, 3, 2)",
+            "(3, 5, 6)"
+          ],
+          "correctIndex": 1,
+          "explanation": "x' = 1 + 1·2 = 3, y' = 1 + 2·2 = 5 and z is unchanged, giving (3, 5, 2).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i61_n03",
+          "questionText": "When rotating about an arbitrary axis, what is the FIRST transformation applied to the object?",
+          "options": [
+            "Rotation about the z-axis by θ",
+            "Rotation about the x-axis to bring the axis into the xz-plane",
+            "Translation so that the rotation axis passes through the origin",
+            "Scaling the axis direction to unit length"
+          ],
+          "correctIndex": 2,
+          "explanation": "The axis is first translated through the origin; only then are the aligning rotations about x and y, the rotation by θ, and the inverse steps applied.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i61_n04",
+          "questionText": "In the arbitrary-axis rotation with unit axis vector u = (a, b, c), the rotation about the x-axis uses cos α = c/d. Here d equals:",
+          "options": [
+            "√(b² + c²)",
+            "√(a² + b²)",
+            "√(a² + c²)",
+            "a + b + c"
+          ],
+          "correctIndex": 0,
+          "explanation": "d is the length of the projection of u onto the yz-plane, √(b² + c²); sin α = b/d brings the axis into the xz-plane.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch6_i62",
+      "title": "3D Viewing Pipeline",
+      "subtitle": "Coordinate stages, camera parameters (VRP, N, V), view volumes and 3D clipping",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "The Synthetic Camera"
+          },
+          {
+            "type": "paragraph",
+            "text": "3D viewing is modelled on taking a photograph. We choose where to stand (camera position), which way to point the camera (viewing direction), which way is up, and the lens and film size (projection and window). The scene is then projected onto a 2D view plane and mapped to the screen. Unlike 2D viewing, 3D viewing needs a projection step to collapse depth, and clipping takes place against a 3D view volume rather than a rectangle."
+          },
+          {
+            "type": "heading",
+            "text": "Stages of the Pipeline"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Modelling coordinates (MC)\n   | modelling transformation\nWorld coordinates (WC)\n   | viewing transformation\nViewing / camera coordinates (VC)\n   | projection transformation\nProjection coordinates\n   | normalisation (map view volume to a unit cube)\nNormalised coordinates -> clipping, visible-surface removal\n   | viewport (workstation) transformation\nDevice / screen coordinates (DC)"
+          },
+          {
+            "type": "bulletList",
+            "text": "What happens at each coordinate stage:",
+            "items": [
+              "Modelling coordinates: each object is defined in its own local frame, convenient for building it.",
+              "World coordinates: modelling transformations place all objects into one common scene.",
+              "Viewing coordinates: the scene is re-expressed relative to the camera, with the viewer looking along the −z_v (or n) axis.",
+              "Projection and normalisation: 3D points are projected towards the view plane and the view volume is mapped to a normalised cube, which simplifies clipping.",
+              "Device coordinates: the normalised window is mapped to the viewport in pixels on the output device."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Camera Parameters and the u, v, n Frame"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Parameter",
+                "Meaning",
+                "Role"
+              ],
+              [
+                "View reference point (VRP) P0",
+                "Camera position / viewing-frame origin",
+                "Becomes the origin of viewing coordinates"
+              ],
+              [
+                "View-plane normal N",
+                "Direction perpendicular to the view plane",
+                "Gives the n (z_v) axis"
+              ],
+              [
+                "View-up vector V",
+                "Which way is up for the camera",
+                "Fixes the v (y_v) axis after being made perpendicular to N"
+              ],
+              [
+                "View-plane distance",
+                "Position of the view plane along n",
+                "Where the image is formed"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "From N and V a right-handed orthonormal frame is built. The unit vector n is N normalised. The u axis must be perpendicular to both V and n, so u = (V × n)/|V × n|. Finally v = n × u, which is the component of V perpendicular to n and is already a unit vector. V does not have to be exactly perpendicular to N; the cross products correct it, but V must not be parallel to N."
+          },
+          {
+            "type": "formula",
+            "latex": "n=\\frac{N}{|N|},\\quad u=\\frac{V\\times n}{|V\\times n|},\\quad v=n\\times u",
+            "plainText": "n = N/|N|, u = (V × n)/|V × n|, v = n × u"
+          },
+          {
+            "type": "heading",
+            "text": "World-to-Viewing Transformation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Converting world coordinates to viewing coordinates is the same as moving the camera frame onto the world axes. First translate the view reference point to the world origin with T(−x0, −y0, −z0). Then rotate so that u, v and n line up with the x, y and z axes; the rotation matrix simply has u, v and n as its first three rows. The complete viewing matrix is M_WC,VC = R · T. Alternatively, the alignment can be done with a sequence of rotations about x, y and z, as in the arbitrary-axis rotation."
+          },
+          {
+            "type": "formula",
+            "latex": "M_{WC,VC}=R\\cdot T(-x_0,-y_0,-z_0),\\quad R \\text{ rows} = u,\\,v,\\,n",
+            "plainText": "M = R · T(−x0, −y0, −z0), where the rows of R are u, v and n"
+          },
+          {
+            "type": "heading",
+            "text": "View Volume and 3D Clipping"
+          },
+          {
+            "type": "bulletList",
+            "text": "The view volume is the region of space that can appear in the picture:",
+            "items": [
+              "It is bounded by the four sides through the edges of the window on the view plane, plus a near (front) and a far (back) clipping plane parallel to the view plane — six planes in all.",
+              "Parallel projection: the sides are parallel, so the view volume is a rectangular parallelepiped (a slanted one for oblique projection).",
+              "Perspective projection: the sides meet at the centre of projection, so the view volume is a frustum (a truncated pyramid).",
+              "Near and far planes remove objects too close to or too far from the camera and bound the depth range used for visible-surface tests.",
+              "3D clipping extends 2D methods: Cohen–Sutherland uses 6-bit region codes (one bit per plane), and Liang–Barsky and Sutherland–Hodgman generalise to six boundary planes; clipping is usually done in the normalised unit cube."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P_{VC}=R\\cdot T(-P_0)\\cdot P_{WC}",
+            "plainText": "P_VC = R · T(−P0) · P_WC"
+          },
+          {
+            "type": "formula",
+            "latex": "R=\\begin{bmatrix}u_x&u_y&u_z&0\\\\v_x&v_y&v_z&0\\\\ n_x&n_y&n_z&0\\\\0&0&0&1\\end{bmatrix}",
+            "plainText": "R = [ux uy uz 0; vx vy vz 0; nx ny nz 0; 0 0 0 1]"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{clip region code} = 6 \\text{ bits (left, right, bottom, top, near, far)}",
+            "plainText": "3D Cohen–Sutherland region code = 6 bits: left, right, bottom, top, near, far"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Remember the shapes: parallel projection gives a parallelepiped view volume, perspective projection gives a frustum. Both are bounded by six planes, including near and far."
+          },
+          {
+            "type": "note",
+            "text": "The world-to-viewing transformation is always 'translate the VRP to the origin, then rotate'. Doing the rotation first would rotate the camera position as well and give the wrong result."
+          },
+          {
+            "type": "warning",
+            "text": "The view-up vector V must not be parallel to the view-plane normal N; otherwise V × n is zero and the u axis cannot be defined."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i62_01",
+          "title": "Viewing-frame axes",
+          "latex": "n=\\frac{N}{|N|},\\quad u=\\frac{V\\times n}{|V\\times n|},\\quad v=n\\times u",
+          "plainText": "n = N/|N|, u = (V × n)/|V × n|, v = n × u",
+          "description": "Builds the orthonormal camera frame from the view-plane normal and the view-up vector."
+        },
+        {
+          "id": "f_ch6_i62_02",
+          "title": "World-to-viewing matrix",
+          "latex": "M_{WC,VC}=R\\cdot T(-x_0,-y_0,-z_0)",
+          "plainText": "M_WC,VC = R · T(−x0, −y0, −z0)",
+          "description": "Translates the view reference point to the origin, then rotates u, v, n onto x, y, z."
+        },
+        {
+          "id": "f_ch6_i62_03",
+          "title": "Pipeline order",
+          "latex": "MC\\to WC\\to VC\\to PC\\to NC\\to DC",
+          "plainText": "MC → WC → VC → projection → NC → DC",
+          "description": "Modelling, world, viewing, projection, normalised and device coordinates in sequence."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i62_01",
+          "front": "What three parameters define the viewing coordinate system?",
+          "back": "The view reference point (origin), the view-plane normal N (gives the n axis) and the view-up vector V (gives the v axis).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i62_02",
+          "front": "What is the shape of the view volume in perspective and in parallel projection?",
+          "back": "A frustum (truncated pyramid) for perspective; a rectangular parallelepiped for parallel projection.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i62_03",
+          "front": "How is the world-to-viewing transformation built?",
+          "back": "Translate the view reference point to the origin, then rotate so u, v, n coincide with the x, y, z axes: M = R·T.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i62_04",
+          "front": "How many bits are in a 3D Cohen–Sutherland region code, and why?",
+          "back": "Six, one for each bounding plane of the view volume: left, right, bottom, top, near and far.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i62_n01",
+          "questionText": "Which sequence correctly orders the coordinate systems in the 3D viewing pipeline?",
+          "options": [
+            "World → modelling → viewing → device",
+            "Modelling → world → viewing → normalised → device",
+            "Modelling → viewing → world → normalised → device",
+            "Viewing → world → modelling → device"
+          ],
+          "correctIndex": 1,
+          "explanation": "Objects are built in modelling coordinates, placed in world coordinates, re-expressed relative to the camera, projected and normalised, and finally mapped to device coordinates.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i62_n02",
+          "questionText": "In the viewing coordinate system, the n (z_v) axis is obtained from:",
+          "options": [
+            "The view-up vector V",
+            "The cross product of V and the x-axis",
+            "The view reference point",
+            "The view-plane normal N"
+          ],
+          "correctIndex": 3,
+          "explanation": "n = N/|N|; the view-up vector is then used with n to derive u = V × n (normalised) and v = n × u.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i62_n03",
+          "questionText": "For a perspective projection with near and far clipping planes, the view volume is a:",
+          "options": [
+            "Frustum (truncated pyramid)",
+            "Rectangular parallelepiped",
+            "Sphere",
+            "Infinite cylinder"
+          ],
+          "correctIndex": 0,
+          "explanation": "The side planes meet at the centre of projection, forming a pyramid that the near and far planes truncate into a frustum.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i62_n04",
+          "questionText": "The transformation from world to viewing coordinates is correctly expressed (column vectors) as:",
+          "options": [
+            "T(−P0) · R, so rotation is applied first",
+            "R · S · T(P0)",
+            "R · T(−P0), so translation of the view reference point to the origin is applied first",
+            "T(P0) · R⁻¹"
+          ],
+          "correctIndex": 2,
+          "explanation": "The view reference point P0 is first moved to the origin by T(−P0), then R aligns u, v, n with x, y, z; with column vectors the rightmost matrix acts first.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch6_i63",
+      "title": "Projections: Parallel, Orthographic & Perspective",
+      "subtitle": "Projection taxonomy, orthographic and oblique equations, perspective and vanishing points",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What a Projection Does"
+          },
+          {
+            "type": "paragraph",
+            "text": "A projection maps 3D points onto a 2D view (projection) plane along straight lines called projectors. If all projectors are parallel, the projection is parallel; if they all converge at a single centre of projection (COP), it is perspective. Parallel projection keeps parallel lines parallel and preserves relative proportions, so it suits engineering drawings. Perspective projection looks realistic because distant objects appear smaller, but it does not preserve true dimensions."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Family",
+                "Sub-type",
+                "Defining property"
+              ],
+              [
+                "Parallel – orthographic",
+                "Multiview: front, top, side",
+                "Projectors perpendicular to the plane; plane parallel to a principal face"
+              ],
+              [
+                "Parallel – orthographic",
+                "Axonometric: isometric, dimetric, trimetric",
+                "Projectors perpendicular; plane tilted to show several faces"
+              ],
+              [
+                "Parallel – oblique",
+                "Cavalier (L = 1), cabinet (L = 1/2)",
+                "Projectors at an angle to the plane"
+              ],
+              [
+                "Perspective",
+                "One-, two-, three-point",
+                "Projectors meet at the COP; classified by vanishing points"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Orthographic Projection"
+          },
+          {
+            "type": "paragraph",
+            "text": "In orthographic projection onto the xy-plane (z = 0) the projectors are parallel to the z-axis, so a point simply drops its z-coordinate: x_p = x, y_p = y. Multiview drawings show the front, top and side elevations, each with true lengths and angles for faces parallel to the plane. Axonometric views tilt the object so that three faces are visible: isometric foreshortens all three axes equally, with the projected axes 120° apart; dimetric foreshortens two axes equally; trimetric foreshortens all three differently."
+          },
+          {
+            "type": "formula",
+            "latex": "P_{ortho}=\\begin{bmatrix}1&0&0&0\\\\0&1&0&0\\\\0&0&0&0\\\\0&0&0&1\\end{bmatrix},\\quad x_p=x,\\; y_p=y",
+            "plainText": "Orthographic onto z = 0: x_p = x, y_p = y (z dropped)"
+          },
+          {
+            "type": "heading",
+            "text": "Oblique Projection"
+          },
+          {
+            "type": "paragraph",
+            "text": "In oblique projection the projectors hit the view plane at an angle α other than 90°. A point (x, y, z) projects to a position shifted from (x, y) by a length L·z in a chosen direction φ on the plane, where L = 1/tan α. Faces parallel to the view plane keep their true shape, while depth lines are drawn at angle φ (commonly 30° or 45°) and scaled by L."
+          },
+          {
+            "type": "formula",
+            "latex": "x_p=x+L\\,z\\cos\\phi,\\quad y_p=y+L\\,z\\sin\\phi,\\quad L=\\frac{1}{\\tan\\alpha}",
+            "plainText": "x_p = x + L·z·cos φ, y_p = y + L·z·sin φ, L = 1/tan α"
+          },
+          {
+            "type": "bulletList",
+            "text": "The two standard oblique projections:",
+            "items": [
+              "Cavalier: α = 45°, so tan α = 1 and L = 1. Depth lines are drawn at full length, which makes objects look too deep.",
+              "Cabinet: α ≈ 63.4°, so tan α = 2 and L = 1/2. Depth lines are halved, giving a more realistic look.",
+              "Example (cabinet, φ = 45°): the point (2, 3, 4) gives x_p = 2 + 0.5·4·0.707 ≈ 3.41 and y_p ≈ 4.41."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Perspective Projection"
+          },
+          {
+            "type": "paragraph",
+            "text": "With the centre of projection at the origin and the view plane at z = d, similar triangles give x_p = x·d/z and y_p = y·d/z. Division by z makes far objects smaller (foreshortening). In homogeneous form the perspective matrix puts 1/d in the last row so that w = z/d, and the division by w performs the perspective divide. Example: with d = 5, the point (4, 6, 10) projects to (4·5/10, 6·5/10) = (2, 3); moving it back to z = 20 gives (1, 1.5). In Hearn & Baker's general form, with the projection reference point at z_prp and the view plane at z_vp, x_p = x·(z_prp − z_vp)/(z_prp − z)."
+          },
+          {
+            "type": "formula",
+            "latex": "x_p=\\frac{x\\,d}{z},\\quad y_p=\\frac{y\\,d}{z},\\quad w=\\frac{z}{d}",
+            "plainText": "x_p = x·d/z, y_p = y·d/z, homogeneous w = z/d"
+          },
+          {
+            "type": "bulletList",
+            "text": "Vanishing points and foreshortening:",
+            "items": [
+              "Parallel lines that are not parallel to the view plane converge in the image at a vanishing point.",
+              "The principal vanishing points belong to lines parallel to the x, y or z axes; their number is the number of principal axes that cut the view plane.",
+              "One-point perspective: only one axis cuts the plane (a road or corridor seen head-on). Two-point: two axes cut it (a building seen from a corner). Three-point: all three cut it (looking up at a tall building).",
+              "Foreshortening: the projected size of an object is inversely proportional to its distance from the COP."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Property",
+                "Parallel projection",
+                "Perspective projection"
+              ],
+              [
+                "Projectors",
+                "Parallel to each other",
+                "Converge at the COP"
+              ],
+              [
+                "Centre of projection",
+                "At infinity",
+                "At a finite distance"
+              ],
+              [
+                "Parallel lines",
+                "Stay parallel",
+                "Meet at vanishing points (unless parallel to the plane)"
+              ],
+              [
+                "Sizes and proportions",
+                "Preserved; true measurements",
+                "Distant objects smaller; not measurable"
+              ],
+              [
+                "Use",
+                "Engineering and architectural drawings",
+                "Realistic scenes, games, animation"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P_{persp}=\\begin{bmatrix}1&0&0&0\\\\0&1&0&0\\\\0&0&1&0\\\\0&0&1/d&0\\end{bmatrix}",
+            "plainText": "Perspective matrix: identity rows 1–3, last row (0, 0, 1/d, 0)"
+          },
+          {
+            "type": "formula",
+            "latex": "x_p=x\\,\\frac{z_{prp}-z_{vp}}{z_{prp}-z},\\quad y_p=y\\,\\frac{z_{prp}-z_{vp}}{z_{prp}-z}",
+            "plainText": "x_p = x(z_prp − z_vp)/(z_prp − z), same for y"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Cavalier: } \\alpha=45^\\circ, L=1;\\quad \\text{Cabinet: } \\alpha\\approx 63.4^\\circ, L=\\tfrac12",
+            "plainText": "Cavalier α = 45°, L = 1; cabinet α ≈ 63.4°, L = 1/2"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Link angle to depth factor through L = 1/tan α: tan 45° = 1 gives cavalier (full depth), tan 63.4° = 2 gives cabinet (half depth)."
+          },
+          {
+            "type": "warning",
+            "text": "Orthographic is a kind of parallel projection, not a separate family. Axonometric views (isometric, dimetric, trimetric) are orthographic too, even though they show three faces."
+          },
+          {
+            "type": "note",
+            "text": "The number of principal vanishing points (1, 2 or 3) depends on how many principal axes intersect the view plane, not on how many objects are in the scene."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i63_01",
+          "title": "Perspective projection",
+          "latex": "x_p=\\frac{x\\,d}{z},\\quad y_p=\\frac{y\\,d}{z}",
+          "plainText": "x_p = x·d/z, y_p = y·d/z",
+          "description": "COP at the origin and view plane at z = d; division by z produces foreshortening."
+        },
+        {
+          "id": "f_ch6_i63_02",
+          "title": "Oblique projection",
+          "latex": "x_p=x+L\\,z\\cos\\phi,\\quad y_p=y+L\\,z\\sin\\phi",
+          "plainText": "x_p = x + L·z·cos φ, y_p = y + L·z·sin φ",
+          "description": "Depth is drawn at angle φ scaled by L = 1/tan α (L = 1 cavalier, 1/2 cabinet)."
+        },
+        {
+          "id": "f_ch6_i63_03",
+          "title": "Orthographic projection",
+          "latex": "x_p=x,\\quad y_p=y,\\quad z_p=0",
+          "plainText": "x_p = x, y_p = y, z dropped",
+          "description": "Projectors perpendicular to the xy view plane, so the z-coordinate is simply discarded."
+        },
+        {
+          "id": "f_ch6_i63_04",
+          "title": "General perspective (Hearn & Baker)",
+          "latex": "x_p=x\\,\\frac{z_{prp}-z_{vp}}{z_{prp}-z}",
+          "plainText": "x_p = x(z_prp − z_vp)/(z_prp − z)",
+          "description": "Projection reference point at z_prp on the z-axis and view plane at z_vp; y_p is analogous."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i63_01",
+          "front": "What distinguishes isometric, dimetric and trimetric projections?",
+          "back": "Isometric foreshortens all three axes equally (axes 120° apart), dimetric two axes equally, trimetric all three differently.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i63_02",
+          "front": "What is the depth factor and angle for a cabinet projection?",
+          "back": "L = 1/2 with the projectors at α ≈ 63.4° to the view plane (tan α = 2).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i63_03",
+          "front": "What decides whether a perspective view is one-, two- or three-point?",
+          "back": "The number of principal coordinate axes that intersect the view plane, each giving one principal vanishing point.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i63_04",
+          "front": "What is the key difference between parallel and perspective projection?",
+          "back": "Parallel projectors meet at infinity and preserve proportions; perspective projectors converge at a finite COP, making distant objects smaller.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i63_n01",
+          "questionText": "With the centre of projection at the origin and the view plane at z = 5, the point (4, 6, 10) projects to:",
+          "options": [
+            "(8, 12)",
+            "(4, 6)",
+            "(0.8, 1.2)",
+            "(2, 3)"
+          ],
+          "correctIndex": 3,
+          "explanation": "x_p = x·d/z = 4·5/10 = 2 and y_p = 6·5/10 = 3.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

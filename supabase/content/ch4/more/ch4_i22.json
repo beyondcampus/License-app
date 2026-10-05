@@ -1,0 +1,692 @@
+{
+  "topicId": "ch4_i22",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Address Decoding, Traces and Cache Cost"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every mapping problem reduces to the same three steps. First find the block number, which is the address divided by the block size (drop the word field). Then find the index: block mod number of lines for direct mapping, or block mod number of sets for set-associative mapping; the remaining high-order part, block div number of sets, is the tag. When the address is given in hexadecimal it is quicker to write out the bits and cut them into fields from the right: word bits first, then index bits, and the rest is the tag."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: splitting an address\n32-bit byte address, 64 KB cache, 32-byte blocks (1 KB = 1024 B)\nlines = 65536 / 32 = 2048, word field = log2 32 = 5 bits\nDirect mapped: line = log2 2048 = 11 bits, tag = 32 - 11 - 5 = 16 bits\n4-way:  sets = 2048 / 4 = 512, set = 9 bits, tag = 32 - 9 - 5 = 18 bits\nAddress 7F3A5B64 (hex), block = address >> 5 = 03F9D2DB\n  direct: line = block mod 2048 = 2DB (731), tag = 7F3A, word = 04\n  4-way:  set = block mod 512 = 0DB (219), tag = 1FCE9, word = 04\nStorage of the direct-mapped version if write-back (valid + dirty bit):\n  2048 x (256 data + 16 tag + 2 status) = 561,152 bits = 68.5 KB"
+    },
+    {
+      "type": "paragraph",
+      "text": "The capacity quoted for a cache, such as 64 KB, counts only the data. Every line also stores its tag, a valid bit, a dirty bit if the cache is write-back and, in set-associative caches, replacement state such as LRU bits. Each doubling of associativity lengthens every tag by one bit, so a fully associative cache has the largest tag store. Multiply the bits per line by the number of lines, and divide by 8 when the answer is wanted in bytes."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{bits} = m\\,(8K + t + v + d)",
+      "plainText": "Total cache bits = m × (8K + t + v + d): m lines, K bytes per block, t tag bits, v valid bits and d dirty bits per line (add replacement bits if the question includes them)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: LRU versus FIFO in a 2-way cache\n2 sets of 2 lines, set = block mod 2, cache initially empty\nContents of the set used, least recent (LRU) or oldest (FIFO) first\nblock set  LRU    result        FIFO   result\n  2    0   [2]    miss          [2]    miss\n  6    0   [2 6]  miss          [2 6]  miss\n  2    0   [6 2]  hit           [2 6]  hit\n  4    0   [2 4]  miss, 6 out   [6 4]  miss, 2 out\n  5    1   [5]    miss          [5]    miss\n  2    0   [4 2]  hit           [4 2]  miss, 6 out\n  4    0   [2 4]  hit           [4 2]  hit\n  1    1   [5 1]  miss          [5 1]  miss\n  0    0   [4 0]  miss, 2 out   [2 0]  miss, 4 out\n  4    0   [0 4]  hit           [0 4]  miss, 2 out\nLRU: 4 hits, 6 misses        FIFO: 2 hits, 8 misses"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Miss type",
+          "Cause",
+          "Reduced by"
+        ],
+        [
+          "Compulsory (cold start)",
+          "First reference to a block",
+          "Larger blocks, prefetching"
+        ],
+        [
+          "Capacity",
+          "Working set larger than the whole cache",
+          "A larger cache"
+        ],
+        [
+          "Conflict (collision)",
+          "Too many active blocks map to the same line or set",
+          "Higher associativity, a victim cache"
+        ],
+        [
+          "Coherence",
+          "Another processor's write invalidated the copy",
+          "Less sharing of written data"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Architecture texts usually write the average access time as AMAT = hit time + miss rate × miss penalty, which is the hierarchical (look-through) model: the cache is always probed and a miss adds the penalty. The penalty itself is the time to fetch a block, the memory latency plus the block size divided by the bus bandwidth, so larger blocks raise it. For a processor, memory stalls add to the base CPI: stall cycles per instruction = memory references per instruction × miss rate × miss penalty. With two levels, the L1 miss penalty is the AMAT of L2, and the product of the L1 miss rate and the L2 local miss rate is the global miss rate that reaches main memory."
+    },
+    {
+      "type": "formula",
+      "latex": "AMAT = t_{1} + m_{1}\\,(t_{2} + m_{2}\\,t_{mem})",
+      "plainText": "AMAT = t1 + m1 × (t2 + m2 × t_mem), where t1, t2 are the L1 and L2 hit times, m1 the L1 miss rate and m2 the L2 local miss rate"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: two-level cache and CPI\nL1: hit time 1 cycle, miss rate 5%\nL2: hit time 12 cycles, local miss rate 30%; memory 120 cycles\nL1 miss penalty = 12 + 0.30 x 120 = 48 cycles\nAMAT = 1 + 0.05 x 48 = 3.4 cycles   (without L2: 1 + 0.05 x 120 = 7)\nGlobal miss rate = 0.05 x 0.30 = 1.5% of references reach memory\nBase CPI 1.0, 1.3 memory references per instruction:\n  stall cycles per instruction = 1.3 x 0.05 x 48 = 3.12\n  CPI = 1.0 + 3.12 = 4.12"
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that cost marks in cache problems:",
+      "items": [
+        "Mixing the two access-time models: the simultaneous form h·t_c + (1 − h)·t_m and the look-through form t_c + (1 − h)·t_m differ by (1 − h)·t_c, so always state which one is used.",
+        "Using log2 of the cache size in bytes instead of log2 of the number of lines (or sets) as the index field.",
+        "Taking the block size in bits instead of bytes, or assuming byte addressing when the memory is word-addressable.",
+        "Forgetting that the tag grows by one bit each time the associativity doubles, and that a fully associative cache has no index field at all.",
+        "Counting only the data bits when the total cache size is asked; tags, valid, dirty and LRU bits are storage too.",
+        "In traces, mapping the address instead of the block number: divide by the block size first, then take the block number mod the number of sets."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For hit/miss traces draw one column per set and keep its blocks in order, least recently used (LRU) or oldest (FIFO) on the left. On a hit, LRU moves the block to the right end while FIFO changes nothing; on a miss in a full set, both remove the leftmost block and append the new one on the right."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i22_m001",
+      "questionText": "A program makes 2000 memory references, of which 1840 are found in the cache. What is the hit ratio?",
+      "options": [
+        "0.08",
+        "0.087",
+        "0.92",
+        "1.087"
+      ],
+      "correctIndex": 2,
+      "explanation": "Hit ratio h = hits / total references = 1840 / 2000 = 0.92. The miss ratio is 1 − h = 160 / 2000 = 0.08.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m002",
+      "questionText": "A cache has an access time of 5 ns, main memory has an access time of 80 ns, and the hit ratio is 0.95. Both are accessed simultaneously, so a hit takes 5 ns and a miss takes 80 ns in total. What is the average access time?",
+      "options": [
+        "9.00 ns",
+        "4.75 ns",
+        "8.75 ns",
+        "42.5 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "Simultaneous model: t_avg = h t_c + (1 − h) t_m = 0.95 × 5 + 0.05 × 80 = 4.75 + 4 = 8.75 ns. Charging the cache time again on a miss (the hierarchical model) would give 5 + 0.05 × 80 = 9.00 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m003",
+      "questionText": "A processor looks in its cache (2 ns) first and accesses main memory (60 ns) only after a miss has been detected (hierarchical, look-through access). The hit ratio is 0.9. What is the average access time?",
+      "options": [
+        "7.8 ns",
+        "8.0 ns",
+        "6.0 ns",
+        "62 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every access spends t_c and each miss adds t_m: t_avg = t_c + (1 − h) t_m = 2 + 0.1 × 60 = 8.0 ns, the same as 0.9 × 2 + 0.1 × (2 + 60). The simultaneous model would give 0.9 × 2 + 0.1 × 60 = 7.8 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m004",
+      "questionText": "A cache with an access time of 10 ns and a main memory with an access time of 50 ns are accessed simultaneously, so a miss costs 50 ns in total. What hit ratio is needed for an average access time of 18 ns?",
+      "options": [
+        "0.84",
+        "0.64",
+        "0.80",
+        "0.36"
+      ],
+      "correctIndex": 2,
+      "explanation": "18 = 10h + 50(1 − h) = 50 − 40h, so h = 32 / 40 = 0.80. With the hierarchical model, 18 = 10 + 50(1 − h), the answer would be 0.84 instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m005",
+      "questionText": "A cache holds 32 KB of data in lines of 64 bytes (1 KB = 1024 bytes). How many lines does it have?",
+      "options": [
+        "512",
+        "500",
+        "4096",
+        "32,768"
+      ],
+      "correctIndex": 0,
+      "explanation": "Lines m = cache size / line size = 32 × 1024 / 64 = 32,768 / 64 = 512. Taking 1 KB as 1000 bytes gives 500, and treating the 64-byte line as 64 bits gives 4096.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m006",
+      "questionText": "In a byte-addressable memory, a cache uses 128-byte blocks. How many address bits form the word (byte-offset) field?",
+      "options": [
+        "7",
+        "5",
+        "10",
+        "6"
+      ],
+      "correctIndex": 0,
+      "explanation": "The offset must select one of the 128 bytes of a block, so it needs log2(128) = 7 bits. Treating the 128 bytes as 1024 bits would wrongly give 10 bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m007",
+      "questionText": "A 64 KB, 8-way set-associative cache uses 64-byte blocks (1 KB = 1024 bytes). How many sets does it have?",
+      "options": [
+        "1024",
+        "128",
+        "8",
+        "8192"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lines = 65,536 / 64 = 1024, and sets = lines / ways = 1024 / 8 = 128, so the set field is 7 bits wide. 1024 is the number of lines, not the number of sets.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m008",
+      "questionText": "How many tag comparisons are made in parallel on each access to a 4-way set-associative cache that has 256 sets?",
+      "options": [
+        "4",
+        "256",
+        "1024",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "The set field selects one set, and only the 4 tags stored in that set are compared with the tag of the address, so 4 comparators are needed. A fully associative cache with the same 1024 lines would need 1024 comparisons, and a direct-mapped cache only 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m009",
+      "questionText": "A cache has 8 lines and is organised as 8-way set-associative. This organisation is equivalent to:",
+      "options": [
+        "Direct mapping",
+        "Fully associative mapping",
+        "2-way set-associative mapping with 4 sets",
+        "A cache without a tag field"
+      ],
+      "correctIndex": 1,
+      "explanation": "With k = 8 ways and 8 lines there is v = 8 / 8 = 1 set, so any block can be placed in any line, which is fully associative mapping. At the other extreme, k = 1 (8 sets of one line) is direct mapping.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m010",
+      "questionText": "Which cache mapping function needs no replacement algorithm?",
+      "options": [
+        "Fully associative mapping",
+        "Direct mapping",
+        "2-way set-associative mapping",
+        "8-way set-associative mapping"
+      ],
+      "correctIndex": 1,
+      "explanation": "In direct mapping each block can go to exactly one line (block mod lines), so on a miss the block in that line is simply replaced and there is no choice to make. Associative and set-associative mappings must choose a victim using LRU, FIFO, LFU or random replacement.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m011",
+      "questionText": "With fully associative mapping, the cache interprets a main-memory address as:",
+      "options": [
+        "A tag field, a line field and a word field",
+        "A tag field, a set field and a word field",
+        "A line field and a word field only",
+        "A tag field and a word (offset) field only"
+      ],
+      "correctIndex": 3,
+      "explanation": "A block may be placed in any line, so there is nothing to index: the whole block number is the tag and is compared with the tags of all lines at once. Tag | line | word is direct mapping and tag | set | word is set-associative mapping.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m012",
+      "questionText": "A direct-mapped cache has 128 lines. Into which line is main-memory block number 300 placed?",
+      "options": [
+        "Line 2",
+        "Line 44",
+        "Line 300",
+        "Line 172"
+      ],
+      "correctIndex": 1,
+      "explanation": "Direct mapping uses line = block mod lines = 300 mod 128 = 300 − 256 = 44. The quotient 300 div 128 = 2 is the tag stored with the line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m013",
+      "questionText": "A direct-mapped cache stores 16 KB of data in 32-byte lines, and the processor uses 32-bit byte addresses (1 KB = 1024 bytes). What are the widths of the tag, line and word fields?",
+      "options": [
+        "Tag 18, line 9, word 5",
+        "Tag 13, line 14, word 5",
+        "Tag 19, line 8, word 5",
+        "Tag 15, line 9, word 8"
+      ],
+      "correctIndex": 0,
+      "explanation": "Word = log2(32) = 5 bits; lines = 16,384 / 32 = 512, so line = 9 bits; tag = 32 − 9 − 5 = 18 bits. Using log2 of the cache size in bytes (14) as the line field is a common slip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m014",
+      "questionText": "A fully associative cache of 64 KB with 16-byte lines is used with 24-bit byte addresses (1 KB = 1024 bytes). How many bits wide is each tag?",
+      "options": [
+        "8",
+        "12",
+        "20",
+        "16"
+      ],
+      "correctIndex": 2,
+      "explanation": "Fully associative mapping has no line or set field, so tag = address bits − word bits = 24 − log2(16) = 24 − 4 = 20 bits. A direct-mapped cache of the same size (4096 lines, 12 line bits) would need only 8 tag bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m015",
+      "questionText": "A byte-addressable machine has 16-bit addresses, a 2 KB direct-mapped cache and 16-byte blocks, so an address is split as tag 5 | line 7 | word 4. Into which cache line is address 3A7C (hexadecimal) placed, and what tag is stored with it?",
+      "options": [
+        "Line 39, tag 7",
+        "Line 124, tag 7",
+        "Line 167, tag 3",
+        "Line 7, tag 39"
+      ],
+      "correctIndex": 0,
+      "explanation": "3A7C = 00111 0100111 1100 in binary, so the tag is 00111 = 7, the line is 0100111 = 39 and the word is 1100 = 12. Equivalently, block = 3A7 hex = 935, line = 935 mod 128 = 39 and tag = 935 div 128 = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m016",
+      "questionText": "A word-addressable main memory has 2^24 words of 32 bits. A direct-mapped cache holds 16K words (K = 1024) in blocks of 8 words. What are the widths of the tag, line and word fields of the address?",
+      "options": [
+        "Tag 10, line 11, word 5",
+        "Tag 12, line 9, word 3",
+        "Tag 7, line 14, word 3",
+        "Tag 10, line 11, word 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The address selects a word, so it has 24 bits and the word field is log2(8) = 3 bits. Lines = 16K / 8 = 2048, giving 11 line bits, and tag = 24 − 11 − 3 = 10 bits; a 5-bit offset would apply only to byte addressing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m017",
+      "questionText": "A 4 KB direct-mapped cache with 32-byte blocks is used with 16-bit byte addresses (1 KB = 1024 bytes). Which address maps to the same cache line as address 1240 (hexadecimal) but belongs to a different memory block?",
+      "options": [
+        "3240",
+        "1250",
+        "1340",
+        "1640"
+      ],
+      "correctIndex": 0,
+      "explanation": "There are 4096 / 32 = 128 lines, so an address splits as tag 4 | line 7 | word 5. 1240 hex is block 146, line 146 mod 128 = 18, tag 1; 3240 hex is block 402, line 402 mod 128 = 18, tag 3, so it competes for the same line. 1250 is inside the same block as 1240, and 1340 and 1640 map to lines 26 and 50.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m018",
+      "questionText": "A direct-mapped cache splits a 32-bit address as tag 16 | line 10 | word 6. The same cache, with the same total size and block size, is reorganised as 4-way set-associative. What are the new field widths?",
+      "options": [
+        "Tag 14, set 12, word 6",
+        "Tag 16, set 8, word 8",
+        "Tag 18, set 8, word 6",
+        "Tag 16, set 10, word 6"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 1024 lines in groups of 4 give 256 sets, so the set field is 8 bits; the block size is unchanged, so the word field stays 6 bits and tag = 32 − 8 − 6 = 18 bits. Each doubling of associativity moves one bit from the index to the tag.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m019",
+      "questionText": "A 4-way set-associative cache holds 32 KB of data in 64-byte blocks, and the processor uses 32-bit byte addresses (1 KB = 1024 bytes). For address 1234ABCD (hexadecimal), which set is selected and which tag is compared?",
+      "options": [
+        "Set AF, tag 48D2 (hexadecimal)",
+        "Set AF, tag 2469 (hexadecimal)",
+        "Set 4D, tag 246957 (hexadecimal)",
+        "Set 2F, tag 91A5 (hexadecimal)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Lines = 32,768 / 64 = 512 and sets = 512 / 4 = 128, so the fields are word 6, set 7 and tag 19 bits. Tag = address >> 13 = 91A5, set = (address >> 6) mod 128 = 2F and offset = 0D; using 8 set bits, as for 256 sets, would give set AF and tag 48D2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m020",
+      "questionText": "A direct-mapped, write-through cache holds 32 KB of data in 64-byte lines for a processor with 32-bit byte addresses, and each line has one valid bit (1 KB = 1024 bytes). What is the total number of storage bits in the cache, including tags and valid bits?",
+      "options": [
+        "262,144 bits",
+        "270,848 bits",
+        "271,360 bits",
+        "41,984 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "Lines = 32,768 / 64 = 512 (9 line bits), word = 6 bits and tag = 32 − 9 − 6 = 17 bits. Each line stores 64 × 8 = 512 data bits + 17 tag bits + 1 valid bit = 530 bits, so the total is 512 × 530 = 271,360 bits, about 3.5% more than the 262,144 data bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m021",
+      "questionText": "A 2-way set-associative write-back cache holds 64 KB of data in 64-byte blocks for 32-bit byte addresses (1 KB = 1024 bytes). Each line stores a tag, a valid bit and a dirty bit (ignore replacement bits). How many bytes do the tags and status bits occupy in total?",
+      "options": [
+        "2304 bytes",
+        "2432 bytes",
+        "2176 bytes",
+        "19,456 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lines = 65,536 / 64 = 1024 and sets = 512 (9 bits), word = 6 bits, so tag = 32 − 9 − 6 = 17 bits. Overhead = 1024 × (17 + 1 + 1) = 19,456 bits = 2432 bytes; a direct-mapped cache would need only 16 tag bits (2304 bytes), and leaving out the status bits gives 2176 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m022",
+      "questionText": "The first reference ever made to a block always misses, whatever the size or organisation of the cache. Such a miss is called a:",
+      "options": [
+        "Compulsory (cold-start) miss",
+        "Capacity miss",
+        "Conflict (collision) miss",
+        "Coherence miss"
+      ],
+      "correctIndex": 0,
+      "explanation": "Compulsory misses occur because a block must be brought into the cache at its first use; only larger blocks or prefetching reduce them. Capacity misses come from a working set larger than the cache, and conflict misses from blocks competing for the same line or set.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m023",
+      "questionText": "Which category of cache misses is eliminated completely by making a cache fully associative while keeping its size and block size unchanged?",
+      "options": [
+        "Compulsory misses",
+        "Capacity misses",
+        "Coherence misses",
+        "Conflict misses"
+      ],
+      "correctIndex": 3,
+      "explanation": "Conflict misses happen when blocks collide in one line or set while other lines are still usable; a fully associative cache can place a block anywhere, so they disappear. Compulsory and capacity misses depend on first use and on the cache size, not on placement.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m024",
+      "questionText": "Which statement about cache size is NOT correct?",
+      "options": [
+        "Doubling the cache size always halves the miss rate",
+        "A larger cache reduces capacity misses",
+        "Once the cache holds the program's working set, extra capacity gives diminishing returns",
+        "A larger cache tends to be slightly slower because of more address decoding and longer wires"
+      ],
+      "correctIndex": 0,
+      "explanation": "The miss rate falls as the cache grows, but with diminishing returns rather than in proportion; once the working set fits, doubling the size barely helps. The other three statements are standard design trade-offs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m025",
+      "questionText": "An array of 1024 four-byte integers, aligned to a block boundary, is read once in order a[0], a[1], …, a[1023]. The cache starts empty, is large enough to hold the whole array and uses 32-byte blocks. What is the miss rate of these reads?",
+      "options": [
+        "3.125%",
+        "25%",
+        "100%",
+        "12.5%"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each 32-byte block holds 8 integers, so only the first access to each block misses: 1024 / 8 = 128 misses out of 1024 reads = 12.5%. Dividing by the 4096 bytes instead of the 1024 reads gives 3.125%, and 16-byte blocks would give 25%.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m026",
+      "questionText": "Two arrays A and B of 4-byte integers start at byte addresses 0 and 8192. A loop reads A[0], B[0], A[1], B[1], …, A[255], B[255]. The cache is 8 KB (1 KB = 1024 bytes) with 32-byte blocks and starts empty. What are the miss rates if the cache is direct-mapped, and if it is 2-way set-associative with LRU (same size and block size)?",
+      "options": [
+        "12.5% direct-mapped; 12.5% 2-way",
+        "50% direct-mapped; 12.5% 2-way",
+        "100% direct-mapped; 12.5% 2-way",
+        "100% direct-mapped; 50% 2-way"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8192-byte offset is a multiple of the 8 KB cache size, so A[i] and B[i] fall in the same direct-mapped line and evict each other on every access: 100% misses. In the 2-way cache both blocks fit in one set, so only the first access to each 32-byte block (one in 8 elements) misses: 12.5%.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m027",
+      "questionText": "Which replacement algorithm may evict a heavily used block simply because it was the first of the blocks in its set to be loaded?",
+      "options": [
+        "FIFO",
+        "LRU",
+        "LFU",
+        "Random"
+      ],
+      "correctIndex": 0,
+      "explanation": "FIFO replaces the block that has been in the set longest, using only the order of loading and ignoring how often or how recently the block was used. LRU would keep a block that is being referenced repeatedly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m028",
+      "questionText": "Which statement about random replacement is correct?",
+      "options": [
+        "It always gives a higher hit ratio than LRU",
+        "It can be used only with direct-mapped caches",
+        "It needs a counter in each line that is incremented on every reference",
+        "It picks the victim at random among the lines of the set, needs almost no bookkeeping hardware, and in simulations is only slightly worse than LRU"
+      ],
+      "correctIndex": 3,
+      "explanation": "Random replacement ignores the usage history, so it needs no age bits or counters, and simulation studies show its hit ratio is only slightly below that of usage-based algorithms. A per-line reference counter describes LFU.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m029",
+      "questionText": "How can LRU replacement be implemented in a 2-way set-associative cache?",
+      "options": [
+        "With a 2-bit counter per line that counts its accesses, replacing the line with the smaller count",
+        "With a single bit per set that records which of its two lines was referenced more recently; on a miss the other line is replaced",
+        "By always replacing the line that was loaded first, using a pointer in each set",
+        "It cannot be done in hardware, so the operating system must choose the victim"
+      ],
+      "correctIndex": 1,
+      "explanation": "With only two lines per set, one bit of state is enough to remember which line was used less recently (Stallings describes it as a USE bit in each line, set when the line is referenced while the other line's bit is cleared). The access counter describes LFU and the load-order pointer describes FIFO, neither of which is LRU.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m030",
+      "questionText": "A direct-mapped cache has 4 lines and starts empty. The processor references main-memory blocks in the order 0, 1, 4, 1, 0, 5, 1, 4, 2, 0. How many of these references are hits?",
+      "options": [
+        "4",
+        "2",
+        "3",
+        "1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Line = block mod 4, so blocks 0 and 4 share line 0 and blocks 1 and 5 share line 1: 0 M, 1 M, 4 M, 1 H, 0 M, 5 M, 1 M, 4 M, 2 M, 0 M. Only one reference hits; a 2-way LRU cache of the same size would score 4 hits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m031",
+      "questionText": "A 2-way set-associative cache with 4 sets and 16-byte blocks uses LRU replacement and starts empty. The processor reads byte addresses (hexadecimal) 000, 040, 004, 080, 010, 048, 000, 0C0, 014, 08C. How many hits occur, and which blocks does set 0 hold at the end?",
+      "options": [
+        "3 hits; blocks 12 and 8",
+        "2 hits; blocks 0 and 8",
+        "4 hits; blocks 4 and 12",
+        "2 hits; blocks 12 and 8"
+      ],
+      "correctIndex": 3,
+      "explanation": "Block = address div 16 gives 0, 4, 0, 8, 1, 4, 0, 12, 1, 8, and set = block mod 4 puts all but block 1 in set 0. LRU: 0 M, 4 M, 0 H, 8 M (4 out), 1 M, 4 M (0 out), 0 M (8 out), 12 M (4 out), 1 H, 8 M (0 out), so 2 hits leave blocks 12 and 8 in set 0 (FIFO would score 3 hits).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m032",
+      "questionText": "A fully associative cache with 3 lines starts empty. The processor references blocks 3, 4, 2, 3, 4, 5, 3, 4, 5, 1. How many hits occur with LRU and with FIFO replacement respectively?",
+      "options": [
+        "LRU 3, FIFO 5",
+        "LRU 5, FIFO 3",
+        "LRU 5, FIFO 5",
+        "LRU 4, FIFO 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "LRU: 3 M, 4 M, 2 M, 3 H, 4 H, 5 M (2 out), 3 H, 4 H, 5 H, 1 M, giving 5 hits. FIFO: 5 M evicts 3, the oldest block, then 3 M evicts 4 and 4 M evicts 2, followed by 5 H and 1 M, giving only 3 hits because FIFO discarded blocks still in use.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m033",
+      "questionText": "In a write-back cache, when is a modified word copied to main memory?",
+      "options": [
+        "When its cache line is replaced and the line's dirty bit is set",
+        "Immediately, on every write to the cache",
+        "Only when the program that wrote it terminates",
+        "On every clock cycle, by a background controller"
+      ],
+      "correctIndex": 0,
+      "explanation": "Write-back updates only the cache and sets the line's dirty (update) bit; main memory is written only when a dirty line is evicted. Writing memory on every write is write-through.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m034",
+      "questionText": "Under a write-allocate policy, what happens on a write miss?",
+      "options": [
+        "The word is written directly to main memory and the block is not loaded into the cache",
+        "The block containing the address is loaded into the cache and the write is then performed in the cache",
+        "The write is cancelled and retried after another block has been evicted",
+        "The whole cache is flushed to main memory before the write"
+      ],
+      "correctIndex": 1,
+      "explanation": "Write-allocate (fetch on write) brings the block in so that later accesses to it hit; it pairs naturally with write-back. Writing straight to memory without loading the block is no-write-allocate, also called write-around.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m035",
+      "questionText": "A program writes the same cached variable 500 times and then its cache line is evicted. The line was already in the cache before the first write, and there is no write buffer or write combining. How many main-memory write operations occur with write-through and with write-back respectively?",
+      "options": [
+        "1 and 500",
+        "500 and 0",
+        "500 and 1",
+        "500 and 500"
+      ],
+      "correctIndex": 2,
+      "explanation": "Write-through sends every write to memory: 500 writes. Write-back only sets the dirty bit on each write and copies the block to memory once, when the dirty line is evicted: 1 write.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m036",
+      "questionText": "Which statement about cache write policies is correct?",
+      "options": [
+        "Write-through needs a dirty bit in every line to know which lines must be copied back",
+        "With write-through, main memory always holds a current copy of every cached word, so a DMA device reading memory never sees stale data",
+        "Write-back causes more memory traffic than write-through when the same word is written many times",
+        "With write-back, an I/O module can safely read main memory directly without any cache-coherence measure"
+      ],
+      "correctIndex": 1,
+      "explanation": "Write-through updates memory on every write, keeping it valid for I/O modules and other bus masters at the cost of extra traffic. The dirty bit belongs to write-back, which writes each modified block once on eviction and can leave memory stale, so DMA needs snooping or a cache flush.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m037",
+      "questionText": "A cache uses write-through with no-write-allocate and initially does not contain the block holding address X. The processor performs: write X, read X, read X, write X, read X. How many cache misses occur, and how many would occur with write-allocate instead?",
+      "options": [
+        "1 miss; 2 with write-allocate",
+        "1 miss; 1 with write-allocate",
+        "2 misses; 1 with write-allocate",
+        "2 misses; 2 with write-allocate"
+      ],
+      "correctIndex": 2,
+      "explanation": "With no-write-allocate the first write misses and updates memory only, the next read misses and loads the block, and the remaining three accesses hit: 2 misses. With write-allocate the first write already loads the block, so only that access misses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m038",
+      "questionText": "A direct-mapped, write-back, write-allocate cache has 4 lines and starts empty. The processor issues these accesses (operation and block number): R0, W0, R4, W4, R0, W5, R1, R8. How many cache misses occur, and how many dirty blocks are written back to main memory during the sequence?",
+      "options": [
+        "6 misses; 2 write-backs",
+        "6 misses; 3 write-backs",
+        "5 misses; 3 write-backs",
+        "6 misses; 4 write-backs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Line = block mod 4: R0 M; W0 H (dirty); R4 M, write back 0; W4 H (dirty); R0 M, write back 4; W5 M, allocated in line 1 and dirty; R1 M, write back 5; R8 M, but block 0 in line 0 is clean, so no write-back. That gives 6 misses and 3 write-backs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m039",
+      "questionText": "A write-back, write-allocate cache with 64-byte blocks serves 1,000,000 references with a miss rate of 2%. Every miss replaces a valid block, and 30% of the replaced blocks are dirty. How many bytes are transferred between the cache and main memory? (Ignore any other traffic.)",
+      "options": [
+        "1,280,000 bytes",
+        "2,560,000 bytes",
+        "384,000 bytes",
+        "1,664,000 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Misses = 0.02 × 1,000,000 = 20,000, each fetching 64 bytes: 1,280,000 bytes. Dirty victims = 0.3 × 20,000 = 6000, each written back as 64 bytes: 384,000 bytes, so the total is 1,664,000 bytes (writing back every victim would give 2,560,000).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m040",
+      "questionText": "The cache size is kept fixed while the block (line) size is increased step by step from very small to very large. Which statement is correct?",
+      "options": [
+        "The hit ratio rises steadily, because every miss brings in more data",
+        "The hit ratio does not change; only the miss penalty changes",
+        "The hit ratio first rises because of spatial locality, then falls as fewer lines fit and useful blocks are evicted sooner, while the miss penalty keeps growing",
+        "The miss penalty falls, because fewer misses need to be serviced"
+      ],
+      "correctIndex": 2,
+      "explanation": "Larger blocks prefetch neighbouring words (spatial locality), but with a fixed size the number of lines drops, raising conflict and capacity misses, and each miss must transfer more bytes. The hit ratio therefore peaks at a moderate block size, 32 to 128 bytes in typical designs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m041",
+      "questionText": "On a cache miss, main memory needs 20 clock cycles before the first data appear; the 64-byte block is then transferred over an 8-byte-wide bus, one transfer per cycle. What is the miss penalty?",
+      "options": [
+        "168 cycles",
+        "84 cycles",
+        "8 cycles",
+        "28 cycles"
+      ],
+      "correctIndex": 3,
+      "explanation": "Miss penalty = latency + (block size / bus width) × cycles per transfer = 20 + (64 / 8) × 1 = 20 + 8 = 28 cycles. Paying the 20-cycle latency again for each of the 8 transfers would give 8 × 21 = 168 cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m042",
+      "questionText": "Why do most processors use split level-1 caches (a separate instruction cache and data cache)?",
+      "options": [
+        "Because a split cache always has a higher hit ratio than a unified cache of the same total size",
+        "Because instructions and data use different address widths",
+        "So that the pipeline can fetch an instruction and access data in the same cycle without competing for one cache",
+        "Because data must never be cached, only instructions"
+      ],
+      "correctIndex": 2,
+      "explanation": "A split (Harvard-style) L1 removes the structural hazard between the instruction-fetch stage and the memory-access stage. A unified cache of the same size balances its contents automatically and usually hits slightly more often, which is why L2 and L3 are unified.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i22_m043",
+      "questionText": "In a two-level cache, 5% of all processor references miss in L1, and 20% of the references that reach L2 miss there as well. What is the global miss rate of L2, the fraction of all processor references that must go to main memory?",
+      "options": [
+        "1%",
+        "20%",
+        "25%",
+        "4%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Global L2 miss rate = L1 miss rate × L2 local miss rate = 0.05 × 0.20 = 0.01 = 1%. The 20% is L2's local miss rate, and 4% (0.05 × 0.8) is the fraction of all references that hit in L2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m044",
+      "questionText": "Which statement about the design of a two-level cache hierarchy is correct?",
+      "options": [
+        "L1 should be larger than L2 because it is closer to the processor",
+        "L1 is kept small and fast to minimise the hit time, while L2 is larger and often more associative to minimise the accesses that go to main memory",
+        "An L2 cache is useful only if it is faster than the L1 cache",
+        "Once an L2 cache is added, the L1 hit ratio no longer affects the average access time"
+      ],
+      "correctIndex": 1,
+      "explanation": "L1 sits on the processor's critical path, so its hit time limits the clock cycle; L2 exists to catch L1 misses before they pay the full memory penalty, so its size and associativity matter more than its speed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i22_m045",
+      "questionText": "L1 hit time is 1 cycle and 4% of references miss in L1. L2 hit time is 10 cycles and its local miss rate is 25%. Main memory takes 100 cycles. Using AMAT = hit time + miss rate × miss penalty at each level, what is the average memory access time?",
+      "options": [
+        "2.4 cycles",
+        "5.0 cycles",
+        "1.44 cycles",
+        "2.0 cycles"
+      ],
+      "correctIndex": 0,
+      "explanation": "L1 miss penalty = L2 hit time + L2 local miss rate × memory time = 10 + 0.25 × 100 = 35 cycles, so AMAT = 1 + 0.04 × 35 = 2.4 cycles. Without the L2 cache it would be 1 + 0.04 × 100 = 5.0 cycles.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i22_m046",
+      "questionText": "A processor has a base CPI of 1.2 with a perfect cache. Each instruction makes on average 1.5 memory references (one instruction fetch and 0.5 data references), 2% of all references miss in the cache, and the miss penalty is 50 cycles. What is the effective CPI?",
+      "options": [
+        "2.2",
+        "1.7",
+        "1.5",
+        "2.7"
+      ],
+      "correctIndex": 3,
+      "explanation": "Memory-stall cycles per instruction = references per instruction × miss rate × miss penalty = 1.5 × 0.02 × 50 = 1.5, so CPI = 1.2 + 1.5 = 2.7, 2.25 times slower than with a perfect cache. Counting only the instruction fetches gives 1.2 + 1.0 = 2.2.",
+      "difficulty": "hard"
+    }
+  ]
+}

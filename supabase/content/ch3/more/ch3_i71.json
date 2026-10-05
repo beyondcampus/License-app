@@ -1,0 +1,772 @@
+{
+  "topicId": "ch3_i71",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Chapter 3 Syntax & Output Drill"
+    },
+    {
+      "type": "paragraph",
+      "text": "Most output and compile-error questions yield to the same four checks, applied in order. First fix the type of every operand: int or double, char promoted to int, array or pointer, base or derived. Next group the expression by precedence and associativity, then apply side effects one statement at a time, noting where a value is copied and where a pointer or reference reaches the original. Finally ask what is printed and in which format, and for C++ which constructor, destructor or override actually runs."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint next(void) { static int n = 10; return n++; }\nint main(void) {\n    int a[] = {4, 8, 12}, *p = a;\n    int x = *p++ + 1;\n    int y = 7 / 2 * 2 + 7 % 2;\n    int first = next();\n    printf(\"%d %d %d|\", x, *p, y);\n    printf(\"%3d|%-3d|%.2f|\", first, next(), 5 / 2.0);\n    printf(\"%c%c\\n\", 'A' + 2, 97);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 5 8 7| 10|11 |2.50|Ca\n\nx = *p++ + 1   postfix ++ binds first: *(p++) reads a[0] = 4, x = 5, p -> a[1]\n*p             now a[1] = 8\ny              7 / 2 = 3 (integer), 3 * 2 = 6, 7 % 2 = 1, so y = 7\nfirst, next()  static n survives calls: 10, then 11 (taken in separate\n               statements, because printf's arguments have no fixed order)\n%3d / %-3d     \" 10\" right-justified and \"11 \" left-justified in width 3\n%.2f           5 / 2.0 is the double 2.5, printed as 2.50\n%c             'A' + 2 = 67 = 'C', and 97 = 'a' (ASCII)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "C trap",
+          "How the compiler reads it",
+          "Result"
+        ],
+        [
+          "*p++ versus (*p)++",
+          "*(p++) reads the value and moves the pointer; (*p)++ changes the value",
+          "Different objects are changed"
+        ],
+        [
+          "x & 1 == 0",
+          "x & (1 == 0), because == binds tighter than &",
+          "Always 0; write (x & 1) == 0"
+        ],
+        [
+          "a > b > c",
+          "(a > b) > c, where a > b is 0 or 1",
+          "5 > 3 > 1 is 0 (compilers flag it)"
+        ],
+        [
+          "1 << 2 + 3",
+          "1 << (2 + 3), because + binds tighter than <<",
+          "32"
+        ],
+        [
+          "c = getchar() != EOF",
+          "c = (getchar() != EOF)",
+          "c holds 1 or 0, not the character"
+        ],
+        [
+          "printf(\"%d\", 2.5) or printf(\"%f\", 5)",
+          "Specifier and argument type disagree",
+          "Undefined behaviour; fix the specifier or cast"
+        ],
+        [
+          "sizeof(x++)",
+          "The operand is not evaluated (except for a VLA)",
+          "x is unchanged"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Storage class (C)",
+          "Scope",
+          "Lifetime",
+          "Default value"
+        ],
+        [
+          "auto (plain local)",
+          "Block",
+          "Until the block ends",
+          "Indeterminate (garbage)"
+        ],
+        [
+          "register",
+          "Block; & is not allowed",
+          "Until the block ends",
+          "Indeterminate (garbage)"
+        ],
+        [
+          "static local",
+          "Block",
+          "Whole run; initialised once",
+          "0"
+        ],
+        [
+          "static global",
+          "Its own source file only",
+          "Whole run",
+          "0"
+        ],
+        [
+          "extern (global)",
+          "Every file that declares it",
+          "Whole run",
+          "0 (from its one definition)"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "a[i] \\equiv *(a+i) \\equiv i[a],\\quad a[i][j] \\equiv *(*(a+i)+j),\\quad \\&a[i] \\equiv a+i",
+      "plainText": "a[i] = *(a + i) = i[a];  a[i][j] = *(*(a + i) + j);  &a[i] = a + i"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct M { M() { cout << \"M \"; } ~M() { cout << \"~M \"; } };\nstruct B {\n    B() { cout << \"B \"; }\n    virtual ~B() { cout << \"~B \"; }\n    virtual void who() const { cout << \"B.who \"; }\n};\nstruct D : B {\n    M m;\n    D() { cout << \"D \"; }\n    ~D() { cout << \"~D \"; }\n    void who() const override { cout << \"D.who \"; }\n};\nint main() { B *p = new D; p->who(); p->B::who(); delete p; }"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: B M D D.who B.who ~D ~M ~B\n\nnew D        base part first (B), then the members in declaration\n             order (M), then the body of D()\np->who()     who is virtual, so the object's real class decides: D.who\np->B::who()  a qualified name switches dispatch off: B.who\ndelete p     ~B is virtual, so ~D runs first, then the member (~M),\n             then the base (~B); without a virtual ~B this delete\n             would be undefined behaviour"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "C++ situation",
+          "Rule",
+          "Consequence"
+        ],
+        [
+          "Access after inheritance",
+          "Private base members are never accessible; the rest take the stricter of their own access and the inheritance mode",
+          "class D : B (private by default) hides all of B from D's users"
+        ],
+        [
+          "Member lookup through a pointer",
+          "The static type decides which names exist; virtual only changes which body runs",
+          "A Base* cannot call a member declared only in Derived"
+        ],
+        [
+          "Base object initialised from a derived one",
+          "Only the base part is copied (slicing)",
+          "Virtual calls on the copy run the base version"
+        ],
+        [
+          "Function template call",
+          "T is deduced from the arguments without conversions; an equally good non-template wins",
+          "big(2, 2.5) fails for template <class T> T big(T, T)"
+        ],
+        [
+          "STL containers",
+          "vector: fast index and push_back; list: fast insert anywhere; set/map: sorted unique keys",
+          "m[k] inserts a missing key; m.at(k) throws out_of_range"
+        ],
+        [
+          "throw and catch",
+          "Handlers are tried in order and match the exact type, a base class or a pointer conversion",
+          "throw 'x' skips catch (int); catch derived before base"
+        ],
+        [
+          "catch (...) and throw;",
+          "catch (...) must be the last handler; throw; rethrows the current object",
+          "An uncaught exception calls std::terminate"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Compile errors that revision questions like to hide:",
+      "items": [
+        "Assigning to an array name (a = b; or a++): an array is not a modifiable lvalue.",
+        "Two case labels with the same constant value, or a case label that is not an integer constant.",
+        "Calling a non-const member function on a const object, or passing a const object to a non-const reference parameter.",
+        "Creating an object of an abstract class, or calling through a base pointer a member that only the derived class declares.",
+        "Using a private or protected member from main, including one made private by private inheritance.",
+        "In C, assigning to the result of ?: (C++ allows it when both branches are lvalues of the same type)."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "When the options differ in one character or one step, the question tests a single rule. Find where a value is copied instead of referenced, where integer division truncates, where a promotion or conversion happens, or where a static or virtual rule applies, and re-check just that step. Write the partial results beside each line instead of keeping them in your head."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i71_m001",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu %s\", sizeof(\"NE\" \"C\"), \"NE\" \"C\");\n    return 0;\n}",
+      "options": [
+        "5 NEC",
+        "4 NEC",
+        "3 NEC",
+        "4 NE C"
+      ],
+      "correctIndex": 1,
+      "explanation": "Adjacent string literals are joined during translation, so \"NE\" \"C\" is the single literal \"NEC\". It holds 3 characters plus one terminating '\\0', so sizeof gives 4, and %s prints NEC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m002",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ncout << boolalpha;\ncout << (6 & 3) << \" \" << (6 && 3);\ncout << \" \" << (1 << 3) << 1;",
+      "options": [
+        "true true 81",
+        "2 1 81",
+        "2 true 16",
+        "2 true 81"
+      ],
+      "correctIndex": 3,
+      "explanation": "6 & 3 is a bitwise AND (110 & 011 = 010), an int 2 that boolalpha does not affect, while 6 && 3 is a bool and prints as true. The parenthesised 1 << 3 is a shift giving 8; the following << 1 is stream insertion, so 1 is printed after it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m003",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nunsigned int n = 45, c = 0;\nprintf(\"%o \", n);\nwhile (n) {\n    c += n & 1;\n    n >>= 1;\n}\nprintf(\"%u\", c);",
+      "options": [
+        "55 4",
+        "55 3",
+        "2d 4",
+        "45 6"
+      ],
+      "correctIndex": 0,
+      "explanation": "%o prints 45 in octal: 45 = 5 × 8 + 5, so 55. The loop adds the lowest bit and shifts right until n is 0, so it counts the 1-bits of 45 = 101101 in binary, which is 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m004",
+      "questionText": "Which statement comparing C (C11) with C++ (C++17) is NOT correct?",
+      "options": [
+        "C++ allows two functions with the same name if their parameter lists differ; C does not",
+        "A C++ struct may contain member functions and access specifiers; a C struct may not",
+        "C++, like C, requires the keyword struct in every declaration of a structure variable, as in struct Point p;",
+        "C++ adds references such as int &r = x;, which must be bound to an object when declared; C has none"
+      ],
+      "correctIndex": 2,
+      "explanation": "In C++ the tag of a struct (or class) is itself a type name, so Point p; is enough, while C needs struct Point p; or a typedef. The other three statements are true.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m005",
+      "questionText": "Assume unsigned char is 8 bits. What does this fragment print (inside main, with <stdio.h> included)?\n\nint n = 0;\nfor (unsigned char c = 246; c != 6; c += 2)\n    n++;\nprintf(\"%d\", n);",
+      "options": [
+        "9",
+        "8",
+        "5",
+        "Nothing is printed: the loop never ends"
+      ],
+      "correctIndex": 1,
+      "explanation": "An 8-bit unsigned char wraps modulo 256, so c takes 246, 248, 250, 252, 254 (5 values); then 254 + 2 = 256 wraps to 0 and c takes 0, 2, 4 (3 values) before it equals 6. The body runs 5 + 3 = 8 times; unsigned wrap-around is well defined.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m006",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nnamespace A { void f(int) { cout << \"Ai\"; } }\nnamespace B { void f(double) { cout << \"Bd\"; } }\nusing namespace A;\nusing namespace B;\nint main() {\n    f(1);\n    f(1.5);\n    f('x');\n    return 0;\n}",
+      "options": [
+        "AiBdAi",
+        "Compile error: the call f(1) is ambiguous",
+        "AiBdBd",
+        "AiAiAi"
+      ],
+      "correctIndex": 0,
+      "explanation": "The using-directives make both functions visible, and since their parameter types differ they form one overload set. f(1) matches A::f(int) exactly, f(1.5) matches B::f(double), and for f('x') the promotion char → int beats the conversion to double.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m007",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint i = 0, s = 0;\ndo {\n    i++;\n    if (i == 4)\n        continue;\n    s += i;\n} while (i < 4);\nprintf(\"%d %d\", s, i);",
+      "options": [
+        "10 4",
+        "11 5",
+        "Nothing is printed: the loop never ends",
+        "6 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "s collects 1 + 2 + 3 = 6. When i becomes 4, continue in a do-while jumps to the condition test, not to the top of the body; 4 < 4 is false, so the loop ends with s = 6 and i = 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m008",
+      "questionText": "Which printf call prints the value of sizeof(arr) with the conversion specifier that standard C (C99 and later) provides for size_t?",
+      "options": [
+        "printf(\"%d\", sizeof(arr));",
+        "printf(\"%zu\", sizeof(arr));",
+        "printf(\"%p\", sizeof(arr));",
+        "printf(\"%lf\", sizeof(arr));"
+      ],
+      "correctIndex": 1,
+      "explanation": "sizeof yields a value of the unsigned type size_t, and C99 added the length modifier z for it, so %zu matches. %d expects an int, %p a pointer and %lf a double, so they do not match a size_t argument.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m009",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A {\n    int v;\n    A(int x = 7) : v(x) { cout << v; }\n};\nint main() {\n    A arr[3] = {A(1), 2};\n    cout << \" \" << arr[1].v + arr[2].v;\n    return 0;\n}",
+      "options": [
+        "12 2",
+        "777 14",
+        "127 9",
+        "Compile error: 2 cannot initialise an A object"
+      ],
+      "correctIndex": 2,
+      "explanation": "arr[0] is built by A(1) and arr[1] from 2 through the converting constructor A(int), printing 1 and 2. arr[2] has no initialiser, so the default argument gives A(7), printing 7; then 2 + 7 = 9 is printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m010",
+      "questionText": "What happens when this fragment is compiled (inside main, with <stdio.h> included)?\n\nint x = 2;\nswitch (x) {\n    case 'B' - 'A': puts(\"one\"); break;\n    case 1 << 1:    puts(\"two\"); break;\n    case 5 / 2:     puts(\"half\"); break;\n    default:        puts(\"none\");\n}",
+      "options": [
+        "It compiles and prints two",
+        "It compiles and prints half",
+        "It compiles and prints two and half on separate lines",
+        "Compile error: the labels 1 << 1 and 5 / 2 both have the value 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Case labels must be integer constant expressions with distinct values. 'B' - 'A' is 1, 1 << 1 is 2, and 5 / 2 is also 2 because integer division truncates, so the repeated value 2 is a compile error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m011",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\n#include <string.h>\nint pal(const char *l, const char *r) {\n    if (l >= r)\n        return 1;\n    return *l == *r && pal(l + 1, r - 1);\n}\nint main(void) {\n    const char *a = \"level\", *b = \"lever\";\n    printf(\"%d %d\", pal(a, a + strlen(a) - 1), pal(b, b + strlen(b) - 1));\n    return 0;\n}",
+      "options": [
+        "1 0",
+        "1 1",
+        "0 0",
+        "0 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "pal compares the outermost characters and recurses inward until the pointers meet. For \"level\" every pair matches, so the result is 1; for \"lever\" the first pair (l, r) differs, && skips the recursive call and the result is 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m012",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nvoid f(int *a, int n) {\n    if (n <= 1)\n        return;\n    int t = a[0]; a[0] = a[n - 1]; a[n - 1] = t;\n    f(a + 1, n - 2);\n}\nint main(void) {\n    int a[] = {1, 2, 3, 4, 5, 6};\n    f(a + 1, 4);\n    for (int i = 0; i < 6; i++)\n        printf(\"%d\", a[i]);\n    return 0;\n}",
+      "options": [
+        "654321",
+        "152346",
+        "154326",
+        "165432"
+      ],
+      "correctIndex": 2,
+      "explanation": "f swaps the first and last of the n elements it is given and recurses on the part between them. f(a + 1, 4) swaps a[1] and a[4] (2 and 5), f(a + 2, 2) swaps a[2] and a[3] (3 and 4), and f(a + 3, 0) stops, so a becomes 1 5 4 3 2 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m013",
+      "questionText": "What does the C standard say about the statement printf(\"%d\\n\", 2.5);?",
+      "options": [
+        "It prints 2, because printf truncates the double to an int",
+        "The behaviour is undefined, because %d requires an int argument but a double is passed",
+        "It prints 3, because printf rounds the double to the nearest int",
+        "It is a compile error that every standard compiler must report"
+      ],
+      "correctIndex": 1,
+      "explanation": "printf cannot convert its variable arguments, so each specifier must match the promoted argument type. Passing a double for %d is undefined behaviour (compilers usually only warn); use %f, or write (int)2.5 to print 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m014",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nchar w[3][6] = {\"red\", \"green\", \"blue\"};\nchar *p = w[1];\nprintf(\"%s %c %s\", *(w + 2), *(p + 4), w[0] + 1);",
+      "options": [
+        "d n ed",
+        "blue e ed",
+        "blue n green",
+        "blue n ed"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each row of w is a char[6] holding one string. w + 2 points to the whole row w[2], so *(w + 2) is that row and %s prints blue. p = w[1] points to the 'g' of \"green\", so *(p + 4) is w[1][4] = 'n'. w[0] + 1 points to the second character of \"red\", so %s prints ed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m015",
+      "questionText": "Which throw expression is caught by the handler catch (const std::exception &e)?",
+      "options": [
+        "throw 404;",
+        "throw std::string(\"disk full\");",
+        "throw \"disk full\";",
+        "throw std::out_of_range(\"disk full\");"
+      ],
+      "correctIndex": 3,
+      "explanation": "A handler for const std::exception & matches std::exception and every class derived from it; std::out_of_range derives from std::logic_error, which derives from std::exception. An int, a std::string and a const char * are unrelated types, so they pass this handler by.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m016",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nstruct S { int a, b; };\nunion U { int a, b; };\nvoid fs(struct S s) { s.a = 7; }\nvoid fu(union U *u) { u->a = 7; }\nint main(void) {\n    struct S s = {1, 2};\n    union U u = {1};\n    fs(s);\n    fu(&u);\n    printf(\"%d %d %d\", s.a, s.b, u.b);\n    return 0;\n}",
+      "options": [
+        "1 2 7",
+        "7 2 7",
+        "1 2 1",
+        "7 2 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "fs receives a copy of the structure, so s in main keeps 1 and 2. fu writes u->a through a pointer, and because all members of a union share the same storage, u.b reads that same int, 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m017",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint x = 5;\nint main(void) {\n    int x = 1;\n    {\n        extern int x;\n        x++;\n        printf(\"%d \", x);\n    }\n    printf(\"%d\", x);\n    return 0;\n}",
+      "options": [
+        "2 2",
+        "2 1",
+        "6 1",
+        "Compile error: x is declared twice in main"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inside the inner block, extern int x; refers to the file-scope x and hides the local x there, so x++ makes the global 6 and prints it. After the block the local x = 1 is visible again and is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m018",
+      "questionText": "Which marked line fails to compile?\n\nstruct Base { virtual void show() {} };\nstruct Der : Base {\n    void show() override {}\n    void extra() {}\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->show();                       // line 1\n    d.extra();                       // line 2\n    p->extra();                      // line 3\n    static_cast<Der *>(p)->extra();  // line 4\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Member names are looked up in the static type: p is a Base*, and Base has no member extra, so line 3 fails even though p points to a Der. Virtual dispatch in line 1 only chooses which override runs, and line 4 converts the pointer to Der* first.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m019",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nstruct E { char name[8]; int age; };\nstruct E t[3] = {{\"Ram\", 30}, {\"Sita\", 25}, {\"Hari\", 41}};\nstruct E *p = t;\nprintf(\"%c %d %s\", (p + 1)->name[2], (*(p + 2)).age % 10, p[2].name + 1);",
+      "options": [
+        "i 1 ari",
+        "t 1 ari",
+        "t 4 ari",
+        "t 1 Hari"
+      ],
+      "correctIndex": 1,
+      "explanation": "p + 1 points to t[1], and name[2] of \"Sita\" is 't'. (*(p + 2)).age is 41, and 41 % 10 = 1. p[2].name + 1 points one character into \"Hari\", so %s prints ari.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m020",
+      "questionText": "Given int a[4][5];, which expression does NOT refer to the element a[2][3]?",
+      "options": [
+        "*(*(a + 2) + 3)",
+        "*(a[2] + 3)",
+        "(*(a + 2))[3]",
+        "*(a + 2)[3]"
+      ],
+      "correctIndex": 3,
+      "explanation": "[] binds tighter than unary *, so *(a + 2)[3] means *((a + 2)[3]) = *a[5], the first element of a row that does not exist. The other three all reduce to *(*(a + 2) + 3), which is a[2][3].",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m021",
+      "questionText": "What is the output of the following C++17 program?\n\n#include <iostream>\n#include <vector>\nusing namespace std;\nstruct T {\n    T() { cout << \"D\"; }\n    T(const T &) { cout << \"C\"; }\n};\nint main() {\n    vector<T> v(2);\n    vector<T> w = v;\n    cout << \" \" << w.size();\n    return 0;\n}",
+      "options": [
+        "DDCC 2",
+        "DD 2",
+        "DDDD 2",
+        "DDCC 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "vector<T> v(2) default-constructs its two elements (DD). Copying the vector copies every element with T's copy constructor (CC), and w then holds 2 elements.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m022",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nvoid xswap(int *a, int *b) {\n    *a ^= *b;\n    *b ^= *a;\n    *a ^= *b;\n}\nint main(void) {\n    int x = 5, y = 9;\n    xswap(&x, &y);\n    printf(\"%d %d \", x, y);\n    xswap(&x, &x);\n    printf(\"%d\", x);\n    return 0;\n}",
+      "options": [
+        "9 5 9",
+        "9 5 0",
+        "5 9 5",
+        "9 5 5"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first call swaps the values with three XORs, giving x = 9 and y = 5. In xswap(&x, &x) both pointers name the same int, so *a ^= *b computes 9 ^ 9 = 0 and the value is lost; the later XORs leave 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m023",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct B { B() { cout << \"B\"; } ~B() { cout << \"b\"; } };\nstruct D : B { D() { cout << \"D\"; } ~D() { cout << \"d\"; } };\nvoid f() {\n    static D s;\n    cout << \"f\";\n}\nint main() {\n    f(); f();\n    cout << \"|\";\n    return 0;\n}",
+      "options": [
+        "BDfdbBDfdb|",
+        "BDfBDf|dbdb",
+        "BDff|db",
+        "BDff|bd"
+      ],
+      "correctIndex": 2,
+      "explanation": "A static local object is constructed the first time control reaches its declaration (base part first: B, then D) and is not rebuilt on the second call. It is destroyed after main returns, derived part first: d, then b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m024",
+      "questionText": "A C program opens an existing file with fopen(name, \"r+\"). Which open mode gives an fstream the same behaviour in C++?",
+      "options": [
+        "ios::in | ios::out",
+        "ios::in | ios::out | ios::trunc",
+        "ios::out | ios::app",
+        "ios::in | ios::app"
+      ],
+      "correctIndex": 0,
+      "explanation": "\"r+\" opens an existing file for reading and writing, keeps its contents and fails if the file is missing, exactly like ios::in | ios::out. Adding ios::trunc gives \"w+\", ios::out | ios::app gives \"a\" and ios::in | ios::app gives \"a+\".",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m025",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct B {\n    virtual void print(ostream &o) const { o << \"B\"; }\n};\nstruct D : B {\n    void print(ostream &o) const override { o << \"D\"; }\n};\nostream &operator<<(ostream &o, const B &b) { b.print(o); return o; }\nint main() {\n    D d; B b; B &r = d;\n    cout << b << r << d;\n    return 0;\n}",
+      "options": [
+        "BBB",
+        "BBD",
+        "DDD",
+        "BDD"
+      ],
+      "correctIndex": 3,
+      "explanation": "operator<< receives a const B &, and print is virtual, so b.print(o) runs the version for the object's real class: B for b, D for r (a reference to d) and D for d.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m026",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\n#include <string.h>\nint main(void) {\n    char *w[] = {\"pear\", \"fig\", \"apple\"};\n    for (int i = 0; i < 2; i++)\n        for (int j = i + 1; j < 3; j++)\n            if (strcmp(w[i], w[j]) > 0) {\n                char *t = w[i]; w[i] = w[j]; w[j] = t;\n            }\n    printf(\"%s %c\", w[0], *w[2] + 1);\n    return 0;\n}",
+      "options": [
+        "apple p",
+        "apple q",
+        "pear b",
+        "fig q"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loops swap only the pointers, putting the words into strcmp order: apple, fig, pear. w[0] is \"apple\", and *w[2] is 'p', so 'p' + 1 prints as q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m027",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct B {};\nstruct D : B {};\nint main() {\n    D d;\n    int n = 5;\n    for (int i = 0; i < 3; i++) {\n        try {\n            if (i == 0) throw &d;\n            else if (i == 1) throw &n;\n            else throw 0;\n        }\n        catch (B *) { cout << \"B\"; }\n        catch (const int *) { cout << \"P\"; }\n        catch (...) { cout << \"O\"; }\n    }\n}",
+      "options": [
+        "OPO",
+        "BOO",
+        "BPO",
+        "BPP"
+      ],
+      "correctIndex": 2,
+      "explanation": "A handler of pointer type also accepts a thrown pointer after a derived-to-base pointer conversion or a qualification conversion (adding const). So &d, a D *, is caught by catch (B *), and &n, an int *, by catch (const int *). The literal 0 is thrown as an int, and a handler never turns an int into a null pointer, so it reaches catch (...): B, P, O.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m028",
+      "questionText": "Each of the following integer literals has the value 26. Which one is valid in C++14 and later but is NOT part of standard C11?",
+      "options": [
+        "0x1A",
+        "032",
+        "0b11010",
+        "26UL"
+      ],
+      "correctIndex": 2,
+      "explanation": "Binary literals with the 0b prefix were added in C++14 (C gained them only in C23, although many compilers accept them as an extension). 0x1A (hexadecimal), 032 (octal) and 26UL (unsigned long) are all standard C11 constants.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m029",
+      "questionText": "Assume the ASCII character set. What does this fragment print? Assume <iostream>, <set> and <string> are included and using namespace std; is in effect.\n\nset<string> s = {\"pear\", \"Apple\", \"fig\", \"apple\"};\ncout << *s.begin() << \" \";\ncout << *s.lower_bound(\"b\") << \" \";\ncout << *s.rbegin();",
+      "options": [
+        "Apple fig pear",
+        "apple fig pear",
+        "Apple apple pear",
+        "pear fig Apple"
+      ],
+      "correctIndex": 0,
+      "explanation": "A set keeps its strings in ascending order, compared character by character by code, and in ASCII 'A' (65) comes before 'a' (97), so the order is Apple, apple, fig, pear. begin() gives the smallest, Apple; lower_bound(\"b\") gives the first element not less than \"b\", which is fig because apple < b < fig; rbegin() gives the largest, pear.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m030",
+      "questionText": "Assume double is 8 bytes. What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu \", sizeof(1 ? 'a' : 2.0));\n    printf(\"%.1f\", 1 ? 7 / 2 : 2.5);\n    return 0;\n}",
+      "options": [
+        "1 3.5",
+        "4 3.0",
+        "8 3.5",
+        "8 3.0"
+      ],
+      "correctIndex": 3,
+      "explanation": "The result of ?: has the common type of its second and third operands, here double, whichever one is chosen. So sizeof gives 8, and the chosen operand 7 / 2 is computed as the int 3 and then converted to 3.0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m031",
+      "questionText": "What is the output of the following C++ program?\n\n#include <fstream>\n#include <iomanip>\n#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    {\n        ofstream f(\"fmt.txt\");\n        f << setfill('0') << setw(5) << 42 << ' ' << hex << 255;\n    }\n    ifstream in(\"fmt.txt\");\n    string a, b;\n    in >> a >> b;\n    cout << a << \"|\" << b << \"|\" << a.size();\n}",
+      "options": [
+        "42|255|2",
+        "00042|ff|5",
+        "00042|255|5",
+        "42|ff|2"
+      ],
+      "correctIndex": 1,
+      "explanation": "setw(5) with fill character '0' writes 00042, and hex writes 255 as ff, so the file holds 00042 ff. Reading back with >> gives the words 00042 and ff, and the first word has 5 characters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m032",
+      "questionText": "The following file is compiled once as C (C11) and once as C++ (C++17). What is the result in each case?\n\n#include <stdio.h>\nint main(void) {\n    int a = 3, b = 7;\n    (a > b ? a : b) = 0;\n    printf(\"%d %d\", a, b);\n    return 0;\n}",
+      "options": [
+        "C: compile error; C++: prints 3 0",
+        "Both compile and print 3 0",
+        "Both compile and print 0 7",
+        "C: prints 3 0; C++: compile error"
+      ],
+      "correctIndex": 0,
+      "explanation": "In C the result of ?: is never an lvalue, so assigning to it is a compile error. In C++ it is an lvalue when both branches are lvalues of the same type, so the assignment goes to b and 3 0 is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m033",
+      "questionText": "Which marked line fails to compile?\n\n#include <iostream>\nusing namespace std;\nclass B { public: int x = 1, y = 2; };\nclass D : private B {\npublic:\n    using B::x;\n    int sum() { return x + y; }   // line 1\n};\nint main() {\n    D d;\n    cout << d.x;       // line 2\n    cout << d.sum();   // line 3\n    cout << d.y;       // line 4\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Private inheritance makes B's public members private in D, so D's own member sum may still use x and y (line 1). The using-declaration in D's public section makes x public again (line 2), but y stays private, so d.y in main fails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m034",
+      "questionText": "After cin >> n; fails because the user typed abc for the int n, which action lets the program discard that input and read n again?",
+      "options": [
+        "Call cin.clear(); alone, because resetting the flags also removes abc from the buffer",
+        "Call cin.clear(); and then cin.ignore(1000, '\\n');",
+        "Call cin.ignore(1000, '\\n'); alone, because ignore also resets failbit",
+        "Nothing: the next cin >> n skips the bad characters automatically"
+      ],
+      "correctIndex": 1,
+      "explanation": "A failed extraction sets failbit, and every later read fails until cin.clear() resets it. clear does not remove the bad characters, so cin.ignore(1000, '\\n') must then discard them; neither call alone is enough.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m035",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nvoid sw(int *&a, int *&b) { int *t = a; a = b; b = t; }\nint main() {\n    int x = 1, y = 2;\n    int *p = &x, *q = &y;\n    sw(p, q);\n    *p += 10;\n    cout << x << \" \" << y << \" \" << *q;\n    return 0;\n}",
+      "options": [
+        "11 2 11",
+        "12 1 1",
+        "1 12 1",
+        "1 12 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "Parameters of type int *& are references to the caller's pointers, so sw really swaps p and q: p now points to y and q to x. *p += 10 makes y = 12, and *q reads x = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m036",
+      "questionText": "Given char name[20]; and int n;, why is the first call written scanf(\"%19s\", name) without &, while the second is written scanf(\"%d\", &n)?",
+      "options": [
+        "An array name used as an argument is converted to a pointer to its first element, so name already supplies the address scanf needs",
+        "scanf stores a string in an internal buffer first, so it never needs the address of the array",
+        "C passes arrays by value, and scanf copies the whole array back to the caller when it returns",
+        "The & is optional for every scanf argument; it is only a matter of style"
+      ],
+      "correctIndex": 0,
+      "explanation": "scanf needs the address of every object it fills. For int n that is &n, while name used as an argument decays to &name[0], the address of the first char to store (&name has the same address but the type char (*)[20], not the char * that %s expects).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m037",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nchar s[] = \"EXAM\";\nchar *p = s;\nwhile (*p)\n    *p++ += 1;\nprintf(\"%s %td\", s, p - s);",
+      "options": [
+        "EXAM 4",
+        "FYBN 5",
+        "Compile error: *p++ cannot be assigned to",
+        "FYBN 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Postfix ++ binds tighter than *, so *p++ += 1 adds 1 to the character p points at and then moves p on. Each letter becomes the next one (E→F, X→Y, A→B, M→N), and the loop stops at the '\\0', 4 characters from the start.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m038",
+      "questionText": "What is the output of the following C++17 program?\n\n#include <iostream>\n#include <vector>\nusing namespace std;\nstruct N {\n    int v;\n    N(int x) : v(x) {}\n};\nint main() {\n    vector<N> a = {1, 2, 3};\n    for (N n : a)\n        n.v *= 10;\n    for (N &n : a)\n        n.v += 1;\n    cout << a[0].v + a[1].v + a[2].v;\n}",
+      "options": [
+        "63",
+        "9",
+        "6",
+        "Compile error: a vector<N> cannot be initialised from {1, 2, 3}"
+      ],
+      "correctIndex": 1,
+      "explanation": "{1, 2, 3} builds three N objects through the converting constructor N(int). In the first loop n is a copy of each element, so multiplying it by 10 leaves a unchanged; in the second loop n is a reference, so the elements really become 2, 3 and 4, and 2 + 3 + 4 = 9.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m039",
+      "questionText": "A function is declared as void report(std::ostream &os);. Which objects can be passed to it as the argument?",
+      "options": [
+        "Only std::cout",
+        "std::cout and std::cerr, but not file or string streams",
+        "std::cout, std::cerr, a std::ofstream object and a std::ostringstream object",
+        "Only objects created as std::ostream itself, because a reference parameter does not accept derived classes"
+      ],
+      "correctIndex": 2,
+      "explanation": "cout and cerr are ostream objects, and ofstream and ostringstream are derived from ostream, so a base-class reference binds to all of them. This is why one report function or << overload works for the console, files and strings alike.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m040",
+      "questionText": "What does this fragment print? Assume <iostream>, <queue> and <stack> are included and using namespace std; is in effect.\n\nqueue<int> q;\nfor (int i = 1; i <= 4; i++)\n    q.push(i * i);\nstack<int> s;\nwhile (!q.empty()) {\n    s.push(q.front());\n    q.pop();\n}\ncout << s.top() << \" \" << s.size();\ns.pop();\ns.pop();\ncout << \" \" << s.top();",
+      "options": [
+        "16 4 4",
+        "1 4 9",
+        "16 4 9",
+        "16 2 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "The queue releases 1, 4, 9, 16 in FIFO order and the stack receives them in that order, so 16 is on top and the size is 4. Two pops remove 16 and 9, leaving 4 on top.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m041",
+      "questionText": "Which marked line fails to compile? Assume <iostream> is included and using namespace std; is in effect.\n\nclass Box {\n    int w;\npublic:\n    Box(int x) : w(x) {}\n    int get() const { return w; }\n    friend void boost(Box &b);\n};\nvoid boost(Box &b) { b.w += 10; }\nint main() {\n    const Box c(1); Box m(2);\n    boost(m);         // line 1\n    cout << c.get();  // line 2\n    boost(c);         // line 3\n    cout << m.get();  // line 4\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "boost is a friend, so it may change the private w, but its parameter is a non-const reference. The const object c cannot bind to Box &, so line 3 fails, whereas calling the const member function get() on c (line 2) is allowed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i71_m042",
+      "questionText": "Consider these statements about C: (i) for int a[5];, the expressions a[3], *(a + 3) and 3[a] all name the same element; (ii) inside void f(int b[10]), sizeof(b) gives the size of the whole 10-element array; (iii) a static local variable is initialised only once and keeps its value between calls; (iv) fopen(name, \"w\") returns NULL when the file does not already exist. Which of them are true?",
+      "options": [
+        "(i), (ii) and (iii) only",
+        "(iii) and (iv) only",
+        "(i), (iii) and (iv) only",
+        "(i) and (iii) only"
+      ],
+      "correctIndex": 3,
+      "explanation": "(i) is true because a[i] is defined as *(a + i) and addition commutes. (ii) is false: an array parameter is really a pointer, so sizeof gives the pointer size; (iii) is true, and (iv) is false because \"w\" creates a missing file (it is \"r\" that fails).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m043",
+      "questionText": "What is the output of the following C++17 program?\n\n#include <iostream>\nusing namespace std;\nstruct T {\n    int v;\n    T(int x) : v(x) { cout << \"C\" << v; }\n    ~T() { cout << \"D\" << v; }\n    T operator+(const T &o) const { return T(v + o.v); }\n};\nint main() {\n    T a(1), b(2);\n    T c = a + b + a;\n    cout << \"|\";\n}",
+      "options": [
+        "C1C2C3C4|D4D3D2D1",
+        "C1C2C3C4D3|D4D2D1",
+        "C1C2C4|D4D2D1",
+        "C1C2C3D3C4|D4D2D1"
+      ],
+      "correctIndex": 1,
+      "explanation": "a + b is evaluated first and materialises a temporary T(3); temp + a then constructs T(4) directly in c (C++17 guarantees no extra copy). The temporary dies at the end of the full expression (D3) before | is printed, and at the end of main c, b and a are destroyed in reverse order.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i71_m044",
+      "questionText": "v is a std::vector<int>. Which statement sorts v into descending (largest-first) order? Assume <algorithm> and <functional> are included and using namespace std; is in effect.",
+      "options": [
+        "sort(v.begin(), v.end(), greater<int>());",
+        "reverse(v.begin(), v.end());",
+        "sort(v.rbegin(), v.rend(), greater<int>());",
+        "sort(v.begin(), v.end());"
+      ],
+      "correctIndex": 0,
+      "explanation": "sort puts the range in the order given by the comparison, so greater<int>() puts the largest value first. reverse only flips the current order, plain sort gives ascending order, and sorting the reversed view with greater<int>() also reads ascending from v.begin().",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i71_m045",
+      "questionText": "Consider these statements about C++: (i) when an object of class D : public B, which has a member object M m, is created, the constructors run in the order B, M, D; (ii) a member function defined inside the class body is implicitly inline; (iii) a catch (...) handler may be placed before the other handlers of the same try block; (iv) in the diamond A → B, A → C, (B, C) → D with no virtual base classes, a D object contains only one A sub-object. Which of them are true?",
+      "options": [
+        "(i), (ii) and (iv) only",
+        "(ii) and (iii) only",
+        "(i) and (iv) only",
+        "(i) and (ii) only"
+      ],
+      "correctIndex": 3,
+      "explanation": "(i) is true: bases are built first, then members in declaration order, then the constructor body; (ii) is also true. (iii) is false because catch (...) must be the last handler, and (iv) is false because without virtual inheritance D holds two A sub-objects, one via B and one via C.",
+      "difficulty": "hard"
+    }
+  ]
+}

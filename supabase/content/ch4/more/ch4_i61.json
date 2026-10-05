@@ -1,0 +1,747 @@
+{
+  "topicId": "ch4_i61",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Widths, Overflow and Fixed Point"
+    },
+    {
+      "type": "paragraph",
+      "text": "numeric_std never widens a sum on its own. For + and − the shorter operand is first extended (zero-extended for unsigned, sign-extended for signed) to the length of the longer one, and the result has that same length. An integer operand is converted to the vector's width with to_unsigned or to_signed, and a value that does not fit is truncated with a 'vector truncated' warning. Multiplication is the operator that grows: its result is as wide as both operands together, so a product can never overflow."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Expression (a: 8-bit, b: 4-bit unsigned)",
+          "Result width",
+          "Remark"
+        ],
+        [
+          "a + b, a - b",
+          "8",
+          "Wraps modulo 2^8; the carry or borrow is lost"
+        ],
+        [
+          "a + 5",
+          "8",
+          "5 is converted with to_unsigned(5, 8)"
+        ],
+        [
+          "a * b",
+          "12",
+          "Sum of the widths; never overflows"
+        ],
+        [
+          "a * 5",
+          "16",
+          "5 becomes 8 bits first, then 8 + 8"
+        ],
+        [
+          "a / b",
+          "8",
+          "Width of the dividend"
+        ],
+        [
+          "a mod b, a rem b",
+          "4",
+          "Width of the divisor"
+        ],
+        [
+          "'0' & a, resize(a, 9)",
+          "9",
+          "One spare bit keeps the carry"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "L(a \\pm b) = \\max(L_a, L_b), \\quad L(a \\times b) = L_a + L_b",
+      "plainText": "len(a ± b) = max(La, Lb); len(a × b) = La + Lb"
+    },
+    {
+      "type": "paragraph",
+      "text": "One spare bit is always enough to detect overflow. The sum of two n-bit signed numbers lies between −2^n and 2^n − 2, which fits in n + 1 bits, so sign-extending both operands to n + 1 bits makes the sum exact. The n-bit result is correct exactly when the top two bits of that exact sum are equal; if they differ, the n-bit result has overflowed. For unsigned operands the spare bit is simply the carry, and for a − b it is the borrow."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 8-bit signed 100 + 50\na = +100  -> resize to 9 bits : 0 0110 0100\nb =  +50  -> resize to 9 bits : 0 0011 0010\nt = a + b (exact)              : 0 1001 0110 = +150\nt(8) = 0, t(7) = 1  -> top two bits differ: overflow\nwrapped 8-bit sum t(7 downto 0) = 1001 0110 = -106\nsign-bit rule: a(7) = b(7) = 0 but s(7) = 1 -> V = 1\nsaturating output              : 0111 1111 = +127"
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "-- a, b, y : signed(7 downto 0);  t : signed(8 downto 0)\nt   <= resize(a, 9) + resize(b, 9);   -- exact sum, cannot overflow\novf <= t(8) xor t(7);                  -- top two bits differ\ny   <= \"01111111\" when t(8) = '0' and t(7) = '1' else   -- clamp at +127\n       \"10000000\" when t(8) = '1' and t(7) = '0' else   -- clamp at -128\n       t(7 downto 0);\n-- simulated: (100, 50) -> y = 127, ovf = '1';  (-100, -50) -> y = -128, ovf = '1'\n--            (100, -50) -> y = 50, ovf = '0';  (-128, -1) -> y = -128, ovf = '1'"
+    },
+    {
+      "type": "paragraph",
+      "text": "Fixed-point multiplication needs one more bookkeeping step. If a and b are n-bit signed vectors with f fraction bits each, their 2n-bit product has 2f fraction bits. To return to n bits with f fraction bits, drop the lowest f bits and keep the next n, which is the slice p(n + f − 1 downto f). The bits above that slice must all equal its sign bit; otherwise the true result is out of range and should be saturated."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 8-bit signed, 4 fraction bits (value = N / 16)\na = 0010 1000 ->  40 / 16 =  2.5\nb = 1110 1100 -> -20 / 16 = -1.25\np = a * b (16 bits, 8 fraction bits) = -800 -> -800 / 256 = -3.125\np = 1111 1100 1110 0000\nkeep p(11 downto 4) = 1100 1110 = -50 -> -50 / 16 = -3.125\np(15 downto 11) = 11111 (all equal to the sign) -> no overflow\nwrong slice p(7 downto 0) = 1110 0000 = -32 -> -2.0"
+    },
+    {
+      "type": "bulletList",
+      "text": "Simulation behaviour that often surprises:",
+      "items": [
+        "to_integer on a vector containing 'U', 'X', 'Z', 'W' or '-' returns 0 with a metavalue warning, while +, − and * return a vector of all 'X'.",
+        "A counter with no reset and no initial value starts at \"UUUU\", and cnt + 1 keeps it at \"XXXX\" for the whole run.",
+        "to_unsigned(300, 8) and to_signed(200, 8) keep only the low 8 bits (44 and −56) and print 'vector truncated'; to_unsigned(−1, 8) is a bound-check error because its argument is of subtype natural.",
+        "Assigning a result to a target of a different length is a run-time bound-check failure, never a silent truncation.",
+        "An integer subtype such as range 0 to 15 stops the simulation when it reaches 16, whereas unsigned(3 downto 0) wraps to 0 like the hardware.",
+        "Shrinking with resize keeps the low bits of an unsigned value, but for a signed value it keeps the sign bit plus the low bits."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Driver 1",
+          "Driver 2",
+          "Resolved std_logic value"
+        ],
+        [
+          "'0'",
+          "'1'",
+          "'X' (contention)"
+        ],
+        [
+          "'1'",
+          "'Z'",
+          "'1'"
+        ],
+        [
+          "'Z'",
+          "'Z'",
+          "'Z' (floating)"
+        ],
+        [
+          "'H' (pull-up)",
+          "'0'",
+          "'0'"
+        ],
+        [
+          "'L'",
+          "'H'",
+          "'W' (weak unknown)"
+        ],
+        [
+          "'X'",
+          "'Z'",
+          "'X'"
+        ],
+        [
+          "'U'",
+          "Any value",
+          "'U'"
+        ]
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Size first, then operate: widen the operands before + or − when you need the carry or the overflow flag, remember that * returns the sum of the widths, and use resize or a slice to fit a target, because a width mismatch on assignment stops the simulation instead of truncating."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i61_m001",
+      "questionText": "Which IEEE-standard VHDL package defines the array types signed and unsigned together with arithmetic and comparison operators for them?",
+      "options": [
+        "ieee.std_logic_arith",
+        "ieee.std_logic_unsigned",
+        "ieee.std_logic_1164",
+        "ieee.numeric_std"
+      ],
+      "correctIndex": 3,
+      "explanation": "numeric_std (originally IEEE 1076.3, now part of IEEE 1076-2008) defines signed and unsigned. std_logic_arith and std_logic_unsigned are Synopsys packages, not IEEE standards, and std_logic_1164 defines only the std_logic types.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m002",
+      "questionText": "u is a signal of type unsigned(7 downto 0). What does the expression std_logic_vector(u) do?",
+      "options": [
+        "It converts u to 2's complement by inverting the bits and adding 1",
+        "It relabels the same 8 bits as a std_logic_vector, so no logic is generated",
+        "It adds a sign bit, giving a 9-bit vector",
+        "It converts u into two BCD digits"
+      ],
+      "correctIndex": 1,
+      "explanation": "unsigned and std_logic_vector are closely related array types with the same element type, so this type conversion keeps every bit unchanged and costs no hardware.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m003",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. What bit pattern does std_logic_vector(to_signed(-3, 6)) produce?",
+      "options": [
+        "\"111101\"",
+        "\"100011\"",
+        "\"111100\"",
+        "\"000011\""
+      ],
+      "correctIndex": 0,
+      "explanation": "to_signed gives the 6-bit 2's complement of −3: 2^6 − 3 = 61 = 111101. 100011 is sign-magnitude, 111100 is 1's complement and 000011 is +3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m004",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. v is a std_logic_vector(7 downto 0) initialised to x\"EC\". What are to_integer(unsigned(v)) and to_integer(signed(v))?",
+      "options": [
+        "236 and −108",
+        "236 and +20",
+        "236 and −20",
+        "−20 and 236"
+      ],
+      "correctIndex": 2,
+      "explanation": "EC = 1110 1100 = 236 read as unsigned. Read as 2's complement it is 236 − 256 = −20; −108 comes from misreading the pattern as sign-magnitude.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m005",
+      "questionText": "A design uses only ieee.std_logic_1164 and ieee.numeric_std. v is a std_logic_vector(7 downto 0) holding an unsigned number and n is an integer. Which assignment analyses and sets n to the value of v?",
+      "options": [
+        "n <= to_integer(v);",
+        "n <= to_integer(unsigned(v));",
+        "n <= integer(v);",
+        "n <= conv_integer(v);"
+      ],
+      "correctIndex": 1,
+      "explanation": "numeric_std's to_integer accepts signed or unsigned, so v must first be converted to unsigned. integer(v) is not a legal type conversion from an array type, and conv_integer belongs to the Synopsys packages, which are not used here.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m006",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. s is signed(7 downto 0) holding −3, u is unsigned(3 downto 0) holding \"1100\" (12) and r is signed(7 downto 0). Which assignment is legal and makes r = 9?",
+      "options": [
+        "r <= s + signed('0' & u);",
+        "r <= s + signed(u);",
+        "r <= s + u;",
+        "r <= unsigned(s) + u;"
+      ],
+      "correctIndex": 0,
+      "explanation": "Prefixing '0' turns 12 into the 5-bit positive signed number 01100, so r = −3 + 12 = 9. signed(u) reads 1100 as −4 (giving −7), numeric_std has no + for a signed and an unsigned operand, and unsigned(s) + u is unsigned, which cannot be assigned to the signed r.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m007",
+      "questionText": "What are resize(unsigned'(\"10110110\"), 4) and resize(signed'(\"10110110\"), 4) in ieee.numeric_std?",
+      "options": [
+        "\"0110\" and \"0110\"",
+        "\"1011\" and \"1011\"",
+        "\"0110\" and \"1110\"",
+        "\"1011\" and \"1110\""
+      ],
+      "correctIndex": 2,
+      "explanation": "Shrinking an unsigned value keeps the rightmost bits (0110). Shrinking a signed value keeps the sign bit and the rightmost 3 bits, giving 1 & 110 = 1110, so the result stays negative even though its value changes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m008",
+      "questionText": "Which ieee.numeric_std function changes the width of a signed value while keeping its numeric value, provided the new width is large enough?",
+      "options": [
+        "to_signed",
+        "std_logic_vector",
+        "resize",
+        "shift_left"
+      ],
+      "correctIndex": 2,
+      "explanation": "resize(x, n) sign-extends a signed value (or zero-extends an unsigned one) to n bits. to_signed converts an integer, std_logic_vector only changes the type, and shift_left moves the bits and so changes the value.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m009",
+      "questionText": "What does to_signed(200, 8) return in an ieee.numeric_std simulation?",
+      "options": [
+        "\"01111111\" (+127), saturated at the maximum",
+        "Nothing, because the simulation stops with a range error",
+        "\"00111000\" (+56)",
+        "\"11001000\" (−56), with a 'vector truncated' warning"
+      ],
+      "correctIndex": 3,
+      "explanation": "+200 needs 9 bits as a signed number. to_signed keeps the low 8 bits, 1100 1000, which reads as 200 − 256 = −56, and numeric_std only prints a warning.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m010",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. n is an integer signal holding −1 and u is unsigned(7 downto 0). What happens in simulation when u <= to_unsigned(n, 8); executes?",
+      "options": [
+        "u becomes \"11111111\"",
+        "A bound (range) check error stops the simulation, because the first parameter of to_unsigned is of subtype natural",
+        "u becomes \"00000001\"",
+        "u becomes \"XXXXXXXX\" and a warning is printed"
+      ],
+      "correctIndex": 1,
+      "explanation": "to_unsigned is declared with an argument of subtype natural, so passing −1 violates the subtype and the simulator reports a bound-check failure. Use to_signed for values that can be negative.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m011",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. v is std_logic_vector(7 downto 0) := x\"9C\" and n is an integer:\n\nn <= to_integer(signed(v(7 downto 4))) + to_integer(unsigned(v(3 downto 0)));\n\nWhat value does n take?",
+      "options": [
+        "21",
+        "−100",
+        "5",
+        "156"
+      ],
+      "correctIndex": 2,
+      "explanation": "The upper nibble 1001 read as signed is −7 and the lower nibble 1100 read as unsigned is 12, so n = −7 + 12 = 5. 21 reads both nibbles as unsigned, while −100 and 156 are the whole byte read as signed and unsigned.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m012",
+      "questionText": "What range of values can a signal declared as signed(5 downto 0) hold?",
+      "options": [
+        "−31 to +31",
+        "0 to 63",
+        "−64 to +63",
+        "−32 to +31"
+      ],
+      "correctIndex": 3,
+      "explanation": "signed(5 downto 0) has 6 bits, so its 2's complement range is −2^5 to 2^5 − 1 = −32 to +31. −31 to +31 is the sign-magnitude range, 0 to 63 the unsigned range, and −64 to +63 would need 7 bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m013",
+      "questionText": "An internal signal must hold a 12-bit two's-complement sample that is added to and compared with other samples. Which declaration expresses this with ieee.numeric_std?",
+      "options": [
+        "signal x : unsigned(11 downto 0);",
+        "signal x : std_logic_vector(11 downto 0);",
+        "signal x : integer range 0 to 4095;",
+        "signal x : signed(11 downto 0);"
+      ],
+      "correctIndex": 3,
+      "explanation": "signed gives the bits a 2's complement meaning, and numeric_std defines arithmetic and comparison on it. unsigned and integer range 0 to 4095 cannot hold negative values, and std_logic_vector has no numeric meaning in numeric_std.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m014",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a is unsigned(7 downto 0) and b is unsigned(3 downto 0). What are the widths of a + b and a * b?",
+      "options": [
+        "9 bits and 12 bits",
+        "8 bits and 8 bits",
+        "8 bits and 12 bits",
+        "9 bits and 16 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "Addition returns the width of the longer operand (8 bits), with b zero-extended first, so a carry out is lost. Multiplication returns the sum of the widths, 8 + 4 = 12 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m015",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. A variable u : unsigned(3 downto 0) holds \"0000\". What does it hold after u := u - 1;?",
+      "options": [
+        "\"0000\", because unsigned arithmetic saturates at zero",
+        "Nothing, because the simulation stops with a range error",
+        "\"1001\", the sign-magnitude form of −1",
+        "\"1111\" (15), because the result wraps modulo 16"
+      ],
+      "correctIndex": 3,
+      "explanation": "numeric_std arithmetic wraps silently: 0 − 1 = −1 ≡ 15 (mod 2^4), which is 1111. Vector arithmetic never saturates or raises an error.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m016",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a = 23 and b = 45 are of type unsigned(7 downto 0), and y is unsigned(7 downto 0). Which concurrent assignment is legal and gives y the low 8 bits of the full product (1035)?",
+      "options": [
+        "y <= resize(a * b, 8);",
+        "y <= (a * b)(7 downto 0);",
+        "y <= a(3 downto 0) * b(3 downto 0);",
+        "y <= a * b;"
+      ],
+      "correctIndex": 0,
+      "explanation": "resize on an unsigned value keeps the low 8 bits: 1035 mod 256 = 11. A parenthesised expression cannot be sliced, the nibble product 7 × 13 = 91 is a different number, and the 16-bit a * b does not match the 8-bit target, so simulation stops with a bound-check error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m017",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a and b are unsigned(7 downto 0), both equal to 200, and sum9 is unsigned(8 downto 0). Which concurrent assignment makes sum9 equal to 400?",
+      "options": [
+        "sum9 <= ('0' & a) + b;",
+        "sum9 <= resize(a + b, 9);",
+        "sum9 <= '0' & (a + b);",
+        "sum9 <= a + b;"
+      ],
+      "correctIndex": 0,
+      "explanation": "Widening a before the addition makes the + 9 bits wide (b is zero-extended), so the carry is kept and the sum is 400. Resizing or concatenating after an 8-bit addition keeps the wrapped value 400 − 256 = 144, and the 8-bit a + b does not match the 9-bit target, so simulation stops with a bound-check error.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m018",
+      "questionText": "In ieee.numeric_std each operator sets its own result width. Which operation on two unsigned operands can never lose significant bits?",
+      "options": [
+        "a + b",
+        "a - b",
+        "a + 1",
+        "a * b"
+      ],
+      "correctIndex": 3,
+      "explanation": "The product of an n-bit and an m-bit operand is returned with n + m bits, which always holds the full result. Addition and subtraction return the width of the wider operand, so a carry or borrow is dropped and the result wraps.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m019",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a and b are signed(3 downto 0) and both hold \"1000\". p is signed(7 downto 0) and p <= a * b;. What is to_integer(p)?",
+      "options": [
+        "64",
+        "−64",
+        "0",
+        "−128"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each operand is −8, so the product is +64. numeric_std returns a 4 + 4 = 8-bit product, and 0100 0000 = +64 fits in the signed 8-bit range, so even the most negative operands cannot overflow the full-width product.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m020",
+      "questionText": "Which statement about ieee.numeric_std is NOT correct?",
+      "options": [
+        "a + b on two unsigned operands returns the width of the wider operand",
+        "resize on a signed operand fills the new upper bits with copies of the sign bit",
+        "to_integer applied to an unsigned argument returns a value of subtype natural",
+        "a * b returns the width of the wider operand, so the upper half of the product is lost"
+      ],
+      "correctIndex": 3,
+      "explanation": "A product has as many bits as both operands together (n + m), so no bits are lost. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m021",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a = 200 and b = 90 are of type unsigned(7 downto 0), and t is unsigned(8 downto 0):\n\nt    <= ('0' & a) + ('0' & b);\nsum  <= t(7 downto 0);\ncout <= t(8);\n\nWhat are cout and to_integer(sum)?",
+      "options": [
+        "cout = '0', sum = 34",
+        "cout = '1', sum = 35",
+        "cout = '0', sum = 255",
+        "cout = '1', sum = 34"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 9-bit sum is 290 = 1 0010 0010, so t(8) = '1' flags the unsigned overflow and the low byte is 290 − 256 = 34. Adding the carry back in (35) is 1's complement practice, and 255 is what a saturating adder would give.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m022",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a = 3 and b = 5 are of type unsigned(3 downto 0), and d5 is unsigned(4 downto 0):\n\nd5 <= ('0' & a) - ('0' & b);\n\nWhat is d5, and what does d5(4) indicate?",
+      "options": [
+        "\"00010\"; d5(4) = '0' because the magnitude of the difference is 2",
+        "\"11110\"; d5(4) = '1' is a borrow, showing that a < b",
+        "\"01110\"; d5(4) = '0' because the 4-bit difference 14 fits",
+        "\"10010\"; d5(4) = '1' is the sign bit of −2 in sign-magnitude form"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 5-bit difference is 3 − 5 = −2 ≡ 30 = 11110 (mod 32). The low 4 bits, 1110 = 14, are the wrapped 4-bit result, and the extra MSB is 1 exactly when a borrow occurs, i.e. when a < b.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m023",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a, b and s are unsigned(7 downto 0) and s <= a + b;, so the carry is lost. Which expression, using only the most significant bits, recovers the carry out?",
+      "options": [
+        "cout <= (a(7) and b(7)) or ((a(7) or b(7)) and not s(7));",
+        "cout <= (a(7) xnor b(7)) and (s(7) xor a(7));",
+        "cout <= a(7) and b(7);",
+        "cout <= (a(7) or b(7)) and not s(7);"
+      ],
+      "correctIndex": 0,
+      "explanation": "The carry out of bit 7 is a7·b7 + (a7 ⊕ b7)·c7, and when exactly one of a7, b7 is 1, s7 = not c7. The second option is the signed-overflow test, a(7) and b(7) misses carries such as 192 + 64, and the last misses cases such as 192 + 192 where s7 = 1; an exhaustive simulation of all 65,536 pairs confirms only the first.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m024",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a, b and s are signed(7 downto 0), with a = −100 and b = −50:\n\ns   <= a + b;\novf <= (a(7) xnor b(7)) and (s(7) xor a(7));\n\nWhat are to_integer(s) and ovf?",
+      "options": [
+        "106 and '0'",
+        "106 and '1'",
+        "−128 and '1'",
+        "−150 and '1'"
+      ],
+      "correctIndex": 1,
+      "explanation": "The true sum −150 is below −128, so it wraps to −150 + 256 = +106 (−150 cannot be held in 8 bits). Both operands are negative and the result's sign bit differs from a(7), so ovf = '1'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m025",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a, b and d are signed(3 downto 0) and d <= a - b;. Which expression gives ovf = '1' exactly when the subtraction overflows?",
+      "options": [
+        "ovf <= (a(3) xnor b(3)) and (d(3) xor a(3));",
+        "ovf <= (a(3) xor b(3)) and (d(3) xor b(3));",
+        "ovf <= d(3) xor a(3);",
+        "ovf <= (a(3) xor b(3)) and (d(3) xor a(3));"
+      ],
+      "correctIndex": 3,
+      "explanation": "a − b can overflow only when a and b have different signs, and it has overflowed when the result's sign differs from a's. The first option is the addition rule, the second compares the result with the wrong operand, and the third also fires for correct results such as 1 − 2 = −1; checking all 256 operand pairs confirms only the last.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m026",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a, b and y are signed(7 downto 0) and t is signed(8 downto 0):\n\nt <= resize(a, 9) + resize(b, 9);\ny <= \"01111111\" when t(8) = '0' and t(7) = '1' else\n     \"10000000\" when t(8) = '1' and t(7) = '0' else\n     t(7 downto 0);\n\nWhat is to_integer(y) for (a, b) = (100, 50) and for (a, b) = (−100, −50)?",
+      "options": [
+        "−106 and 106",
+        "127 and 127",
+        "127 and −128",
+        "−128 and 127"
+      ],
+      "correctIndex": 2,
+      "explanation": "The exact 9-bit sums are +150 = 0 1001 0110 and −150 = 1 0110 1010. In both the top two bits differ, so an 8-bit result would overflow; the circuit saturates to +127 and −128 instead of wrapping to −106 and +106.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m027",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. acc is a signal of type signed(7 downto 0) initialised to 0, and ovf is a std_logic signal initialised to '0':\n\nprocess (clk)\n  variable s : signed(7 downto 0);\nbegin\n  if rising_edge(clk) then\n    s := acc + 60;\n    if acc(7) = '0' and s(7) = '1' then\n      ovf <= '1';\n    end if;\n    acc <= s;\n  end if;\nend process;\n\nWhat are to_integer(acc) and ovf after three rising edges?",
+      "options": [
+        "180 and '0'",
+        "−76 and '1'",
+        "127 and '1'",
+        "−76 and '0'"
+      ],
+      "correctIndex": 1,
+      "explanation": "acc goes 60, 120 and then 120 + 60 = 180, which wraps to 180 − 256 = −76. On the third edge a non-negative acc produced a negative sum, so the sticky flag ovf is set to '1'.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m028",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a is signed(3 downto 0) := \"1000\". What is to_integer(abs a)?",
+      "options": [
+        "−8",
+        "8",
+        "0",
+        "7"
+      ],
+      "correctIndex": 0,
+      "explanation": "abs returns a 4-bit result, and +8 does not fit in the 4-bit range −8 to +7. Negating 1000 gives 0111 + 1 = 1000 again, so the result is still −8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m029",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. v is std_logic_vector(7 downto 0) := x\"90\". What are to_integer(shift_right(signed(v), 2)) and to_integer(shift_right(unsigned(v), 2))?",
+      "options": [
+        "36 and 36",
+        "−28 and 36",
+        "−28 and 228",
+        "−56 and 72"
+      ],
+      "correctIndex": 1,
+      "explanation": "x\"90\" is −112 as signed and 144 as unsigned. shift_right on a signed value copies the sign bit (1110 0100 = −28 = −112/4), while on an unsigned value it fills with zeros (0010 0100 = 36 = 144/4).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m030",
+      "questionText": "Up to VHDL-2008, what is the smallest range that the predefined type integer is guaranteed to cover in every implementation?",
+      "options": [
+        "−32,768 to +32,767",
+        "0 to 4,294,967,295",
+        "−9.22 × 10^18 to +9.22 × 10^18 (64 bits)",
+        "−2,147,483,647 to +2,147,483,647"
+      ],
+      "correctIndex": 3,
+      "explanation": "The language standard requires integer to include at least −(2^31 − 1) to +(2^31 − 1); most tools, GHDL included, implement the 32-bit 2's complement range −2^31 to 2^31 − 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m031",
+      "questionText": "In two separate designs, counter A is unsigned(3 downto 0) (ieee.numeric_std) and counter B is integer range 0 to 15. Each holds 15, and at the next rising edge its clocked process executes A <= A + 1; or B <= B + 1; respectively. What happens in simulation?",
+      "options": [
+        "A wraps to \"0000\", while B raises a bound-check error that stops the simulation",
+        "Both counters wrap to 0",
+        "Both designs stop with a range error",
+        "A stops with a range error, while B wraps to 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "numeric_std vector arithmetic wraps modulo 2^4, so A becomes 0000. An integer subtype has no wraparound, so assigning 16 to B is outside 0 to 15 and is a bound-check failure; the synthesised 4-bit hardware would simply wrap.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m032",
+      "questionText": "Which package, added to the IEEE library in VHDL-2008, lets you write arithmetic such as v + 1 directly on a std_logic_vector, treating it as an unsigned number?",
+      "options": [
+        "ieee.numeric_bit",
+        "ieee.math_real",
+        "ieee.numeric_std_unsigned",
+        "ieee.fixed_pkg"
+      ],
+      "correctIndex": 2,
+      "explanation": "numeric_std_unsigned overloads the arithmetic and relational operators for std_logic_vector with an unsigned meaning. numeric_bit works on bit vectors, math_real on type real and fixed_pkg on ufixed and sfixed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m033",
+      "questionText": "An unsigned(7 downto 0) signal stores a fixed-point number with 4 integer bits and 4 fraction bits (value = stored integer / 16). It holds \"10011000\". What value does it represent?",
+      "options": [
+        "152",
+        "9.5",
+        "4.75",
+        "19.0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The stored integer is 152 and 152 / 2^4 = 9.5 (1001.1000 in binary). 152 ignores the binary point, and 4.75 and 19.0 put it in the wrong place.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m034",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. Two signed(7 downto 0) signals hold fixed-point values with 4 fraction bits (value = stored integer / 16): a = \"00101100\" and b = \"11101000\". What value does s <= a + b; represent?",
+      "options": [
+        "4.25",
+        "20",
+        "1.25",
+        "−3.75"
+      ],
+      "correctIndex": 2,
+      "explanation": "a = 44/16 = 2.75 and b = −24/16 = −1.5. Both have the same binary point, so the integer sum 20 has 4 fraction bits too: 20/16 = 1.25. Taking b as +1.5 gives 4.25, forgetting the scale gives 20, and a sign-magnitude reading of b gives −3.75.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m035",
+      "questionText": "Two numbers are held in plain signed vectors, x with 4 fraction bits and y with 6 fraction bits. What must be done before adding them with an ordinary integer adder?",
+      "options": [
+        "Align the binary points first, for example widen x and shift it left by 2 places so both have 6 fraction bits",
+        "Nothing, because the stored integers can be added directly",
+        "Add the stored integers and shift the sum right by 2 afterwards",
+        "Convert both to unsigned so that the sign bits are ignored"
+      ],
+      "correctIndex": 0,
+      "explanation": "Bits can only be added when they have equal weight, so both operands need the same number of fraction bits. Adding unaligned integers, or shifting after the addition, mixes weights of 2^−4 and 2^−6 and gives a wrong result.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m036",
+      "questionText": "0.3 is to be stored in an unsigned(7 downto 0) as a fraction with 8 fraction bits (value = N / 256), rounding to the nearest code. What are N and the value actually stored?",
+      "options": [
+        "N = 76, value 0.296875",
+        "N = 77, value 0.30078125",
+        "N = 30, value 0.1171875",
+        "N = 154, value 0.6015625"
+      ],
+      "correctIndex": 1,
+      "explanation": "0.3 × 256 = 76.8, which rounds to 77, and 77/256 = 0.30078125 (an error of about 0.0008). Truncation gives 76, 30 treats the scale as decimal, and 154 uses 2^9 instead of 2^8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m037",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. a and b are signed(7 downto 0) with 4 fraction bits (value = stored integer / 16): a = \"00101000\" (2.5) and b = \"11101100\" (−1.25). p <= a * b; is signed(15 downto 0) with 8 fraction bits. Which slice of p gives the product back as 8 bits with 4 fraction bits, and what value does it represent?",
+      "options": [
+        "p(7 downto 0), representing −2.0",
+        "p(11 downto 4), representing −3.125",
+        "p(15 downto 8), representing −0.25",
+        "p(11 downto 4), representing −50"
+      ],
+      "correctIndex": 1,
+      "explanation": "The integer product is 40 × (−20) = −800, i.e. −800/256 = −3.125. Dropping the 4 extra fraction bits and keeping 8 bits selects p(11 downto 4) = −50, and −50/16 = −3.125; bits 15 to 11 all equal the sign, so the value is in range. −50 is the stored integer, not the value.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m038",
+      "questionText": "With the VHDL-2008 package ieee.fixed_pkg, a signal is declared as sfixed(3 downto -4). What are its width and its range of values?",
+      "options": [
+        "7 bits, −8.0 to +7.9375",
+        "8 bits, 0 to 15.9375",
+        "8 bits, −8.0 to +7.9375",
+        "8 bits, −8.0 to +8.0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Indices 3 down to −4 give 8 bits; the negative indices are fraction bits, so the LSB weighs 2^−4 = 0.0625. As a signed number the range is −2^3 to 2^3 − 2^−4 = −8 to +7.9375, while 0 to 15.9375 would be the ufixed range.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m039",
+      "questionText": "With the default settings of the VHDL-2008 package ieee.fixed_pkg (round to nearest, saturate on overflow), what value does to_sfixed(9.3, 3, -4) produce?",
+      "options": [
+        "−6.6875",
+        "9.3125",
+        "7.9375",
+        "1.3125"
+      ],
+      "correctIndex": 2,
+      "explanation": "sfixed(3 downto −4) can hold at most 7.9375, so the default overflow style saturates to that value and prints a warning. Wrapping the rounded code 149 into 8 bits would give −107/16 = −6.6875, 9.3125 is not representable, and 1.3125 drops the integer bit worth 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m040",
+      "questionText": "With the VHDL-2008 package ieee.fixed_pkg, a and b are ufixed(3 downto -2). What index ranges do the results of a + b and a * b have?",
+      "options": [
+        "(4 downto -2) and (7 downto -4)",
+        "(3 downto -2) and (7 downto -4)",
+        "(4 downto -2) and (6 downto -4)",
+        "(3 downto -2) and (3 downto -2)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unlike numeric_std, fixed_pkg sizes results so that they cannot overflow: a sum gains one integer bit, (3 + 1 downto −2), and a product adds the ranges, (3 + 3 + 1 downto −2 + −2) = (7 downto −4).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i61_m041",
+      "questionText": "Two concurrent statements drive the same std_logic signal r, one with r <= '0'; and the other with r <= '1';. What value does r have in simulation?",
+      "options": [
+        "'0'",
+        "'X'",
+        "'1'",
+        "'Z'"
+      ],
+      "correctIndex": 1,
+      "explanation": "The std_logic resolution function combines a forcing 0 and a forcing 1 into 'X' (forcing unknown), which models bus contention.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i61_m042",
+      "questionText": "y is a std_logic signal driven by two tri-state assignments, with a = '0' and b = '1':\n\ny <= a when en1 = '1' else 'Z';\ny <= b when en2 = '1' else 'Z';\n\nWhat is y for (en1, en2) = (0, 0), then (1, 0), then (1, 1)?",
+      "options": [
+        "'Z', then '0', then 'X'",
+        "'Z', then '0', then '1'",
+        "'0', then '0', then 'X'",
+        "'U', then '0', then 'X'"
+      ],
+      "correctIndex": 0,
+      "explanation": "With both drivers at 'Z' the line floats ('Z'); one driver at '0' against 'Z' resolves to '0'; '0' against '1' is contention and resolves to 'X'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m043",
+      "questionText": "Using the ieee.std_logic_1164 operators, what are the results of '0' and 'X', '1' and 'X', and not 'Z'?",
+      "options": [
+        "'X', 'X' and 'Z'",
+        "'0', '1' and 'Z'",
+        "'X', 'X' and 'X'",
+        "'0', 'X' and 'X'"
+      ],
+      "correctIndex": 3,
+      "explanation": "A 0 input forces an AND gate to 0 whatever the other input is, so '0' and 'X' = '0', while '1' and 'X' stays unknown. The logic tables treat 'Z' as an unknown input, so not 'Z' = 'X'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m044",
+      "questionText": "Assume VHDL-2008. An architecture contains the two concurrent assignments y <= a; and y <= b;, where a, b and y all have the same type. For which type of y is this illegal?",
+      "options": [
+        "std_logic",
+        "std_ulogic",
+        "std_logic_vector(3 downto 0)",
+        "unsigned(3 downto 0) from ieee.numeric_std"
+      ],
+      "correctIndex": 1,
+      "explanation": "std_ulogic is unresolved, so a signal of that type may have only one driver and elaboration fails. std_logic, std_logic_vector and (in VHDL-2008) numeric_std's unsigned are resolved, so their drivers are combined by the resolution function.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m045",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. cnt is declared as signal cnt : unsigned(3 downto 0); with no initial value, and its clocked process contains only cnt <= cnt + 1; inside if rising_edge(clk) then, with no reset. What does simulation show for cnt after three rising edges?",
+      "options": [
+        "\"XXXX\"",
+        "\"0011\"",
+        "\"UUUU\"",
+        "\"0000\""
+      ],
+      "correctIndex": 0,
+      "explanation": "cnt starts at \"UUUU\" (the leftmost std_logic value). numeric_std's + returns all 'X' when an operand contains a metavalue, so the counter shows XXXX from the first edge onward; it needs a reset or an initial value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i61_m046",
+      "questionText": "Assume VHDL-2008 with ieee.std_logic_1164 and ieee.numeric_std. u is unsigned(3 downto 0) and holds \"10X1\". What does to_integer(u) return in simulation?",
+      "options": [
+        "9",
+        "11",
+        "0, with a 'metavalue detected' warning",
+        "Nothing, because the simulation stops with a fatal error"
+      ],
+      "correctIndex": 2,
+      "explanation": "to_integer cannot interpret 'X', so numeric_std prints a warning and returns 0. It does not guess 9 or 11, and the assertion has severity warning, so the simulation continues.",
+      "difficulty": "medium"
+    }
+  ]
+}

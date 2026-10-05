@@ -1,0 +1,745 @@
+{
+  "topicId": "ch3_i41",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Data Conversion"
+    },
+    {
+      "type": "paragraph",
+      "text": "All the implicit rules follow one principle: in a mixed expression both operands are converted to a common type chosen from a fixed ranking, and only an assignment, a return statement, an argument pass or a cast may move a value to a narrower type. The integer ladder by rank is int, long, long long, and float, double and long double sit above every integer type. When a signed and an unsigned operand of the same rank meet, the signed one is converted to unsigned, so -1 becomes the largest unsigned value and -1 < 1u is false. Narrowing is accepted silently in an ordinary assignment, but C++11 brace initialisation such as int n{3.7}; rejects it at compile time."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Conversion",
+          "Example",
+          "Result",
+          "Information lost?"
+        ],
+        [
+          "Integral promotion",
+          "'A' + 1",
+          "int 66",
+          "No"
+        ],
+        [
+          "Floating promotion",
+          "2.5f * 2.0",
+          "double 5.0",
+          "No"
+        ],
+        [
+          "Floating to integral",
+          "int t = -7.9;",
+          "-7 (truncation toward zero)",
+          "Yes, the fraction"
+        ],
+        [
+          "Integral to floating",
+          "float f = 16777217;",
+          "16777216 (IEEE float, round to nearest)",
+          "Yes, the lowest bits"
+        ],
+        [
+          "To unsigned",
+          "unsigned char u = 300;",
+          "44, since 300 mod 256 = 44",
+          "Yes, the high bits"
+        ],
+        [
+          "Signed vs unsigned compare",
+          "-1 < 1u",
+          "false, printed as 0",
+          "Yes: -1 becomes 4294967295 (32-bit)"
+        ],
+        [
+          "To bool",
+          "bool b = -5;",
+          "true, printed as 1",
+          "Yes, only zero or non-zero survives"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "(\\text{int})\\,x = \\operatorname{sgn}(x)\\,\\lfloor |x| \\rfloor,\\qquad u = v \\bmod 2^{n}",
+      "plainText": "(int)x = sign(x) * floor(|x|), i.e. truncation toward zero; storing v in an n-bit unsigned type keeps v mod 2^n"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nint main() {\n    int a = 7, b = 2;\n    double r1 = a / b;\n    double r2 = (double)a / b;\n    int t = -7.9;\n    unsigned char u = 300;\n    cout << r1 << \" \" << r2 << \" \" << t << \" \" << (int)u << \"\\n\";\n    cout << ('A' + b) << \" \" << char('A' + b) << \"\\n\";\n    cout << (-1 < 1u) << \"\\n\";\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n3 3.5 -7 44\n67 C\n0\nTrace (8-bit char, 32-bit int, ASCII):\nr1: 7 / 2 is int division = 3, then widened to 3.0 (printed as 3)\nr2: a becomes 7.0 first, so 7.0 / 2 = 3.5\nt : -7.9 truncated toward zero = -7, not -8\nu : 300 mod 256 = 44\n'A' + b: 'A' promoted to int, 65 + 2 = 67; char(67) prints C\n-1 < 1u: -1 converted to 4294967295, so the test is false = 0"
+    },
+    {
+      "type": "paragraph",
+      "text": "A converting constructor is not free. Every implicit basic-to-class conversion in an assignment builds a temporary object, the assignment operator copies it into the target, and the temporary is destroyed at the end of the statement. A conversion function, in turn, runs afresh every time the object is used where the basic type is needed; nothing is cached. The next program prints a message from each of these functions so that every conversion becomes visible."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass Meter {\n    double m;\npublic:\n    Meter(double v) : m(v) { cout << \"ctor(\" << v << \") \"; }\n    ~Meter() { cout << \"dtor(\" << m << \") \"; }\n    operator double() const { cout << \"op \"; return m; }\n};\nint main() {\n    Meter x = 2.5;\n    x = 4;\n    double sum = x + 1.5;\n    cout << \"sum=\" << sum << \"\\n\";\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nctor(2.5) ctor(4) dtor(4) op sum=5.5\ndtor(4)\nTrace:\nMeter x = 2.5;  converting constructor builds x directly: ctor(2.5)\nx = 4;          int 4 -> double 4.0, then a temporary Meter(4.0): ctor(4)\n                implicit operator= copies m = 4 into x; temporary dies: dtor(4)\nx + 1.5         Meter has no operator+, so operator double() runs: op, 4 + 1.5 = 5.5\nend of main     x, now holding 4, is destroyed: dtor(4)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Cast",
+          "Checked",
+          "Typical use",
+          "On failure or misuse"
+        ],
+        [
+          "static_cast<T>(e)",
+          "At compile time",
+          "int to double, void* to T*, enum to int, up- or downcast in a hierarchy",
+          "A wrong downcast is undefined behaviour (nothing checks it)"
+        ],
+        [
+          "dynamic_cast<T>(e)",
+          "At run time; the base must have a virtual function",
+          "Safe downcast of polymorphic classes",
+          "Pointer form gives nullptr; reference form throws std::bad_cast"
+        ],
+        [
+          "const_cast<T>(e)",
+          "At compile time",
+          "Add or remove const or volatile, for an old API",
+          "Writing to an object that was defined const is undefined behaviour"
+        ],
+        [
+          "reinterpret_cast<T>(e)",
+          "Not checked",
+          "Pointer to integer, unrelated pointer types, raw bytes",
+          "Result is implementation-defined; careless use is undefined behaviour"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "Casting too late: (double)(a / b) converts a quotient that is already truncated; cast an operand instead, (double)a / b.",
+        "Expecting rounding: int(2.7) is 2 and int(-2.7) is -2. For a positive x use int(x + 0.5), or std::lround from <cmath>.",
+        "Chaining two user-defined conversions: with A(int) and B(A), B b = 5; fails, but B b(5); compiles because B(A) is called directly and only int -> A is implicit.",
+        "Defining both operator int() and operator double(): int x = obj; and double y = obj; each pick the exact match, but obj + 1.5 becomes ambiguous.",
+        "explicit operator bool() still works in if, while, !, && and ?: (contextual conversion) but blocks bool b = obj; and obj + 1."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For output questions, find the type of each sub-expression from the innermost operator outward; promotions happen per operator, not per statement. For constructor-message questions, count the objects: every implicit basic-to-class conversion in an assignment adds one constructor call and one destructor call for the temporary."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i41_m001",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    char c = 'A';\n    c = c + 3;\n    cout << c << \" \" << c + 1;\n    return 0;\n}",
+      "options": [
+        "D E",
+        "68 69",
+        "D 68",
+        "D 69"
+      ],
+      "correctIndex": 3,
+      "explanation": "c + 3 is computed as the int 68 and stored back in the char c, so c prints as D. In c + 1 the char is promoted to int, giving 69, which cout prints as a number.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m002",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    double d = -3.99;\n    int i = d;\n    cout << i;\n    return 0;\n}",
+      "options": [
+        "-4",
+        "-3.99",
+        "3",
+        "-3"
+      ],
+      "correctIndex": 3,
+      "explanation": "Converting a floating value to int discards the fractional part, truncating toward zero, so -3.99 becomes -3, not -4. No rounding or floor operation takes place.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m003",
+      "questionText": "In the expression ch + 1, where ch is a char, the value of ch is converted to int before the addition. What is this implicit widening conversion called?",
+      "options": [
+        "Narrowing conversion",
+        "Integral promotion",
+        "Truncation",
+        "Explicit type casting"
+      ],
+      "correctIndex": 1,
+      "explanation": "bool, char and short operands are promoted to int before arithmetic; this is integral promotion. It is implicit and loses no information, unlike a narrowing conversion or truncation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m004",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    int a = -1;\n    unsigned int b = 1;\n    if (a < b) cout << \"less\";\n    else cout << \"not less\";\n    return 0;\n}",
+      "options": [
+        "less",
+        "Compile error: an int cannot be compared with an unsigned int",
+        "not less",
+        "Undefined behaviour: the result depends on the compiler"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a < b the int operand is converted to unsigned int, so -1 becomes the largest unsigned value (4294967295 for a 32-bit unsigned int). That value is not less than 1, so the else branch runs; the conversion is well defined.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m005",
+      "questionText": "Assume short is 2 bytes and int is 4 bytes. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    short s1 = 10, s2 = 20;\n    char c = 'x';\n    cout << sizeof(s1 + s2) << \" \" << sizeof(c) << \" \" << sizeof(c + 0);\n    return 0;\n}",
+      "options": [
+        "4 1 4",
+        "2 1 1",
+        "4 1 1",
+        "2 1 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "sizeof reports the size of the type of the expression without evaluating it. s1 + s2 and c + 0 are both int after integral promotion (4 bytes), while c alone is a char (1 byte).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m006",
+      "questionText": "What is the type of the expression 5 + 2.5f * 'A' in C++?",
+      "options": [
+        "double",
+        "int",
+        "char",
+        "float"
+      ],
+      "correctIndex": 3,
+      "explanation": "'A' is converted to float to match 2.5f, so the product is a float; then 5 is converted to float for the addition. No operand is a double, so the whole expression has type float.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m007",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    bool b = -5;\n    int n = true + true + b;\n    cout << b << \" \" << n;\n    return 0;\n}",
+      "options": [
+        "1 3",
+        "-5 -3",
+        "1 -3",
+        "true 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Any non-zero value converts to true, so b is true and prints as 1 (cout shows a bool as 1 or 0 unless boolalpha is set). In arithmetic each true is promoted to the int 1, so n = 1 + 1 + 1 = 3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m008",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    int a = 9, b = 4;\n    double x = (double)(a / b);\n    double y = (double)a / b;\n    double z = a / (double)b + a / b;\n    cout << x << \" \" << y << \" \" << z;\n    return 0;\n}",
+      "options": [
+        "2 2.25 4.25",
+        "2.25 2.25 4.5",
+        "2 2.25 4.5",
+        "2.25 2.25 4.25"
+      ],
+      "correctIndex": 0,
+      "explanation": "x: 9 / 4 is int division = 2, and only then cast to 2.0. y: a becomes 9.0 before dividing, so 9.0 / 4 = 2.25. z: 9 / 4.0 = 2.25 plus the int quotient 9 / 4 = 2 gives 4.25.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m009",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint avg(int a, int b) { return (a + b) / 2.0; }\nint main() {\n    cout << avg(4, 7) << \" \" << avg(-4, -7);\n    return 0;\n}",
+      "options": [
+        "5.5 -5.5",
+        "5 -6",
+        "6 -5",
+        "5 -5"
+      ],
+      "correctIndex": 3,
+      "explanation": "(4 + 7) / 2.0 = 5.5 and (-4 + -7) / 2.0 = -5.5 are computed in double, but the return type is int. Each value is therefore truncated toward zero on return, giving 5 and -5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m010",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nint half(int n) { return n / 2; }\nint main() {\n    double v = 9.8;\n    cout << half(v) << \" \" << half(v) * 2.5;\n    return 0;\n}",
+      "options": [
+        "4 10",
+        "4.9 12.25",
+        "4.5 11.25",
+        "5 12.5"
+      ],
+      "correctIndex": 0,
+      "explanation": "The argument 9.8 is converted to the parameter type int, giving 9, and 9 / 2 is integer division = 4. Then 4 * 2.5 is the double 10.0, which cout prints as 10.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m011",
+      "questionText": "Assume int is 32 bits, float is IEEE 754 single precision (24-bit significand) and conversions round to nearest, ties to even. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    int big = 16777217;\n    float f = big;\n    int back = f;\n    cout << back - big;\n    return 0;\n}",
+      "options": [
+        "0",
+        "1",
+        "-1",
+        "Compile error: narrowing conversion from int to float"
+      ],
+      "correctIndex": 2,
+      "explanation": "16777217 = 2^24 + 1 needs 25 significant bits but a float keeps only 24, so f is rounded to 16777216 (a tie, broken toward the even value). Converting back gives 16777216, and 16777216 - 16777217 = -1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m012",
+      "questionText": "Assume float and double are IEEE 754 single and double precision. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    float f = 0.1f;\n    double d = 0.1;\n    cout << (f == d) << \" \" << (f == 0.1f) << \" \" << (d == 0.1);\n    return 0;\n}",
+      "options": [
+        "0 1 1",
+        "1 1 1",
+        "0 0 1",
+        "1 0 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "In f == d the float is promoted to double, but 0.1f was already rounded to 24 bits, so it differs from the double 0.1 and the test is false. Each variable compared with a literal of its own type is equal, so the other two tests are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m013",
+      "questionText": "Assume ASCII character codes. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    char d = '7';\n    int n = d - '0';\n    char e = n + 'a';\n    cout << n * 2 << e;\n    return 0;\n}",
+      "options": [
+        "14h",
+        "110h",
+        "14104",
+        "14g"
+      ],
+      "correctIndex": 0,
+      "explanation": "'7' - '0' is 55 - 48 = 7, so n * 2 prints 14. n + 'a' is 7 + 97 = 104, which is stored in a char and printed as h.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m014",
+      "questionText": "Assume unsigned char is 8 bits and unsigned int is 32 bits. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    unsigned char u = 260;\n    unsigned int w = -2;\n    cout << (int)u << \" \" << w % 100;\n    return 0;\n}",
+      "options": [
+        "260 -2",
+        "4 -2",
+        "4 2",
+        "4 94"
+      ],
+      "correctIndex": 3,
+      "explanation": "Conversion to an unsigned type is done modulo 2^n: 260 mod 256 = 4, and -2 becomes 2^32 - 2 = 4294967294. Then 4294967294 % 100 = 94.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m015",
+      "questionText": "Assume ASCII character codes. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    int code = 98;\n    char ch = static_cast<char>(code);\n    cout << ch << \" \" << static_cast<int>('0') << \" \" << char(ch + 1);\n    return 0;\n}",
+      "options": [
+        "98 48 99",
+        "b 0 c",
+        "b 48 99",
+        "b 48 c"
+      ],
+      "correctIndex": 3,
+      "explanation": "98 is the ASCII code of b, and static_cast<int>('0') gives the code of the digit character, 48. ch + 1 is the int 99, and char(99) prints as c.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m016",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nenum Color { RED, GREEN = 5, BLUE };\nint main() {\n    int n = BLUE + 1;\n    Color c = static_cast<Color>(0);\n    cout << n << \" \" << c;\n    return 0;\n}",
+      "options": [
+        "7 0",
+        "3 0",
+        "7 RED",
+        "6 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "BLUE follows GREEN = 5, so BLUE is 6 and it converts implicitly to int: n = 7. static_cast<Color>(0) gives RED, and an unscoped enumerator is printed as its integer value, 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m017",
+      "questionText": "Which marked line fails to compile?\n\nenum class Level { LOW, HIGH };\nint main() {\n    Level l = Level::HIGH;\n    int a = static_cast<int>(l);        // line 1\n    int b = l;                          // line 2\n    Level m = static_cast<Level>(0);    // line 3\n    bool c = (l == Level::LOW);         // line 4\n    return 0;\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "A scoped enumeration (enum class) never converts implicitly to int, so int b = l; is an error. static_cast works in both directions, and two Level values can be compared with ==.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m018",
+      "questionText": "Which marked line fails to compile?\n\nint main() {\n    double d = 3.5;\n    int i = static_cast<int>(d);             // line 1\n    void* v = &d;                            // line 2\n    double* pd = static_cast<double*>(v);    // line 3\n    int* pi = static_cast<int*>(&d);         // line 4\n    return 0;\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "static_cast allows only related conversions: double to int, any object pointer to void*, and void* back to double*. double* to int* is a conversion between unrelated pointer types and needs reinterpret_cast.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m019",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Base { public: virtual ~Base() {} };\nclass D1 : public Base {};\nclass D2 : public Base {};\nint main() {\n    Base* p = new D1;\n    D2* q = dynamic_cast<D2*>(p);\n    D1* r = dynamic_cast<D1*>(p);\n    cout << (q == nullptr) << (r == nullptr);\n    delete p;\n    return 0;\n}",
+      "options": [
+        "10",
+        "01",
+        "00",
+        "11"
+      ],
+      "correctIndex": 0,
+      "explanation": "dynamic_cast checks the real type of the object at run time. p points to a D1, so the cast to D2* fails and yields nullptr (prints 1), while the cast to D1* succeeds (prints 0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m020",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\n#include <typeinfo>\nusing namespace std;\nstruct B { virtual ~B() {} };\nstruct X : B {};\nstruct Y : B {};\nint main() {\n    X x;\n    B& b = x;\n    try {\n        Y& y = dynamic_cast<Y&>(b);\n        cout << \"cast ok\";\n    } catch (bad_cast&) { cout << \"bad_cast\"; }\n    return 0;\n}",
+      "options": [
+        "cast ok",
+        "bad_cast",
+        "Nothing is printed, because y becomes a null reference",
+        "Compile error: dynamic_cast cannot produce a reference"
+      ],
+      "correctIndex": 1,
+      "explanation": "There is no null reference, so a failed dynamic_cast to a reference type throws std::bad_cast instead of returning nullptr. b refers to an X, not a Y, so the handler prints bad_cast.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m021",
+      "questionText": "What happens when this program is compiled?\n\nstruct A { int v; };\nstruct B : A { };\nint main() {\n    A* p = new B;\n    B* q = dynamic_cast<B*>(p);\n    return 0;\n}",
+      "options": [
+        "It compiles and q equals p",
+        "It compiles and q is nullptr",
+        "It compiles but throws std::bad_cast when run",
+        "Compile error: A is not a polymorphic class, so dynamic_cast cannot downcast from it"
+      ],
+      "correctIndex": 3,
+      "explanation": "A run-time checked downcast needs type information that exists only for polymorphic classes, that is, classes with at least one virtual function. A has none, so the dynamic_cast from A* to B* is rejected at compile time, whereas a static_cast would compile.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m022",
+      "questionText": "Which C++ cast operator checks the validity of the conversion at run time?",
+      "options": [
+        "static_cast",
+        "const_cast",
+        "reinterpret_cast",
+        "dynamic_cast"
+      ],
+      "correctIndex": 3,
+      "explanation": "dynamic_cast consults the object's run-time type information and reports failure with nullptr (pointers) or std::bad_cast (references). The other three casts are resolved entirely at compile time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m023",
+      "questionText": "A function receives const char* msg and must pass it to an old library function declared as void logText(char* s), which does not modify the string. Which cast removes the const qualifier?",
+      "options": [
+        "static_cast<char*>(msg)",
+        "dynamic_cast<char*>(msg)",
+        "const_cast<char*>(msg)",
+        "reinterpret_cast<char*>(msg)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only const_cast may add or remove const or volatile. static_cast, reinterpret_cast and dynamic_cast all refuse to cast away constness, and dynamic_cast is meant for pointers and references to classes in a hierarchy, not for a char*.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m024",
+      "questionText": "Which cast is used to view the bytes of a double through an unsigned char* pointer, or to convert a pointer into an integer type such as uintptr_t?",
+      "options": [
+        "reinterpret_cast",
+        "static_cast",
+        "const_cast",
+        "dynamic_cast"
+      ],
+      "correctIndex": 0,
+      "explanation": "reinterpret_cast reinterprets a pointer (or an integer) as an unrelated pointer or integer type without any check. static_cast cannot convert double* directly to unsigned char* or to an integer, and neither const_cast nor dynamic_cast is meant for this.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m025",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nvoid twice(const int* p) {\n    int* q = const_cast<int*>(p);\n    *q *= 2;\n}\nint main() {\n    int n = 21;\n    twice(&n);\n    cout << n;\n    return 0;\n}",
+      "options": [
+        "42",
+        "21",
+        "Compile error: *q is read-only",
+        "Undefined behaviour, because p was declared const"
+      ],
+      "correctIndex": 0,
+      "explanation": "const_cast removes the const from the pointer, and writing through it is well defined here because the object n itself was not defined const. The call doubles n to 42; it would be undefined behaviour only if n had been declared const int.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m026",
+      "questionText": "Class Rupee has a private member int paisa. Which member function correctly converts a Rupee object to a double amount in rupees, so that double d = r; works?",
+      "options": [
+        "double operator double() const { return paisa / 100.0; }",
+        "operator double() const { return paisa / 100.0; }",
+        "operator double(Rupee r) const { return r.paisa / 100.0; }",
+        "double operator()() const { return paisa / 100.0; }"
+      ],
+      "correctIndex": 1,
+      "explanation": "A conversion function is written operator type() with no return type and no parameters, and it is usually const. Declaring a return type or a parameter is a compile error, and operator()() is the function-call operator, which does not make double d = r; valid.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m027",
+      "questionText": "Which statement about a conversion function such as operator int() is correct?",
+      "options": [
+        "It may be written as a friend function that takes the object as its parameter",
+        "It must be declared static because it takes no arguments",
+        "It is called only through an explicit cast such as (int)obj, never implicitly",
+        "It must be a non-static member function of the class being converted"
+      ],
+      "correctIndex": 3,
+      "explanation": "A conversion function must be a non-static member of the source class, so it cannot be a friend, a static member or a free function. Unless it is marked explicit, the compiler also calls it implicitly wherever an int is needed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m028",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Rupee {\n    int paisa;\npublic:\n    Rupee(int p) : paisa(p) {}\n    operator double() const { return paisa / 100.0; }\n};\ndouble tax(double amt) { return amt * 0.1; }\nint main() {\n    Rupee r(2550);\n    cout << tax(r) << \" \" << r + 1;\n    return 0;\n}",
+      "options": [
+        "255 2551",
+        "2.55 2551",
+        "2.55 26.5",
+        "2 26"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both uses need a double, so operator double() runs each time and gives 2550 / 100.0 = 25.5. tax returns 25.5 * 0.1 = 2.55, and r + 1 = 25.5 + 1 = 26.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m029",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Time {\n    int h, m;\npublic:\n    Time(int hh, int mm) : h(hh), m(mm) {}\n    operator int() const { return h * 60 + m; }\n};\nint main() {\n    Time t(2, 30);\n    int mins = t;\n    double hrs = t / 60;\n    cout << mins << \" \" << hrs;\n    return 0;\n}",
+      "options": [
+        "150 2",
+        "150 2.5",
+        "230 2",
+        "150 2.50"
+      ],
+      "correctIndex": 0,
+      "explanation": "operator int() gives 2 * 60 + 30 = 150 minutes. In t / 60 the object is converted to the int 150 and the division is done in int, giving 2, which is converted to double only afterwards.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m030",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\n    int v;\npublic:\n    T(int x = 0) : v(x) { cout << \"C\" << v << \" \"; }\n    ~T() { cout << \"D\" << v << \" \"; }\n};\nint main() {\n    T a;\n    a = 7;\n    cout << \"| \";\n    return 0;\n}",
+      "options": [
+        "C0 C7 | D7",
+        "C0 C7 D7 | D7",
+        "C0 C7 | D7 D0",
+        "C7 | D7"
+      ],
+      "correctIndex": 1,
+      "explanation": "T a; uses the default argument (C0). a = 7 builds a temporary T(7) (C7), copies it into a with the implicit operator=, and destroys the temporary at the end of that statement (D7); when main ends, a, now holding 7, is destroyed (D7).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m031",
+      "questionText": "Which marked line(s) fail to compile?\n\nstruct Meter {\n    double m;\n    explicit Meter(double v) : m(v) {}\n};\nMeter make1() { return Meter(2.0); }    // line 1\nMeter make2() { return 2.0; }           // line 2\nint main() {\n    Meter a{3.0};                       // line 3\n    Meter b = {4.0};                    // line 4\n    return 0;\n}",
+      "options": [
+        "Line 2 only",
+        "Line 4 only",
+        "Lines 2 and 4",
+        "Lines 2, 3 and 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Returning a value and the form T x = {v} are both copy-initialisation, which may not use an explicit constructor, so lines 2 and 4 are rejected. Line 1 names the constructor explicitly, and Meter a{3.0} is direct initialisation, so both compile.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m032",
+      "questionText": "Given the classes below, which marked line(s) fail to compile?\n\nstruct A { A(int) {} };\nstruct B { B(A) {} };\nint main() {\n    B b1(5);        // line 1\n    B b2 = A(5);    // line 2\n    B b3 = 5;       // line 3\n    return 0;\n}",
+      "options": [
+        "Line 1 only",
+        "Line 2 only",
+        "Lines 1 and 3",
+        "Line 3 only"
+      ],
+      "correctIndex": 3,
+      "explanation": "Line 3 would need two user-defined conversions in a row (int to A, then A to B), but an implicit conversion sequence may contain only one. Line 1 calls B(A) directly, so only int to A is implicit, and line 2 already supplies an A object.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m033",
+      "questionText": "Which constructor, declared in class Box, allows the declaration Box b = 5; to compile by converting the int implicitly?",
+      "options": [
+        "Box();",
+        "Box(int a, int b = 1);",
+        "Box(int a, int b);",
+        "explicit Box(int a);"
+      ],
+      "correctIndex": 1,
+      "explanation": "A constructor acts as a converting constructor if it can be called with one argument and is not explicit. Box(int, int = 1) qualifies because of the default argument, Box(int, int) needs two arguments, and an explicit constructor is excluded from implicit conversion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m034",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Frac {\n    int n, d;\npublic:\n    Frac(int a, int b = 1) : n(a), d(b) {}\n    void show() const { cout << n << \"/\" << d; }\n};\nvoid print(Frac f) { f.show(); }\nint main() {\n    print(3);\n    return 0;\n}",
+      "options": [
+        "3/0",
+        "0/3",
+        "3/1",
+        "Compile error: print() needs a Frac argument, not an int"
+      ],
+      "correctIndex": 2,
+      "explanation": "Frac(int, int = 1) can be called with one argument, so it is a converting constructor. The call print(3) builds a temporary Frac(3, 1), which prints 3/1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i41_m035",
+      "questionText": "Which marked line fails to compile?\n\nclass File {\n    bool open;\npublic:\n    File(bool o) : open(o) {}\n    explicit operator bool() const { return open; }\n};\nint main() {\n    File f(true);\n    int n = f + 1;                    // line 1\n    if (f) { }                        // line 2\n    bool b = static_cast<bool>(f);    // line 3\n    bool c = !f;                      // line 4\n    return 0;\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "An explicit conversion operator is still used where a truth value is required (if, while, !, &&, || and ?:, called contextual conversion) and by an explicit cast. f + 1 needs an ordinary implicit conversion to bool, so line 1 is rejected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m036",
+      "questionText": "The declaration Rect r = p; must convert an object p of class Polar into a Rect. Where can this conversion be defined?",
+      "options": [
+        "A constructor Polar(const Rect&) in Polar, or a conversion function operator Polar() in Rect",
+        "Only an assignment operator Rect& operator=(const Polar&) in Rect",
+        "A constructor Rect(const Polar&) in Rect, or a conversion function operator Rect() in Polar",
+        "Only a friend function Rect convert(Polar) declared in both classes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The destination class can supply a one-argument constructor taking the source, or the source class can supply operator Rect(). An assignment operator does not help because Rect r = p; is initialisation, not assignment, and an ordinary named function is never called implicitly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m037",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Inch { double v; Inch(double x) : v(x) {} };\nstruct Cm {\n    double v;\n    Cm(double x) : v(x) {}\n    operator Inch() const { return Inch(v / 2.5); }\n};\nint main() {\n    Cm c(20);\n    Inch i = c;\n    cout << i.v << \" \" << Inch(c).v * 2;\n    return 0;\n}",
+      "options": [
+        "50 100",
+        "8 8",
+        "8 16",
+        "20 40"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inch i = c; calls Cm::operator Inch(), the conversion written in the source class, giving 20 / 2.5 = 8. Inch(c) uses the same function, so its v is also 8 and 8 * 2 = 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m038",
+      "questionText": "What happens when this program is compiled?\n\nstruct Src;\nstruct Dst {\n    Dst() {}\n    Dst(const Src&);\n};\nstruct Src {\n    operator Dst() const { return Dst(); }\n};\nDst::Dst(const Src&) {}\nint main() {\n    Src s;\n    Dst d = s;\n    return 0;\n}",
+      "options": [
+        "It compiles; Dst(const Src&) is chosen because constructors have priority",
+        "Compile error: the conversion from Src to Dst is ambiguous",
+        "It compiles; Src::operator Dst() is chosen because conversion functions have priority",
+        "It compiles; both functions run, the constructor first"
+      ],
+      "correctIndex": 1,
+      "explanation": "For Dst d = s; both candidates bind the non-const s to a const Src&: the constructor through its parameter, and the const conversion function through its implicit object parameter. Neither conversion is better, so the compiler reports an ambiguity (a non-const operator Dst() would win, because binding Src& adds no const); define the conversion in only one of the two classes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m039",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Km {\n    double v;\npublic:\n    Km(double x) : v(x) { cout << \"K\" << v << \" \"; }\n    operator double() const { cout << \"op \"; return v * 1000; }\n};\nint main() {\n    Km a = 1.5;\n    double m = a;\n    Km b = a + 0.5;\n    cout << m;\n    return 0;\n}",
+      "options": [
+        "K1.5 op K2 1500",
+        "K1.5 op op K1500.5 1500",
+        "K1.5 op K1500.5 1500",
+        "K1.5 K2 op 1500"
+      ],
+      "correctIndex": 1,
+      "explanation": "Km a = 1.5 prints K1.5, and double m = a calls operator double() (op), giving 1500. a + 0.5 calls it again (op) to get 1500.5, which the converting constructor turns into b (K1500.5); finally m prints 1500.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m040",
+      "questionText": "Which of these declarations fails to compile in C++11 and later?",
+      "options": [
+        "int a = 3.7;",
+        "int b(3.7);",
+        "int c{3.7};",
+        "int d = (int)3.7;"
+      ],
+      "correctIndex": 2,
+      "explanation": "Brace (list) initialisation forbids narrowing conversions, so the double 3.7 cannot initialise an int inside braces. The other three forms perform the ordinary truncating conversion and store 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m041",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct M {\n    operator int() const { cout << \"i\"; return 3; }\n    operator double() const { cout << \"d\"; return 3.5; }\n};\nint main() {\n    M m;\n    int a = m;\n    double b = m;\n    cout << \" \" << a + b;\n    return 0;\n}",
+      "options": [
+        "ii 6",
+        "id 6.5",
+        "dd 6.5",
+        "Compile error: the conversion of m is ambiguous"
+      ],
+      "correctIndex": 1,
+      "explanation": "For each initialisation the compiler prefers the conversion function whose result needs no further conversion: operator int() for int a (prints i) and operator double() for double b (prints d). Then a + b = 3 + 3.5 = 6.5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m042",
+      "questionText": "Which marked line(s) fail to compile?\n\nvoid f(long)   {}\nvoid f(double) {}\nint main() {\n    f(10L);    // line 1\n    f(2.5f);   // line 2\n    f(10);     // line 3\n    f('x');    // line 4\n    return 0;\n}",
+      "options": [
+        "Line 3 only",
+        "Line 4 only",
+        "Lines 3 and 4",
+        "Lines 2, 3 and 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "f(10) needs int to long or int to double, and both are conversions of the same rank, so the call is ambiguous. The same holds for 'x', because a char is promoted only to int, never to long; f(10L) is an exact match and f(2.5f) uses the float-to-double promotion.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m043",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct N {\n    static int made;\n    int v;\n    N(int x = 0) : v(x) { made++; }\n};\nint N::made = 0;\nint main() {\n    N a[3];\n    for (int i = 0; i < 3; i++) a[i] = i * 2;\n    cout << N::made << \" \" << a[2].v;\n    return 0;\n}",
+      "options": [
+        "3 4",
+        "6 4",
+        "6 6",
+        "3 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "The array calls N(0) three times (made = 3). Each a[i] = i * 2 then creates one temporary through the converting constructor (3 more, made = 6) before the implicit operator= copies it, and a[2].v = 2 * 2 = 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i41_m044",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\n#include <cstring>\nusing namespace std;\nclass Word {\n    int len;\npublic:\n    Word(const char* s) : len(strlen(s)) {}\n    int size() const { return len; }\n};\nint letters(Word w) { return w.size(); }\nint main() {\n    Word w = \"hello\";\n    cout << w.size() + letters(\"hi\");\n    return 0;\n}",
+      "options": [
+        "52",
+        "7",
+        "5",
+        "Compile error: a string literal cannot be passed where a Word is expected"
+      ],
+      "correctIndex": 1,
+      "explanation": "Word(const char*) is a converting constructor, so Word w = \"hello\"; and the call letters(\"hi\") both build Word objects from string literals. The lengths are 5 and 2, and 5 + 2 = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m045",
+      "questionText": "Which statement about static_cast is correct?",
+      "options": [
+        "It returns nullptr when a Base* does not really point to a Derived object",
+        "It can remove const, as in static_cast<int*>(pc) where pc is a const int*",
+        "It can convert a Base* to a Derived* without any run-time check, so a wrong downcast gives undefined behaviour",
+        "It can convert a double* directly to an int*"
+      ],
+      "correctIndex": 2,
+      "explanation": "static_cast performs the downcast at compile time and trusts the programmer; only dynamic_cast checks the real object type and returns nullptr on failure. Removing const needs const_cast, and a conversion between unrelated pointer types needs reinterpret_cast.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i41_m046",
+      "questionText": "Which statement about a C-style cast such as (int*)p in C++ is correct?",
+      "options": [
+        "It is checked at run time in the same way as dynamic_cast",
+        "It may do whatever static_cast, const_cast or reinterpret_cast (or a combination of them) would do, so its intent is not visible",
+        "It is rejected by a standard-conforming C++ compiler",
+        "It can convert only between arithmetic types, never between pointer types"
+      ],
+      "correctIndex": 1,
+      "explanation": "A C-style cast tries const_cast, static_cast and reinterpret_cast (and combinations) in turn and uses the first one that works, even removing const and reinterpreting a pointer in a single step. That hidden power is why the named C++ casts are preferred: each shows its intent and is easy to search for.",
+      "difficulty": "medium"
+    }
+  ]
+}

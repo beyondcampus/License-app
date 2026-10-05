@@ -1,0 +1,697 @@
+{
+  "topicId": "ch1_i53",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Designing LC Oscillators"
+    },
+    {
+      "type": "paragraph",
+      "text": "The tank formula comes from the condition that the reactances cancel: at resonance ωL = 1/(ωC), so ω² = 1/(LC) and f_0 = 1/(2π√(LC)). A real coil has a series resistance r, and the tank then looks like a pure resistance R_D (the dynamic resistance) only at f_0. R_D is large, typically tens to hundreds of kilohms, so the collector load and hence the amplifier gain peak sharply at f_0. The sharpness is measured by Q; a higher Q means a larger R_D, a purer sine wave and less frequency drift when transistor parameters change."
+    },
+    {
+      "type": "formula",
+      "latex": "Q = \\frac{\\omega_0 L}{r} = \\frac{1}{r}\\sqrt{\\frac{L}{C}},\\qquad R_D = \\frac{L}{C r}",
+      "plainText": "Q = ω0·L/r = (1/r)·√(L/C);  R_D = L/(C·r) = Q·ω0·L"
+    },
+    {
+      "type": "paragraph",
+      "text": "Gain condition for the Colpitts: the two tank capacitors are in series, so they carry the same circulating current and the voltage across each is proportional to its reactance. The output (collector) voltage appears across the output-side capacitor and the feedback (base) voltage across the input-side capacitor, so β = X_C(in)/X_C(out) = C_out/C_in. Barkhausen requires Aβ ≥ 1, giving A ≥ C_in/C_out. The Hartley is the dual: β ≈ (L_in + M)/(L_out + M), which reduces to L_in/L_out for uncoupled coils. In practice the start-up gain is made two or three times the minimum; the amplitude then grows until transistor non-linearity and bias shift pull the average gain back to exactly 1/β."
+    },
+    {
+      "type": "formula",
+      "latex": "\\beta = \\frac{C_{out}}{C_{in}},\\quad A \\geq \\frac{C_{in}}{C_{out}};\\qquad M = k\\sqrt{L_1 L_2}",
+      "plainText": "Colpitts: β = C_out/C_in, A ≥ C_in/C_out;  mutual inductance M = k·√(L1·L2)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - Hartley with coupled coils\nGiven: L_out = 40 µH, L_in = 10 µH, coupling k = 0.5 (aiding), C = 100 pF\nM   = k·√(L_out·L_in) = 0.5 × √(40 × 10) = 10 µH\nL_T = 40 + 10 + 2 × 10 = 70 µH\nf   = 1/(2π√(70e-6 × 100e-12)) = 1/(2π × 8.37e-8) ≈ 1.90 MHz\nβ   = (L_in + M)/(L_out + M) = (10 + 10)/(40 + 10) = 0.4\nA_min = 1/β = 2.5  (design for about 5 to 7 for reliable start-up)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - why the Clapp is more stable\nClapp: L = 50 µH, C_1 = C_2 = 1 nF, C_3 = 100 pF\n1/C_T = 1/1000 + 1/1000 + 1/100 pF^-1  ->  C_T = 83.3 pF\nf = 1/(2π√(50e-6 × 83.3e-12)) ≈ 2.466 MHz  (C_3 alone predicts 2.251 MHz)\nA 10 pF transistor capacitance appears across C_2 (C_2 -> 1010 pF):\n  new C_T = 83.4 pF, f falls by about 1.0 kHz (about -410 ppm)\nSame 10 pF in a Colpitts with L = 50 µH, C_1 = C_2 = 1 nF (f ≈ 1.007 MHz):\n  f falls by about 2.5 kHz (about -2480 ppm), six times worse\nA smaller C_3 makes the Clapp even less sensitive."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Design quantity",
+          "Hartley",
+          "Colpitts",
+          "Clapp"
+        ],
+        [
+          "Frequency set by",
+          "C and L_1 + L_2 + 2M",
+          "L and C_1 in series with C_2",
+          "L and mainly C_3"
+        ],
+        [
+          "Feedback fraction β",
+          "(L_in + M)/(L_out + M)",
+          "C_out/C_in",
+          "C_out/C_in (C_1, C_2 divider)"
+        ],
+        [
+          "Minimum gain",
+          "1/β",
+          "C_in/C_out",
+          "C_in/C_out"
+        ],
+        [
+          "Usual tuning element",
+          "Single variable C",
+          "Variable L or ganged C_1, C_2",
+          "Variable C_3"
+        ],
+        [
+          "Effect of transistor capacitance",
+          "Moderate",
+          "Moderate",
+          "Very small"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in LC oscillator problems:",
+      "items": [
+        "Adding C_1 and C_2 in a Colpitts; they are in series, so C_T is smaller than either capacitor.",
+        "Forgetting 2M in a Hartley with coupled coils, or adding M only once.",
+        "Dropping the 2π, which makes the answer 6.28 times too high.",
+        "Mixing units: 1 pF = 10^-12 F and 1 µH = 10^-6 H; a slip of 10^3 in C changes f by about 31.6 times.",
+        "Assuming f ∝ 1/C; in fact f ∝ 1/√C, so a 9:1 capacitor gives only a 3:1 tuning range."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Practical details: an RF choke in the collector (or drain) lead passes the DC supply current but blocks the RF signal, so the supply does not short the tank. Coupling capacitors block DC between stages but are large enough to be short circuits at f_0. At VHF the Colpitts is often built in common-base form, where the amplifier gives no inversion and the capacitive divider feeds the emitter in phase. FET versions work the same way; their high input resistance loads the tank less, so Q and stability are better."
+    },
+    {
+      "type": "examTip",
+      "text": "For a Colpitts or Clapp numerical, first reduce the capacitors to one series C_T, then use f = 1/(2π√(L C_T)). For a gain question, remember the ratio flips: β = C_out/C_in but A_min = C_in/C_out."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i53_m001",
+      "questionText": "An LC tank circuit has L = 10 µH and C = 250 pF. Its resonant frequency is approximately:",
+      "options": [
+        "3.18 MHz",
+        "20.0 MHz",
+        "1.01 MHz",
+        "318 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "f_0 = 1/(2π√(LC)) = 1/(2π√(10 × 10^-6 × 250 × 10^-12)) = 1/(2π × 5 × 10^-8) ≈ 3.18 MHz. Leaving out the 2π gives 20 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m002",
+      "questionText": "A Colpitts oscillator has L = 100 µH and C_1 = C_2 = 1 nF. Its frequency of oscillation is approximately:",
+      "options": [
+        "712 kHz",
+        "356 kHz",
+        "503 kHz",
+        "4.47 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "The capacitors are in series: C_T = 1 nF/2 = 500 pF, so f = 1/(2π√(100 × 10^-6 × 500 × 10^-12)) ≈ 712 kHz. Adding them (2 nF) gives 356 kHz and using one capacitor gives 503 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m003",
+      "questionText": "A Colpitts oscillator uses L = 20 µH, C_1 = 100 pF and C_2 = 400 pF. The frequency of oscillation is approximately:",
+      "options": [
+        "1.59 MHz",
+        "3.56 MHz",
+        "1.78 MHz",
+        "3.98 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "C_T = (100 × 400)/(100 + 400) = 80 pF, so f = 1/(2π√(20 × 10^-6 × 80 × 10^-12)) = 1/(2π × 4 × 10^-8) ≈ 3.98 MHz. Adding the capacitors (500 pF) would give 1.59 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m004",
+      "questionText": "A Hartley oscillator has L_1 = L_2 = 50 µH, mutual inductance M = 10 µH (aiding) and C = 200 pF. Its frequency of oscillation is approximately:",
+      "options": [
+        "1.13 MHz",
+        "1.26 MHz",
+        "1.03 MHz",
+        "6.45 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "L_T = L_1 + L_2 + 2M = 50 + 50 + 20 = 120 µH, so f = 1/(2π√(120 × 10^-6 × 200 × 10^-12)) ≈ 1.03 MHz. Ignoring M (100 µH) gives 1.13 MHz and subtracting 2M gives 1.26 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m005",
+      "questionText": "In a common-emitter Colpitts oscillator the capacitor across the output (collector to AC ground) is 100 pF and the capacitor across the input (base to AC ground) is 1 nF. Taking the feedback fraction as β = X_C(in)/X_C(out), the minimum amplifier voltage gain for sustained oscillation is:",
+      "options": [
+        "0.1",
+        "100",
+        "10",
+        "1"
+      ],
+      "correctIndex": 2,
+      "explanation": "The series capacitors carry the same current, so β = X_C(in)/X_C(out) = C_out/C_in = 100 pF/1000 pF = 0.1. Barkhausen requires Aβ ≥ 1, so A ≥ 1/0.1 = 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m006",
+      "questionText": "A Hartley oscillator has an output-side coil section L_1 = 2 mH and a feedback-side section L_2 = 0.4 mH with negligible mutual inductance. Taking β = L_2/L_1, the minimum amplifier gain needed for oscillation is:",
+      "options": [
+        "0.2",
+        "2.4",
+        "25",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "β = X_L2/X_L1 = L_2/L_1 = 0.4/2 = 0.2, so the gain must be at least 1/β = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m007",
+      "questionText": "A Colpitts oscillator is to run at 5 MHz with L = 10 µH and two equal tank capacitors. The value of each capacitor should be about:",
+      "options": [
+        "101 pF",
+        "50.7 pF",
+        "203 pF",
+        "405 pF"
+      ],
+      "correctIndex": 2,
+      "explanation": "Required C_T = 1/(4π²f²L) = 1/(4π² × (5 × 10^6)² × 10 × 10^-6) ≈ 101 pF. Two equal capacitors in series give C/2, so each C = 2C_T ≈ 203 pF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m008",
+      "questionText": "An LC oscillator must run at 1 MHz using a 500 pF tank capacitor. The required tank inductance is about:",
+      "options": [
+        "50.7 µH",
+        "318 µH",
+        "159 µH",
+        "5.07 µH"
+      ],
+      "correctIndex": 0,
+      "explanation": "L = 1/(4π²f²C) = 1/(4π² × 10^12 × 500 × 10^-12) ≈ 50.7 µH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m009",
+      "questionText": "A Clapp oscillator has L = 100 µH, C_1 = C_2 = 1 nF and C_3 = 50 pF in series with the inductor. Using the exact series combination of all three capacitors, the frequency of oscillation is approximately:",
+      "options": [
+        "712 kHz",
+        "679 kHz",
+        "2.36 MHz",
+        "352 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "1/C_T = 1/1000 + 1/1000 + 1/50 = 0.022 pF^-1, so C_T ≈ 45.5 pF and f = 1/(2π√(100 × 10^-6 × 45.5 × 10^-12)) ≈ 2.36 MHz. Ignoring C_3 gives the plain Colpitts value of 712 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m010",
+      "questionText": "A Clapp oscillator has L = 25 µH, C_3 = 10 pF and C_1 = C_2 = 1000 pF. Its frequency of oscillation is approximately:",
+      "options": [
+        "10 MHz",
+        "1 MHz",
+        "3.2 MHz",
+        "32 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_3 is much smaller than C_1 and C_2, so C_T ≈ C_3 (exactly 9.8 pF) and f ≈ 1/(2π√(25 × 10^-6 × 10 × 10^-12)) ≈ 10 MHz (10.2 MHz with the exact C_T).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m011",
+      "questionText": "The tank coil of an LC oscillator has L = 100 µH and series resistance r = 10 Ω, and the tank resonates at 1 MHz. The Q of the tank and its half-power bandwidth are:",
+      "options": [
+        "Q ≈ 62.8, BW ≈ 15.9 kHz",
+        "Q ≈ 10, BW ≈ 100 kHz",
+        "Q ≈ 62.8, BW ≈ 62.8 kHz",
+        "Q ≈ 6.28, BW ≈ 159 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q = ω_0L/r = (2π × 10^6 × 100 × 10^-6)/10 ≈ 62.8, and BW = f_0/Q = 10^6/62.8 ≈ 15.9 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m012",
+      "questionText": "The capacitance of an LC tank that resonates at 2 MHz is increased from 100 pF to 400 pF with L unchanged. The new resonant frequency is:",
+      "options": [
+        "0.5 MHz",
+        "4 MHz",
+        "1 MHz",
+        "8 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f ∝ 1/√C; multiplying C by 4 divides f by √4 = 2, giving 1 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m013",
+      "questionText": "In an LC oscillator the tank inductance is doubled and the capacitance is halved. The frequency of oscillation:",
+      "options": [
+        "Doubles",
+        "Halves",
+        "Increases four times",
+        "Remains unchanged"
+      ],
+      "correctIndex": 3,
+      "explanation": "f = 1/(2π√(LC)) depends only on the product LC, and 2L × C/2 = LC, so f is unchanged.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m014",
+      "questionText": "A Hartley oscillator has total inductance L_T = 100 µH and is tuned by a variable capacitor from 50 pF to 450 pF. Its tuning range is approximately:",
+      "options": [
+        "250 kHz to 2.25 MHz",
+        "2.25 MHz to 6.75 MHz",
+        "750 kHz to 6.75 MHz",
+        "750 kHz to 2.25 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "f_max = 1/(2π√(100 × 10^-6 × 50 × 10^-12)) ≈ 2.25 MHz and f_min = 1/(2π√(100 × 10^-6 × 450 × 10^-12)) ≈ 750 kHz. A 9:1 capacitance range gives only a 3:1 frequency range because f ∝ 1/√C.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m015",
+      "questionText": "A Colpitts oscillator has L = 15 µH, an output-side capacitor C_1 = 150 pF and a feedback-side capacitor C_2 = 1.5 nF. Taking β = C_1/C_2, the frequency of oscillation and the minimum amplifier gain are about:",
+      "options": [
+        "3.36 MHz, 10",
+        "1.01 MHz, 10",
+        "3.52 MHz, 10",
+        "3.52 MHz, 0.1"
+      ],
+      "correctIndex": 2,
+      "explanation": "C_T = (150 × 1500)/(150 + 1500) ≈ 136 pF, so f = 1/(2π√(15 × 10^-6 × 136 × 10^-12)) ≈ 3.52 MHz. β = 150/1500 = 0.1, so A ≥ 1/β = 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m016",
+      "questionText": "A Hartley oscillator has coil sections L_1 = 4 mH and L_2 = 1 mH wound on a common former with coefficient of coupling k = 0.5 (aiding), and C = 1 nF. The frequency of oscillation is approximately:",
+      "options": [
+        "71.2 kHz",
+        "60.2 kHz",
+        "65.0 kHz",
+        "91.9 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "M = k√(L_1L_2) = 0.5 × √(4 × 1) = 1 mH, so L_T = 4 + 1 + 2 × 1 = 7 mH and f = 1/(2π√(7 × 10^-3 × 10^-9)) ≈ 60.2 kHz. Ignoring M gives 71.2 kHz and adding M only once gives 65.0 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m017",
+      "questionText": "A Hartley oscillator with total effective inductance 200 µH is to oscillate at 500 kHz. The tank capacitance required is about:",
+      "options": [
+        "253 pF",
+        "2.03 nF",
+        "507 pF",
+        "50.7 pF"
+      ],
+      "correctIndex": 2,
+      "explanation": "C = 1/(4π²f²L_T) = 1/(4π² × (5 × 10^5)² × 200 × 10^-6) ≈ 507 pF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m018",
+      "questionText": "A Colpitts oscillator has L = 10 µH and C_1 = C_2 = 200 pF. A stray capacitance of 50 pF then appears in parallel with C_2. The new frequency of oscillation is approximately:",
+      "options": [
+        "5.03 MHz",
+        "4.77 MHz",
+        "4.11 MHz",
+        "5.33 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "Originally C_T = 100 pF and f ≈ 5.03 MHz. With C_2 = 250 pF, C_T = (200 × 250)/450 ≈ 111 pF, so f = 1/(2π√(10 × 10^-6 × 111 × 10^-12)) ≈ 4.77 MHz, a fall of about 258 kHz. Adding the 50 pF directly to C_T would wrongly give 4.11 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m019",
+      "questionText": "A tuned-collector oscillator has a tank of L = 50 µH and C = 500 pF in the collector circuit. It oscillates at approximately:",
+      "options": [
+        "318 kHz",
+        "1.01 MHz",
+        "6.32 MHz",
+        "101 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = 1/(2π√(50 × 10^-6 × 500 × 10^-12)) = 1/(2π × 1.58 × 10^-7) ≈ 1.01 MHz. Forgetting the 2π gives 6.32 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m020",
+      "questionText": "A Colpitts oscillator with L = 50 µH must oscillate at 1 MHz. If C_1 = 1 nF, the value of C_2 needed is about:",
+      "options": [
+        "493 pF",
+        "507 pF",
+        "1.03 nF",
+        "2.03 nF"
+      ],
+      "correctIndex": 2,
+      "explanation": "Required C_T = 1/(4π²f²L) ≈ 507 pF. From 1/C_2 = 1/C_T − 1/C_1, C_2 = C_T C_1/(C_1 − C_T) = (507 × 1000)/493 ≈ 1.03 nF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i53_m021",
+      "questionText": "An LC tank has L = 100 µH, C = 100 pF and coil resistance r = 5 Ω. Its quality factor is:",
+      "options": [
+        "200",
+        "20",
+        "2000",
+        "1000"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q = (1/r)√(L/C) = (1/5) × √(100 × 10^-6/100 × 10^-12) = 1000/5 = 200. Equivalently f_0 ≈ 1.59 MHz and Q = ω_0L/r ≈ 200.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m022",
+      "questionText": "An LC tank with L = 100 µH, C = 100 pF and coil resistance 5 Ω is the collector load of a tuned-collector oscillator. Its dynamic resistance at resonance is:",
+      "options": [
+        "5 Ω",
+        "200 kΩ",
+        "1 kΩ",
+        "20 kΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_D = L/(Cr) = (100 × 10^-6)/(100 × 10^-12 × 5) = 200 kΩ. The tank is a high, purely resistive load only at resonance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m023",
+      "questionText": "A Colpitts oscillator runs at 1 MHz. If both C_1 and C_2 are doubled (L unchanged), the new frequency is about:",
+      "options": [
+        "500 kHz",
+        "1.41 MHz",
+        "707 kHz",
+        "2 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "Doubling both capacitors doubles C_T = C_1C_2/(C_1 + C_2). Since f ∝ 1/√C_T, f = 1 MHz/√2 ≈ 707 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m024",
+      "questionText": "A Clapp oscillator with L = 5 µH is to run at 10 MHz, with C_1 and C_2 much larger than C_3. C_3 should be about:",
+      "options": [
+        "5.07 pF",
+        "507 pF",
+        "3.18 pF",
+        "50.7 pF"
+      ],
+      "correctIndex": 3,
+      "explanation": "With C_3 dominant, C_3 ≈ 1/(4π²f²L) = 1/(4π² × 10^14 × 5 × 10^-6) ≈ 50.7 pF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m025",
+      "questionText": "An LC tank has L = 10 µH and C = 1 nF. At its resonant frequency the reactance of the inductor is:",
+      "options": [
+        "10 Ω",
+        "1 kΩ",
+        "15.9 Ω",
+        "100 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "f_0 = 1/(2π√(LC)) ≈ 1.59 MHz, so X_L = 2πf_0L = √(L/C) = √(10 × 10^-6/10^-9) = 100 Ω; X_C has the same value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m026",
+      "questionText": "The output waveform of a well-designed Colpitts or Hartley oscillator is:",
+      "options": [
+        "Square",
+        "Triangular",
+        "Sinusoidal",
+        "Sawtooth"
+      ],
+      "correctIndex": 2,
+      "explanation": "The high-Q tank filters out the harmonics of the transistor current, so the output is a nearly pure sine wave.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m027",
+      "questionText": "The tank capacitance of an LC oscillator is provided by a reverse-biased varactor diode. If the reverse bias on the varactor is increased, the frequency of oscillation:",
+      "options": [
+        "Falls, because the varactor capacitance increases",
+        "Rises, because the varactor capacitance decreases",
+        "Stays the same, because only the inductor sets the frequency",
+        "Falls to zero, because the diode stops conducting"
+      ],
+      "correctIndex": 1,
+      "explanation": "More reverse bias widens the depletion layer and lowers the varactor capacitance, so f = 1/(2π√(LC)) rises. This is how voltage-controlled LC oscillators are tuned electronically.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m028",
+      "questionText": "In an LC oscillator, the part of the circuit that determines the frequency of oscillation is:",
+      "options": [
+        "The DC supply voltage",
+        "The tank (L-C) circuit",
+        "The emitter bypass capacitor",
+        "The load resistor"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loop gain and phase conditions are met only at the resonant frequency of the tank, so L and C set f.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m029",
+      "questionText": "In an LC tank oscillating at resonance, energy is exchanged continuously between:",
+      "options": [
+        "The transistor and the DC supply only",
+        "The load resistor and the coil resistance",
+        "The base and emitter junctions",
+        "The electric field of the capacitor and the magnetic field of the inductor"
+      ],
+      "correctIndex": 3,
+      "explanation": "The capacitor discharges through the coil, building a magnetic field that then recharges the capacitor in the opposite sense; this exchange repeats at f_0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m030",
+      "questionText": "The amplifier (transistor) in an LC oscillator is needed because it:",
+      "options": [
+        "Sets the frequency of oscillation",
+        "Supplies the energy lost in the tank resistance each cycle",
+        "Converts the sine wave into a square wave",
+        "Cancels the mutual inductance of the coil"
+      ],
+      "correctIndex": 1,
+      "explanation": "A real tank loses energy in its resistance, so its oscillation would die away; the amplifier replaces this loss once per cycle while the tank sets f.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m031",
+      "questionText": "In a common-emitter Colpitts oscillator, the junction of the two tank capacitors is connected to AC ground so that:",
+      "options": [
+        "The voltages at the two ends of the tank are 180° apart, giving the required phase reversal",
+        "The DC collector voltage is fixed",
+        "The capacitors are placed in parallel to double the capacitance",
+        "The feedback fraction becomes exactly 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the tap at AC ground the tank acts as a centre-referenced divider: its two ends swing in antiphase, which supplies the 180° needed with the inverting amplifier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m032",
+      "questionText": "In a common-emitter Hartley or Colpitts oscillator, the total phase shift around the loop at the frequency of oscillation is:",
+      "options": [
+        "180°, all from the amplifier",
+        "360° (0°): 180° from the amplifier and 180° from the tapped tank",
+        "90° from the tank plus 90° from the amplifier",
+        "270°: 180° from the amplifier and 90° from the tank"
+      ],
+      "correctIndex": 1,
+      "explanation": "Barkhausen requires a total of 0° or 360°; the common-emitter stage gives 180° and the tapped tank network gives the other 180°.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m033",
+      "questionText": "The Colpitts oscillator is described as the dual of the Hartley oscillator because:",
+      "options": [
+        "It uses a crystal instead of a coil",
+        "It always runs at twice the Hartley frequency",
+        "It needs two transistors",
+        "Its tank uses a capacitive tap where the Hartley uses an inductive tap"
+      ],
+      "correctIndex": 3,
+      "explanation": "Swapping every L for a C turns the Hartley (two inductors, one capacitor) into the Colpitts (two capacitors, one inductor).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m034",
+      "questionText": "Which statement about the Hartley oscillator is NOT correct?",
+      "options": [
+        "Its tank has a tapped coil (or two coils) and a single capacitor",
+        "Its frequency is independent of the mutual inductance between the coil sections",
+        "It can be tuned over a wide range with a single variable capacitor",
+        "The coil tap is held at AC ground to obtain the 180° phase reversal"
+      ],
+      "correctIndex": 1,
+      "explanation": "The effective inductance is L_1 + L_2 + 2M, so mutual coupling between the sections does change the frequency; the other statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m035",
+      "questionText": "The Clapp oscillator has better frequency stability than the Colpitts because:",
+      "options": [
+        "The small series capacitor C_3 sets the frequency, while transistor capacitances appear across the much larger C_1 and C_2",
+        "It uses a quartz crystal as the inductor",
+        "Its inductor has zero resistance",
+        "It operates without any feedback"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stray and junction capacitances add to C_1 and C_2, but C_3 dominates the series C_T, so those changes hardly move the frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m036",
+      "questionText": "Why is the Hartley oscillator easier to tune over a wide range than the basic Colpitts?",
+      "options": [
+        "The Hartley has no inductors",
+        "A single variable capacitor tunes the Hartley, whereas changing only one Colpitts capacitor also changes its feedback ratio",
+        "The Colpitts cannot oscillate above 1 MHz",
+        "The Hartley frequency is independent of C"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the Colpitts β depends on C_1/C_2, so tuning needs a ganged pair or a variable inductor; the Hartley's single capacitor does not set the feedback ratio.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m037",
+      "questionText": "In an Armstrong oscillator, the feedback from the collector tank to the base is provided by:",
+      "options": [
+        "A small tickler coil magnetically coupled to the tank coil",
+        "A capacitive voltage divider",
+        "A quartz crystal",
+        "An RC ladder network"
+      ],
+      "correctIndex": 0,
+      "explanation": "The Armstrong uses transformer (inductive) feedback through a tickler winding; the capacitive divider is the Colpitts method.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m038",
+      "questionText": "In a tuned-collector oscillator, the 180° phase shift needed in addition to that of the common-emitter amplifier comes from:",
+      "options": [
+        "An RC phase-shift ladder",
+        "The emitter bypass capacitor",
+        "The coupling capacitor alone",
+        "The winding sense of the transformer feedback coil"
+      ],
+      "correctIndex": 3,
+      "explanation": "The feedback winding is connected with the appropriate polarity (dot convention), so the transformer inverts the signal fed back to the base.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m039",
+      "questionText": "In a practical Colpitts oscillator the loop gain at switch-on is made somewhat greater than 1. The amplitude then stops growing because:",
+      "options": [
+        "Transistor non-linearity and bias shift reduce the effective gain until Aβ = 1",
+        "The tank capacitors discharge completely",
+        "The inductor short-circuits the supply",
+        "The frequency drifts until the oscillation stops"
+      ],
+      "correctIndex": 0,
+      "explanation": "As the swing grows, the transistor is driven towards cut-off and saturation, so its average gain falls until the loop gain settles at exactly one.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m040",
+      "questionText": "If the resistance of the tank coil in an LC oscillator increases (Q falls), the most likely result is:",
+      "options": [
+        "A higher frequency of oscillation in proportion to the resistance",
+        "Poorer frequency stability and waveform purity, and oscillation may stop if the gain is insufficient",
+        "A square-wave output",
+        "No change, since Q does not affect an oscillator"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lower Q lowers R_D (and hence the gain) and broadens the resonance, so harmonics are filtered less and the frequency is less tightly held.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m041",
+      "questionText": "LC oscillators are normally used in the frequency range of roughly:",
+      "options": [
+        "1 Hz to 1 kHz only",
+        "100 kHz to several hundred MHz",
+        "Below 20 Hz only",
+        "Above 100 GHz only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Practical µH inductors and pF capacitors suit radio frequencies; audio frequencies use RC oscillators.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m042",
+      "questionText": "Which statement comparing Colpitts and Hartley oscillators is correct?",
+      "options": [
+        "The Hartley uses a capacitive divider for feedback",
+        "The Colpitts uses a tapped inductor for feedback",
+        "The Hartley is more stable because it has no capacitors",
+        "The Colpitts generally has better frequency stability and is preferred at high frequencies"
+      ],
+      "correctIndex": 3,
+      "explanation": "Capacitors are more stable than tapped coils and there is no coil-coupling effect, so the Colpitts is the more stable and more widely used RF circuit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m043",
+      "questionText": "The purpose of the RF choke (RFC) in the collector supply lead of a transistor Colpitts oscillator is to:",
+      "options": [
+        "Set the frequency of oscillation",
+        "Provide the 180° phase shift",
+        "Short-circuit the tank at resonance",
+        "Pass the DC collector current while blocking the RF signal from the supply"
+      ],
+      "correctIndex": 3,
+      "explanation": "The choke has a very high reactance at f_0 and near-zero DC resistance, so it feeds bias current without letting the supply short the RF signal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m044",
+      "questionText": "If the series capacitor C_3 of a Clapp oscillator is made much larger than C_1 and C_2, the circuit:",
+      "options": [
+        "Stops oscillating because C_3 blocks all feedback",
+        "Becomes a Hartley oscillator",
+        "Behaves essentially like an ordinary Colpitts and loses its stability advantage",
+        "Oscillates at a frequency set only by C_3"
+      ],
+      "correctIndex": 2,
+      "explanation": "A large C_3 is almost a short circuit, so C_T ≈ C_1C_2/(C_1 + C_2) again and transistor capacitances once more affect the frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i53_m045",
+      "questionText": "A Clapp oscillator is normally tuned by varying:",
+      "options": [
+        "The series capacitor C_3",
+        "The DC supply voltage",
+        "The emitter resistor",
+        "The number of turns on a feedback coil"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_3 dominates the tank capacitance, so a variable C_3 tunes the frequency without disturbing the C_1/C_2 feedback ratio.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i53_m046",
+      "questionText": "In a Colpitts oscillator, C_1 (output side) is fixed at 100 pF while C_2 (feedback side) is increased from 100 pF to 10 nF. Which pair of effects is correct?",
+      "options": [
+        "The frequency falls towards 1/(2π√(LC_1)) and the feedback fraction C_1/C_2 decreases, so more amplifier gain is needed",
+        "The frequency rises without limit and less gain is needed",
+        "The frequency is unchanged because only C_1 sets it",
+        "The frequency falls towards zero and the feedback fraction increases"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_T rises from 50 pF towards C_1 = 100 pF, so f falls towards 1/(2π√(LC_1)); meanwhile β = C_1/C_2 drops from 1 to 0.01, so the minimum gain 1/β rises.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,696 @@
+{
+  "topicId": "ch1_i51",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Loop Gain, Start-up and Stability"
+    },
+    {
+      "type": "paragraph",
+      "text": "The closed-loop gain of a positive-feedback amplifier follows from one line of algebra. The amplifier input is the external signal plus the returned fraction, V_i = V_s + βV_o, and the output is V_o = A·V_i. Eliminating V_i gives V_o/V_s = A/(1 − Aβ). As Aβ climbs towards 1 the denominator shrinks and the gain soars: with Aβ = 0.9 the gain is 10A, with Aβ = 0.99 it is 100A, and at Aβ = 1 a finite output needs no input at all. That is the precise meaning of \"an oscillator is an amplifier that supplies its own input\"."
+    },
+    {
+      "type": "paragraph",
+      "text": "A useful way to picture start-up is to follow one frequency component of the noise around the loop. Each trip multiplies its amplitude by the loop gain |Aβ|, so after n trips the amplitude is V_0·|Aβ|^n. With |Aβ| a few percent above 1 the growth is geometric but slow, which is why an oscillator takes many cycles to reach full output; with |Aβ| below 1 the same law describes an exponential decay. Treating one trip as one cycle of the oscillation gives a quick estimate of the start-up or decay time."
+    },
+    {
+      "type": "formula",
+      "latex": "V_n = V_0\\,|A\\beta|^{\\,n} \\;\\Rightarrow\\; n = \\frac{\\ln(V_n/V_0)}{\\ln|A\\beta|}",
+      "plainText": "Vn = V0·|Aβ|^n, so n = ln(Vn/V0) / ln|Aβ|"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: start-up time\nGiven: f = 1 kHz, |Aβ| = 1.05 at small amplitude,\n       noise component V0 = 1 µV, target amplitude 1 V\nAssume the amplitude is multiplied by |Aβ| once per cycle.\nn = ln(1 V / 1 µV) / ln(1.05) = ln(10^6) / ln(1.05)\n  = 13.816 / 0.04879 = 283.2  ->  about 284 cycles\nTime = n / f = 284 / 1000 Hz ≈ 0.28 s\nLimiting in the amplifier then pulls |Aβ| back to exactly 1."
+    },
+    {
+      "type": "paragraph",
+      "text": "Why does a high Q give good frequency stability? Near resonance the phase angle of a tuned circuit changes as tan φ ≈ 2Q·Δf/f_0. Suppose a transistor capacitance drifts and adds a small unwanted phase Δφ to the loop. The oscillator can only restore a 0° total by moving to a frequency where the tank supplies −Δφ, so the fractional frequency error is roughly Δφ/(2Q). The larger Q is, the smaller the frequency shift needed to absorb the same phase error."
+    },
+    {
+      "type": "formula",
+      "latex": "\\frac{\\Delta f}{f_0} \\approx \\frac{\\tan\\Delta\\phi}{2Q} \\approx \\frac{\\Delta\\phi}{2Q}",
+      "plainText": "Δf/f0 ≈ tan(Δφ)/(2Q) ≈ Δφ/(2Q), with Δφ in radians"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: phase drift versus Q\nA stray phase error of Δφ = 2° appears in the loop.\nΔφ = 2 × π/180 = 0.03491 rad\nLC tank, Q = 100:\n  Δf/f0 = 0.03491 / (2 × 100) = 1.75 × 10^-4 = 175 ppm\nQuartz crystal, Q = 10^5:\n  Δf/f0 = 0.03491 / (2 × 10^5) = 1.75 × 10^-7 = 0.175 ppm\nSame phase error, 1000 times smaller drift with the crystal."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: temperature drift\nGiven: 5 MHz LC oscillator, temperature coefficient\n       +20 ppm/°C, temperature rises by 25 °C\nΔf = f × (TC) × ΔT = 5 × 10^6 × 20 × 10^-6 × 25\n   = 2500 Hz = 2.5 kHz (frequency increases)\nNew frequency = 5.0025 MHz\nFractional change = 20 ppm/°C × 25 °C = 500 ppm = 0.05 %"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "Sinusoidal (harmonic) oscillator",
+          "Relaxation oscillator"
+        ],
+        [
+          "Output",
+          "Sine wave",
+          "Square, pulse, triangle or sawtooth"
+        ],
+        [
+          "Operating principle",
+          "Loop meets Barkhausen at one frequency",
+          "Capacitor charges and discharges, a switch changes state at thresholds"
+        ],
+        [
+          "Frequency set by",
+          "RC network, LC tank or crystal",
+          "RC time constant and switching thresholds"
+        ],
+        [
+          "Active device region",
+          "Mostly linear",
+          "Switched between cut-off and saturation"
+        ],
+        [
+          "Examples",
+          "Wien bridge, Colpitts, Pierce crystal",
+          "Astable multivibrator, 555 astable, UJT"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes when answering oscillator questions:",
+      "items": [
+        "Using the negative-feedback formula A/(1 + Aβ) for an oscillator; positive feedback gives A/(1 − Aβ).",
+        "Adding stage gains in decibels but multiplying them as plain ratios inconsistently; two stages of gain 20 give 400, not 40.",
+        "Converting decibels to a voltage ratio with 10^(dB/10) instead of 10^(dB/20).",
+        "Forgetting to convert degrees to radians before dividing a phase error by 2Q.",
+        "Thinking a very large loop gain gives a bigger clean sine wave; it gives a clipped, distorted output."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Heavy loading of the tank or feedback network lowers the effective Q and the loop gain. If |Aβ| falls below 1 the oscillator stops, which is why a buffer stage is placed between the oscillator and a changing load."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i51_m001",
+      "questionText": "The basic function of an electronic oscillator is to:",
+      "options": [
+        "Amplify a weak AC input signal",
+        "Generate a periodic AC signal without any external input signal",
+        "Convert AC into pulsating DC",
+        "Keep the DC supply voltage constant"
+      ],
+      "correctIndex": 1,
+      "explanation": "An oscillator produces its own periodic output; the feedback network supplies the amplifier input, so no external signal source is needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m002",
+      "questionText": "The type of feedback that sustains oscillations in a feedback oscillator is:",
+      "options": [
+        "Negative voltage-series feedback",
+        "Negative current-shunt feedback",
+        "Positive (regenerative) feedback",
+        "No feedback at all"
+      ],
+      "correctIndex": 2,
+      "explanation": "The returned signal must be in phase with the input so that it reinforces it; this is positive, or regenerative, feedback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m003",
+      "questionText": "In a feedback oscillator, the energy delivered as AC output power comes from:",
+      "options": [
+        "The DC power supply",
+        "The feedback network",
+        "The initial charge on the tank capacitor",
+        "The load resistor"
+      ],
+      "correctIndex": 0,
+      "explanation": "The amplifier converts DC supply power into AC power; the feedback network only returns a fraction of the output and sets the frequency.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m004",
+      "questionText": "According to the Barkhausen criterion, the total phase shift around the loop of an oscillator must be:",
+      "options": [
+        "90°",
+        "180°",
+        "0° or an integer multiple of 360°",
+        "270°"
+      ],
+      "correctIndex": 2,
+      "explanation": "The fed-back signal must be in phase with the signal that produced it, so the loop phase shift must be 0°, 360°, 720° and so on.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m005",
+      "questionText": "An oscillator uses a single common-emitter stage, which inverts the signal. The phase shift that the feedback network must provide at the oscillation frequency is:",
+      "options": [
+        "0°",
+        "180°",
+        "90°",
+        "360°"
+      ],
+      "correctIndex": 1,
+      "explanation": "The common-emitter stage gives 180°, so the network must add another 180° to make the total 360°; a network giving 0° or 360° would leave a total of 180°, which is negative feedback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m006",
+      "questionText": "When an oscillator is first switched on with no input applied, the oscillations start from:",
+      "options": [
+        "An external signal generator connected at the input",
+        "The negative feedback in the circuit",
+        "The DC load current",
+        "Electrical noise and the switch-on transient in the circuit"
+      ],
+      "correctIndex": 3,
+      "explanation": "Thermal noise and the switch-on surge contain components at all frequencies; the one at which the loop phase is 0° is reinforced and builds up.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m007",
+      "questionText": "Practical oscillators are designed with a small-signal loop gain slightly greater than 1 (for example 1.05) because:",
+      "options": [
+        "It makes the output a square wave",
+        "It lowers the frequency of oscillation",
+        "Oscillations must be able to build up from noise and still start despite component tolerances",
+        "It provides negative feedback for stability"
+      ],
+      "correctIndex": 2,
+      "explanation": "With |Aβ| a little above 1 the selected noise component grows each loop trip; the margin also covers tolerance and ageing, and non-linearity later brings |Aβ| to 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m008",
+      "questionText": "An oscillator is built with a loop gain of about 5 and no amplitude-control element. The output will be:",
+      "options": [
+        "A pure sine wave of small amplitude",
+        "Zero, because the oscillations die out",
+        "A steady DC level",
+        "A clipped, distorted waveform limited by amplifier saturation"
+      ],
+      "correctIndex": 3,
+      "explanation": "A loop gain far above 1 makes the amplitude grow until the amplifier saturates and cuts off, so the peaks are flattened and the waveform is rich in harmonics.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m009",
+      "questionText": "An amplifier with gain A = 40 has positive feedback with β = 0.02. Its closed-loop gain A/(1 − Aβ) is:",
+      "options": [
+        "200",
+        "22.2",
+        "0.8",
+        "50"
+      ],
+      "correctIndex": 0,
+      "explanation": "Aβ = 40 × 0.02 = 0.8, so A_f = 40/(1 − 0.8) = 40/0.2 = 200. The value 22.2 would come from the negative-feedback formula 40/1.8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m010",
+      "questionText": "An amplifier of gain A = 100 has positive feedback. If β is increased from 0.005 to 0.009, the closed-loop gain increases by a factor of:",
+      "options": [
+        "1.8",
+        "5",
+        "2.5",
+        "10"
+      ],
+      "correctIndex": 1,
+      "explanation": "At β = 0.005, Aβ = 0.5 and A_f = 100/0.5 = 200. At β = 0.009, Aβ = 0.9 and A_f = 100/0.1 = 1000. The ratio is 1000/200 = 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m011",
+      "questionText": "When an oscillator is running in steady state, its loop gain expressed in decibels is:",
+      "options": [
+        "1 dB",
+        "3 dB",
+        "6 dB",
+        "0 dB"
+      ],
+      "correctIndex": 3,
+      "explanation": "In steady state |Aβ| = 1, and 20 log10(1) = 0 dB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m012",
+      "questionText": "An oscillator uses two cascaded common-emitter stages, each with a voltage gain of 20 and 180° phase shift, and a feedback network with 0° phase shift. For steady oscillation the feedback fraction β must be:",
+      "options": [
+        "0.05",
+        "0.025",
+        "0.0025",
+        "0.0125"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two stages give A = 20 × 20 = 400 and 360°, so the network needs 0° and β = 1/A = 1/400 = 0.0025. Adding the gains (40) would wrongly give 0.025.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m013",
+      "questionText": "At start-up the loop gain of an oscillator is 1.1, and the noise component at the oscillation frequency is 10 µV. Assuming the amplitude is multiplied by the loop gain once per cycle and no limiting occurs, the number of cycles needed to reach 1 V is about:",
+      "options": [
+        "121",
+        "50",
+        "11",
+        "1210"
+      ],
+      "correctIndex": 0,
+      "explanation": "n = ln(1 V/10 µV)/ln(1.1) = ln(10^5)/0.0953 = 11.51/0.0953 ≈ 120.8, so about 121 cycles.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m014",
+      "questionText": "A disturbance makes the loop gain of an oscillator 0.9. Assuming the amplitude is multiplied by the loop gain once per cycle, the number of cycles after which the amplitude has fallen below 1% of its initial value is:",
+      "options": [
+        "10",
+        "44",
+        "100",
+        "22"
+      ],
+      "correctIndex": 1,
+      "explanation": "0.9^n < 0.01 gives n > ln(0.01)/ln(0.9) = −4.605/−0.1054 ≈ 43.7, so 44 cycles; this is a damped oscillation.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m015",
+      "questionText": "An oscillation whose amplitude decreases steadily with time is called:",
+      "options": [
+        "An undamped oscillation",
+        "A damped oscillation",
+        "A sustained oscillation",
+        "A relaxation oscillation"
+      ],
+      "correctIndex": 1,
+      "explanation": "When circuit losses are not replaced, the amplitude decays exponentially; this is a damped oscillation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m016",
+      "questionText": "Oscillators that produce square, rectangular, triangular or sawtooth outputs are called:",
+      "options": [
+        "Relaxation oscillators",
+        "Harmonic oscillators",
+        "Crystal oscillators",
+        "Tuned-circuit oscillators"
+      ],
+      "correctIndex": 0,
+      "explanation": "Non-sinusoidal waveforms come from relaxation oscillators, which charge and discharge a capacitor between switching thresholds; harmonic oscillators give sine waves.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m017",
+      "questionText": "A fixed sine wave of about 1 kHz is required for an audio test. The most suitable oscillator type is:",
+      "options": [
+        "An RC oscillator",
+        "An LC oscillator",
+        "An overtone crystal oscillator",
+        "A Gunn diode oscillator"
+      ],
+      "correctIndex": 0,
+      "explanation": "At audio frequencies the inductors of an LC tank would be large and lossy, and crystals and Gunn diodes suit much higher frequencies; RC oscillators are the usual choice.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m018",
+      "questionText": "Which of the following is a negative-resistance oscillator?",
+      "options": [
+        "Wien bridge oscillator",
+        "Tunnel diode oscillator",
+        "Colpitts oscillator",
+        "RC phase-shift oscillator"
+      ],
+      "correctIndex": 1,
+      "explanation": "A tunnel diode has a region of negative dynamic resistance that cancels the tank losses directly; the other three are feedback oscillators that meet the Barkhausen criterion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m019",
+      "questionText": "Which of the following does NOT improve the frequency stability of an LC oscillator?",
+      "options": [
+        "Operating from a regulated supply voltage",
+        "Adding a buffer amplifier between oscillator and load",
+        "Connecting a varying load directly across the tank circuit",
+        "Using temperature-compensating capacitors in the tank"
+      ],
+      "correctIndex": 2,
+      "explanation": "A load connected directly across the tank changes its Q and phase, pulling the frequency; the other three measures reduce drift.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m020",
+      "questionText": "The main purpose of a buffer amplifier following an oscillator is to:",
+      "options": [
+        "Increase the loop gain above unity",
+        "Convert the sine wave into a square wave",
+        "Provide the 180° phase shift needed for oscillation",
+        "Isolate the oscillator from load changes that would shift its frequency"
+      ],
+      "correctIndex": 3,
+      "explanation": "A buffer presents a constant high impedance to the oscillator, so changes in the load do not alter the tank's Q or phase and therefore do not pull the frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m021",
+      "questionText": "A 5 MHz oscillator drifts by 50 Hz. Its frequency stability expressed in parts per million is:",
+      "options": [
+        "1 ppm",
+        "10 ppm",
+        "100 ppm",
+        "0.001 ppm"
+      ],
+      "correctIndex": 1,
+      "explanation": "Stability = Δf/f × 10^6 = 50/(5 × 10^6) × 10^6 = 10 ppm.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m022",
+      "questionText": "A 10 MHz LC oscillator has a frequency temperature coefficient of −50 ppm/°C. If the temperature rises by 20 °C, the frequency:",
+      "options": [
+        "Increases by 10 kHz",
+        "Decreases by 10 kHz",
+        "Decreases by 1 kHz",
+        "Decreases by 100 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "Δf = f × TC × ΔT = 10 × 10^6 × (−50 × 10^-6) × 20 = −10 000 Hz, so the frequency falls by 10 kHz to 9.990 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m023",
+      "questionText": "The tank of an LC oscillator uses a 50 µH coil. The capacitance needed for the tank to resonate at 2 MHz is about:",
+      "options": [
+        "5.00 nF",
+        "796 pF",
+        "127 pF",
+        "63.3 pF"
+      ],
+      "correctIndex": 2,
+      "explanation": "C = 1/(4π²f0²L) = 1/(4π² × (2 × 10^6)² × 50 × 10^-6) ≈ 1.27 × 10^-10 F = 127 pF. Leaving out 4π² gives 5 nF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m024",
+      "questionText": "The coil of an oscillator tank has L = 100 µH and series resistance r = 10 Ω. At a resonant frequency of 1 MHz the Q of the tank is about:",
+      "options": [
+        "62.8",
+        "10",
+        "628",
+        "6.28"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q = ω0L/r = (2π × 10^6 × 100 × 10^-6)/10 = 628.3/10 ≈ 62.8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m025",
+      "questionText": "A tank circuit has L = 1 mH, C = 10 nF and coil resistance r = 5 Ω. Its 3 dB bandwidth is approximately:",
+      "options": [
+        "159 Hz",
+        "50.3 kHz",
+        "7.96 kHz",
+        "796 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "f0 = 1/(2π√(LC)) = 50.3 kHz and Q = (1/r)√(L/C) = 316.2/5 = 63.2, so BW = f0/Q = 50 330/63.2 ≈ 796 Hz. Forgetting the 1/r gives Q = 316 and 159 Hz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m026",
+      "questionText": "In a feedback oscillator, the frequency of oscillation is decided mainly by:",
+      "options": [
+        "The frequency-selective feedback network",
+        "The DC supply voltage",
+        "The load resistance",
+        "The emitter bypass capacitor"
+      ],
+      "correctIndex": 0,
+      "explanation": "The Barkhausen phase condition is met at only one frequency, and that frequency is fixed by the RC network, LC tank or crystal in the feedback path.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m027",
+      "questionText": "Which statement about the Barkhausen criterion is correct?",
+      "options": [
+        "It requires the loop gain to be exactly zero",
+        "It applies only to relaxation oscillators",
+        "For a clean sine wave it should be satisfied at only one frequency",
+        "It requires a total loop phase shift of 180°"
+      ],
+      "correctIndex": 2,
+      "explanation": "The criterion (|Aβ| = 1, loop phase 0° or 360°) is necessary but not sufficient; if it holds at several frequencies the output contains several frequencies and is not a pure sine wave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m028",
+      "questionText": "An oscillator uses a non-inverting amplifier with 0° phase shift. At the oscillation frequency its feedback network must provide a phase shift of:",
+      "options": [
+        "180°",
+        "90°",
+        "60°",
+        "0°"
+      ],
+      "correctIndex": 3,
+      "explanation": "The total loop phase must be 0° or 360°; with 0° from the amplifier, the network must also give 0°, as the lead-lag network of a Wien bridge does.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m029",
+      "questionText": "The feedback network of an oscillator attenuates the signal by 26 dB at the oscillation frequency and provides the correct phase shift. The minimum amplifier voltage gain needed to sustain oscillation is about:",
+      "options": [
+        "20",
+        "26",
+        "400",
+        "13"
+      ],
+      "correctIndex": 0,
+      "explanation": "26 dB corresponds to a voltage ratio of 10^(26/20) ≈ 19.95, so β ≈ 1/20 and A must be at least about 20. Using 10^(dB/10) would wrongly give about 400.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m030",
+      "questionText": "When the loop gain Aβ of an amplifier with positive feedback is exactly 1 at 0°, the closed-loop gain A/(1 − Aβ):",
+      "options": [
+        "Becomes zero",
+        "Equals the open-loop gain A",
+        "Becomes infinite, so an output can exist with zero input",
+        "Equals 1/β"
+      ],
+      "correctIndex": 2,
+      "explanation": "With Aβ = 1 the denominator 1 − Aβ is zero, so the gain is infinite; a finite output then needs no external input, which is the condition for oscillation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m031",
+      "questionText": "The amplitude of a sinusoidal oscillator is stabilised by:",
+      "options": [
+        "A non-linear element (thermistor, lamp, diodes or AGC loop) that reduces the gain as the amplitude grows",
+        "Increasing the feedback fraction β as the amplitude grows",
+        "Removing the DC supply once oscillations start",
+        "Using a larger emitter bypass capacitor"
+      ],
+      "correctIndex": 0,
+      "explanation": "The gain must fall back to exactly |Aβ| = 1 at the desired amplitude; a non-linear element whose gain drops with amplitude does this automatically.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m032",
+      "questionText": "An oscillator has a small-signal loop gain of 1.08. The amplitude stops growing when amplifier non-linearity has reduced the effective gain by about:",
+      "options": [
+        "7.4%",
+        "8%",
+        "1.08%",
+        "92.6%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Steady state needs |Aβ| = 1, so the gain must fall to 1/1.08 = 0.926 of its small-signal value, a reduction of about 7.4%.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m033",
+      "questionText": "Which of the following is a sinusoidal oscillator?",
+      "options": [
+        "Astable multivibrator",
+        "UJT relaxation oscillator",
+        "Colpitts oscillator",
+        "Blocking oscillator"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Colpitts oscillator uses an LC tank and gives a sine wave; the other three are relaxation circuits producing pulses, square or sawtooth waves.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m034",
+      "questionText": "The oscillations in an LC tank that is charged once and then left alone die away mainly because of:",
+      "options": [
+        "The capacitance of the tank",
+        "The inductance of the tank",
+        "The DC supply voltage",
+        "Resistive (I²R) losses in the coil and wiring"
+      ],
+      "correctIndex": 3,
+      "explanation": "Ideal L and C only store energy; the resistance of the coil and wiring dissipates some energy every cycle, so the amplitude decays.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m035",
+      "questionText": "The frequency of the damped oscillations in a low-loss LC tank is approximately:",
+      "options": [
+        "The natural frequency 1/(2π√(LC))",
+        "Zero, since the oscillation decays",
+        "Twice the natural frequency",
+        "Set by the supply voltage"
+      ],
+      "correctIndex": 0,
+      "explanation": "A lightly damped tank rings at its natural frequency 1/(2π√(LC)); the losses reduce the amplitude but change the frequency only very slightly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m036",
+      "questionText": "An LC oscillator has a fixed inductor and a variable capacitor that can be set from 100 pF to 400 pF. The ratio of the highest to the lowest frequency it can produce is:",
+      "options": [
+        "4",
+        "2",
+        "1.41",
+        "16"
+      ],
+      "correctIndex": 1,
+      "explanation": "f is proportional to 1/√C, so f_max/f_min = √(400/100) = √4 = 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m037",
+      "questionText": "A 1 MHz LC oscillator has a tank Q of 50. A stray phase shift of 3° appears in the amplifier. Using tan φ = 2QΔf/f0, the frequency shift needed to restore zero loop phase is about:",
+      "options": [
+        "1.05 kHz",
+        "30 kHz",
+        "262 Hz",
+        "524 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "Δf = f0 tan(3°)/(2Q) = 10^6 × 0.0524/100 ≈ 524 Hz. Omitting the factor 2 gives 1.05 kHz; using 3 instead of tan 3° gives 30 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m038",
+      "questionText": "An amplifier with gain A = 25 has positive feedback with β = 0.036. What is its closed-loop gain, and what value of β would make it oscillate?",
+      "options": [
+        "13.2; β = 0.04",
+        "250; β = 0.4",
+        "13.2; β = 0.036",
+        "250; β = 0.04"
+      ],
+      "correctIndex": 3,
+      "explanation": "Aβ = 25 × 0.036 = 0.9, so A_f = 25/(1 − 0.9) = 250. Oscillation needs Aβ = 1, so β = 1/25 = 0.04. The 13.2 comes from the negative-feedback formula 25/1.9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m039",
+      "questionText": "Which statement about feedback oscillators is NOT correct?",
+      "options": [
+        "They use positive feedback",
+        "Their frequency is set by the feedback network",
+        "They need an external AC input signal to produce an output",
+        "Their output power comes from the DC supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "An oscillator supplies its own input through the feedback network; it needs only a DC supply, not an external AC signal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m040",
+      "questionText": "Oscillators designed to operate in the range of about 20 Hz to 20 kHz are called:",
+      "options": [
+        "Radio-frequency (RF) oscillators",
+        "Microwave oscillators",
+        "Audio-frequency (AF) oscillators",
+        "VHF oscillators"
+      ],
+      "correctIndex": 2,
+      "explanation": "20 Hz to 20 kHz is the audio range; RF, VHF and microwave oscillators work at much higher frequencies.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m041",
+      "questionText": "At 1 MHz, an LC oscillator has a stability of 0.1% and a crystal oscillator has a stability of 10 ppm. The maximum drift of the LC oscillator is how many times that of the crystal oscillator?",
+      "options": [
+        "10",
+        "1000",
+        "10000",
+        "100"
+      ],
+      "correctIndex": 3,
+      "explanation": "LC: 0.1% of 1 MHz = 1000 Hz. Crystal: 10 × 10^-6 × 1 MHz = 10 Hz. Ratio = 1000/10 = 100.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m042",
+      "questionText": "The operation of a relaxation oscillator is based on:",
+      "options": [
+        "Resonance of an LC tank circuit",
+        "Charging and discharging a capacitor, with a switching device changing state at threshold voltages",
+        "The piezoelectric effect in quartz",
+        "Zero phase shift in a lead-lag network"
+      ],
+      "correctIndex": 1,
+      "explanation": "A relaxation oscillator charges a capacitor through a resistor until a threshold makes a switching element change state and discharge it, producing square, pulse or sawtooth waveforms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i51_m043",
+      "questionText": "For a voltage-feedback oscillator, the loop gain Aβ has the unit:",
+      "options": [
+        "None; it is a dimensionless ratio",
+        "Volts",
+        "Ohms",
+        "Hertz"
+      ],
+      "correctIndex": 0,
+      "explanation": "A is output volts per input volt and β is feedback volts per output volt, so their product is a pure number.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m044",
+      "questionText": "An oscillator amplifier has a gain of 40 dB and its feedback network has an attenuation of 34 dB with the correct phase shift. At small amplitude the loop gain and the resulting behaviour are:",
+      "options": [
+        "About 0.5; oscillations die out",
+        "Exactly 1; steady oscillation from the start",
+        "About 6; oscillations die out",
+        "About 2; oscillations build up until the amplifier limits"
+      ],
+      "correctIndex": 3,
+      "explanation": "Loop gain = 40 − 34 = 6 dB, which is 10^(6/20) ≈ 2 as a voltage ratio. Since this is greater than 1 the oscillations grow until non-linearity limits them.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i51_m045",
+      "questionText": "The RC phase-shift oscillator and the Wien bridge oscillator are both classified as:",
+      "options": [
+        "LC oscillators",
+        "RC oscillators",
+        "Crystal oscillators",
+        "Relaxation oscillators"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both use resistor-capacitor networks to set the frequency and both give sine waves, so they are RC (sinusoidal) oscillators.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i51_m046",
+      "questionText": "A working oscillator stops oscillating when a low-resistance load is connected directly across its tank circuit. The most likely reason is:",
+      "options": [
+        "The load doubles the oscillation frequency",
+        "The heavy load lowers the effective Q and gain so that |Aβ| falls below 1",
+        "The load adds 180° to make the loop phase 360°",
+        "The load raises the supply voltage"
+      ],
+      "correctIndex": 1,
+      "explanation": "A low-resistance load damps the tank, reducing its impedance and Q; the loop gain drops below unity and the oscillations die out.",
+      "difficulty": "medium"
+    }
+  ]
+}

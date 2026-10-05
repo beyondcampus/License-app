@@ -1,0 +1,704 @@
+{
+  "topicId": "ch1_t2",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Kirchhoff's Laws and Systematic Analysis"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why only n − 1 KCL equations? Every branch current leaves one node and enters another, so if the KCL equations of all n nodes are added, every current appears once with a plus sign and once with a minus sign and the sum is identically zero. One node equation is therefore always a combination of the others, and it is dropped by making that node the reference. In graph terms a tree joins all n nodes with n − 1 twigs; each of the remaining b − n + 1 links closes exactly one independent loop, which is why that many KVL equations are needed."
+    },
+    {
+      "type": "formula",
+      "latex": "[G][V] = [I_s], \\quad G_{kk} = \\sum G_{\\text{at }k}, \\; G_{kj} = -G_{\\text{between }k,j}",
+      "plainText": "[G][V] = [I_s]: G_kk = sum of conductances at node k; G_kj = −(conductance between k and j)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: nodal analysis with two unknown nodes\nCircuit: 20 V source behind 4 Ω feeds node A; A to ref 4 Ω;\nA to B 2 Ω; B to ref 8 Ω; 3 A current source into B.\nKCL at A: (20 − VA)/4 = VA/4 + (VA − VB)/2\n          → 5 = VA(0.25 + 0.25 + 0.5) − 0.5 VB = VA − 0.5 VB\nKCL at B: 3 + (VA − VB)/2 = VB/8\n          → 3 = −0.5 VA + 0.625 VB\nFrom the first: VA = 5 + 0.5 VB\nSubstitute: 3 = −2.5 − 0.25 VB + 0.625 VB → VB = 5.5/0.375 = 14.67 V\nVA = 5 + 7.33 = 12.33 V\nCheck at A: (20 − 12.33)/4 = 1.92 A in; 12.33/4 + (12.33 − 14.67)/2\n            = 3.08 − 1.17 = 1.92 A out  ✓"
+    },
+    {
+      "type": "paragraph",
+      "text": "When a voltage source joins two non-reference nodes, its current cannot be written as (V_a − V_b)/R. Enclose both nodes in a supernode, write one KCL equation for the whole enclosure, and add the constraint V_a − V_b = V_s. The dual situation in mesh analysis is a current source shared by two meshes: its voltage is unknown, so KVL is written round the supermesh that bypasses it, with the constraint that the difference of the two mesh currents equals the source current."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: mesh analysis (both mesh currents clockwise)\nMesh 1: 30 V source, 3 Ω, shared 6 Ω.  Mesh 2: shared 6 Ω, 4 Ω, 2 Ω.\nMesh 1: 30 = 3 I1 + 6(I1 − I2) = 9 I1 − 6 I2\nMesh 2:  0 = 6(I2 − I1) + 4 I2 + 2 I2 = −6 I1 + 12 I2  → I1 = 2 I2\nSubstitute: 30 = 18 I2 − 6 I2 = 12 I2 → I2 = 2.5 A, I1 = 5 A\nShared 6 Ω carries I1 − I2 = 2.5 A (direction of I1), drop = 15 V\nKVL check, mesh 2: 15 V = 2.5 × (4 + 2) = 15 V  ✓\nPower check: source 30 × 5 = 150 W; resistors\n  5²×3 + 2.5²×6 + 2.5²×4 + 2.5²×2 = 75 + 37.5 + 25 + 12.5 = 150 W  ✓"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "Nodal analysis",
+          "Mesh analysis"
+        ],
+        [
+          "Law used",
+          "KCL at each non-reference node",
+          "KVL round each mesh"
+        ],
+        [
+          "Unknowns",
+          "n − 1 node voltages",
+          "b − n + 1 mesh currents"
+        ],
+        [
+          "Sources that enter directly",
+          "Current sources",
+          "Voltage sources"
+        ],
+        [
+          "Awkward source",
+          "Voltage source between two nodes (supernode)",
+          "Current source shared by two meshes (supermesh)"
+        ],
+        [
+          "Circuit restriction",
+          "Works for any circuit",
+          "Planar circuits only"
+        ],
+        [
+          "Matrix for passive circuit",
+          "Symmetric conductance matrix",
+          "Symmetric resistance matrix"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "In AC circuits KCL and KVL hold at every instant, so they also hold for phasors, but not for RMS magnitudes. Two currents of 3 A and 4 A that are 90° apart combine to 5 A, not 7 A, and three equal voltages 120° apart add to zero. Add the phasors (or the instantaneous values) first and take the magnitude last."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in KCL/KVL problems:",
+      "items": [
+        "Changing the sign convention half-way round a loop or node; fix one rule for rises and drops and keep it.",
+        "Writing only one mesh current for a shared resistor instead of the difference I₁ − I₂.",
+        "Treating a negative answer as an error; it only means the assumed direction was wrong.",
+        "Adding RMS magnitudes of AC currents at a node as if they were in phase.",
+        "Transforming an ideal source, or using the transformed model to find the power lost inside the source."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Before solving, count: n − 1 node equations versus b − n + 1 mesh equations, and pick the smaller set. After solving, do a power balance (total power delivered = total power absorbed); it catches most sign errors in seconds."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_t2_m001",
+      "questionText": "At a junction, currents of 5 A and 3 A flow in, a current of 2 A flows out, and one more branch carries an unknown current I out of the junction. What is I?",
+      "options": [
+        "10 A",
+        "6 A",
+        "4 A",
+        "0 A"
+      ],
+      "correctIndex": 1,
+      "explanation": "KCL: current in = current out, so 5 + 3 = 2 + I, giving I = 6 A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m002",
+      "questionText": "A 60 V supply feeds three resistors of 10 Ω, 20 Ω and 30 Ω connected in parallel. Using KCL at the supply terminal, the total current drawn from the supply is:",
+      "options": [
+        "11 A",
+        "1 A",
+        "6 A",
+        "3.33 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "Branch currents are 60/10 = 6 A, 60/20 = 3 A and 60/30 = 2 A; by KCL the supply current is 6 + 3 + 2 = 11 A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m003",
+      "questionText": "A connected planar network has 6 nodes and 9 branches. How many independent mesh (KVL) equations does it need?",
+      "options": [
+        "5",
+        "3",
+        "9",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Independent KVL equations = b − n + 1 = 9 − 6 + 1 = 4. The value 5 is n − 1, the number of node equations.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m004",
+      "questionText": "Nodal analysis is applied to a circuit that has 5 principal nodes. How many node-voltage equations must be written?",
+      "options": [
+        "5",
+        "3",
+        "6",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "One node is chosen as the reference (0 V), so only n − 1 = 5 − 1 = 4 node voltages are unknown and 4 KCL equations are needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m005",
+      "questionText": "A 5 A ideal current source in parallel with a 10 Ω resistor is converted by source transformation. The equivalent is:",
+      "options": [
+        "50 V source in series with 10 Ω",
+        "0.5 V source in series with 10 Ω",
+        "50 V source in parallel with 10 Ω",
+        "2 V source in series with 10 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_s = I_s × R = 5 × 10 = 50 V, and the same 10 Ω is moved from parallel to series.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m006",
+      "questionText": "A 24 V source drives a single loop containing resistors of 2 Ω, 4 Ω and 6 Ω in series. The voltage across the 4 Ω resistor is:",
+      "options": [
+        "8 V",
+        "12 V",
+        "4 V",
+        "16 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "I = 24/(2 + 4 + 6) = 2 A, so V_4Ω = 2 × 4 = 8 V. By KVL the other drops (4 V + 12 V = 16 V) make up the rest of the 24 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m007",
+      "questionText": "Going round a closed loop, you pass two EMFs of 12 V and 5 V, both as rises, a resistor drop of 8 V and an unknown drop V_x. By KVL, V_x equals:",
+      "options": [
+        "25 V",
+        "1 V",
+        "9 V",
+        "17 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sum of rises = sum of drops: 12 + 5 = 8 + V_x, so V_x = 9 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m008",
+      "questionText": "Kirchhoff's voltage law is a statement of the conservation of:",
+      "options": [
+        "Charge",
+        "Energy",
+        "Momentum",
+        "Magnetic flux"
+      ],
+      "correctIndex": 1,
+      "explanation": "A charge taken once round a closed path returns to the same potential, so the net work done on it is zero; KVL therefore expresses conservation of energy. KCL is the law based on conservation of charge.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m009",
+      "questionText": "In circuit analysis, a mesh is best defined as:",
+      "options": [
+        "Any closed path in the circuit",
+        "A point where three or more branches meet",
+        "A path between two adjacent nodes",
+        "A loop that does not enclose any other loop"
+      ],
+      "correctIndex": 3,
+      "explanation": "A mesh is a 'window' of a planar circuit: a loop with no other loop inside it. Every mesh is a loop, but not every loop is a mesh.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m010",
+      "questionText": "In nodal analysis, the node that is assigned zero potential and against which all other node voltages are measured is called the:",
+      "options": [
+        "Reference (datum) node",
+        "Supernode",
+        "Principal node",
+        "Floating node"
+      ],
+      "correctIndex": 0,
+      "explanation": "One node, usually the one with the most branches or the ground, is taken as the reference or datum node at 0 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m011",
+      "questionText": "Which of the following CANNOT be converted by source transformation?",
+      "options": [
+        "A 12 V source in series with 3 Ω",
+        "A 2 A source in parallel with 6 Ω",
+        "A 9 V source in series with 1 Ω",
+        "An ideal voltage source with no series resistance"
+      ],
+      "correctIndex": 3,
+      "explanation": "Transformation needs a finite, non-zero resistance: I_s = V_s/R_s would be infinite for R_s = 0, so an ideal voltage source has no current-source equivalent.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m012",
+      "questionText": "Kirchhoff's current and voltage laws are valid for:",
+      "options": [
+        "Linear circuits only",
+        "Both linear and non-linear lumped circuits",
+        "DC circuits only",
+        "Circuits without capacitors and inductors"
+      ],
+      "correctIndex": 1,
+      "explanation": "KCL and KVL come from conservation of charge and energy, not from the element laws, so they hold for any lumped circuit, linear or non-linear, DC or AC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m013",
+      "questionText": "A branch of an electric circuit is:",
+      "options": [
+        "A closed path that returns to its starting node",
+        "A junction of three or more conductors",
+        "The reference point of the circuit",
+        "A single element, or elements in series, between two nodes"
+      ],
+      "correctIndex": 3,
+      "explanation": "A branch connects two nodes and carries a single current; a closed path is a loop, and a junction is a principal node.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m014",
+      "questionText": "Mesh analysis in its standard form can be applied only to circuits that are:",
+      "options": [
+        "Purely resistive",
+        "Supplied from DC sources",
+        "Planar (drawable without crossing branches)",
+        "Free of current sources"
+      ],
+      "correctIndex": 2,
+      "explanation": "Meshes are defined as the windows of a circuit drawn flat on a plane, so the method needs a planar circuit. Current sources and AC sources are handled without difficulty.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t2_m015",
+      "questionText": "Two sinusoidal currents of the same frequency enter a node: 3∠0° A and 4∠90° A (RMS phasors). The only other branch at the node carries the total out. The RMS value of that current is:",
+      "options": [
+        "7 A",
+        "1 A",
+        "25 A",
+        "5 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "KCL holds for phasors: I = 3∠0° + 4∠90° = 3 + j4 A, so |I| = √(3² + 4²) = 5 A. Adding magnitudes (7 A) ignores the phase difference.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m016",
+      "questionText": "Currents i₁ = 10 sin ωt A and i₂ = 10 sin(ωt + 120°) A enter a node and leave through a single third branch. The peak value of the current in the third branch is:",
+      "options": [
+        "20 A",
+        "17.32 A",
+        "10 A",
+        "0 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "KCL applies instant by instant: i₃ = i₁ + i₂. Adding phasors 10∠0° + 10∠120° = 5 + j8.66, whose magnitude is 10 A. 20 A adds peaks; 17.32 A would be the result for a 60° separation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m017",
+      "questionText": "A 12 V source feeds node A through a 6 Ω resistor. A 1 A current source also feeds current into node A, and a 3 Ω resistor connects A to the source's negative terminal (reference). The voltage of node A is:",
+      "options": [
+        "6 V",
+        "4 V",
+        "2 V",
+        "9 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "KCL at A: (12 − V)/6 + 1 = V/3 → 2 − V/6 + 1 = V/3 → 3 = V/2 → V = 6 V. Ignoring the current source gives 4 V; reversing it gives 2 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m018",
+      "questionText": "A single loop contains a 12 V source and a 4 V source connected in opposition, a 2 Ω resistor and a 6 Ω resistor. The loop current is:",
+      "options": [
+        "2 A",
+        "1.5 A",
+        "1 A",
+        "0.5 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Opposing EMFs subtract: I = (12 − 4)/(2 + 6) = 8/8 = 1 A. Adding them (16/8 = 2 A) treats the sources as aiding.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m019",
+      "questionText": "Two practical sources, 12 V with 3 Ω internal resistance and 6 V with 6 Ω internal resistance, are connected in parallel with like terminals together. Using source transformation, the open-circuit terminal voltage is:",
+      "options": [
+        "9 V",
+        "18 V",
+        "10 V",
+        "15 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Transform each: 12/3 = 4 A and 6/6 = 1 A, total 5 A in parallel with 3 Ω ∥ 6 Ω = 2 Ω. Open-circuit voltage = 5 × 2 = 10 V. The simple average (9 V) is wrong because the resistances differ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m020",
+      "questionText": "An 18 V source in series with 3 Ω feeds node A; a 6 Ω resistor joins A to the reference; from A a 2 Ω resistor leads to a 4 Ω load returning to the reference. Using repeated source transformation, the load current is:",
+      "options": [
+        "3 A",
+        "2 A",
+        "1.5 A",
+        "1 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "18 V/3 Ω → 6 A ∥ 3 Ω; with 6 Ω this is 6 A ∥ 2 Ω → 12 V in series with 2 Ω; add 2 Ω → 12 V behind 4 Ω. I_L = 12/(4 + 4) = 1.5 A. Forgetting the 6 Ω shunt gives 18/9 = 2 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m021",
+      "questionText": "Two series branches are connected across a 20 V supply: branch 1 is 4 Ω (top) then 6 Ω (bottom), and branch 2 is 8 Ω (top) then 2 Ω (bottom). Point a is the junction in branch 1 and point b the junction in branch 2. Taking the bottom rail as reference, V_ab is:",
+      "options": [
+        "16 V",
+        "8 V",
+        "4 V",
+        "20 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_a = 20 × 6/10 = 12 V and V_b = 20 × 2/10 = 4 V. Going from b to a by KVL, V_ab = V_a − V_b = 12 − 4 = 8 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m022",
+      "questionText": "A practical source of 10 V with 2 Ω internal resistance is left open-circuited. Its source-transformed (current-source) model predicts an internal power dissipation of:",
+      "options": [
+        "50 W",
+        "0 W",
+        "25 W",
+        "12.5 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "The equivalent is 5 A in parallel with 2 Ω; on open circuit all 5 A flows in the 2 Ω, dissipating 5² × 2 = 50 W, while the voltage-source model dissipates 0 W. Transformation preserves terminal behaviour only, not internal power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m023",
+      "questionText": "In a Wheatstone bridge, arm AC = 10 Ω, arm CB = 20 Ω and arm AD = 30 Ω; the supply is across A and B and the galvanometer across C and D. For zero galvanometer current, arm DB must be:",
+      "options": [
+        "15 Ω",
+        "60 Ω",
+        "6.67 Ω",
+        "40 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "At balance V_C = V_D, which by KVL requires AC/CB = AD/DB: 10/20 = 30/DB, so DB = 60 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m024",
+      "questionText": "In a two-mesh circuit a 12 V source and a 2 Ω resistor lie only in mesh 1, a 4 Ω resistor is shared by meshes 1 and 2, and both mesh currents I₁ and I₂ are taken clockwise. In the KVL equation for mesh 1, the coefficient of I₂ is:",
+      "options": [
+        "+4",
+        "−6",
+        "+6",
+        "−4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Mesh 1: 12 = 2I₁ + 4(I₁ − I₂) = 6I₁ − 4I₂. The mutual resistance appears with a minus sign when both mesh currents are clockwise; 6 is the self-resistance (coefficient of I₁).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m025",
+      "questionText": "Two adjacent meshes share a 5 Ω resistor. Solving the mesh equations gives clockwise mesh currents I₁ = 3 A and I₂ = 1 A. The current in the shared resistor and the voltage across it are:",
+      "options": [
+        "4 A and 20 V",
+        "3 A and 15 V",
+        "1 A and 5 V",
+        "2 A and 10 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "Clockwise mesh currents flow in opposite directions through the shared branch, so its current is I₁ − I₂ = 2 A in the direction of I₁, and V = 2 × 5 = 10 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m026",
+      "questionText": "Node voltages found by nodal analysis are V_A = 10 V and V_B = −2 V (relative to the reference). A 4 Ω resistor connects A and B. The current in it is:",
+      "options": [
+        "2 A from A to B",
+        "3 A from A to B",
+        "3 A from B to A",
+        "2.5 A from A to B"
+      ],
+      "correctIndex": 1,
+      "explanation": "I = (V_A − V_B)/R = (10 − (−2))/4 = 12/4 = 3 A, flowing from the higher potential A to B. Using 10 − 2 gives the wrong 2 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m027",
+      "questionText": "A circuit has 4 nodes and 8 branches. Comparing the number of simultaneous equations, which method is more economical?",
+      "options": [
+        "Mesh analysis: 3 equations against 5 node equations",
+        "Both need 4 equations",
+        "Nodal analysis: 3 equations against 5 mesh equations",
+        "Mesh analysis: 4 equations against 5 node equations"
+      ],
+      "correctIndex": 2,
+      "explanation": "Node equations = n − 1 = 3; mesh equations = b − n + 1 = 8 − 4 + 1 = 5, so nodal analysis needs fewer equations.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m028",
+      "questionText": "In the graph of a connected network with n nodes and b branches, a tree contains how many branches (twigs)?",
+      "options": [
+        "n − 1",
+        "b − n + 1",
+        "n",
+        "b − 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "A tree connects all n nodes without forming a loop, which needs exactly n − 1 twigs. The remaining b − n + 1 branches are links, one for each independent loop equation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m029",
+      "questionText": "In nodal analysis, a supernode is formed when:",
+      "options": [
+        "A current source is shared by two meshes",
+        "A voltage source is connected between two non-reference nodes",
+        "Three or more resistors meet at a node",
+        "A node is connected directly to the reference through a wire"
+      ],
+      "correctIndex": 1,
+      "explanation": "A voltage source between two non-reference nodes hides its current, so the two nodes are enclosed together: one KCL equation is written for the enclosure and the source supplies the constraint V_a − V_b = V_s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m030",
+      "questionText": "In mesh analysis, a supermesh is formed when:",
+      "options": [
+        "A voltage source lies on the outer boundary of a mesh",
+        "A resistor is shared by two meshes",
+        "Two meshes have the same current",
+        "A current source lies in a branch shared by two meshes"
+      ],
+      "correctIndex": 3,
+      "explanation": "The voltage across a current source is unknown, so KVL is written round the combined loop that avoids it, and the source gives the constraint I₂ − I₁ = I_s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m031",
+      "questionText": "For a resistive circuit without dependent sources, written in the matrix form [G][V] = [I] for nodal analysis, a diagonal element G_kk equals:",
+      "options": [
+        "The conductance between node k and the reference only",
+        "The sum of the conductances connected to node k",
+        "The negative of the conductance between node k and its neighbours",
+        "The reciprocal of the total resistance of the circuit"
+      ],
+      "correctIndex": 1,
+      "explanation": "G_kk is the self-conductance, the sum of every conductance meeting at node k; off-diagonal terms G_kj are the negative of the conductance joining nodes k and j, which makes the matrix symmetric.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m032",
+      "questionText": "After solving a mesh-analysis problem, one mesh current comes out as −2.5 A. This means:",
+      "options": [
+        "An arithmetic error has definitely been made",
+        "The actual current is 2.5 A in the direction opposite to that assumed",
+        "The mesh contains a source that absorbs power",
+        "The current is 2.5 A in the assumed direction but the sources are reversed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Directions are assumed arbitrarily; a negative answer simply means the true current flows opposite to the assumed direction with magnitude 2.5 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m033",
+      "questionText": "Which statement about Kirchhoff's current law is correct?",
+      "options": [
+        "It applies only to nodes joining exactly three branches",
+        "It applies only to DC currents",
+        "It applies to any closed surface as well as to a single node",
+        "It requires all resistors at the node to be equal"
+      ],
+      "correctIndex": 2,
+      "explanation": "Because charge cannot accumulate inside any lumped region, the net current crossing any closed surface is zero; this generalised KCL is what justifies the supernode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m034",
+      "questionText": "Which statement about Kirchhoff's laws and circuit power is NOT correct?",
+      "options": [
+        "KCL follows from conservation of charge",
+        "KVL can be applied to phasor voltages in a sinusoidal steady-state circuit",
+        "KVL holds only in circuits supplied by DC sources",
+        "The sum of powers absorbed by all elements of a circuit is zero"
+      ],
+      "correctIndex": 2,
+      "explanation": "KVL is valid at every instant for any lumped circuit, so it also holds for AC voltages and for phasors. The other three statements are true; the last is Tellegen's power balance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m035",
+      "questionText": "Kirchhoff's laws in their usual form may fail when:",
+      "options": [
+        "The circuit contains non-linear elements",
+        "The circuit is supplied by an AC source",
+        "The circuit has more than ten branches",
+        "The circuit dimensions are comparable to the wavelength of the signal"
+      ],
+      "correctIndex": 3,
+      "explanation": "KCL and KVL assume a lumped circuit in which signals travel between elements instantaneously. At very high frequencies, when dimensions approach the wavelength, the circuit becomes distributed and transmission-line analysis is required.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m036",
+      "questionText": "A 20 V source with its positive terminal at terminal a has an internal resistance of 4 Ω. In the equivalent current-source form, the source value and arrow direction are:",
+      "options": [
+        "5 A with the arrow pointing toward terminal a",
+        "5 A with the arrow pointing away from terminal a",
+        "80 A with the arrow pointing toward terminal a",
+        "0.2 A with the arrow pointing toward terminal a"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_s = V_s/R_s = 20/4 = 5 A, and the arrow points toward the terminal that is positive in the voltage-source form so that both models push current out of terminal a into a load.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m037",
+      "questionText": "In nodal analysis, an ideal voltage source is connected between node A and the reference node. The effect on the analysis is that:",
+      "options": [
+        "V_A is known directly, so one fewer KCL equation is needed",
+        "Node A must be merged with the reference node",
+        "The source must first be converted to a current source",
+        "A supermesh must be formed around the source"
+      ],
+      "correctIndex": 0,
+      "explanation": "The source fixes V_A = V_s, so node A drops out of the unknowns and no KCL equation is written there. A supernode is needed only when the source joins two non-reference nodes; an ideal source cannot be transformed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t2_m038",
+      "questionText": "A 16 V source feeds node A through 2 Ω. Node A has a 5 Ω resistor to the reference and a 2 Ω resistor to node B. Node B has a 4 Ω resistor to the reference and a 1 A current source feeding into it. The node voltages V_A and V_B are:",
+      "options": [
+        "10 V and 8 V",
+        "9 V and 6 V",
+        "10 V and 6 V",
+        "12 V and 8 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "KCL at A: (16 − V_A)/2 = V_A/5 + (V_A − V_B)/2; KCL at B: 1 + (V_A − V_B)/2 = V_B/4. Solving gives V_A = 10 V, V_B = 8 V (check: 3 A in, 2 A to ground, 1 A to B; at B 1 + 1 = 2 A = 8/4).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m039",
+      "questionText": "An 8 A current source feeds node A from the reference. A 2 Ω resistor joins A to the reference, and a 10 V source is connected between A (+) and node B, which has a 4 Ω resistor to the reference. The voltage across the 4 Ω resistor and the power delivered by the current source are:",
+      "options": [
+        "14 V and 112 W",
+        "4 V and 32 W",
+        "4 V and 112 W",
+        "6 V and 48 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Supernode A–B: V_A − V_B = 10 and 8 = V_A/2 + V_B/4 → 8 = (V_B + 10)/2 + V_B/4 → V_B = 4 V, V_A = 14 V. Power of current source = 8 × V_A = 8 × 14 = 112 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m040",
+      "questionText": "Mesh 1 contains a 20 V source that drives current clockwise round mesh 1 and a 4 Ω resistor; mesh 2 contains a 6 Ω resistor; the branch shared by the two meshes is a 2 A current source that makes I₂ − I₁ = 2 A (clockwise mesh currents). Using a supermesh, the current in the 6 Ω resistor is:",
+      "options": [
+        "2.8 A",
+        "2 A",
+        "4 A",
+        "0.8 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "Supermesh KVL round the outer loop: 20 = 4I₁ + 6I₂ with I₂ = I₁ + 2 → 20 = 10I₁ + 12 → I₁ = 0.8 A, I₂ = 2.8 A. The 6 Ω carries I₂ = 2.8 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m041",
+      "questionText": "A 12 V source (positive terminal up) feeds the top node T through 2 Ω. A 4 Ω resistor joins T to the bottom rail, and a second 4 Ω resistor joins T to the positive terminal of a 6 V source whose negative terminal is on the bottom rail. The current in the middle 4 Ω resistor is:",
+      "options": [
+        "1.125 A",
+        "1.5 A",
+        "1.875 A",
+        "4.5 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Nodal at T: (12 − V)/2 = V/4 + (V − 6)/4 → 6 + 1.5 = V(0.5 + 0.25 + 0.25) → V = 7.5 V. Current = 7.5/4 = 1.875 A. Reversing the 6 V source gives 1.125 A; ignoring it gives 1.5 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m042",
+      "questionText": "For the same circuit (12 V behind 2 Ω feeding node T, 4 Ω from T to the bottom rail, 4 Ω from T to a 6 V source), the power delivered by the 12 V source is:",
+      "options": [
+        "22.5 W",
+        "27 W",
+        "36 W",
+        "18 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_T = 7.5 V, so the 12 V source current is (12 − 7.5)/2 = 2.25 A and P = 12 × 2.25 = 27 W. Using the middle-branch current (1.875 A) gives the wrong 22.5 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m043",
+      "questionText": "A 12 V source feeds node A through 4 Ω. A 6 Ω resistor from A to the reference carries current I_x. A current-controlled current source of value 0.5 I_x also injects current into node A. The voltage of node A is:",
+      "options": [
+        "7.2 V",
+        "6 V",
+        "12 V",
+        "9 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "KCL at A with I_x = V/6: (12 − V)/4 + 0.5(V/6) = V/6 → 3 = V(1/4 + 1/12) = V/3 → V = 9 V. Ignoring the dependent source gives 7.2 V; reversing it gives 6 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m044",
+      "questionText": "A 10 V source is connected across A (+) and B. The bridge arms are AC = 2 Ω, CB = 3 Ω, AD = 4 Ω and DB = 1 Ω, and a 5 Ω galvanometer is connected between C and D. Using nodal or mesh analysis, the galvanometer current is:",
+      "options": [
+        "0 A (bridge balanced)",
+        "0.571 A from C to D",
+        "1.0 A from C to D",
+        "0.286 A from D to C"
+      ],
+      "correctIndex": 1,
+      "explanation": "The bridge is unbalanced (2/3 ≠ 4/1). Nodal with B as reference: at C, (10 − V_C)/2 = V_C/3 + (V_C − V_D)/5; at D, (10 − V_D)/4 + (V_C − V_D)/5 = V_D/1. Solving gives V_C = 5.314 V, V_D = 2.457 V, so I = 2.857/5 = 0.571 A from C to D.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m045",
+      "questionText": "Three practical sources are connected in parallel across a 4 Ω load: 12 V with 2 Ω, 6 V with 3 Ω, and 3 V with 6 Ω, the last one connected with reversed polarity. Using source transformation, the load current is:",
+      "options": [
+        "2.25 A",
+        "1.7 A",
+        "1.5 A",
+        "6 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Currents: 12/2 = 6 A, 6/3 = 2 A, −3/6 = −0.5 A → 7.5 A. Total conductance = 1/2 + 1/3 + 1/6 + 1/4 = 1.25 S, so V = 7.5/1.25 = 6 V and I_L = 6/4 = 1.5 A. Ignoring the reversal gives 8.5/1.25/4 = 1.7 A; the answer 6 A is the load voltage mistaken for current.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m046",
+      "questionText": "A ladder network has a source V_s in series with 4 Ω feeding node A; A has a 12 Ω resistor to the reference and a 2 Ω resistor to node B; B has a 4 Ω load to the reference. What source voltage gives exactly 1 A in the load?",
+      "options": [
+        "12 V",
+        "6 V",
+        "10 V",
+        "16 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "Work back with KVL and KCL: V_B = 1 × 4 = 4 V; V_A = 4 + 1 × 2 = 6 V; I_12Ω = 6/12 = 0.5 A; source current = 1.5 A; V_s = 6 + 1.5 × 4 = 12 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t2_m047",
+      "questionText": "A single loop contains a 20 V independent source, resistors of 2 Ω and 3 Ω, and a current-controlled voltage source of value 5I (I = loop current) whose polarity opposes the current, like a drop. The loop current and the power absorbed by the dependent source are:",
+      "options": [
+        "4 A and 0 W",
+        "2 A and 20 W",
+        "2 A and 10 W",
+        "1.33 A and 8.9 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "KVL: 20 = 2I + 3I + 5I → I = 2 A. The dependent source drops 5 × 2 = 10 V with current entering its + terminal, so it absorbs 10 × 2 = 20 W. Ignoring it gives 20/5 = 4 A.",
+      "difficulty": "hard"
+    }
+  ]
+}

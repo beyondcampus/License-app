@@ -1,0 +1,707 @@
+{
+ "topicId": "ch2_i21",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: MUX Design Techniques"
+  },
+  {
+   "type": "paragraph",
+   "text": "Why is a MUX of half the size enough for an n-variable function? Shannon's expansion splits any function about one variable: F equals x̄ times F with x = 0, plus x times F with x = 1. Applying it to all the select variables shows that each data input only has to supply what is left of F for its select code, called the residue. When exactly one variable is left over, the residue is a function of that single variable, and there are only four of those: 0, 1, x and x̄."
+  },
+  {
+   "type": "formula",
+   "latex": "F(A,B,C) = \\overline{A}\\,F(0,B,C) + A\\,F(1,B,C)",
+   "plainText": "Shannon expansion: F = A' F(0,B,C) + A F(1,B,C)"
+  },
+  {
+   "type": "paragraph",
+   "text": "Which minterms a data input covers depends on which variable is left free. If the free variable is the least significant one, data input I_k covers the pair of minterms 2k and 2k + 1. If the free variable is the most significant one of an n-variable function, I_k covers minterms k and k + 2^(n−1), and the usual implementation table has two rows (free variable 0 and 1) and one column per data input. Any variable may be chosen as the free one; each choice gives a different but equally valid set of connections."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Example 1: F(A,B,C,D) = Σm(0,1,3,4,8,9,15) on an 8:1 MUX\nS2 S1 S0 = A B C, D is free (LSB), I_k covers m(2k), m(2k+1)\nI0: m0, m1    both in F        -> 1\nI1: m2, m3    only m3 (D = 1)  -> D\nI2: m4, m5    only m4 (D = 0)  -> D̄\nI3: m6, m7    neither          -> 0\nI4: m8, m9    both             -> 1\nI5: m10, m11  neither          -> 0\nI6: m12, m13  neither          -> 0\nI7: m14, m15  only m15 (D = 1) -> D"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Example 2: F(A,B,C) = Σm(0,2,3,6) on a 4:1 MUX, S1 S0 = B C, A free (MSB)\n            I0    I1    I2    I3\nA = 0 row   m0    m1    m2    m3\nA = 1 row   m4    m5    m6    m7\nin F        m0    none  m2,m6 m3\ndata input  Ā     0     1     Ā\nCheck: A B C = 1 1 0 selects I2 = 1, and m6 is in F."
+  },
+  {
+   "type": "paragraph",
+   "text": "Enable inputs give a second way to expand a MUX. Two 8:1 MUXes with active-low strobes, one strobed by S3 and the other by S̄3, form a 16:1 MUX when their outputs are ORed, because a disabled 74151 drives Y to 0. In a pure tree of 2:1 MUXes every block removes exactly one candidate input, so a 2^n:1 selector needs 2^n − 1 of them."
+  },
+  {
+   "type": "formula",
+   "latex": "N_{2:1} = 2^n - 1 \\quad (\\text{2:1 MUXes in a } 2^n\\text{:1 tree})",
+   "plainText": "Number of 2:1 MUXes for a 2^n:1 MUX = 2^n − 1 (e.g. 7 for 8:1, 31 for 32:1)"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "IC",
+     "Organisation",
+     "Strobe",
+     "Outputs"
+    ],
+    [
+     "74157",
+     "Quad 2:1, common select",
+     "One, active-low",
+     "True (74158: inverted)"
+    ],
+    [
+     "74153",
+     "Dual 4:1, common S1 S0",
+     "One per MUX, active-low",
+     "True"
+    ],
+    [
+     "74151",
+     "8:1",
+     "Active-low",
+     "Y and its complement W"
+    ],
+    [
+     "74150",
+     "16:1",
+     "Active-low",
+     "Inverted output W only"
+    ],
+    [
+     "74251",
+     "8:1",
+     "Active-low output control",
+     "Three-state Y and W"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "A single 2:1 MUX with S = A works as any basic gate, which is why it is functionally complete when 0 and 1 are available:",
+   "items": [
+    "NOT A: I0 = 1, I1 = 0.",
+    "A · B: I0 = 0, I1 = B.",
+    "A + B: I0 = B, I1 = 1.",
+    "A ⊕ B: I0 = B, I1 = B̄; swapping them gives A ⊙ B."
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes in MUX problems:",
+   "items": [
+    "Pairing minterms 2k and 2k + 1 when the free variable is actually the MSB (the pairs are then k and k + 2^(n−1)).",
+    "Swapping x and x̄: the input gets x when only the minterm with x = 1 is in F.",
+    "Reading the select code with S0 as the most significant bit.",
+    "Assuming a disabled MUX goes to high impedance; the 74151 forces Y = 0, and only three-state parts such as the 74251 float.",
+    "Counting tree blocks by dividing only once; each stage divides again until one block remains."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "To check a MUX design quickly, pick two or three input combinations, work out which data input each one selects, and confirm that the value on that input matches the truth table."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i21_m001",
+   "questionText": "A multiplexer is best described as a circuit that:",
+   "options": [
+    "Sends one input to one of several outputs",
+    "Converts a single active input line into a binary code",
+    "Selects one of several inputs and passes it to a single output",
+    "Stores one bit of data until the next clock edge"
+   ],
+   "correctIndex": 2,
+   "explanation": "A multiplexer is a data selector: the select code decides which one of the data inputs appears at the single output. Routing one input to many outputs is a demultiplexer, and coding an active line is an encoder.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m002",
+   "questionText": "A demultiplexer has 4 select lines. How many output lines does it have?",
+   "options": [
+    "4",
+    "8",
+    "32",
+    "16"
+   ],
+   "correctIndex": 3,
+   "explanation": "A DEMUX with n select lines has 2^n outputs: 2^4 = 16.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m003",
+   "questionText": "In a 4:1 multiplexer, the select lines are S1 S0 = 10. Which data input is connected to the output?",
+   "options": [
+    "I2",
+    "I1",
+    "I0",
+    "I3"
+   ],
+   "correctIndex": 0,
+   "explanation": "The select lines form a binary number with S1 as the MSB: 10₂ = 2, so I2 is selected. Reading S0 as the MSB would wrongly give I1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m004",
+   "questionText": "A 1:4 demultiplexer has data input D = 1 and select lines S1 S0 = 11. The outputs Y3 Y2 Y1 Y0 are:",
+   "options": [
+    "0001",
+    "1000",
+    "0111",
+    "1111"
+   ],
+   "correctIndex": 1,
+   "explanation": "The data is routed only to the output selected by S1 S0 = 11₂ = 3, so Y3 = D = 1 and the other outputs stay 0: Y3 Y2 Y1 Y0 = 1000.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m005",
+   "questionText": "A 1:4 demultiplexer has data input D = 0 and select lines S1 S0 = 01. The outputs Y3 Y2 Y1 Y0 are:",
+   "options": [
+    "0010",
+    "0000",
+    "1101",
+    "0001"
+   ],
+   "correctIndex": 1,
+   "explanation": "The selected output Y1 carries the data value D = 0 and all unselected outputs are 0, so every output is 0. Y1 = 1 would only appear if D = 1.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m006",
+   "questionText": "Which of the following ICs is an 8-to-1 multiplexer?",
+   "options": [
+    "74151",
+    "74138",
+    "74148",
+    "74157"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 74151 is the 8:1 data selector with outputs Y and W. The 74138 is a 3-to-8 decoder, the 74148 an 8-to-3 priority encoder and the 74157 a quad 2:1 MUX.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m007",
+   "questionText": "The 74153 IC contains:",
+   "options": [
+    "Four 2:1 multiplexers that share one select line",
+    "One 8:1 multiplexer with true and complemented outputs",
+    "Two 4:1 multiplexers that share the same select lines",
+    "Two 1:4 demultiplexers with separate enables"
+   ],
+   "correctIndex": 2,
+   "explanation": "The 74153 is a dual 4-line-to-1-line data selector: both halves use the common select inputs A and B but have separate active-low strobes. Four 2:1 MUXes is the 74157 and the 8:1 with Y and W is the 74151.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m008",
+   "questionText": "The active-low strobe (enable) input of a 74151 8:1 multiplexer is held HIGH. The output Y:",
+   "options": [
+    "Follows data input I0",
+    "Holds the value of the last selected input",
+    "Goes to the high-impedance state",
+    "Is forced to 0 regardless of the select and data inputs"
+   ],
+   "correctIndex": 3,
+   "explanation": "When the strobe is inactive the 74151 disables its AND gates, so Y = 0 and W = 1 whatever the other inputs are. It has no memory, and only three-state versions such as the 74251 float their outputs.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m009",
+   "questionText": "A 2:1 multiplexer has select S = A, data inputs I0 = B and I1 = B̄. The output Y equals:",
+   "options": [
+    "A ⊙ B",
+    "A · B",
+    "A + B",
+    "A ⊕ B"
+   ],
+   "correctIndex": 3,
+   "explanation": "Y = S̄·I0 + S·I1 = ĀB + AB̄, which is the exclusive-OR A ⊕ B.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m010",
+   "questionText": "To make a 2:1 multiplexer act as an inverter for the variable A, the connections should be:",
+   "options": [
+    "S = A, I0 = 0, I1 = 1",
+    "S = A, I0 = 1, I1 = 0",
+    "S = 1, I0 = A, I1 = 0",
+    "S = 0, I0 = 0, I1 = A"
+   ],
+   "correctIndex": 1,
+   "explanation": "Y = Ā·I0 + A·I1 = Ā·1 + A·0 = Ā. With I0 = 0 and I1 = 1 the MUX is only a buffer (Y = A), and the other two give a constant 0.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m011",
+   "questionText": "A 2:1 multiplexer has select S = A, I0 = B and I1 = 1. Its output is:",
+   "options": [
+    "A + B",
+    "A · B",
+    "Ā + B",
+    "A ⊕ B"
+   ],
+   "correctIndex": 0,
+   "explanation": "Y = Ā·B + A·1 = ĀB + A = A + B (absorption). The circuit therefore acts as a 2-input OR gate.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m012",
+   "questionText": "F(A,B,C) = Σm(0,2,5,7) is implemented on a 4:1 MUX with A on S1, B on S0 and C used at the data inputs. The data inputs I0, I1, I2, I3 are:",
+   "options": [
+    "C, C, C̄, C̄",
+    "C̄, C, C̄, C",
+    "C̄, C̄, C, C",
+    "1, 1, 0, 0"
+   ],
+   "correctIndex": 2,
+   "explanation": "I0 covers m0, m1 (only m0, C = 0) → C̄; I1 covers m2, m3 (only m2) → C̄; I2 covers m4, m5 (only m5, C = 1) → C; I3 covers m6, m7 (only m7) → C.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m013",
+   "questionText": "F(A,B,C,D) = Σm(1,3,4,11,12,13,14,15) is implemented on an 8:1 MUX with A, B, C on S2, S1, S0 and D applied to the data inputs. The data inputs I0 to I7 are:",
+   "options": [
+    "D̄, D̄, D, 0, 0, D̄, 1, 1",
+    "D, D, D̄, 0, 0, D, 1, 1",
+    "D, D, D̄, 0, 1, D, 1, 1",
+    "D, 1, D̄, 0, 0, D, 1, 1"
+   ],
+   "correctIndex": 1,
+   "explanation": "I_k covers m(2k) and m(2k+1): (0,1) → D, (2,3) → D, (4,5) → D̄, (6,7) → 0, (8,9) → 0, (10,11) → D, (12,13) → 1, (14,15) → 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m014",
+   "questionText": "An 8:1 MUX has A, B, C on S2, S1, S0 and data inputs I0 to I7 = 0, 1, 1, 0, 1, 0, 0, 1. The function realised is:",
+   "options": [
+    "AB + BC + CA",
+    "Complement of A ⊕ B ⊕ C",
+    "A ⊕ B ⊕ C",
+    "A + B + C"
+   ],
+   "correctIndex": 2,
+   "explanation": "The 1s are on I1, I2, I4, I7, so F = Σm(1,2,4,7). These are the combinations with an odd number of 1s, which is the 3-input XOR (the sum of a full adder).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m015",
+   "questionText": "An 8:1 MUX with A, B, C on S2, S1, S0 has data inputs I0 to I7 = 1, 0, 0, 1, 1, 1, 0, 0. The function is:",
+   "options": [
+    "Σm(2, 3, 4, 7)",
+    "ΠM(0, 3, 4, 5)",
+    "Σm(1, 2, 6, 7)",
+    "Σm(0, 3, 4, 5)"
+   ],
+   "correctIndex": 3,
+   "explanation": "With constants on the data inputs, F contains minterm i exactly when I_i = 1: I0, I3, I4, I5 → Σm(0,3,4,5). Σm(2,3,4,7) comes from reading the list backwards, and the other two are the complement.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m016",
+   "questionText": "F(A,B,C) = Σm(1,3,5,6) is implemented on a 4:1 MUX with B on S1, C on S0, and A (the MSB) applied to the data inputs. The data inputs I0, I1, I2, I3 are:",
+   "options": [
+    "0, 1, A, Ā",
+    "0, 1, Ā, A",
+    "A, Ā, 0, 1",
+    "0, A, 1, Ā"
+   ],
+   "correctIndex": 0,
+   "explanation": "With A free, I_k covers m_k (A = 0) and m_(k+4) (A = 1): I0 (m0, m4) none → 0; I1 (m1, m5) both → 1; I2 (m2, m6) only m6 → A; I3 (m3, m7) only m3 → Ā.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m017",
+   "questionText": "How many 2:1 multiplexers are needed to build a 32:1 multiplexer as a tree?",
+   "options": [
+    "16",
+    "32",
+    "5",
+    "31"
+   ],
+   "correctIndex": 3,
+   "explanation": "The stages need 16 + 8 + 4 + 2 + 1 = 31 blocks, i.e. 2^n − 1 with n = 5. Every 2:1 block removes exactly one candidate input, and 32 − 1 inputs must be eliminated.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m018",
+   "questionText": "A 16:1 MUX is built from two 8:1 MUXes with active-low enables (one handling I0–I7, the other I8–I15), with S2 S1 S0 common to both and their outputs ORed. The MSB select S3 should be connected to:",
+   "options": [
+    "The enables of both MUXes directly",
+    "The enable of the I0–I7 MUX directly and the enable of the I8–I15 MUX through an inverter",
+    "The enable of the I0–I7 MUX through an inverter and the enable of the I8–I15 MUX directly",
+    "The S0 inputs of both MUXes"
+   ],
+   "correctIndex": 1,
+   "explanation": "For S3 = 0 the low MUX must be enabled, so its active-low enable gets S3 itself; for S3 = 1 the high MUX must be enabled, so it gets S̄3. The disabled MUX outputs 0, so the OR gate passes the selected input.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m019",
+   "questionText": "How many 4:1 multiplexers are needed to build a 64:1 multiplexer?",
+   "options": [
+    "16",
+    "20",
+    "21",
+    "15"
+   ],
+   "correctIndex": 2,
+   "explanation": "First stage 64/4 = 16 MUXes, second stage 16/4 = 4, third stage 4/4 = 1, total 21 = (64 − 1)/(4 − 1). Stopping after the first stage gives 16 and forgetting the last block gives 20.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m020",
+   "questionText": "A 16:1 MUX is made of five 4:1 MUXes: first-stage MUX M0 handles I0–I3, M1 handles I4–I7, M2 handles I8–I11 and M3 handles I12–I15, and all first-stage MUXes use S1 S0. For S3 S2 S1 S0 = 1110, the output comes from:",
+   "options": [
+    "M3, its input 2 (I14)",
+    "M2, its input 3 (I11)",
+    "M3, its input 1 (I13)",
+    "M1, its input 3 (I7)"
+   ],
+   "correctIndex": 0,
+   "explanation": "S1 S0 = 10 makes every first-stage MUX pass its input 2, and S3 S2 = 11 makes the second stage choose M3, so I(4·3 + 2) = I14 appears; 1110₂ = 14 confirms it.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m021",
+   "questionText": "Which of the following is NOT a typical application of a multiplexer?",
+   "options": [
+    "Parallel-to-serial data conversion",
+    "Storing a data bit between clock pulses",
+    "Implementing a Boolean function without simplification",
+    "Selecting one of several data sources for a bus"
+   ],
+   "correctIndex": 1,
+   "explanation": "A MUX is purely combinational and has no memory, so it cannot store data; that needs a latch or flip-flop. The other three are standard MUX applications.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m022",
+   "questionText": "A 3-bit up-counter (000 → 111) drives the select lines of an 8:1 MUX whose inputs are I0 to I7 = 1, 1, 0, 1, 0, 0, 1, 0. The serial bit sequence at the output over eight clock pulses, first bit first, is:",
+   "options": [
+    "01001011",
+    "00101101",
+    "11010010",
+    "10110100"
+   ],
+   "correctIndex": 2,
+   "explanation": "The counter selects I0, I1, … I7 in turn, so the inputs appear in order: 1 1 0 1 0 0 1 0. Reading from I7 down gives the reversed pattern 01001011.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m023",
+   "questionText": "A 4:1 MUX has S1 = A, S0 = B and data inputs I0 = 0, I1 = C, I2 = C, I3 = 1. The output is:",
+   "options": [
+    "A ⊕ B ⊕ C",
+    "A + B + C",
+    "ABC",
+    "AB + BC + CA"
+   ],
+   "correctIndex": 3,
+   "explanation": "F = ĀB̄·0 + ĀB·C + AB̄·C + AB·1 = Σm(3,5,6,7), which is 1 when at least two inputs are 1: the majority function AB + BC + CA.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m024",
+   "questionText": "The carry output of a full adder is implemented on a 4:1 MUX with A on S1, B on S0 and Cin at the data inputs. The data inputs I0, I1, I2, I3 are:",
+   "options": [
+    "0, Cin, Cin, 1",
+    "Cin, C̄in, C̄in, Cin",
+    "1, Cin, Cin, 0",
+    "0, C̄in, C̄in, 1"
+   ],
+   "correctIndex": 0,
+   "explanation": "Carry = Σm(3,5,6,7). AB = 00 gives no carry → 0; AB = 01 and 10 give a carry only when Cin = 1 → Cin; AB = 11 always carries → 1. The pattern Cin, C̄in, C̄in, Cin is the sum output.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m025",
+   "questionText": "The borrow output of a full subtractor (X − Y − Bin) is implemented on a 4:1 MUX with X on S1, Y on S0 and Bin at the data inputs. The data inputs I0, I1, I2, I3 are:",
+   "options": [
+    "Bin, 1, 0, Bin",
+    "0, Bin, Bin, 1",
+    "Bin, 0, 1, Bin",
+    "B̄in, 1, 0, B̄in"
+   ],
+   "correctIndex": 0,
+   "explanation": "Bout = X̄Y + X̄·Bin + Y·Bin = Σm(1,2,3,7). XY = 00 borrows only if Bin = 1 → Bin; XY = 01 always borrows → 1; XY = 10 never → 0; XY = 11 only if Bin = 1 → Bin.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m026",
+   "questionText": "A 1:8 demultiplexer can be used as a 3-to-8 line decoder by:",
+   "options": [
+    "Holding its data input at logic 0 and applying the code to the select lines",
+    "Holding its data input at logic 1 and applying the 3-bit code to the select lines",
+    "Applying the code to the data input and grounding the select lines",
+    "Feeding the outputs back to the select lines"
+   ],
+   "correctIndex": 1,
+   "explanation": "With D = 1 the selected output becomes 1 and all others 0, which is exactly the decoder behaviour D_i = m_i(S). With D = 0 every output would stay 0.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m027",
+   "questionText": "A 1:16 demultiplexer is built from five 1:4 demultiplexers so that second-stage DEMUX k drives outputs Y(4k) to Y(4k+3). The first-stage DEMUX, which receives the data, must be driven by:",
+   "options": [
+    "The two least significant select bits S1 S0",
+    "All four select bits S3 to S0",
+    "The two most significant select bits S3 S2",
+    "Select bits S3 and S0"
+   ],
+   "correctIndex": 2,
+   "explanation": "The first stage chooses which group of four outputs gets the data, and the group number k is given by S3 S2. Each second-stage DEMUX then uses S1 S0 to pick one output within its group.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m028",
+   "questionText": "A multiplexer at the transmitting end and a demultiplexer at the receiving end, driven by the same select code, allow:",
+   "options": [
+    "One signal to be amplified",
+    "Data to be stored for later use",
+    "Parallel data to be converted to Gray code",
+    "Several signals to share a single transmission line in turn"
+   ],
+   "correctIndex": 3,
+   "explanation": "This is time-division multiplexing: the MUX puts each source on the shared line in its time slot and the DEMUX, using the same select code, delivers it to the matching destination.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m029",
+   "questionText": "Which of the following statements about multiplexers is NOT correct?",
+   "options": [
+    "A MUX with n select lines has 2^n data inputs",
+    "A 4:1 MUX can realise every 4-variable function with only 0 and 1 on its data inputs",
+    "A 2^n:1 MUX can realise any n-variable function with no extra gates",
+    "A 2^(n−1):1 MUX can realise any n-variable function if one variable and its complement are available"
+   ],
+   "correctIndex": 1,
+   "explanation": "A 4:1 MUX has only two select lines, so with constant data inputs it can realise functions of just two variables; for four variables it needs functions of the other two variables on its data inputs. The other statements are standard results.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m030",
+   "questionText": "The method of implementing an n-variable function on a 2^(n−1):1 multiplexer, with one variable at the data inputs, is based on:",
+   "options": [
+    "Shannon's expansion theorem",
+    "De Morgan's theorem",
+    "The consensus theorem",
+    "The duality principle"
+   ],
+   "correctIndex": 0,
+   "explanation": "Shannon's expansion F = x̄·F(x = 0) + x·F(x = 1) splits the function into residues for each select code; with one variable left, each residue is 0, 1, x or x̄.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m031",
+   "questionText": "F(A,B,C,D) = Σm(0,2,5,7,8,9,13,15) is implemented on an 8:1 MUX with B, C, D on S2, S1, S0 and A (the MSB) at the data inputs. The data inputs I0 to I7 are:",
+   "options": [
+    "1, Ā, A, 0, 0, 1, 0, 1",
+    "Ā, Ā, A, A, 1, 0, A, A",
+    "1, A, Ā, 0, 0, 1, 1, 0",
+    "1, A, Ā, 0, 0, 1, 0, 1"
+   ],
+   "correctIndex": 3,
+   "explanation": "With A free, I_k covers m_k and m_(k+8): (0,8) both → 1; (1,9) only 9 → A; (2,10) only 2 → Ā; (3,11) and (4,12) none → 0; (5,13) both → 1; (6,14) none → 0; (7,15) both → 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m032",
+   "questionText": "When a 4-variable function is implemented on an 8:1 MUX with three variables on the select lines, each data input is connected to:",
+   "options": [
+    "Only 0 or 1",
+    "Any function of two of the variables",
+    "0, 1, the fourth variable or its complement",
+    "Only the fourth variable"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each data input covers two minterms that differ only in the fourth variable, so its residue can only be 0, 1, that variable or its complement.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m033",
+   "questionText": "F(A,B,C,D) = Σm(0,1,2,3,5,7,10,12,13,14,15) is implemented on a 4:1 MUX with A on S1 and B on S0. The data inputs I0, I1, I2, I3 must be:",
+   "options": [
+    "1, D, C̄D, 1",
+    "1, C, CD̄, 1",
+    "1, D, CD̄, 1",
+    "0, D, CD̄, 0"
+   ],
+   "correctIndex": 2,
+   "explanation": "AB = 00 covers m0–m3, all in F → 1; AB = 01 covers m4–m7, only m5 and m7 (D = 1) → D; AB = 10 covers m8–m11, only m10 (CD = 10) → CD̄; AB = 11 covers m12–m15, all → 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m034",
+   "questionText": "A 4:1 MUX has S1 = A, S0 = B and data inputs I0 = C, I1 = 0, I2 = 1, I3 = C̄. The function in minterm form is:",
+   "options": [
+    "Σm(1, 4, 5, 7)",
+    "Σm(1, 4, 5, 6)",
+    "Σm(0, 4, 5, 6)",
+    "Σm(1, 2, 3, 6)"
+   ],
+   "correctIndex": 1,
+   "explanation": "I0 = C gives m1 (ABC = 001); I1 = 0 gives nothing; I2 = 1 gives m4 and m5; I3 = C̄ gives m6 (110). So F = Σm(1,4,5,6).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m035",
+   "questionText": "Another name for a multiplexer is:",
+   "options": [
+    "Data distributor",
+    "Code converter",
+    "Priority encoder",
+    "Data selector"
+   ],
+   "correctIndex": 3,
+   "explanation": "A multiplexer selects one of many inputs, hence data selector. Data distributor is the usual name for a demultiplexer.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m036",
+   "questionText": "An 8:1 multiplexer without an enable input is built in two-level form from basic gates. It needs:",
+   "options": [
+    "Eight 4-input AND gates, one 8-input OR gate and inverters for the select lines",
+    "Eight 3-input AND gates, one 8-input OR gate and inverters for the select lines",
+    "Three 8-input AND gates and one 3-input OR gate",
+    "Eight 4-input OR gates and one 8-input AND gate"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each data input needs an AND gate combining the three select literals with the data bit (3 + 1 = 4 inputs), and one 8-input OR gate collects the eight products. Forgetting the data input gives the 3-input answer.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m037",
+   "questionText": "In a 1:4 demultiplexer with data input D and select lines S1 S0, the output Y2 equals:",
+   "options": [
+    "D·S̄1·S0",
+    "D·S1·S0",
+    "S1·S̄0",
+    "D·S1·S̄0"
+   ],
+   "correctIndex": 3,
+   "explanation": "Y2 is selected by S1 S0 = 10, so Y2 = D·m2 = D·S1·S̄0. Leaving out D gives a decoder output, not a demultiplexer output.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m038",
+   "questionText": "Two 4-bit data sources must share one 4-bit bus, with one control line choosing the source. The most suitable single IC is:",
+   "options": [
+    "A single 4:1 multiplexer",
+    "A 1:4 demultiplexer",
+    "A quad 2:1 multiplexer such as the 74157",
+    "A 4-to-16 decoder"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each of the four bus bits needs its own 2:1 selector, and the 74157 has four 2:1 MUXes sharing one select line, so one control bit switches all four bits together.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m039",
+   "questionText": "An 8:1 MUX driven by a 3-bit counter converts a byte to serial form. The counter is clocked at 2 MHz, one bit per clock. How long does it take to send one byte?",
+   "options": [
+    "1.5 µs",
+    "4 µs",
+    "0.5 µs",
+    "16 µs"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each bit lasts one clock period T = 1/2 MHz = 0.5 µs, and a byte needs 8 bits: 8 × 0.5 µs = 4 µs. Using the 3 select bits instead of 8 data bits gives 1.5 µs.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m040",
+   "questionText": "A 3-bit counter (000 → 111, repeating) clocked at 80 kHz drives the selects of an 8:1 MUX whose inputs I0 to I7 = 1, 1, 1, 1, 0, 0, 0, 0. The output is a square wave of frequency:",
+   "options": [
+    "10 kHz",
+    "20 kHz",
+    "40 kHz",
+    "80 kHz"
+   ],
+   "correctIndex": 0,
+   "explanation": "The pattern repeats every 8 clocks (four 1s then four 0s), so one output period is 8 clock periods: f = 80 kHz / 8 = 10 kHz, with 50% duty cycle.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m041",
+   "questionText": "A 74151 8:1 MUX (outputs Y and W = Ȳ) is programmed on its data inputs for F(A,B,C) = Σm(2,3,5). The W output realises:",
+   "options": [
+    "Σm(2, 3, 5)",
+    "ΠM(0, 1, 4, 6, 7)",
+    "Σm(0, 1, 4, 6, 7)",
+    "Σm(0, 1, 4, 6)"
+   ],
+   "correctIndex": 2,
+   "explanation": "W is the complement of Y, so it is 1 for every minterm not in F: Σm(0,1,4,6,7). Note that ΠM(0,1,4,6,7) is the same as Σm(2,3,5), which is Y.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m042",
+   "questionText": "MUX 1 (2:1) has S = A, I0 = B, I1 = C. Its output M1 feeds I0 of MUX 2 (2:1), which has S = B and I1 = A. The output of MUX 2 is:",
+   "options": [
+    "ĀB + AC",
+    "AB + BC",
+    "A + BC",
+    "AB + AC"
+   ],
+   "correctIndex": 3,
+   "explanation": "M1 = ĀB + AC. MUX 2 gives Y = B̄·M1 + B·A = B̄(ĀB + AC) + AB = AB̄C + AB = A(B + C) = AB + AC.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m043",
+   "questionText": "What is the minimum number of select lines needed for a multiplexer that must choose one of 12 data inputs?",
+   "options": [
+    "4",
+    "3",
+    "12",
+    "6"
+   ],
+   "correctIndex": 0,
+   "explanation": "n must satisfy 2^n ≥ 12; 2^3 = 8 is too few and 2^4 = 16 is enough, so 4 select lines are needed (four of the 16 codes are unused).",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i21_m044",
+   "questionText": "F(A,B,C) = A + BC is implemented on an 8:1 MUX with A, B, C on S2, S1, S0 and constants on the data inputs. How many data inputs are tied to logic 1?",
+   "options": [
+    "4",
+    "5",
+    "6",
+    "3"
+   ],
+   "correctIndex": 1,
+   "explanation": "A = 1 gives m4 to m7 and BC = 11 gives m3 and m7. The union is {3, 4, 5, 6, 7}, 5 minterms; counting m7 twice gives 6.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i21_m045",
+   "questionText": "A 4:1 MUX has S1 = A, S0 = B and data inputs I0 = C, I1 = 1, I2 = C, I3 = 0. The minimal SOP form of its output is:",
+   "options": [
+    "ĀB + B̄C",
+    "ĀB + BC",
+    "AB̄ + B̄C",
+    "ĀB̄ + BC"
+   ],
+   "correctIndex": 0,
+   "explanation": "The output is Σm(1,2,3,5): I0 = C gives m1, I1 = 1 gives m2 and m3, I2 = C gives m5. Grouping gives ĀB (m2, m3) and B̄C (m1, m5).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i21_m046",
+   "questionText": "When a 3-variable function is implemented on a 4:1 MUX, the variable applied to the data inputs:",
+   "options": [
+    "Must always be the most significant variable",
+    "Must always be the least significant variable",
+    "Must be the variable that appears in the most minterms",
+    "May be any one of the three; each choice gives a valid but different set of data-input connections"
+   ],
+   "correctIndex": 3,
+   "explanation": "Shannon's expansion works about any variable, so any one can be left free; only the pairing of minterms and hence the data-input values change with the choice.",
+   "difficulty": "medium"
+  }
+ ]
+}

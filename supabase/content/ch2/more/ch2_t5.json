@@ -1,0 +1,745 @@
+{
+  "topicId": "ch2_t5",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Memory Organisation, Decoding and Timing"
+    },
+    {
+      "type": "paragraph",
+      "text": "A chip described as m × n has m addressable locations, each n bits wide. It needs log2(m) address pins and n data pins, plus chip select, output enable and write enable. When the required word is wider than the chip, several chips are placed side by side to form one bank (row), all sharing the same address and chip-select lines; when more words are required, banks are stacked and a decoder chooses one bank at a time. The total chip count is simply the product of these two factors."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{chips} = \\frac{M}{m} \\times \\frac{W}{n}",
+      "plainText": "Chips = (M / m) × (W / n) for an M × W memory built from m × n chips; decoder select lines = log2(M / m)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 32 KB (32K x 8) from 4K x 4 chips, placed at 0000H-7FFFH\nChips per bank = 8 / 4 = 2      Banks = 32K / 4K = 8      Total = 2 x 8 = 16 chips\nChip address pins: 4K = 2^12 -> A0-A11 go to every chip\nBank select: 8 banks -> 3 lines A12, A13, A14 into a 74138; enable only when A15 = 0\nBank 0: A14 A13 A12 = 000 -> 0000H-0FFFH\nBank 1: 001 -> 1000H-1FFFH   ...   Bank 7: 111 -> 7000H-7FFFH\nCheck: 8 banks x 1000H = 8000H bytes = 32 KB"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: partial decoding of a 4K x 8 EPROM (A0-A11 on chip)\nCS active when A15 = 0 and A14 = 1; A13 and A12 not connected\nA15 A14 A13 A12   block\n 0   1   0   0    4000H-4FFFH  (intended range)\n 0   1   0   1    5000H-5FFFH  (image)\n 0   1   1   0    6000H-6FFFH  (image)\n 0   1   1   1    7000H-7FFFH  (image)\n2 unused lines -> each byte answers at 2^2 = 4 addresses (1 intended + 3 images);\n16 KB of address space used by a 4 KB chip"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "Full (absolute) decoding",
+          "Partial (linear) decoding"
+        ],
+        [
+          "Address lines used",
+          "All high-order lines",
+          "Only some high-order lines"
+        ],
+        [
+          "Addresses per location",
+          "Exactly one",
+          "2^k, where k = unused lines"
+        ],
+        [
+          "Decoder hardware",
+          "More gates or larger decoder",
+          "Fewer gates, cheaper"
+        ],
+        [
+          "Address space",
+          "No waste, easy to expand",
+          "Wasted by images (foldback)"
+        ],
+        [
+          "Typical use",
+          "General-purpose systems",
+          "Small dedicated boards"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Wait states solve a speed mismatch. The processor allows a fixed time for memory to respond, set by the clock and its bus timing. If a chip is slower, external logic pulls READY low; the 8085 samples READY in T2 and inserts one wait state (Tw) of one clock period for each period READY stays low. The number of wait states is the shortfall divided by the clock period, always rounded up, because a fraction of a wait state is not possible."
+    },
+    {
+      "type": "formula",
+      "latex": "N_w = \\left\\lceil \\frac{t_{acc} - t_{avail}}{T_{clk}} \\right\\rceil",
+      "plainText": "Wait states = ceiling((memory access time − time allowed by CPU) / clock period)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: wait states\nClock 5 MHz -> T = 1 / 5 MHz = 200 ns\nTime allowed by CPU with no wait state: 460 ns (given)\nMemory access time: 600 ns\nShortfall = 600 - 460 = 140 ns\nN_w = ceil(140 / 200) = ceil(0.7) = 1 wait state\nWith 1 wait state the memory gets 460 + 200 = 660 ns >= 600 ns"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Part number",
+          "Type",
+          "Organisation",
+          "Address lines"
+        ],
+        [
+          "2716",
+          "EPROM",
+          "2K × 8",
+          "11 (A0–A10)"
+        ],
+        [
+          "2732",
+          "EPROM",
+          "4K × 8",
+          "12 (A0–A11)"
+        ],
+        [
+          "2764",
+          "EPROM",
+          "8K × 8",
+          "13 (A0–A12)"
+        ],
+        [
+          "27128",
+          "EPROM",
+          "16K × 8",
+          "14 (A0–A13)"
+        ],
+        [
+          "27256",
+          "EPROM",
+          "32K × 8",
+          "15 (A0–A14)"
+        ],
+        [
+          "6116",
+          "SRAM",
+          "2K × 8",
+          "11 (A0–A10)"
+        ],
+        [
+          "6264",
+          "SRAM",
+          "8K × 8",
+          "13 (A0–A12)"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in memory interfacing problems:",
+      "items": [
+        "Mixing Kbit and KB: a 64 Kbit chip holds only 8 KB.",
+        "Forgetting the width factor: 1K × 4 chips need two per byte, so chip counts double.",
+        "Off-by-one on the end address: last = start + size − 1, e.g. 8000H + 1000H − 1 = 8FFFH.",
+        "Using the wrong number of chip lines: the decoded lines start just above the chip's highest address pin.",
+        "Counting images: k undecoded lines make each location answer at 2^k addresses, not k."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For an address range, write the decoded high-order bits, then fill the chip's own lines with all 0s for the start and all 1s for the end. For the reverse question, size = end − start + 1, and log2(size) gives the number of lines that go to the chip."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t5_m001",
+      "questionText": "A 16K × 8 memory chip needs how many address lines?",
+      "options": [
+        "14",
+        "16",
+        "8",
+        "13"
+      ],
+      "correctIndex": 0,
+      "explanation": "16K = 16 × 1024 = 16384 = 2^14 locations, so n = log2(16384) = 14 address lines (A0 to A13). The 8 is the number of data lines, not address lines.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m002",
+      "questionText": "A 2K × 8 static RAM has address pins, data pins, three control pins (CS, OE, WE) and two power pins (VCC, GND). What is its minimum pin count?",
+      "options": [
+        "21",
+        "19",
+        "24",
+        "27"
+      ],
+      "correctIndex": 2,
+      "explanation": "Address pins = log2(2048) = 11, data pins = 8, so 11 + 8 + 3 + 2 = 24 pins; this is why the 6116 comes in a 24-pin package.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m003",
+      "questionText": "How many 4K × 8 memory chips are needed to build 32 KB of memory for an 8-bit microprocessor?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "32"
+      ],
+      "correctIndex": 1,
+      "explanation": "The chip is already 8 bits wide, so each bank is a single chip and chips = 32 KB / 4 KB = 8, selected one at a time by a 3-to-8 decoder.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m004",
+      "questionText": "A 16K × 8 memory is to be built from 1K × 4 RAM chips. How many chips are required?",
+      "options": [
+        "16",
+        "64",
+        "8",
+        "32"
+      ],
+      "correctIndex": 3,
+      "explanation": "Depth: 16K / 1K = 16 rows; width: 8 / 4 = 2 chips per row; total = 16 × 2 = 32. Forgetting the width factor gives 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m005",
+      "questionText": "How many 16K × 4 chips are needed to build a 64K × 16 memory?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "64"
+      ],
+      "correctIndex": 2,
+      "explanation": "(64K × 16) / (16K × 4) = (64/16) × (16/4) = 4 × 4 = 16 chips: four banks, each four chips wide.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m006",
+      "questionText": "An 8085 system needs 4 KB of RAM built from 1K × 1 chips. How many chips are required?",
+      "options": [
+        "32",
+        "4",
+        "8",
+        "16"
+      ],
+      "correctIndex": 0,
+      "explanation": "4 KB = 4K × 8. Each row needs 8 one-bit chips to make a byte, and 4K / 1K = 4 rows, so 4 × 8 = 32 chips.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m007",
+      "questionText": "The 2764 EPROM is a 64 Kbit device organised as 8K × 8. How many 2764 chips are needed for 32 KB of program memory?",
+      "options": [
+        "8",
+        "2",
+        "32",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each 2764 holds 64 Kbit / 8 = 8 KB, so 32 KB / 8 KB = 4 chips. Dividing 32 KB by 64 Kbit without converting bits to bytes gives a wrong answer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m008",
+      "questionText": "Eight 4K × 8 chips form 32 KB of memory at 0000H–7FFFH in an 8085 system. Which decoding arrangement selects the chips correctly (full decoding)?",
+      "options": [
+        "A 3-to-8 decoder driven by A13, A14, A15",
+        "A 3-to-8 decoder driven by A12, A13, A14 and enabled only when A15 = 0",
+        "A 2-to-4 decoder driven by A12, A13 and enabled when A14 = 0",
+        "A 3-to-8 decoder driven by A12, A13, A14, with A15 not connected"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 4K chip uses A0 to A11 (2^12 = 4096), so the next three lines A12 to A14 pick one of 8 chips, and A15 = 0 is required so the block stays in 0000H–7FFFH. Leaving A15 unconnected is partial decoding: every chip would appear again in 8000H–FFFFH. A13–A15 would suit 8K chips instead, and a 2-to-4 decoder can select only four chips.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m009",
+      "questionText": "A 4K × 8 RAM in an 8085 system is selected only when A15 A14 A13 A12 = 0 1 0 1 (full decoding). Its address range is:",
+      "options": [
+        "5000H to 5FFFH",
+        "5000H to 57FFH",
+        "A000H to AFFFH",
+        "0500H to 05FFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 4K chip uses A0 to A11. The fixed nibble 0101 followed by twelve 0s gives 5000H, and with twelve 1s gives 5FFFH. Reading the pattern in reverse bit order gives A000H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m010",
+      "questionText": "An 8K × 8 EPROM is enabled when A15 A14 A13 = 1 1 0, with all other high-order lines used by the chip itself. Its address range is:",
+      "options": [
+        "C000H to CFFFH",
+        "6000H to 7FFFH",
+        "C000H to DFFFH",
+        "E000H to FFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "8K = 2^13, so A0 to A12 go to the chip. 110 followed by thirteen 0s = 1100 0000 0000 0000 = C000H; with thirteen 1s = 1101 1111 1111 1111 = DFFFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m011",
+      "questionText": "A 2K × 8 RAM begins at address 3800H. What is its last address?",
+      "options": [
+        "4000H",
+        "3FFFH",
+        "3BFFH",
+        "57FFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "2K = 2048 = 800H locations, so last = 3800H + 800H − 1 = 3FFFH. 4000H is one past the end (off-by-one), and adding 2000H treats 2K as a hex number.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m012",
+      "questionText": "A memory chip occupies the address range 2000H to 27FFH with full decoding. What is its capacity?",
+      "options": [
+        "1 KB",
+        "4 KB",
+        "8 KB",
+        "2 KB"
+      ],
+      "correctIndex": 3,
+      "explanation": "Size = 27FFH − 2000H + 1 = 800H = 2048 bytes = 2 KB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m013",
+      "questionText": "A fully decoded memory chip occupies F000H to FFFFH in an 8085 system. How many of the processor address lines connect directly to the chip's address pins?",
+      "options": [
+        "16",
+        "4",
+        "12",
+        "13"
+      ],
+      "correctIndex": 2,
+      "explanation": "Size = FFFFH − F000H + 1 = 1000H = 4096 = 2^12, so A0 to A11 (12 lines) go to the chip and the remaining 4 lines (A15–A12 = 1111) drive the chip select.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m014",
+      "questionText": "In an 8086 system (20 address lines) a 64 KB EPROM is placed at the very top of memory so that it contains the reset address FFFF0H. Its address range is:",
+      "options": [
+        "F0000H to FFFFFH",
+        "F0000H to FFFF0H",
+        "FFFF0H to FFFFFH",
+        "E0000H to EFFFFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "The top of a 1 MB space is FFFFFH. 64 KB = 10000H bytes, so the start is 100000H − 10000H = F0000H and the range is F0000H to FFFFFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m015",
+      "questionText": "An 8085 memory map starts with an 8 KB ROM at 0000H, followed immediately by three 4K × 8 RAM chips placed one after another. What is the last address of the third RAM?",
+      "options": [
+        "5000H",
+        "3FFFH",
+        "7FFFH",
+        "4FFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "ROM ends at 1FFFH, so RAM starts at 2000H; three 4 KB chips span 3 × 1000H = 3000H bytes, ending at 2000H + 3000H − 1 = 4FFFH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m016",
+      "questionText": "A 2K × 8 RAM uses A0–A10 and its chip select is driven by A15-bar · A14 only; A13, A12 and A11 are not connected. At how many different addresses does each RAM byte respond?",
+      "options": [
+        "3",
+        "8",
+        "4",
+        "16"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each unused line doubles the number of addresses at which a byte responds: 2^3 = 8. The chip therefore fills 4000H–7FFFH (16 KB) with eight copies of the same 2 KB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m017",
+      "questionText": "A 4K × 8 RAM uses A0–A11. Its chip select is active when A15 = 1 and A13 = 0; A14 and A12 are not decoded. Which address blocks does the RAM respond to?",
+      "options": [
+        "8000H–8FFFH, 9000H–9FFFH, C000H–CFFFH, D000H–DFFFH",
+        "8000H–8FFFH only",
+        "8000H–8FFFH, A000H–AFFFH, C000H–CFFFH, E000H–EFFFH",
+        "8000H–8FFFH, 9000H–9FFFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "With A15 = 1 and A13 = 0 fixed, A14 A12 take all four values 00, 01, 10, 11, giving blocks starting at 8000H, 9000H, C000H and D000H (overall 8000H–9FFFH, C000H–DFFFH). Treating A13 as free instead of A12 gives the A000H/E000H list.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m018",
+      "questionText": "A 4K × 8 EPROM (A0–A11) is selected by A15-bar · A14, with A13 and A12 left undecoded. Its first image is 4000H–4FFFH. Which of these addresses also selects the EPROM?",
+      "options": [
+        "8ABCH",
+        "2ABCH",
+        "6ABCH",
+        "CABCH"
+      ],
+      "correctIndex": 2,
+      "explanation": "6ABCH = 0110 1010 1011 1100: A15 = 0 and A14 = 1, so the chip is selected (A13 A12 = 10 are ignored). 8ABCH and CABCH have A15 = 1, and 2ABCH has A14 = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m019",
+      "questionText": "A 74138 decoder in an 8085 system has C = A15, B = A14, A = A13 (A is the LSB input) and its enables asserted for memory cycles. Which output goes low when the CPU reads address 9A34H?",
+      "options": [
+        "Y1",
+        "Y4",
+        "Y2",
+        "Y5"
+      ],
+      "correctIndex": 1,
+      "explanation": "9A34H = 1001 1010 0011 0100, so A15 A14 A13 = 100 = 4, and output Y4 is selected. Taking the bits in reverse order (001) would wrongly give Y1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m020",
+      "questionText": "In an 8085 board, all memory-mapped I/O devices are selected when A15 = 1 and memory is selected only when A15 = 0. What is the maximum memory the system can have?",
+      "options": [
+        "64 KB",
+        "16 KB",
+        "63 KB",
+        "32 KB"
+      ],
+      "correctIndex": 3,
+      "explanation": "Memory uses only addresses with A15 = 0, i.e. 0000H–7FFFH = 2^15 bytes = 32 KB; the other half of the map is given to I/O.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m021",
+      "questionText": "A 64K × 1 DRAM uses address multiplexing with RAS and CAS strobes. How many address pins does the chip need?",
+      "options": [
+        "16",
+        "4",
+        "8",
+        "9"
+      ],
+      "correctIndex": 2,
+      "explanation": "64K = 2^16 locations need 16 address bits, sent in two halves (row, then column) over the same pins: 16 / 2 = 8 pins.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m022",
+      "questionText": "A 1 Mbit memory chip is organised as 256K × 4 and does NOT multiplex its address. How many address lines does it need?",
+      "options": [
+        "18",
+        "20",
+        "16",
+        "22"
+      ],
+      "correctIndex": 0,
+      "explanation": "Locations = 256K = 2^18, so 18 address lines. 20 lines would be right only for 1M × 1 organisation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m023",
+      "questionText": "A processor with a 100 ns clock period allows 300 ns for a memory to respond when no wait states are used, and each wait state adds one clock period. A memory with a 450 ns access time needs how many wait states?",
+      "options": [
+        "1",
+        "3",
+        "4",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Shortfall = 450 − 300 = 150 ns; wait states = ceil(150 / 100) = ceil(1.5) = 2. One wait state gives only 400 ns, which is still too short.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m024",
+      "questionText": "A cache has a hit ratio of 0.95 and an access time of 5 ns; main memory has an access time of 80 ns. Using T_eff = h·t_c + (1 − h)·t_m, the effective access time is:",
+      "options": [
+        "9.00 ns",
+        "8.75 ns",
+        "76.25 ns",
+        "42.50 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "T_eff = 0.95 × 5 + 0.05 × 80 = 4.75 + 4.00 = 8.75 ns. Swapping h and (1 − h) gives 76.25 ns, and a plain average of 5 and 80 gives 42.5 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m025",
+      "questionText": "Cache access time is 10 ns and main memory access time is 100 ns. Using T_eff = h·t_c + (1 − h)·t_m, what hit ratio h gives an effective access time of 19 ns?",
+      "options": [
+        "0.90",
+        "0.81",
+        "0.19",
+        "0.95"
+      ],
+      "correctIndex": 0,
+      "explanation": "19 = 10h + 100(1 − h) = 100 − 90h, so h = 81 / 90 = 0.90. 0.81 comes from forgetting to divide by (t_m − t_c) = 90.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m026",
+      "questionText": "A DRAM has 256 rows, every row must be refreshed once every 4 ms, and one row refresh takes 200 ns. What percentage of memory time is used for refresh?",
+      "options": [
+        "0.005 %",
+        "5.12 %",
+        "1.28 %",
+        "12.80 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Refresh time per period = 256 × 200 ns = 51.2 µs; 51.2 µs / 4 ms = 0.0128 = 1.28 %. Forgetting the 256 rows gives 200 ns / 4 ms = 0.005 %, and misplacing the decimal point gives 12.8 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m027",
+      "questionText": "A 16 KB memory for an 8085 is built from 2K × 4 chips. How many chips are needed, and how many high-order address lines must be decoded to select a bank (row) of chips?",
+      "options": [
+        "8 chips; 3 address lines to the bank decoder",
+        "16 chips; 3 address lines to the bank decoder",
+        "16 chips; 4 address lines to the bank decoder",
+        "32 chips; 4 address lines to the bank decoder"
+      ],
+      "correctIndex": 1,
+      "explanation": "Width 8 / 4 = 2 chips per bank, depth 16K / 2K = 8 banks, so 16 chips. The 2K chips use A0–A10, and 8 banks need log2(8) = 3 select lines (A11–A13).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t5_m028",
+      "questionText": "Using variable port addressing (port number in DX), how many different 8-bit I/O ports can the 8086 address?",
+      "options": [
+        "256",
+        "1,048,576",
+        "1,024",
+        "65,536"
+      ],
+      "correctIndex": 3,
+      "explanation": "DX is a 16-bit register, so port numbers run from 0000H to FFFFH: 2^16 = 65,536 ports. 256 is the limit for the fixed 8-bit port form.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m029",
+      "questionText": "In a static RAM (SRAM) cell, one bit is stored in:",
+      "options": [
+        "A charged capacitor with one access transistor",
+        "A floating-gate transistor",
+        "A bistable latch (flip-flop) of about six transistors",
+        "A fusible link"
+      ],
+      "correctIndex": 2,
+      "explanation": "SRAM keeps each bit in a cross-coupled latch, so it holds data without refresh while powered. The capacitor cell is DRAM, the floating gate is EPROM/flash, and fuses are PROM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m030",
+      "questionText": "Why must dynamic RAM be refreshed periodically?",
+      "options": [
+        "The charge on each cell capacitor leaks away within milliseconds",
+        "Its flip-flops lose state when the clock stops",
+        "Reading a cell sets it to all ones",
+        "Refresh is needed to erase the chip before writing"
+      ],
+      "correctIndex": 0,
+      "explanation": "A DRAM bit is charge on a tiny capacitor that leaks, so every row is read and rewritten every few milliseconds. DRAM does not use flip-flops, and refresh is not an erase operation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m031",
+      "questionText": "How is a conventional EPROM erased?",
+      "options": [
+        "By applying an electrical pulse to one byte at a time",
+        "By blowing internal fuses",
+        "By removing the supply voltage",
+        "By exposing the chip to ultraviolet light through its quartz window"
+      ],
+      "correctIndex": 3,
+      "explanation": "UV light gives the trapped floating-gate electrons enough energy to escape, erasing the whole chip. Byte-wise electrical erase describes EEPROM, and fuses are used in PROM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m032",
+      "questionText": "Which of the following memories keeps its contents when power is switched off?",
+      "options": [
+        "SRAM cache",
+        "Flash memory",
+        "DRAM main memory",
+        "CPU registers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Flash stores charge on an insulated floating gate, so it is non-volatile. SRAM, DRAM and registers are all volatile and lose their data without power.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m033",
+      "questionText": "What is the main practical difference between EEPROM and flash memory?",
+      "options": [
+        "EEPROM can be erased and rewritten byte by byte, while flash is erased a whole block (sector) at a time",
+        "EEPROM is volatile, while flash is non-volatile",
+        "Flash is erased by ultraviolet light, while EEPROM is erased electrically",
+        "EEPROM can be programmed only once, while flash can be reprogrammed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both are electrically erasable floating-gate memories. Block erasure makes flash denser and cheaper, which is why it is used for SSDs and firmware, while EEPROM suits small configuration data.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m034",
+      "questionText": "A PROM is programmed by:",
+      "options": [
+        "The manufacturer, using a mask during fabrication",
+        "The user, repeatedly, with ultraviolet erasure between programs",
+        "The user, once, by blowing selected fusible links",
+        "The CPU during normal operation, like RAM"
+      ],
+      "correctIndex": 2,
+      "explanation": "A PROM leaves the factory blank and is programmed once by the user; a blown fuse cannot be restored. Mask programming describes mask ROM and UV erasure describes EPROM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m035",
+      "questionText": "A mask ROM is best suited for:",
+      "options": [
+        "Firmware that is still being developed and changed often",
+        "Very large production runs of firmware that will never change",
+        "Storing user settings that change during operation",
+        "Cache memory inside the CPU"
+      ],
+      "correctIndex": 1,
+      "explanation": "The data is fixed by a photomask at manufacture, which is cheap per chip only in large volumes and cannot be altered. Development work uses EPROM or flash, and changing settings need EEPROM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m036",
+      "questionText": "A loop body executes the same instructions again and again. Which property of programs does this illustrate, allowing a cache to be effective?",
+      "options": [
+        "Spatial locality of reference",
+        "Sequential consistency",
+        "Memory interleaving",
+        "Temporal locality of reference"
+      ],
+      "correctIndex": 3,
+      "explanation": "Temporal locality means an item used now is likely to be used again soon, as the loop instructions are. Spatial locality refers to nearby addresses, such as the next array element.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m037",
+      "questionText": "Which statement about the memory hierarchy is NOT correct?",
+      "options": [
+        "Access time increases as we move from registers towards secondary storage",
+        "Capacity increases as we move from cache towards secondary storage",
+        "Cost per bit rises as we move from cache towards secondary storage",
+        "The hierarchy works because programs show locality of reference"
+      ],
+      "correctIndex": 2,
+      "explanation": "Moving down the hierarchy, each level is slower, larger and cheaper per bit, so cost per bit falls rather than rises. The other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m038",
+      "questionText": "Which statement comparing full and partial address decoding is correct?",
+      "options": [
+        "Partial decoding needs fewer gates but makes each location appear at more than one address",
+        "Full decoding makes each location appear at several addresses (foldback)",
+        "Partial decoding increases the usable capacity of each memory chip",
+        "Full decoding ignores some of the high-order address lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "In partial decoding some address lines are left out, which saves logic but creates mirror images and wastes address space. Full decoding uses every line so each location has a unique address, and neither scheme changes chip capacity.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m039",
+      "questionText": "Which of the following is NOT an advantage of memory-mapped I/O in an 8085 system?",
+      "options": [
+        "Any memory-reference instruction can be used to access a port",
+        "Data can be moved between a port and any register, not only the accumulator",
+        "Arithmetic and logic can be done directly on a port location",
+        "It leaves the complete 64 KB address space available for memory"
+      ],
+      "correctIndex": 3,
+      "explanation": "Memory-mapped ports occupy memory addresses, so they reduce the space left for memory; keeping the full 64 KB is an advantage of I/O-mapped (isolated) I/O. The other three are genuine advantages.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m040",
+      "questionText": "In the 8085, during which T-state of a memory read machine cycle is the READY input first sampled to decide whether wait states are needed?",
+      "options": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8085 checks READY during T2. If READY is low it inserts wait states (Tw) between T2 and T3 until READY goes high, then continues with T3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m041",
+      "questionText": "In an 8085 system, which combination of signals indicates a memory read operation?",
+      "options": [
+        "IO/M = 0 and RD = 0",
+        "IO/M = 1 and RD = 0",
+        "IO/M = 0 and WR = 0",
+        "IO/M = 1 and WR = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "IO/M low selects memory and an active-low RD means read, so together they form MEMR. IO/M = 1 with RD = 0 is an I/O read (IOR), and WR = 0 means a write.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m042",
+      "questionText": "Why do DRAM chips multiplex their address pins using RAS and CAS?",
+      "options": [
+        "To double the data transfer rate",
+        "To avoid the need for refresh",
+        "To halve the number of address pins, keeping the package small for large capacities",
+        "To allow the chip to be erased electrically"
+      ],
+      "correctIndex": 2,
+      "explanation": "The row address and column address are sent one after another on the same pins, latched by RAS and CAS, so a 2^16-location chip needs 8 pins instead of 16. It does not remove refresh or change the data rate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m043",
+      "questionText": "Which statement about the buses of an 8085 microprocessor system is correct?",
+      "options": [
+        "The address bus is bidirectional and the data bus is unidirectional",
+        "The address bus is unidirectional (from the CPU) and the data bus is bidirectional",
+        "Both the address bus and the data bus are unidirectional",
+        "The control bus carries the data being written to memory"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only the CPU places addresses on the address bus, while data travels both ways, to memory on writes and to the CPU on reads. The control bus carries timing and command signals such as RD, WR and IO/M.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t5_m044",
+      "questionText": "Which statement comparing SRAM with DRAM is NOT correct?",
+      "options": [
+        "SRAM is faster than DRAM",
+        "DRAM stores more bits per chip area than SRAM",
+        "SRAM costs more per bit than DRAM",
+        "SRAM must be refreshed periodically, while DRAM keeps its data without refresh"
+      ],
+      "correctIndex": 3,
+      "explanation": "It is DRAM that needs refresh, because its capacitor cells leak; SRAM latches hold data while powered. SRAM is faster but larger and dearer per bit, which is why DRAM is used for main memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m045",
+      "questionText": "The access time of a memory chip is defined as the time from:",
+      "options": [
+        "Power-on until the chip is ready for its first read",
+        "One read operation starting until the next read can start",
+        "A stable address being applied to valid data appearing at the outputs",
+        "The write strobe until the data is permanently stored"
+      ],
+      "correctIndex": 2,
+      "explanation": "Access time measures how long the chip takes to deliver data after the address is valid. The minimum time between successive starts of operations is the cycle time, which is at least as long.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t5_m046",
+      "questionText": "In a microcomputer, which memory is accessed directly by the CPU through its address bus, rather than through I/O transfers?",
+      "options": [
+        "Primary (main) semiconductor memory",
+        "Hard disk",
+        "Magnetic tape",
+        "Optical disc"
+      ],
+      "correctIndex": 0,
+      "explanation": "Main memory (RAM and ROM) sits on the processor buses and is addressed directly by instructions. Disks, tapes and optical media are secondary or tertiary storage reached through I/O controllers.",
+      "difficulty": "easy"
+    }
+  ]
+}

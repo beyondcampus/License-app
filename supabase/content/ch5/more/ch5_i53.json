@@ -1,0 +1,520 @@
+{
+  "topicId": "ch5_i53",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: DNS & P2P"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your DNS notes, cleaned up and completed:",
+      "items": [
+        "DNS (port 53) exists because people remember names such as www.google.com, while IP routing works only with numeric addresses such as 142.250.190.46; DNS translates between the two.",
+        "In the simple four-step flow, the browser really asks the operating system's stub resolver, which checks its own cache and hosts file and then sends one recursive query to the configured local DNS server (the ISP's or organisation's resolver, or a public one such as 1.1.1.1 or 8.8.8.8).",
+        "The local server answers from its cache when it can; otherwise it works down the hierarchy itself: a root server, then the TLD server (.com), then the authoritative server for google.com, which holds the actual A record.",
+        "Every answer is cached for its TTL, so most lookups never reach the root or TLD servers.",
+        "DNS mainly uses UDP because a query and its answer are each one small message, so no connection set-up is needed; it switches to TCP port 53 for zone transfers and for answers too large for one UDP message.",
+        "Besides name-to-address mapping, DNS gives host aliasing (CNAME), mail-server lookup (MX), reverse lookup (PTR) and load distribution by returning several A records in rotating order (round-robin DNS)."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace 1: host h resolves www.example.com, all caches empty\n1  h     -> local  query www.example.com A   (recursive, RD = 1)\n2  local -> root   same query                 (iterative)\n3  root  -> local  referral: .com NS records + their addresses (glue)\n4  local -> TLD    same query\n5  TLD   -> local  referral: example.com NS ns1.example.com + glue A\n6  local -> auth   same query\n7  auth  -> local  answer 203.0.113.10, TTL 3600, AA = 1\n8  local -> h      answer; local server caches every record it learned\nTotal: 4 queries + 4 replies = 8 messages (a fully recursive chain also uses 8)\nNext lookup of ftp.example.com: example.com NS is cached, so only 2 pairs = 4 messages"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Header field",
+          "Size",
+          "Meaning"
+        ],
+        [
+          "ID",
+          "16 bits",
+          "Matches a reply to its query; chosen at random by the asker"
+        ],
+        [
+          "QR",
+          "1 bit",
+          "0 = query, 1 = response"
+        ],
+        [
+          "AA",
+          "1 bit",
+          "Set when the answer comes from an authoritative server, not a cache"
+        ],
+        [
+          "TC",
+          "1 bit",
+          "Reply was truncated; repeat the query over TCP"
+        ],
+        [
+          "RD / RA",
+          "1 bit each",
+          "Recursion desired (by the asker) / recursion available (at the server)"
+        ],
+        [
+          "RCODE",
+          "4 bits",
+          "0 NOERROR, 2 SERVFAIL, 3 NXDOMAIN (no such name), 5 REFUSED"
+        ],
+        [
+          "Four counts",
+          "16 bits each",
+          "Numbers of question, answer, authority and additional records"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "TTL_{left} = TTL - (t_{now} - t_{cached})",
+      "plainText": "Remaining TTL of a cached record = original TTL - (time now - time it was cached); the record is discarded at 0"
+    },
+    {
+      "type": "paragraph",
+      "text": "Several record rules come up again and again. An MX record carries a preference number, and a sending server tries the lowest value first, falling back to higher values only if that server cannot be reached; equal values share the load. A CNAME may not coexist with any other record at the same name, so it cannot be placed at the zone apex (example.com), which must hold the SOA and NS records. When a zone's name server lies inside the zone it serves, such as ns1.example.com for example.com, the parent's referral must carry that server's address as a glue record, or no resolver could ever reach it."
+    },
+    {
+      "type": "bulletList",
+      "text": "Reverse lookups, zone transfers and security:",
+      "items": [
+        "Reverse lookup writes the address backwards under in-addr.arpa: 203.0.113.25 becomes 25.113.0.203.in-addr.arpa, queried for a PTR record. IPv6 uses ip6.arpa with all 32 hexadecimal digits (nibbles) reversed, one label each.",
+        "A secondary server fetches the primary's SOA every refresh interval (every retry interval after a failure) and runs a zone transfer over TCP (AXFR full, IXFR incremental) only when the serial number has increased; if the primary stays unreachable for the expire time, it stops answering for the zone.",
+        "The SOA minimum field sets how long 'no such name' (NXDOMAIN) answers may be cached, called negative caching.",
+        "Cache poisoning: an off-path attacker races the real answer with forged replies, so resolvers randomise both the 16-bit query ID and the UDP source port to make guessing expensive.",
+        "DNSSEC signs each record set (RRSIG) with the zone's key (DNSKEY), and the parent vouches for that key with a DS record, forming a chain of trust from the root; it gives authenticity and integrity, not secrecy.",
+        "DNS over TLS (DoT, TCP port 853) and DNS over HTTPS (DoH, port 443) encrypt the queries between a host and its resolver, hiding the names from on-path observers."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Your P2P notes, cleaned up and corrected:",
+      "items": [
+        "Client-server: an always-on server with a fixed address stores the files and every client downloads from it, so the server's upload capacity is shared by all clients and becomes the bottleneck as their number grows.",
+        "P2P: every peer is both client and server and pieces move directly between users. A pure P2P system has no central server, but many practical systems keep one for coordination only, such as a BitTorrent tracker or the original Napster index.",
+        "More users do not make the network itself faster: each new peer adds upload capacity as well as demand, so the total distribution time grows very slowly instead of linearly, and each peer is still limited by its own download rate.",
+        "Examples: BitTorrent (file distribution), early Skype (a P2P overlay with super-nodes, later replaced by Microsoft-run servers), IPFS, and blockchain networks such as Bitcoin, where every full node stores and relays the ledger.",
+        "Advantages: self-scaling capacity, no single point of failure when peer discovery is decentralised (DHT), low cost for the content owner. Disadvantages: peers come and go (churn) and sit behind NAT, trust and security problems (malware, fake content), copyright infringement, and little central control."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: F = 1 Gbit = 1000 Mb, u_s = 50 Mbps, every peer u = 5 Mbps, d_min = 10 Mbps\n(1 Mbps = 10^6 bit/s, fluid model, overheads ignored)\nN = 10:    D_cs  = max(10 x 1000/50, 1000/10)            = max(200, 100)       = 200 s\n           D_p2p = max(1000/50, 1000/10, 10 x 1000/(50 + 50))  = max(20, 100, 100) = 100 s\nN = 100:   D_cs  = max(100 x 1000/50, 100)               = 2000 s\n           D_p2p = max(20, 100, 100 x 1000/(50 + 500))   = max(20, 100, 181.8) = 181.8 s\nN = 1000:  D_cs  = 20,000 s     D_p2p = max(20, 100, 10^6/5050) = 198.0 s\nAs N grows: D_cs rises by 20 s per peer, D_p2p creeps up towards F/u = 1000/5 = 200 s"
+    },
+    {
+      "type": "formula",
+      "latex": "\\lim_{N\\to\\infty} D_{p2p} = \\max\\{\\frac{F}{u_s}, \\frac{F}{d_{min}}, \\frac{F}{u}\\}",
+      "plainText": "With every peer uploading at u, as N grows D_p2p approaches max(F / u_s, F / d_min, F / u)"
+    },
+    {
+      "type": "bulletList",
+      "text": "BitTorrent and DHT mechanics:",
+      "items": [
+        "Joining: the .torrent file or magnet link gives the info-hash that names the torrent; the peer asks the tracker (or the DHT) for a list of peers and opens TCP connections to a subset of them.",
+        "Pieces: a 1 GiB file with 256 KiB pieces has 2^30 / 2^18 = 4096 pieces, each checked against its hash (SHA-1 in BitTorrent v1, SHA-256 in v2), so corrupted or fake pieces are rejected.",
+        "Rarest first: request the missing piece held by the fewest neighbours. Tit-for-tat: every 10 s upload to the four neighbours sending fastest, and every 30 s optimistically unchoke one random extra neighbour so newcomers can start and better partners are found.",
+        "Chord DHT: each key is stored at its successor, the first peer ID at or after the key going round the ID ring (wrapping past 0); finger tables cut a lookup from about N/2 hops to O(log2 N) hops.",
+        "BitTorrent's trackerless mode uses the Kademlia DHT, in which the distance between two IDs is their bitwise XOR."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: counting only the 4 queries when a question asks for all messages (8) in a cold iterative lookup; thinking a root server returns the IP address (it returns a referral); taking the highest MX preference as the most preferred (the lowest wins); forgetting to reverse the octets in an in-addr.arpa name; expecting P2P distribution time to fall to zero as peers join (it levels off near F/u); and assuming DNSSEC encrypts queries (it only signs data, while DoT and DoH encrypt)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i53_m001",
+      "questionText": "DNS servers listen for queries on which well-known port number?",
+      "options": [
+        "25",
+        "53",
+        "80",
+        "110"
+      ],
+      "correctIndex": 1,
+      "explanation": "DNS uses port 53, over UDP for ordinary queries and over TCP for zone transfers and large responses. Port 25 is SMTP, 80 is HTTP and 110 is POP3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m002",
+      "questionText": "Which type of DNS resource record maps a domain name to an IPv4 address?",
+      "options": [
+        "A record",
+        "MX record",
+        "PTR record",
+        "TXT record"
+      ],
+      "correctIndex": 0,
+      "explanation": "An A record holds an IPv4 address (AAAA holds an IPv6 address). MX names a mail server, PTR maps an address back to a name, and TXT carries free text such as SPF policies.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m003",
+      "questionText": "Which DNS server holds the original, definitive records for the zone example.com, as opposed to copies cached from earlier lookups?",
+      "options": [
+        "A root name server",
+        "A .com top-level-domain (TLD) server",
+        "An authoritative name server for example.com",
+        "The ISP's local (recursive) DNS server"
+      ],
+      "correctIndex": 2,
+      "explanation": "The authoritative servers (primary and secondaries) of a zone hold its records and set the AA flag in their answers. Root and TLD servers only refer resolvers downward, and the local resolver answers from its cache.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m004",
+      "questionText": "A local DNS server with an empty cache sends the query for www.example.com to a root server. What does the root server send back?",
+      "options": [
+        "The IP address of www.example.com",
+        "A referral giving the names and addresses of the .com TLD servers",
+        "An NXDOMAIN error, because root servers know only top-level names",
+        "A referral straight to the authoritative server for example.com"
+      ],
+      "correctIndex": 1,
+      "explanation": "Root servers know only the delegations of the top-level domains, so they answer with the NS records (plus glue addresses) of the .com servers. The .com server then refers the resolver to example.com's authoritative server, which gives the address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m005",
+      "questionText": "A host sends a recursive query for www.example.com to its local DNS server, whose cache is empty. The local server resolves the name with iterative queries to a root server, a .com TLD server and the authoritative server for example.com. How many DNS messages, queries and replies together, are sent in total?",
+      "options": [
+        "4",
+        "6",
+        "8",
+        "10"
+      ],
+      "correctIndex": 2,
+      "explanation": "There are four query-reply pairs: host-local, local-root, local-TLD and local-authoritative, so 4 queries + 4 replies = 8 messages. The answer 4 counts only the queries.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m006",
+      "questionText": "Starting with all caches empty, a host resolves www.example.com and, one minute later, ftp.example.com. The host sends recursive queries to its local DNS server, which uses iterative queries, and all TTLs are far longer than one minute. How many DNS messages (queries plus replies) do the two lookups need in total?",
+      "options": [
+        "10",
+        "12",
+        "14",
+        "16"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first lookup takes 8 messages. For the second, the local server already has example.com's NS and glue records cached from the TLD referral, so only the host-local and local-authoritative pairs are needed: 8 + 4 = 12. 14 assumes only the .com servers were cached, and 16 ignores caching.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i53_m007",
+      "questionText": "Each host's RTT to the local DNS server is 4 ms. The local server's RTTs to a root server, a .com TLD server and the authoritative server for example.com are 60 ms, 40 ms and 30 ms. With all caches empty, host A resolves www.example.com; shortly afterwards, well within the TTL, host B on the same LAN resolves the same name through the same local server. Ignoring processing time, how long does each lookup take?",
+      "options": [
+        "A: 134 ms, B: 4 ms",
+        "A: 130 ms, B: 0 ms",
+        "A: 134 ms, B: 34 ms",
+        "A: 268 ms, B: 8 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "A's lookup needs the host-local RTT plus the three iterative RTTs: 4 + 60 + 40 + 30 = 134 ms. B's query is answered from the local server's cache, so it costs only the 4 ms host-local RTT.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i53_m008",
+      "questionText": "At 10:00:00 a local DNS server caches an A record that the authoritative server returned with a TTL of 3600 s. At 10:45:00 a client asks the local server for the same name. What happens?",
+      "options": [
+        "It queries the authoritative server again, because cached records must be refreshed on every request",
+        "It answers from its cache with a TTL of 3600 s",
+        "It answers from its cache with a TTL of 2700 s",
+        "It answers from its cache with a TTL of 900 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "45 minutes = 2700 s have passed, so the record is still valid and is served from the cache with its remaining lifetime: 3600 - 2700 = 900 s. The cached copy is discarded only when its TTL reaches 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m009",
+      "questionText": "Which statement about recursive and iterative DNS queries is correct?",
+      "options": [
+        "In a recursive query the server asked must return the final answer or an error, doing any further lookups itself; in an iterative query it may return a referral to another server",
+        "In an iterative query each server passes the query on to the next server and relays the answer back",
+        "Root and TLD servers normally accept recursive queries from any host, which keeps resolution fast",
+        "A host's stub resolver normally sends iterative queries to the root servers itself"
+      ],
+      "correctIndex": 0,
+      "explanation": "A recursive query hands the whole job to the server asked, which is how a stub resolver uses its local DNS server. Root and TLD servers refuse recursion to limit their load and answer with referrals, which the local server follows iteratively.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m010",
+      "questionText": "The domain example.org publishes three MX records: 10 mx1.example.org, 20 mx2.example.org and 30 mx3.example.org. How does a sending mail server use them?",
+      "options": [
+        "It tries mx3 first, because the highest preference value wins, and then mx2",
+        "It picks one of the three at random for every message, ignoring the numbers",
+        "It sends a copy of the message to all three servers",
+        "It tries mx1 first and falls back to mx2 and then mx3 only if the better servers cannot be reached"
+      ],
+      "correctIndex": 3,
+      "explanation": "Lower MX preference values are preferred (RFC 5321), so mx1 (10) is tried first and mx2 (20) and mx3 (30) are backups. Only records with equal values are chosen between at random to share the load.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m011",
+      "questionText": "A company wants shop.example.com to be an alias for shop-lb.cdnprovider.net, so that the CDN can change its server addresses without the company editing its own zone. Which record should the company create?",
+      "options": [
+        "A",
+        "PTR",
+        "CNAME",
+        "NS"
+      ],
+      "correctIndex": 2,
+      "explanation": "A CNAME record makes shop.example.com an alias whose canonical name is shop-lb.cdnprovider.net, and resolvers then look up that name's A or AAAA records. An A record would fix the IP address inside the company's own zone.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m012",
+      "questionText": "The .com TLD servers delegate example.com to the name server ns1.example.com. Why must their referral also contain the IP address of ns1.example.com (a glue record)?",
+      "options": [
+        "Because referrals from TLD servers must always be signed with DNSSEC",
+        "Because an NS record may not point to a name outside the .com zone",
+        "So that the resolver can skip the authoritative server and cache the final answer directly",
+        "Without it a resolver would have to ask ns1.example.com for its own address, which it cannot do without that address"
+      ],
+      "correctIndex": 3,
+      "explanation": "The name server's name lies inside the zone it serves, so finding its address would mean querying that same server, a circular dependency. The parent therefore adds its A (and AAAA) record to the additional section of the referral.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i53_m013",
+      "questionText": "An administrator runs a reverse lookup on the IPv4 address 203.0.113.25. Which DNS name and record type does the resolver query?",
+      "options": [
+        "203.0.113.25.in-addr.arpa, type A",
+        "25.113.0.203.in-addr.arpa, type PTR",
+        "203.0.113.25.in-addr.arpa, type PTR",
+        "25.113.0.203.ip6.arpa, type PTR"
+      ],
+      "correctIndex": 1,
+      "explanation": "Reverse names list the octets backwards, most specific first, under in-addr.arpa, so the query is for the PTR record at 25.113.0.203.in-addr.arpa. ip6.arpa is used only for IPv6 addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m014",
+      "questionText": "How does a secondary name server decide when to copy the zone from its primary server?",
+      "options": [
+        "It transfers the whole zone each time a client sends it a query",
+        "The primary pushes every changed record to it over UDP port 53 as soon as it is edited, without any serial number",
+        "It checks the TTL of each record and copies the records whose TTL has expired",
+        "It fetches the SOA record every refresh interval and runs a zone transfer (AXFR or IXFR over TCP) only when the primary's serial number is higher than its own"
+      ],
+      "correctIndex": 3,
+      "explanation": "The SOA serial number is the zone's version: a secondary checks it each refresh interval (or when the primary sends a NOTIFY) and transfers the zone over TCP only if it has increased. If it cannot reach the primary for the expire time, it stops answering for the zone.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m015",
+      "questionText": "A cloud e-mail provider asks the administrator of example.com to prove that she controls the domain by publishing a random token string in DNS. Which record type is normally used for such a token?",
+      "options": [
+        "MX",
+        "TXT",
+        "SOA",
+        "PTR"
+      ],
+      "correctIndex": 1,
+      "explanation": "TXT records hold arbitrary text, so they carry ownership-verification tokens as well as SPF, DKIM and DMARC policies. MX names mail servers, SOA holds zone parameters and PTR is for reverse lookup.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m016",
+      "questionText": "What does DNSSEC add to DNS?",
+      "options": [
+        "Digital signatures on record sets (RRSIG), checked with the zone's DNSKEY and a chain of DS records from the root, so that a resolver can detect forged or altered answers",
+        "Encryption of queries and answers, so that an eavesdropper cannot see which names a user looks up",
+        "A switch from UDP to TCP for every query, which prevents spoofing",
+        "Hiding the IP addresses of authoritative servers from resolvers"
+      ],
+      "correctIndex": 0,
+      "explanation": "DNSSEC provides origin authentication and integrity: each zone signs its data and its parent vouches for its key with a DS record. It gives no confidentiality; DoT and DoH are what encrypt the queries.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m017",
+      "questionText": "Which statement about DNS over TLS (DoT) and DNS over HTTPS (DoH) is correct?",
+      "options": [
+        "Both sign the records at the authoritative server and so replace DNSSEC",
+        "DoT runs on UDP port 53 and DoH on TCP port 53",
+        "DoT uses its own port, TCP 853, while DoH carries DNS messages inside HTTPS on port 443, where they look like ordinary web traffic",
+        "Both encrypt the whole path from the host to the authoritative server, including the resolver's queries to root and TLD servers"
+      ],
+      "correctIndex": 2,
+      "explanation": "DoT (RFC 7858) and DoH (RFC 8484) encrypt the hop between a client and its resolver; DoT on its dedicated port is easy to recognise and block, while DoH on 443 blends in with HTTPS. Neither proves that the data is genuine, which is DNSSEC's job.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m018",
+      "questionText": "An off-path attacker trying to poison a resolver's cache must forge a reply whose 16-bit transaction ID and destination UDP port both match the resolver's outstanding query. The resolver picks the ID at random and its source port at random from 16,384 ports. How many (ID, port) combinations must the attacker cover to be certain of a match?",
+      "options": [
+        "65,536",
+        "81,920",
+        "1,073,741,824",
+        "16,384"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two random values are independent, so the possibilities multiply: 2^16 x 2^14 = 2^30 = 1,073,741,824. With a fixed source port only 65,536 IDs would have to be tried, and adding the two counts (81,920) is the classic mistake.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i53_m019",
+      "questionText": "dig www.example.org prints this answer section:\n\nwww.example.org.      300  IN  CNAME  web.cdn-example.net.\nweb.cdn-example.net.   60  IN  A      198.51.100.7\n\nWhich statement is correct?",
+      "options": [
+        "www.example.org has two IPv4 addresses, 300 and 60",
+        "www.example.org is an alias of web.cdn-example.net, whose IPv4 address 198.51.100.7 may be cached for at most 60 s",
+        "web.cdn-example.net is an alias of www.example.org, and both records may be cached for 300 s",
+        "198.51.100.7 is the address of the DNS server that sent the answer, valid for 300 s"
+      ],
+      "correctIndex": 1,
+      "explanation": "The CNAME line says that www.example.org is an alias whose canonical name is web.cdn-example.net, and the A line gives that name's IPv4 address. The second column is the TTL in seconds: 60 s for the address and 300 s for the alias.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m020",
+      "questionText": "A popular site publishes several A records for www.site.example, and its DNS server rotates their order in each reply. What is this used for?",
+      "options": [
+        "Reverse lookup of the site's addresses",
+        "Encrypting DNS answers",
+        "Transferring the zone to secondary servers",
+        "Spreading client load across several replicated web servers"
+      ],
+      "correctIndex": 3,
+      "explanation": "Clients usually connect to the first address in the list, so rotating the order (round-robin DNS) spreads requests across the replicated servers. It is a simple form of load distribution without health checks.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m021",
+      "questionText": "Which of the following applications is built on a peer-to-peer architecture?",
+      "options": [
+        "BitTorrent file sharing",
+        "Browsing a website over HTTP",
+        "Sending mail through an SMTP server",
+        "Downloading from an FTP server"
+      ],
+      "correctIndex": 0,
+      "explanation": "In BitTorrent the peers upload pieces of the file to one another, so each is both client and server. Web, mail and FTP are client-server: clients talk only to an always-on server.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m022",
+      "questionText": "Which statement about P2P file distribution is NOT correct?",
+      "options": [
+        "Each new peer adds upload capacity as well as demand",
+        "Peers may leave at any time and often change IP addresses, so the system must cope with churn",
+        "The original server must upload one complete copy of the file to every peer",
+        "A peer's download time is still limited by its own download rate"
+      ],
+      "correctIndex": 2,
+      "explanation": "In P2P the server needs to send each bit only once (at least F bits in total), and the peers redistribute the pieces among themselves. Sending N full copies is the client-server case, which makes D_cs grow as NF/u_s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m023",
+      "questionText": "A server with upload rate u_s = 40 Mbps must deliver a 2 Gbit file (F = 2000 Mb) to N = 50 peers. Every peer can upload at 4 Mbps and the slowest peer downloads at 8 Mbps. Using the distribution-time bounds of Kurose and Ross (1 Mbps = 10^6 bit/s), what are the minimum distribution times for client-server and for P2P?",
+      "options": [
+        "2500 s and about 417 s",
+        "2500 s and 250 s",
+        "50 s and about 417 s",
+        "2500 s and 500 s"
+      ],
+      "correctIndex": 0,
+      "explanation": "D_cs = max(NF/u_s, F/d_min) = max(50 x 2000/40, 2000/8) = max(2500, 250) = 2500 s. D_p2p = max(F/u_s, F/d_min, NF/(u_s + Nu)) = max(50, 250, 100000/240) = 416.7 s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i53_m024",
+      "questionText": "In a P2P distribution every peer uploads at u = 1 Mbps, the server uploads at u_s = 10 Mbps, every peer downloads at 20 Mbps and the file is F = 600 Mb. As the number of peers N becomes very large, what happens to the minimum distribution times?",
+      "options": [
+        "Both D_p2p and D_cs grow in proportion to N",
+        "D_p2p levels off at 60 s (F/u_s), while D_cs keeps growing",
+        "D_p2p falls towards 0 s, because each new peer adds capacity",
+        "D_p2p levels off just below 600 s (F/u), while D_cs keeps growing as N x 60 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "D_p2p = max(F/u_s, F/d_min, NF/(u_s + Nu)) = max(60, 30, 600N/(10 + N)), and 600N/(10 + N) approaches F/u = 600 s from below. D_cs = max(NF/u_s, F/d_min) = 60N s, which grows without limit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m025",
+      "questionText": "What is the role of the tracker in BitTorrent?",
+      "options": [
+        "It stores the complete file and serves it to every peer",
+        "It keeps track of the peers taking part in a torrent and gives a joining peer the addresses of some of them",
+        "It decides which piece each peer must download next",
+        "It encrypts the pieces exchanged between peers"
+      ],
+      "correctIndex": 1,
+      "explanation": "The tracker only coordinates: peers register with it and receive a list of other peers, then exchange pieces directly. Each peer chooses its own piece order (rarest first), and trackerless torrents use a DHT instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m026",
+      "questionText": "A BitTorrent peer still needs pieces 2, 5, 7 and 9. Among its neighbours, piece 2 is held by 6 peers, piece 5 by 2, piece 7 by 9 and piece 9 by 4. Under the rarest-first policy, which piece does it request first?",
+      "options": [
+        "Piece 2",
+        "Piece 7",
+        "Piece 9",
+        "Piece 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "Rarest first requests the missing piece held by the fewest neighbours, here piece 5 with 2 copies. This spreads scarce pieces quickly and makes it less likely that a piece disappears when peers leave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m027",
+      "questionText": "Alice's neighbours are currently sending her data at these rates (kbit/s): B 150, C 60, D 90, E 200, F 40 and G 110. Under BitTorrent's tit-for-tat policy, which neighbours does Alice unchoke as her four regular upload partners?",
+      "options": [
+        "E, B, G and D",
+        "B, C, D and E",
+        "E, B, G and C",
+        "C, F, D and G"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every 10 s Alice uploads to the four neighbours sending to her fastest: E (200), B (150), G (110) and D (90). Separately, every 30 s she optimistically unchokes one more random neighbour, such as C or F, so that new peers can start and faster partners can be found.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m028",
+      "questionText": "A 1.5 GiB file (1.5 x 2^30 bytes) is shared by BitTorrent in 256 KiB (2^18-byte) pieces. How many pieces does the torrent contain?",
+      "options": [
+        "6000",
+        "49,152",
+        "6144",
+        "384"
+      ],
+      "correctIndex": 2,
+      "explanation": "1.5 x 2^30 / 2^18 = 1.5 x 2^12 = 6144 pieces. Taking 1 GiB as 1000 MiB gives 6000, and counting bits instead of bytes gives 49,152.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i53_m029",
+      "questionText": "In a Chord DHT with 1,024 peers, every peer keeps a finger table. On the order of how many peers must a lookup contact in the worst case?",
+      "options": [
+        "About 512",
+        "About 10",
+        "About 32",
+        "1,023"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each finger-table hop at least halves the remaining distance round the ring, so a lookup needs O(log2 N) = log2 1024 = 10 hops. Following successor pointers alone would take up to N - 1 = 1,023 hops (N/2 on average).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i53_m030",
+      "questionText": "A Chord ring uses 4-bit identifiers (0 to 15) and has peers with IDs 1, 4, 9, 11 and 14. Each key is stored at its successor, the first peer whose ID is equal to or follows the key going clockwise. Which peers store keys 12 and 15?",
+      "options": [
+        "11 and 14",
+        "14 and 14",
+        "11 and 1",
+        "14 and 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Key 12: the first peer ID at or after 12 is 14. Key 15: no peer ID is 15 or above, so the search wraps past 0 to peer 1.",
+      "difficulty": "hard"
+    }
+  ]
+}

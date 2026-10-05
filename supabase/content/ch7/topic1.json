@@ -1,0 +1,441 @@
+{
+  "parent": {"id": "ch7_p1", "title": "Data Structures, Lists & Trees"},
+  "subtopics": [
+    {
+      "id": "ch7_t1",
+      "title": "Data Types, ADTs & Algorithm Analysis",
+      "subtitle": "Data type vs structure vs ADT, Big-O/Ω/Θ, growth rates, loop analysis, master theorem",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Data Type, Data Structure and ADT"},
+          {"type": "paragraph", "text": "A data type is the kind of value a variable can hold together with the operations allowed on it, such as int, float or char in C. A data structure is a particular way of organising data in memory so that it can be used efficiently, such as an array, linked list or tree. An abstract data type (ADT) is a logical description or blueprint: it states what data is stored and which operations are provided, but says nothing about how they are implemented. The Stack ADT, for example, is defined by push, pop, peek and isEmpty and can be implemented with either an array or a linked list."},
+          {"type": "bulletList", "text": "Three levels of looking at data:", "items": [
+            "Data type: the set of values plus built-in operations (int supports +, -, *, /, %).",
+            "Abstract data type: the specification (interface) of a user-defined type, independent of language and storage details; it separates what from how.",
+            "Data structure: the concrete implementation of an ADT in memory, chosen for the time and space trade-off it gives.",
+            "Primitive data structures are handled directly by machine instructions (int, float, char, pointer); non-primitive ones are built from primitives (arrays, lists, stacks, queues, trees, graphs)."
+          ]},
+          {"type": "table", "rows": [
+            ["Aspect", "Linear", "Non-linear"],
+            ["Arrangement", "Elements in a sequence, each has one predecessor and one successor", "Elements in a hierarchy or network, one element can link to many"],
+            ["Traversal", "All elements visited in a single run", "Needs special traversal (tree or graph traversal)"],
+            ["Examples", "Array, stack, queue, linked list", "Tree, graph, heap"],
+            ["Memory use", "Simple to implement, may waste memory (arrays)", "More complex, uses memory more flexibly"]
+          ]},
+          {"type": "heading", "text": "Time and Space Analysis"},
+          {"type": "paragraph", "text": "Time complexity measures how the number of basic operations of an algorithm grows with the input size n; space complexity measures the extra memory it needs (fixed part for code and simple variables plus a variable part for dynamic data and the recursion stack). We count operations rather than seconds so that the measure is independent of the machine and compiler. Asymptotic analysis keeps only the fastest-growing term and ignores constant factors, because for large n that term dominates."},
+          {"type": "formula", "latex": "f(n)=O(g(n)) \\iff \\exists\\, c>0, n_0:\\ f(n)\\le c\\,g(n)\\ \\forall n\\ge n_0", "plainText": "f(n) = O(g(n)) iff there exist c > 0 and n0 such that f(n) <= c·g(n) for all n >= n0"},
+          {"type": "bulletList", "text": "The three asymptotic notations:", "items": [
+            "Big-O (O): asymptotic upper bound; f grows no faster than g. Most often quoted for the worst case.",
+            "Big-Omega (Ω): asymptotic lower bound; f(n) ≥ c·g(n) for all n ≥ n0. Often quoted for the best case.",
+            "Big-Theta (Θ): tight bound; c1·g(n) ≤ f(n) ≤ c2·g(n) for n ≥ n0, i.e. f is both O(g) and Ω(g).",
+            "Example: f(n) = 3n² + 5n + 2 is O(n²) (take c = 4, n0 = 6), Ω(n²) (c = 3) and therefore Θ(n²)."
+          ]},
+          {"type": "table", "rows": [
+            ["Order", "Name", "Typical example", "Value at n = 16"],
+            ["1", "Constant", "Array access by index", "1"],
+            ["log n", "Logarithmic", "Binary search", "4"],
+            ["n", "Linear", "Linear search", "16"],
+            ["n log n", "Linearithmic", "Merge sort, heap sort", "64"],
+            ["n²", "Quadratic", "Bubble, selection, insertion sort", "256"],
+            ["2ⁿ", "Exponential", "Generating all subsets", "65,536"],
+            ["n!", "Factorial", "Generating all permutations", "about 2.09 × 10^13"]
+          ]},
+          {"type": "paragraph", "text": "The best case is the input on which the algorithm does the least work (for linear search, the key is the first element: 1 comparison). The worst case is the input needing the most work (key absent: n comparisons). The average case is the expected work over all inputs under an assumed distribution (for a successful linear search about (n + 1)/2 comparisons). The worst case is the most useful guarantee, which is why complexities are usually quoted as worst-case Big-O."},
+          {"type": "heading", "text": "Analysing Loops"},
+          {"type": "code", "language": "c", "text": "/* single loop: n iterations -> O(n) */\nfor (i = 0; i < n; i++) sum += a[i];\n\n/* nested loops: n * n iterations -> O(n^2) */\nfor (i = 0; i < n; i++)\n    for (j = 0; j < n; j++) count++;\n\n/* halving loop: i = n, n/2, n/4, ... -> O(log n) */\nfor (i = n; i > 1; i = i / 2) count++;\n\n/* linear outer, doubling inner -> O(n log n) */\nfor (i = 0; i < n; i++)\n    for (j = 1; j < n; j = j * 2) count++;"},
+          {"type": "paragraph", "text": "Consecutive statements add (keep the larger term) and nested loops multiply. A triangular nest such as for (i = 0; i < n; i++) for (j = 0; j < i; j++) runs 0 + 1 + ... + (n − 1) = n(n − 1)/2 times, which is still O(n²). A loop whose control variable is multiplied or divided by a constant k runs about log_k n times."},
+          {"type": "paragraph", "text": "Recursive algorithms are analysed with recurrences. Merge sort gives T(n) = 2T(n/2) + n, which solves to Θ(n log n); binary search gives T(n) = T(n/2) + 1, which solves to Θ(log n). The master theorem handles T(n) = aT(n/b) + Θ(n^d) with a ≥ 1 and b > 1: if d < log_b a the answer is Θ(n^(log_b a)), if d = log_b a it is Θ(n^d log n), and if d > log_b a it is Θ(n^d)."},
+          {"type": "formula", "latex": "T(n)=aT(n/b)+\\Theta(n^d)", "plainText": "T(n) = a·T(n/b) + Θ(n^d): compare d with log_b a"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "f(n)=\\Omega(g(n)) \\iff f(n)\\ge c\\,g(n)\\ \\forall n\\ge n_0", "plainText": "f(n) = Ω(g(n)) iff f(n) >= c·g(n) for all n >= n0"},
+          {"type": "formula", "latex": "c_1 g(n)\\le f(n)\\le c_2 g(n)\\ \\forall n\\ge n_0 \\iff f=\\Theta(g)", "plainText": "f = Θ(g) iff c1·g(n) <= f(n) <= c2·g(n) for all n >= n0"},
+          {"type": "formula", "latex": "1<\\log n<n<n\\log n<n^2<2^n<n!", "plainText": "1 < log n < n < n log n < n² < 2ⁿ < n! (growth order)"},
+          {"type": "formula", "latex": "T(n)=2T(n/2)+n \\Rightarrow \\Theta(n\\log n)", "plainText": "T(n) = 2T(n/2) + n gives Θ(n log n)"}
+        ],
+        "notes": [
+          {"type": "warning", "text": "Do not equate Θ with the average case or Ω with the best case. The notations are bounds on a function; best, average and worst case are different functions. You can state a Θ bound for the worst case (insertion sort's worst case is Θ(n²)) or an O bound for the best case."},
+          {"type": "examTip", "text": "For loop-counting MCQs, write out the values the loop variable takes. Doubling or halving means log n iterations; a nested loop whose inner bound depends on the outer variable is usually a triangular sum n(n − 1)/2, still O(n²)."},
+          {"type": "note", "text": "An ADT answers 'what operations', a data structure answers 'how stored'. The same ADT (a queue) can be built from an array, a circular array or a linked list, each with different costs."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_t1_01", "title": "Big-O definition", "latex": "f(n)\\le c\\,g(n)\\ \\forall n\\ge n_0", "plainText": "f(n) = O(g(n)) if f(n) <= c·g(n) for all n >= n0", "description": "Upper bound: beyond some n0, f never exceeds a constant multiple of g."},
+        {"id": "f_ch7_t1_02", "title": "Big-Theta definition", "latex": "c_1 g(n)\\le f(n)\\le c_2 g(n)", "plainText": "c1·g(n) <= f(n) <= c2·g(n) for n >= n0", "description": "Tight bound: f is sandwiched between two constant multiples of g."},
+        {"id": "f_ch7_t1_03", "title": "Growth-rate order", "latex": "1<\\log n<n<n\\log n<n^2<2^n<n!", "plainText": "1 < log n < n < n log n < n² < 2ⁿ < n!", "description": "Standard ordering of common complexity classes from slowest to fastest growing."},
+        {"id": "f_ch7_t1_04", "title": "Master theorem form", "latex": "T(n)=aT(n/b)+\\Theta(n^d)", "plainText": "T(n) = aT(n/b) + Θ(n^d); compare d with log_b a", "description": "d < log_b a gives Θ(n^log_b a), d = log_b a gives Θ(n^d log n), d > log_b a gives Θ(n^d)."},
+        {"id": "f_ch7_t1_05", "title": "Triangular loop count", "latex": "\\sum_{i=0}^{n-1} i=\\frac{n(n-1)}{2}", "plainText": "0 + 1 + ... + (n-1) = n(n-1)/2", "description": "Iterations of a nested loop whose inner bound is the outer index; O(n²)."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_t1_01", "front": "What is the difference between an ADT and a data structure?", "back": "An ADT specifies the data and operations logically without implementation; a data structure is a concrete memory implementation of it, e.g. Stack ADT implemented by an array.", "difficulty": "easy"},
+        {"id": "fc_ch7_t1_02", "front": "How many times does for (i = n; i > 1; i /= 2) execute?", "back": "About log2 n times, so the loop is O(log n).", "difficulty": "easy"},
+        {"id": "fc_ch7_t1_03", "front": "State the tight bound of f(n) = 3n² + 5n + 2.", "back": "Θ(n²): it is O(n²) with c = 4, n0 = 6 and Ω(n²) with c = 3.", "difficulty": "medium"},
+        {"id": "fc_ch7_t1_04", "front": "What does the master theorem give for T(n) = 2T(n/2) + n?", "back": "a = 2, b = 2, d = 1 = log2 2, so T(n) = Θ(n log n).", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_t1_n01", "questionText": "How many times is the statement count++ executed by for (i = 1024; i > 1; i = i / 2) count++; ?", "options": ["512", "11", "10", "1024"], "correctIndex": 2, "explanation": "i takes the values 1024, 512, ..., 2, which is 10 values (log2 1024 = 10); the loop stops when i becomes 1.", "difficulty": "easy"},
+        {"id": "q_ch7_t1_n02", "questionText": "Using the master theorem, the recurrence T(n) = 4T(n/2) + n solves to:", "options": ["Θ(n²)", "Θ(n log n)", "Θ(n)", "Θ(n² log n)"], "correctIndex": 0, "explanation": "a = 4, b = 2, so log_b a = 2, which exceeds d = 1; the recursion dominates and T(n) = Θ(n^2).", "difficulty": "medium"},
+        {"id": "q_ch7_t1_n03", "questionText": "Which ordering of growth rates, from slowest to fastest, is correct?", "options": ["n log n < 2ⁿ < n² < n!", "log n < n log n < n² < 2ⁿ", "n² < n log n < n! < 2ⁿ", "log n < n² < n log n < 2ⁿ"], "correctIndex": 1, "explanation": "The standard order is 1 < log n < n < n log n < n² < 2ⁿ < n!; only the second option respects it.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i11",
+      "title": "Stacks & Their Applications",
+      "subtitle": "Stack ADT, array and linked stacks, infix to postfix, postfix evaluation, uses",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "The Stack ADT"},
+          {"type": "paragraph", "text": "A stack is a linear list in which insertion and deletion take place at one end only, called the top. The last element pushed is the first one popped, so a stack is a Last-In First-Out (LIFO) structure, like a pile of plates. All basic operations take O(1) time."},
+          {"type": "bulletList", "text": "Stack operations and error conditions:", "items": [
+            "push(x): place x on the top; attempting it on a full (fixed-size) stack is overflow.",
+            "pop(): remove and return the top element; attempting it on an empty stack is underflow.",
+            "peek() or top(): return the top element without removing it.",
+            "isEmpty() / isFull(): test for top == -1 and top == MAX - 1 in an array implementation."
+          ]},
+          {"type": "code", "language": "c", "text": "#define MAX 100\nint stack[MAX], top = -1;\n\nvoid push(int x) {\n    if (top == MAX - 1) return;      /* overflow */\n    stack[++top] = x;\n}\nint pop(void) {\n    if (top == -1) return -1;        /* underflow */\n    return stack[top--];\n}\nint peek(void)    { return stack[top]; }\nint isEmpty(void) { return top == -1; }"},
+          {"type": "paragraph", "text": "A linked stack keeps a pointer top to the first node of a singly linked list. Push inserts a new node at the head and pop removes the head node, both O(1). There is no overflow short of running out of heap memory, at the cost of one pointer per element."},
+          {"type": "code", "language": "c", "text": "struct node { int data; struct node *next; };\nstruct node *top = NULL;\n\nvoid push(int x) {\n    struct node *p = malloc(sizeof(struct node));\n    p->data = x; p->next = top; top = p;\n}\nint pop(void) {\n    if (top == NULL) return -1;       /* underflow */\n    struct node *p = top; int x = p->data;\n    top = p->next; free(p);\n    return x;\n}"},
+          {"type": "heading", "text": "Infix, Prefix and Postfix"},
+          {"type": "paragraph", "text": "In infix notation the operator sits between operands (A + B), which needs precedence rules and parentheses. Prefix (Polish) notation puts the operator first (+ A B) and postfix (reverse Polish) puts it last (A B +). Prefix and postfix need no parentheses and no precedence rules, so a machine can evaluate them in one left-to-right (postfix) scan using a stack. Example: infix (A + B) * C is * + A B C in prefix and A B + C * in postfix."},
+          {"type": "table", "rows": [
+            ["Operator", "Precedence", "Associativity"],
+            ["^ (exponent)", "Highest (3)", "Right to left"],
+            ["*  /  %", "2", "Left to right"],
+            ["+  -", "1", "Left to right"],
+            ["( on the stack", "Lowest (0)", "Popped only by )"]
+          ]},
+          {"type": "bulletList", "text": "Infix to postfix conversion (scan left to right, operator stack, output string):", "items": [
+            "Operand: append it directly to the output.",
+            "'(': push it on the stack.",
+            "')': pop and output operators until '(' is found; discard both parentheses.",
+            "Operator op: while the stack top is an operator of higher precedence, or equal precedence and op is left-associative, pop it to the output; then push op.",
+            "End of input: pop all remaining operators to the output."
+          ]},
+          {"type": "table", "rows": [
+            ["Symbol", "Stack (bottom → top)", "Output"],
+            ["A", "empty", "A"],
+            ["+", "+", "A"],
+            ["B", "+", "A B"],
+            ["*", "+ *", "A B"],
+            ["C", "+ *", "A B C"],
+            ["-", "- (pops * then +)", "A B C * +"],
+            ["D, then end", "empty", "A B C * + D -"]
+          ]},
+          {"type": "paragraph", "text": "Postfix evaluation scans the expression left to right with an operand stack. An operand is pushed. An operator pops the top two values, where the first popped is the right operand and the second popped is the left operand, applies the operator and pushes the result. At the end the single value on the stack is the answer. The table traces 2 3 4 * + 5 -, which is 2 + 3 * 4 - 5 = 9."},
+          {"type": "table", "rows": [
+            ["Symbol", "Action", "Stack (bottom → top)"],
+            ["2", "push", "2"],
+            ["3", "push", "2 3"],
+            ["4", "push", "2 3 4"],
+            ["*", "pop 4, 3; push 3 * 4 = 12", "2 12"],
+            ["+", "pop 12, 2; push 2 + 12 = 14", "14"],
+            ["5", "push", "14 5"],
+            ["-", "pop 5, 14; push 14 - 5 = 9", "9"]
+          ]},
+          {"type": "bulletList", "text": "Other applications of stacks:", "items": [
+            "Function calls and recursion: each call pushes an activation record (return address, parameters, locals) on the run-time stack.",
+            "Parentheses matching: push each opening bracket, pop on a closing bracket and check the pair; the expression is balanced if the stack is empty at the end.",
+            "Undo in editors, back button in browsers, depth-first search and backtracking (maze solving).",
+            "Reversing a string or list: push all items, then pop them in reverse order."
+          ]},
+          {"type": "formula", "latex": "\\text{empty: } top=-1,\\quad \\text{full: } top=MAX-1", "plainText": "Array stack: empty when top = -1, full when top = MAX - 1"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{empty: } top=-1,\\quad \\text{full: } top=MAX-1", "plainText": "Array stack: empty when top = -1, full when top = MAX - 1"},
+          {"type": "formula", "latex": "\\text{push, pop, peek} = O(1)", "plainText": "push, pop and peek all take O(1) time"},
+          {"type": "formula", "latex": "\\text{result} = \\text{second popped} \\;op\\; \\text{first popped}", "plainText": "Postfix evaluation: result = (second popped) op (first popped)"}
+        ],
+        "notes": [
+          {"type": "warning", "text": "In postfix evaluation the order of operands matters for - and /: for '8 2 /' you pop 2 first, then 8, and compute 8 / 2 = 4, not 2 / 8."},
+          {"type": "examTip", "text": "To check an infix-to-postfix answer quickly, fully parenthesise the infix expression by precedence, then move each operator to just after its closing parenthesis and drop the parentheses. A + B * C becomes (A + (B * C)) and then A B C * +."},
+          {"type": "note", "text": "Exponent (^) is right-associative, so an incoming ^ does not pop another ^ from the stack: A ^ B ^ C converts to A B C ^ ^."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i11_01", "title": "Array stack conditions", "latex": "top=-1 \\;(\\text{empty}),\\ top=MAX-1 \\;(\\text{full})", "plainText": "top = -1 means empty; top = MAX - 1 means full", "description": "Tests used before pop (underflow) and push (overflow) in an array stack."},
+        {"id": "f_ch7_i11_02", "title": "Postfix operator step", "latex": "b=\\text{pop}(),\\ a=\\text{pop}(),\\ \\text{push}(a \\;op\\; b)", "plainText": "b = pop(), a = pop(), push(a op b)", "description": "The first value popped is the right operand, the second is the left operand."},
+        {"id": "f_ch7_i11_03", "title": "Stack operation cost", "latex": "T_{push}=T_{pop}=T_{peek}=O(1)", "plainText": "push, pop, peek are O(1)", "description": "All stack operations touch only the top, so they run in constant time."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i11_01", "front": "What are stack overflow and underflow?", "back": "Overflow is a push onto a full stack; underflow is a pop from an empty stack.", "difficulty": "easy"},
+        {"id": "fc_ch7_i11_02", "front": "Convert (A + B) * C to prefix and postfix.", "back": "Prefix: * + A B C. Postfix: A B + C *.", "difficulty": "medium"},
+        {"id": "fc_ch7_i11_03", "front": "How is a stack used to check balanced parentheses?", "back": "Push each opening bracket and pop on each closing one, checking they match; balanced if no mismatch and the stack ends empty.", "difficulty": "easy"},
+        {"id": "fc_ch7_i11_04", "front": "What is the postfix form of A ^ B ^ C?", "back": "A B C ^ ^, because exponent is right-associative.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i11_n01", "questionText": "What is the postfix form of the infix expression A + B * C - D / E?", "options": ["A B + C * D E / -", "A B C * + D E / -", "A B C + * D E - /", "A B C * D E / + -"], "correctIndex": 1, "explanation": "B * C and D / E are formed first because of higher precedence, then + and - are applied left to right: (A + (B * C)) - (D / E) gives A B C * + D E / -.", "difficulty": "medium"},
+        {"id": "q_ch7_i11_n02", "questionText": "What is the value of the postfix expression 6 2 3 + - 3 8 2 / + * ?", "options": ["49", "7", "1", "-7"], "correctIndex": 1, "explanation": "2 3 + = 5, 6 - 5 = 1; 8 2 / = 4, 3 + 4 = 7; finally 1 * 7 = 7.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i12",
+      "title": "Queues & List Implementations",
+      "subtitle": "Linear and circular queues, deque, priority queue, array lists, static vs dynamic lists",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "The Queue ADT"},
+          {"type": "paragraph", "text": "A queue is a linear list in which insertion (enqueue) happens at one end, the rear, and deletion (dequeue) happens at the other end, the front. The first element inserted is the first removed, so a queue is First-In First-Out (FIFO), like a line at a ticket counter. Operations are enqueue, dequeue, peek/front, isEmpty and isFull, all O(1) in a proper implementation."},
+          {"type": "code", "language": "c", "text": "#define MAX 5\nint q[MAX], front = -1, rear = -1;\n\nvoid enqueue(int x) {\n    if (rear == MAX - 1) return;          /* full */\n    if (front == -1) front = 0;\n    q[++rear] = x;\n}\nint dequeue(void) {\n    if (front == -1 || front > rear) return -1;  /* empty */\n    return q[front++];\n}"},
+          {"type": "paragraph", "text": "The drawback of the linear array queue is that front and rear only move forward. After several enqueues and dequeues, rear reaches MAX - 1 and the queue reports full even though the slots before front are empty. Shifting all elements forward on every dequeue fixes this but costs O(n); the circular queue fixes it in O(1)."},
+          {"type": "heading", "text": "Circular Queue"},
+          {"type": "paragraph", "text": "In a circular queue the array is treated as a ring: after index n - 1 comes index 0. Both indices advance with modulo arithmetic, rear = (rear + 1) % n and front = (front + 1) % n, so freed slots at the start are reused. With the front = rear = -1 convention shown below, the queue is empty when front == -1 and full when (rear + 1) % n == front."},
+          {"type": "code", "language": "c", "text": "int cq[N], front = -1, rear = -1;\n\nvoid enqueue(int x) {\n    if ((rear + 1) % N == front) return;   /* full */\n    if (front == -1) front = 0;\n    rear = (rear + 1) % N;\n    cq[rear] = x;\n}\nint dequeue(void) {\n    if (front == -1) return -1;            /* empty */\n    int x = cq[front];\n    if (front == rear) front = rear = -1;  /* last item */\n    else front = (front + 1) % N;\n    return x;\n}"},
+          {"type": "formula", "latex": "rear=(rear+1)\\bmod n,\\quad \\text{full: }(rear+1)\\bmod n=front", "plainText": "rear = (rear + 1) mod n; full when (rear + 1) mod n = front"},
+          {"type": "bulletList", "text": "Variants of the queue:", "items": [
+            "Deque (double-ended queue): insertion and deletion at both ends. An input-restricted deque allows insertion at one end only; an output-restricted deque allows deletion at one end only. A deque can act as both a stack and a queue.",
+            "Priority queue: each element has a priority and the highest-priority element is removed first, regardless of arrival order. An unsorted array gives O(1) insert and O(n) delete; a sorted list the reverse; a binary heap gives O(log n) for both.",
+            "Applications: CPU and printer scheduling, buffering in I/O and networks, breadth-first search (queue); job scheduling, Dijkstra's and Prim's algorithms, heap sort (priority queue)."
+          ]},
+          {"type": "heading", "text": "The List ADT and Array Implementation"},
+          {"type": "paragraph", "text": "A list is an ordered collection of elements with operations such as insert at a position, delete at a position, search, retrieve, length and traversal. In the array implementation the elements occupy consecutive cells, so access by index is O(1), but inserting or deleting at position k shifts all later elements and costs O(n). The capacity is fixed at compile time or allocation time."},
+          {"type": "code", "language": "c", "text": "/* insert x at index pos in list[0..n-1] */\nvoid insertAt(int list[], int *n, int pos, int x) {\n    for (int i = *n; i > pos; i--)\n        list[i] = list[i - 1];     /* shift right */\n    list[pos] = x;\n    (*n)++;\n}\n/* delete element at index pos */\nvoid deleteAt(int list[], int *n, int pos) {\n    for (int i = pos; i < *n - 1; i++)\n        list[i] = list[i + 1];     /* shift left */\n    (*n)--;\n}"},
+          {"type": "table", "rows": [
+            ["Feature", "Static list (array)", "Dynamic list (linked)"],
+            ["Memory allocation", "Fixed, at compile time or once", "Grows and shrinks at run time (malloc/free)"],
+            ["Size limit", "Declared maximum; overflow possible", "Limited only by available heap"],
+            ["Access by position", "O(1) direct indexing", "O(n) sequential traversal"],
+            ["Insert/delete in middle", "O(n) shifting", "O(1) once the position is found"],
+            ["Extra memory", "None per element, but unused slots wasted", "One or two pointers per node"]
+          ]},
+          {"type": "bulletList", "text": "Stacks and queues implemented as lists:", "items": [
+            "Stack as an array list: top is the index of the last element; push and pop work at the end of the list, so no shifting is needed.",
+            "Stack as a linked list: push and pop at the head, O(1).",
+            "Queue as a linked list: keep both front and rear pointers; enqueue appends after rear, dequeue removes the front node, both O(1).",
+            "Queue as an array list: use the circular technique so that neither operation shifts elements."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "rear=(rear+1)\\bmod n,\\quad front=(front+1)\\bmod n", "plainText": "rear = (rear + 1) mod n, front = (front + 1) mod n"},
+          {"type": "formula", "latex": "\\text{full: }(rear+1)\\bmod n=front", "plainText": "Circular queue is full when (rear + 1) mod n = front"},
+          {"type": "formula", "latex": "\\text{count}=(rear-front+n)\\bmod n", "plainText": "Elements = (rear - front + n) mod n (convention: front = rear means empty, one slot kept free)"}
+        ],
+        "notes": [
+          {"type": "warning", "text": "Two circular-queue conventions exist. With front = rear = -1 for empty (as in the code), all n slots are used. With front = rear = 0 for empty, one slot is always left free so that full ((rear + 1) % n == front) can be told apart from empty (front == rear); such a queue holds at most n - 1 elements."},
+          {"type": "examTip", "text": "For index-tracing MCQs on circular queues, apply (index + 1) mod n at each step. With n = 8, a rear at 7 moves to 0 on the next enqueue."},
+          {"type": "note", "text": "A priority queue is an ADT, not a particular structure; the binary heap is simply its most common efficient implementation."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i12_01", "title": "Circular increment", "latex": "rear=(rear+1)\\bmod n", "plainText": "rear = (rear + 1) mod n", "description": "Advances an index around the ring so freed slots at the start are reused."},
+        {"id": "f_ch7_i12_02", "title": "Circular queue full", "latex": "(rear+1)\\bmod n=front", "plainText": "(rear + 1) mod n = front", "description": "The next slot after rear is the front, so no more elements can be inserted."},
+        {"id": "f_ch7_i12_03", "title": "Array list shift cost", "latex": "\\text{shifts}=n-k", "plainText": "Inserting at index k in an n-element array list shifts n - k elements", "description": "Why insertion and deletion in an array list are O(n) in the worst case."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i12_01", "front": "Why is a circular queue better than a linear array queue?", "back": "A linear queue can report full while slots before front are empty; a circular queue wraps indices with mod n and reuses those slots.", "difficulty": "easy"},
+        {"id": "fc_ch7_i12_02", "front": "What is a deque?", "back": "A double-ended queue that allows insertion and deletion at both the front and the rear.", "difficulty": "easy"},
+        {"id": "fc_ch7_i12_03", "front": "What is the cost of insertion at position k in an array list?", "back": "O(n): all elements from k onward must shift one place right.", "difficulty": "medium"},
+        {"id": "fc_ch7_i12_04", "front": "Which pointers does a linked-list queue keep, and why?", "back": "front and rear, so that dequeue at the front and enqueue at the rear are both O(1).", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i12_n01", "questionText": "A circular queue is stored in an array of size 8 (indices 0 to 7). If rear = 7 and the queue is not full, where is the next element inserted?", "options": ["Index 8", "Index 0", "Index 6", "Overflow occurs"], "correctIndex": 1, "explanation": "rear = (7 + 1) mod 8 = 0, so the element wraps around to index 0.", "difficulty": "easy"},
+        {"id": "q_ch7_i12_n02", "questionText": "Which structure permits insertion and deletion at both ends?", "options": ["Priority queue", "Circular queue", "Stack", "Deque"], "correctIndex": 3, "explanation": "A deque (double-ended queue) supports insertion and deletion at both front and rear.", "difficulty": "easy"},
+        {"id": "q_ch7_i12_n03", "questionText": "In an array-based circular queue of size n, which condition indicates that the queue is full?", "options": ["front == rear", "rear == n - 1", "(rear + 1) % n == front", "front == 0"], "correctIndex": 2, "explanation": "The queue is full when the slot after rear, taken modulo n, is the front. rear == n - 1 is the full test for a linear queue, not a circular one.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i13",
+      "title": "Linked Lists: Singly, Doubly & Circular",
+      "subtitle": "Nodes and malloc, insert/delete at any position, reversal, doubly and circular lists",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Dynamic Implementation of Linked Lists"},
+          {"type": "paragraph", "text": "A linked list is a linear collection of nodes where each node holds data and a pointer to the next node; the list is reached through a head pointer and the last node's next is NULL. Nodes are allocated at run time with malloc and released with free, so the list grows and shrinks dynamically and nodes need not be contiguous in memory. Access is sequential: reaching the k-th node requires following k - 1 links."},
+          {"type": "code", "language": "c", "text": "struct node { int data; struct node *next; };\nstruct node *head = NULL;\n\nvoid insertBegin(int x) {                 /* O(1) */\n    struct node *p = malloc(sizeof(struct node));\n    p->data = x; p->next = head; head = p;\n}\nvoid insertEnd(int x) {                   /* O(n) */\n    struct node *p = malloc(sizeof(struct node)), *t = head;\n    p->data = x; p->next = NULL;\n    if (head == NULL) { head = p; return; }\n    while (t->next != NULL) t = t->next;\n    t->next = p;\n}"},
+          {"type": "code", "language": "c", "text": "/* insert x after the pos-th node (1-based) */\nvoid insertAfter(int pos, int x) {\n    struct node *t = head;\n    for (int i = 1; i < pos && t != NULL; i++) t = t->next;\n    if (t == NULL) return;                /* invalid position */\n    struct node *p = malloc(sizeof(struct node));\n    p->data = x;\n    p->next = t->next;                    /* link new node first */\n    t->next = p;\n}"},
+          {"type": "bulletList", "text": "Basic operations on a singly linked list:", "items": [
+            "Creation: start with head = NULL and repeatedly insert nodes.",
+            "Insertion at beginning O(1); at end O(n) with only a head pointer (O(1) if a tail pointer is kept); after a given position O(n) to find the position, O(1) to link.",
+            "Deletion from beginning O(1); from end O(n) because the second-last node must be found; of a given key O(n) search then O(1) unlink.",
+            "Traversal visits every node from head until NULL, O(n); search compares each node's data with the key, O(n)."
+          ]},
+          {"type": "code", "language": "c", "text": "void deleteBegin(void) {\n    struct node *p = head;\n    if (p) { head = p->next; free(p); }\n}\nvoid deleteKey(int key) {                 /* middle or any node */\n    struct node *t = head, *prev = NULL;\n    while (t && t->data != key) { prev = t; t = t->next; }\n    if (t == NULL) return;                /* not found */\n    if (prev) prev->next = t->next; else head = t->next;\n    free(t);\n}"},
+          {"type": "code", "language": "c", "text": "void deleteEnd(void) {\n    if (head == NULL) return;\n    if (head->next == NULL) { free(head); head = NULL; return; }\n    struct node *t = head;\n    while (t->next->next != NULL) t = t->next;   /* second last */\n    free(t->next);\n    t->next = NULL;\n}"},
+          {"type": "paragraph", "text": "Reversing a singly linked list in place uses three pointers: prev, curr and next. At each step save curr->next, point curr->next back to prev, then move prev and curr one node forward. When curr becomes NULL, prev is the new head. The reversal is O(n) time and O(1) extra space."},
+          {"type": "code", "language": "c", "text": "struct node *reverse(struct node *head) {\n    struct node *prev = NULL, *curr = head, *next;\n    while (curr != NULL) {\n        next = curr->next;\n        curr->next = prev;\n        prev = curr;\n        curr = next;\n    }\n    return prev;                          /* new head */\n}"},
+          {"type": "heading", "text": "Doubly Linked Lists"},
+          {"type": "paragraph", "text": "Each node of a doubly linked list has prev and next pointers, so the list can be traversed in both directions and a node can be deleted in O(1) when a pointer to it is known, because its predecessor is directly available. The cost is one extra pointer per node and more pointer updates per insertion or deletion. Applications include browser back/forward history, LRU caches (doubly linked list plus hash map), deques, undo/redo lists and music playlists."},
+          {"type": "code", "language": "c", "text": "struct dnode { int data; struct dnode *prev, *next; };\n\nvoid insertAfterD(struct dnode *p, int x) {\n    struct dnode *q = malloc(sizeof(struct dnode));\n    q->data = x; q->prev = p; q->next = p->next;\n    if (p->next) p->next->prev = q;\n    p->next = q;\n}\nvoid deleteD(struct dnode **head, struct dnode *p) {\n    if (p->prev) p->prev->next = p->next; else *head = p->next;\n    if (p->next) p->next->prev = p->prev;\n    free(p);\n}"},
+          {"type": "paragraph", "text": "In a circular linked list the last node points back to the first node instead of NULL (in a circular doubly linked list the first node's prev also points to the last). Any node can serve as a starting point and traversal stops when the start node is reached again. Keeping a pointer to the last node gives O(1) insertion at both beginning and end. Applications include round-robin CPU scheduling, multiplayer turn taking and circular buffers."},
+          {"type": "table", "rows": [
+            ["Feature", "Array", "Linked list"],
+            ["Memory", "Contiguous, fixed size", "Scattered nodes, dynamic size"],
+            ["Access k-th element", "O(1) random access", "O(n) sequential"],
+            ["Insert/delete at front", "O(n) shifting", "O(1)"],
+            ["Extra space", "None per element", "Pointer(s) per node"],
+            ["Cache locality", "Good", "Poor"],
+            ["Binary search", "Possible when sorted", "Not efficient"]
+          ]},
+          {"type": "formula", "latex": "\\text{node size}=\\text{data}+k\\times\\text{pointer size}", "plainText": "Node size = data size + k × pointer size (k = 1 singly, 2 doubly)"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{node size}=\\text{data}+k\\times\\text{pointer size}", "plainText": "Node size = data + k × pointer size (k = 1 singly, k = 2 doubly)"},
+          {"type": "formula", "latex": "T_{\\text{insert head}}=O(1),\\ T_{\\text{insert tail}}=O(n)", "plainText": "Insert at head O(1); insert at tail O(n) with only a head pointer"},
+          {"type": "formula", "latex": "T_{\\text{access }k}=O(k),\\ T_{\\text{search}}=O(n)", "plainText": "Access to k-th node O(k); search O(n)"}
+        ],
+        "notes": [
+          {"type": "warning", "text": "When inserting, set the new node's next before changing the predecessor's next (p->next = t->next; then t->next = p). Doing it the other way round loses the rest of the list."},
+          {"type": "examTip", "text": "Complexity MCQs hinge on which pointers are kept: tail insertion is O(n) with head only but O(1) with a tail pointer; deleting a given node is O(1) in a doubly list but O(n) in a singly list (the predecessor must be found)."},
+          {"type": "note", "text": "Always free a removed node and check for the empty list and single-node list; these edge cases cause most NULL-pointer errors."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i13_01", "title": "Node size", "latex": "\\text{data}+k\\times\\text{pointer}", "plainText": "Node size = data + k × pointer size", "description": "k = 1 for a singly linked node and k = 2 for a doubly linked node."},
+        {"id": "f_ch7_i13_02", "title": "Head vs tail insertion", "latex": "O(1)\\ \\text{head},\\ O(n)\\ \\text{tail (no tail ptr)}", "plainText": "Head insertion O(1); tail insertion O(n) without a tail pointer", "description": "Tail insertion must walk the whole list unless a tail pointer is maintained."},
+        {"id": "f_ch7_i13_03", "title": "Reversal cost", "latex": "T=O(n),\\ S=O(1)", "plainText": "In-place reversal: O(n) time, O(1) extra space", "description": "Each node's link is reversed once using the three pointers prev, curr and next."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i13_01", "front": "Which three pointers are used to reverse a singly linked list in place?", "back": "prev, curr and next; at the end prev is the new head.", "difficulty": "medium"},
+        {"id": "fc_ch7_i13_02", "front": "Give two applications of doubly linked lists.", "back": "Browser back/forward history and LRU cache (also deques and undo/redo).", "difficulty": "easy"},
+        {"id": "fc_ch7_i13_03", "front": "Where does the last node of a circular linked list point?", "back": "Back to the first node instead of NULL.", "difficulty": "easy"},
+        {"id": "fc_ch7_i13_04", "front": "Why is deleting the last node of a singly linked list O(n)?", "back": "The second-last node must be reached by traversal so its next can be set to NULL.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i13_n01", "questionText": "What is the time complexity of inserting a node at the end of a singly linked list of n nodes when only a head pointer is kept?", "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"], "correctIndex": 2, "explanation": "The list must be traversed from head to the last node before linking, which takes O(n).", "difficulty": "easy"},
+        {"id": "q_ch7_i13_n02", "questionText": "Given only a pointer to a node (not the last) that must be removed, in which list can the deletion be done in O(1) by directly relinking its neighbours?", "options": ["Doubly linked list", "Singly linked list", "Singly circular list with head pointer only", "Array list"], "correctIndex": 0, "explanation": "A doubly linked node has a prev pointer, so its predecessor and successor can be relinked immediately; a singly linked list must first search for the predecessor.", "difficulty": "medium"},
+        {"id": "q_ch7_i13_n03", "questionText": "Round-robin CPU scheduling, where each process gets a turn in cyclic order, is most naturally implemented with a:", "options": ["Binary search tree", "Circular linked list", "Stack", "Doubly linked list with NULL ends"], "correctIndex": 1, "explanation": "In a circular list the last node links back to the first, so moving to the next process wraps around automatically.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i14",
+      "title": "Trees: Binary Trees, Traversals & Binary Search Trees",
+      "subtitle": "Tree terms, binary tree types and properties, traversals, BST search, insert, delete",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Tree Terminology"},
+          {"type": "paragraph", "text": "A tree is a non-linear hierarchical structure made of nodes connected by edges, with one special node called the root and no cycles; a tree with n nodes has exactly n - 1 edges. Each node except the root has exactly one parent. Trees model hierarchies such as file systems, organisation charts and expression parsing."},
+          {"type": "bulletList", "text": "Key terms:", "items": [
+            "Root: the top node with no parent. Leaf (external node): a node with no children. Internal node: a node with at least one child.",
+            "Degree of a node: number of its children; degree of a tree: maximum degree of any node. Siblings share the same parent.",
+            "Level: root is at level 0 and each child is one level below its parent. Depth of a node: number of edges from the root to it (equals its level).",
+            "Height of a node: number of edges on the longest path from it down to a leaf; height of the tree is the height of the root (a single node has height 0)."
+          ]},
+          {"type": "heading", "text": "Binary Trees"},
+          {"type": "paragraph", "text": "A binary tree is a tree in which every node has at most two children, called the left child and the right child. A full (strictly) binary tree has every node with 0 or 2 children. A complete binary tree has all levels full except possibly the last, which is filled from left to right. A perfect binary tree has all internal nodes with two children and all leaves at the same level. A skewed tree has every node with only a left (or only a right) child and behaves like a linked list."},
+          {"type": "formula", "latex": "n_{max}=2^{h+1}-1,\\quad h_{min}=\\lceil\\log_2(n+1)\\rceil-1", "plainText": "Max nodes of height h = 2^(h+1) - 1; min height for n nodes = ceil(log2(n+1)) - 1"},
+          {"type": "bulletList", "text": "Binary tree properties (height counted in edges, root at level 0):", "items": [
+            "Maximum nodes at level l is 2^l; maximum nodes in a tree of height h is 2^(h+1) - 1 (a perfect tree).",
+            "Minimum height of a binary tree with n nodes is ceil(log2(n + 1)) - 1; the maximum height is n - 1 (skewed tree).",
+            "In any binary tree, n0 = n2 + 1, where n0 is the number of leaves and n2 the number of nodes with two children. For a full binary tree with i internal nodes: leaves = i + 1 and total nodes = 2i + 1.",
+            "Array representation: root at index 0, children of index i at 2i + 1 and 2i + 2, parent at floor((i - 1)/2). Ideal for complete trees (heaps) but wastes space for skewed trees; linked representation uses nodes with left and right pointers."
+          ]},
+          {"type": "heading", "text": "Tree Traversals"},
+          {"type": "code", "language": "c", "text": "struct tnode { int key; struct tnode *left, *right; };\n\nvoid preorder(struct tnode *r) {      /* Root Left Right */\n    if (r) { visit(r); preorder(r->left); preorder(r->right); }\n}\nvoid inorder(struct tnode *r) {       /* Left Root Right */\n    if (r) { inorder(r->left); visit(r); inorder(r->right); }\n}\nvoid postorder(struct tnode *r) {     /* Left Right Root */\n    if (r) { postorder(r->left); postorder(r->right); visit(r); }\n}"},
+          {"type": "table", "rows": [
+            ["Traversal", "Order", "Sequence for the example BST"],
+            ["Preorder", "Root, Left, Right", "50 30 20 40 70 60 80"],
+            ["Inorder", "Left, Root, Right", "20 30 40 50 60 70 80"],
+            ["Postorder", "Left, Right, Root", "20 40 30 60 80 70 50"],
+            ["Level order", "Level by level, left to right (queue)", "50 30 70 20 40 60 80"]
+          ]},
+          {"type": "paragraph", "text": "The example is the BST with root 50, left child 30 (children 20 and 40) and right child 70 (children 60 and 80). Preorder is used to copy a tree and gives the prefix form of an expression tree; inorder of a BST gives the keys in sorted order; postorder is used to delete a tree and gives the postfix form. Level-order traversal uses a queue: enqueue the root, then repeatedly dequeue a node, visit it and enqueue its children. All traversals take O(n) time. A binary tree is uniquely determined by its inorder sequence together with its preorder or postorder sequence."},
+          {"type": "heading", "text": "Binary Search Trees"},
+          {"type": "code", "language": "c", "text": "struct tnode *search(struct tnode *r, int key) {\n    while (r && r->key != key)\n        r = (key < r->key) ? r->left : r->right;\n    return r;                                 /* NULL if absent */\n}\nstruct tnode *insert(struct tnode *r, int key) {\n    if (r == NULL) {\n        r = malloc(sizeof(struct tnode));\n        r->key = key; r->left = r->right = NULL;\n    } else if (key < r->key) r->left = insert(r->left, key);\n    else if (key > r->key) r->right = insert(r->right, key);\n    return r;\n}"},
+          {"type": "bulletList", "text": "In a BST every key in the left subtree is smaller than the node and every key in the right subtree is larger. Deleting a node has three cases:", "items": [
+            "Leaf node: simply remove it and set the parent's pointer to NULL.",
+            "One child: replace the node by its only child (link the parent directly to the child).",
+            "Two children: replace the node's key with its inorder successor (smallest key in the right subtree) or inorder predecessor (largest key in the left subtree), then delete that successor/predecessor, which has at most one child.",
+            "Search, insertion and deletion all cost O(h): O(log n) for a balanced tree, O(n) in the worst case when keys arrive in sorted order and the tree becomes skewed."
+          ]},
+          {"type": "paragraph", "text": "An expression tree is a binary tree whose leaves are operands and whose internal nodes are operators. For (a + b) * c the root is *, its left subtree is + with leaves a and b, and its right child is c. Its preorder, inorder and postorder traversals produce the prefix (* + a b c), infix (a + b * c without parentheses) and postfix (a b + c *) forms. It can be built from a postfix expression with a stack of subtree pointers."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "n_{max}=2^{h+1}-1", "plainText": "Maximum nodes in a binary tree of height h = 2^(h+1) - 1"},
+          {"type": "formula", "latex": "n_0=n_2+1", "plainText": "Leaves = nodes with two children + 1"},
+          {"type": "formula", "latex": "\\text{left}=2i+1,\\ \\text{right}=2i+2,\\ \\text{parent}=\\lfloor (i-1)/2\\rfloor", "plainText": "Array tree: left = 2i+1, right = 2i+2, parent = floor((i-1)/2)"},
+          {"type": "formula", "latex": "T_{BST}=O(h),\\quad \\log_2 n \\lesssim h \\le n-1", "plainText": "BST operations cost O(h), with h between about log2 n and n - 1"}
+        ],
+        "notes": [
+          {"type": "warning", "text": "Height and level conventions vary between books: some count the root as level 1 and height in nodes, giving 2^h - 1 as the maximum nodes. Check which convention a question uses before applying a formula."},
+          {"type": "examTip", "text": "To rebuild a tree from preorder and inorder: the first preorder element is the root; locate it in inorder to split the left and right subtrees, then recurse. Preorder plus postorder alone does not determine a general binary tree uniquely."},
+          {"type": "note", "text": "Inserting already sorted keys into a plain BST produces a skewed tree with O(n) operations; this is the motivation for self-balancing trees such as AVL trees."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i14_01", "title": "Maximum nodes", "latex": "2^{h+1}-1", "plainText": "Max nodes of height h = 2^(h+1) - 1", "description": "Reached by a perfect binary tree with the root at level 0."},
+        {"id": "f_ch7_i14_02", "title": "Minimum height", "latex": "h_{min}=\\lceil\\log_2(n+1)\\rceil-1", "plainText": "Min height = ceil(log2(n+1)) - 1", "description": "The shortest possible binary tree holding n nodes."},
+        {"id": "f_ch7_i14_03", "title": "Leaves in a full tree", "latex": "L=I+1,\\quad n=2I+1", "plainText": "Leaves = internal + 1; total = 2 × internal + 1", "description": "Holds for full (strictly) binary trees where every node has 0 or 2 children."},
+        {"id": "f_ch7_i14_04", "title": "Array indices", "latex": "2i+1,\\ 2i+2,\\ \\lfloor (i-1)/2\\rfloor", "plainText": "left 2i+1, right 2i+2, parent floor((i-1)/2)", "description": "Index relations for a binary tree stored in a 0-based array."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i14_01", "front": "What are the three cases of BST deletion?", "back": "Leaf: remove it. One child: link parent to that child. Two children: replace with inorder successor or predecessor, then delete that node.", "difficulty": "medium"},
+        {"id": "fc_ch7_i14_02", "front": "Which traversal is used for level-order, and what structure does it need?", "back": "Breadth-first (level by level); it uses a queue.", "difficulty": "easy"},
+        {"id": "fc_ch7_i14_03", "front": "Define height and depth of a node.", "back": "Depth: edges from the root down to the node. Height: edges on the longest path from the node down to a leaf.", "difficulty": "easy"},
+        {"id": "fc_ch7_i14_04", "front": "What is the worst-case search cost in a BST and when does it occur?", "back": "O(n), when the tree is skewed, e.g. after inserting keys in sorted order.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i14_n01", "questionText": "A full binary tree (every node has 0 or 2 children) has 10 internal nodes. How many leaf nodes does it have?", "options": ["10", "20", "9", "11"], "correctIndex": 3, "explanation": "In a full binary tree, leaves = internal nodes + 1 = 11, and the total number of nodes is 2 × 10 + 1 = 21.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i15",
+      "title": "AVL Balanced Trees",
+      "subtitle": "Balance factor, height bound, LL/RR/LR/RL rotations, insertion and deletion rebalancing",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Why Balance Matters"},
+          {"type": "paragraph", "text": "BST operations cost O(h), and a BST built from sorted or nearly sorted keys degenerates into a chain of height n - 1, making search O(n). A balanced search tree restructures itself on insertion and deletion to keep h = O(log n). The AVL tree, named after Adelson-Velsky and Landis (1962), was the first such self-balancing BST."},
+          {"type": "formula", "latex": "BF(x)=h(\\text{left}(x))-h(\\text{right}(x)) \\in \\{-1,0,1\\}", "plainText": "Balance factor = height(left subtree) - height(right subtree), must be -1, 0 or +1"},
+          {"type": "paragraph", "text": "Every node of an AVL tree stores (or can compute) its balance factor, the height of its left subtree minus the height of its right subtree, taking the height of an empty subtree as -1. The tree is AVL if every node has a balance factor of -1, 0 or +1. A node with +2 is left-heavy and one with -2 is right-heavy; such a node is repaired by rotations, which preserve the BST ordering."},
+          {"type": "paragraph", "text": "The minimum number of nodes in an AVL tree of height h satisfies N(h) = N(h - 1) + N(h - 2) + 1 with N(0) = 1 and N(1) = 2, giving 1, 2, 4, 7, 12, 20, ... This Fibonacci-like growth means the height of an AVL tree with n nodes is at most about 1.44 log2 n, so search, insertion and deletion are all O(log n) in the worst case."},
+          {"type": "heading", "text": "The Four Rotations"},
+          {"type": "table", "rows": [
+            ["Case", "Where the new key went", "Balance factors", "Fix"],
+            ["LL", "Left subtree of left child", "node +2, left child +1", "Single right rotation at the node"],
+            ["RR", "Right subtree of right child", "node -2, right child -1", "Single left rotation at the node"],
+            ["LR", "Right subtree of left child", "node +2, left child -1", "Left rotate the child, then right rotate the node"],
+            ["RL", "Left subtree of right child", "node -2, right child +1", "Right rotate the child, then left rotate the node"]
+          ]},
+          {"type": "code", "language": "c", "text": "struct avl { int key, height; struct avl *left, *right; };\n\nstruct avl *rightRotate(struct avl *y) {   /* fixes LL */\n    struct avl *x = y->left;\n    struct avl *T2 = x->right;\n    x->right = y;                  /* y moves down to the right */\n    y->left = T2;                  /* x's right subtree moves to y */\n    y->height = 1 + max(ht(y->left), ht(y->right));\n    x->height = 1 + max(ht(x->left), ht(x->right));\n    return x;                      /* new subtree root */\n}"},
+          {"type": "bulletList", "text": "Worked insertion examples, each on an empty tree:", "items": [
+            "LL (insert 30, 20, 10): after 10 is added, node 30 has BF +2 and its left child 20 has BF +1. Rotate right at 30: 20 becomes the root with 10 on the left and 30 on the right.",
+            "RR (insert 10, 20, 30): node 10 has BF -2 and its right child 20 has BF -1. Rotate left at 10: 20 becomes the root with children 10 and 30.",
+            "LR (insert 30, 10, 20): node 30 has BF +2 but its left child 10 has BF -1. First rotate left at 10 (giving the chain 30, 20, 10, an LL shape), then rotate right at 30: 20 becomes the root with children 10 and 30.",
+            "RL (insert 10, 30, 20): node 10 has BF -2 and its right child 30 has BF +1. First rotate right at 30 (giving 10, 20, 30, an RR shape), then rotate left at 10: 20 becomes the root with children 10 and 30."
+          ]},
+          {"type": "bulletList", "text": "Rebalancing after insertion and deletion:", "items": [
+            "Insertion: insert as in a BST, then walk back up the path updating heights. The first (lowest) ancestor with |BF| = 2 is fixed with one single or double rotation, after which the whole tree is balanced again.",
+            "Choose the case by the direction of the two steps from the unbalanced node towards the inserted key (left-left, right-right, left-right, right-left).",
+            "Deletion: delete as in a BST (leaf, one child, or replace by inorder successor), then walk up the path; unlike insertion, a rotation can reduce the subtree height and cause imbalance higher up, so up to O(log n) rotations may be needed.",
+            "For deletion, pick the case from the balance factor of the taller child; if that child's BF is 0 a single rotation is used."
+          ]},
+          {"type": "table", "rows": [
+            ["Operation", "BST average", "BST worst", "AVL worst"],
+            ["Search", "O(log n)", "O(n)", "O(log n)"],
+            ["Insertion", "O(log n)", "O(n)", "O(log n), at most one (double) rotation"],
+            ["Deletion", "O(log n)", "O(n)", "O(log n), up to O(log n) rotations"],
+            ["Traversal", "O(n)", "O(n)", "O(n)"],
+            ["Height", "about 1.39 log2 n (random keys)", "n - 1", "at most about 1.44 log2 n"]
+          ]},
+          {"type": "paragraph", "text": "Other balanced trees follow the same idea. A red-black tree colours each node red or black so that no red node has a red child and every root-to-leaf path has the same number of black nodes; its height is at most 2 log2(n + 1), it is less strictly balanced than AVL but needs fewer rotations, and it is used in many library maps. A B-tree of order m is a multiway search tree whose nodes hold up to m - 1 keys and m children, with all leaves at the same level; its shallow height suits disk-based indexes in databases and file systems."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "BF=h_L-h_R,\\quad |BF|\\le 1", "plainText": "BF = h_L - h_R, and |BF| <= 1 at every node"},
+          {"type": "formula", "latex": "N(h)=N(h-1)+N(h-2)+1,\\ N(0)=1,\\ N(1)=2", "plainText": "Minimum nodes: N(h) = N(h-1) + N(h-2) + 1, N(0) = 1, N(1) = 2"},
+          {"type": "formula", "latex": "h < 1.44\\log_2(n+2)", "plainText": "AVL height h < 1.44 log2(n + 2), i.e. O(log n)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Name the case by the path from the first unbalanced node down towards the new key: two lefts is LL (single right rotation), two rights is RR (single left rotation), mixed paths need a double rotation. In every three-key example the middle key ends up as the root."},
+          {"type": "warning", "text": "The rotation name and the imbalance name are opposite: the LL case is fixed by a right rotation and the RR case by a left rotation. MCQs often swap them in the options."},
+          {"type": "note", "text": "Insertion needs at most one single or double rotation; deletion may trigger rotations at several ancestors along the path to the root."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i15_01", "title": "Balance factor", "latex": "BF=h_L-h_R\\in\\{-1,0,1\\}", "plainText": "BF = height(left) - height(right), in {-1, 0, 1}", "description": "An AVL node is balanced when its subtree heights differ by at most one."},
+        {"id": "f_ch7_i15_02", "title": "Minimum nodes of height h", "latex": "N(h)=N(h-1)+N(h-2)+1", "plainText": "N(h) = N(h-1) + N(h-2) + 1, with N(0) = 1, N(1) = 2", "description": "Fewest nodes an AVL tree of height h can have: 1, 2, 4, 7, 12, 20, ..."},
+        {"id": "f_ch7_i15_03", "title": "AVL height bound", "latex": "h<1.44\\log_2(n+2)", "plainText": "h < 1.44 log2(n + 2)", "description": "Guarantees O(log n) worst-case search, insertion and deletion."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i15_01", "front": "Which rotation fixes an LL imbalance?", "back": "A single right rotation at the unbalanced node.", "difficulty": "easy"},
+        {"id": "fc_ch7_i15_02", "front": "How is an LR imbalance fixed?", "back": "Left rotate the left child, then right rotate the unbalanced node (a double rotation).", "difficulty": "medium"},
+        {"id": "fc_ch7_i15_03", "front": "Minimum number of nodes in an AVL tree of height 4 (root at height 0)?", "back": "12, from N(h) = N(h-1) + N(h-2) + 1: 1, 2, 4, 7, 12.", "difficulty": "hard"},
+        {"id": "fc_ch7_i15_04", "front": "How does a red-black tree compare with an AVL tree?", "back": "It is less strictly balanced (height up to 2 log2(n+1)) but needs fewer rotations on updates; both give O(log n) operations.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i15_n01", "questionText": "What is the minimum number of nodes in an AVL tree of height 3, where a single-node tree has height 0?", "options": ["7", "8", "15", "4"], "correctIndex": 0, "explanation": "N(h) = N(h-1) + N(h-2) + 1 with N(0) = 1 and N(1) = 2 gives N(2) = 4 and N(3) = 7.", "difficulty": "hard"},
+        {"id": "q_ch7_i15_n02", "questionText": "Keys 40, 20, 30 are inserted in that order into an empty AVL tree. Which rotation is needed, and what is the final root?", "options": ["Single right rotation; root 20", "Single left rotation; root 40", "Left-right double rotation; root 30", "Right-left double rotation; root 20"], "correctIndex": 2, "explanation": "30 goes into the right subtree of 40's left child 20, an LR case; a left rotation at 20 then a right rotation at 40 makes 30 the root with children 20 and 40.", "difficulty": "medium"},
+        {"id": "q_ch7_i15_n03", "questionText": "What is the worst-case time complexity of searching an AVL tree with n nodes, compared with an unbalanced BST?", "options": ["O(n) for both", "O(log n) for AVL, O(n) for the BST", "O(log n) for both", "O(1) for AVL, O(log n) for the BST"], "correctIndex": 1, "explanation": "The AVL height stays below about 1.44 log2 n, so search is O(log n); an unbalanced BST can become skewed with height n - 1, giving O(n).", "difficulty": "easy"}
+      ]
+    }
+  ]
+}

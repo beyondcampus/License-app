@@ -1,0 +1,693 @@
+{
+  "topicId": "ch1_i62",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Conduction Angle, Output Stages and Power"
+    },
+    {
+      "type": "paragraph",
+      "text": "The conduction angle follows directly from the bias. If a transistor starts to conduct only when the input sine wave V_p sin ωt exceeds some threshold V_on (its V_BE of about 0.7 V, plus any reverse bias V_BB applied to the base), it conducts between the angles where V_p sin ωt = V_on. That interval is 180° − 2 arcsin(V_on/V_p), which is the same as 2 arccos(V_on/V_p). With V_on = 0 the angle is exactly 180° (ideal class B); with a reverse bias it is less than 180° (class C); and with a forward pre-bias the threshold becomes negative and the angle exceeds 180° (class AB)."
+    },
+    {
+      "type": "formula",
+      "latex": "\\theta_c = 2\\cos^{-1}\\left(\\frac{V_{on}}{V_p}\\right)",
+      "plainText": "θc = 2 arccos(V_on / V_p), V_on = input level at which conduction starts"
+    },
+    {
+      "type": "paragraph",
+      "text": "The simplest output stage is a class A emitter follower biased by a constant current source I from the negative rail. Its output can rise to nearly +V_CC, but it can fall only to −I R_L, because at that point the whole bias current flows in the load and the transistor cuts off. Choosing I = V_CC/R_L gives a symmetrical swing of ±V_CC, and the efficiency is then η = (1/4)(V_m/IR_L)(V_m/V_CC), which peaks at 25 %. With no signal the follower still dissipates V_CC × I, so it runs hottest at idle."
+    },
+    {
+      "type": "paragraph",
+      "text": "In a complementary class B stage with supplies ±V_CC, each supply delivers half-sine current pulses of peak I_m = V_m/R_L, whose average is I_m/π. The total supply power is therefore 2V_CC V_m/(π R_L), while the load receives V_m²/(2R_L). Whatever is left is heat shared equally by the two transistors, and it is greatest not at full output but at V_m = 2V_CC/π."
+    },
+    {
+      "type": "formula",
+      "latex": "P_L = \\frac{V_m^2}{2R_L}, \\quad P_S = \\frac{2V_{CC}V_m}{\\pi R_L}, \\quad P_D = P_S - P_L",
+      "plainText": "PL = Vm²/(2RL); PS = 2 VCC Vm/(π RL); PD = PS − PL (class B, ±VCC)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity (class B, ±V_CC, load R_L)",
+          "Expression",
+          "Value for ±20 V, 4 Ω"
+        ],
+        [
+          "Maximum load power (V_m = V_CC)",
+          "V_CC²/(2R_L)",
+          "50 W"
+        ],
+        [
+          "Supply power at full output",
+          "2V_CC²/(π R_L)",
+          "63.7 W"
+        ],
+        [
+          "Efficiency at peak swing V_m",
+          "(π/4)(V_m/V_CC)",
+          "78.5 % at V_m = 20 V"
+        ],
+        [
+          "Swing for worst-case dissipation",
+          "2V_CC/π",
+          "12.7 V"
+        ],
+        [
+          "Worst-case dissipation per transistor",
+          "V_CC²/(π² R_L)",
+          "10.1 W"
+        ],
+        [
+          "Dissipation with no signal",
+          "Zero (I_CQ = 0)",
+          "0 W"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: complementary class B, VCC = +/-18 V, RL = 8 ohm, Vm = 15 V\nIm = 15/8 = 1.875 A\nPL = 15^2/(2 x 8) = 14.06 W\nPS = 2 x 18 x 1.875/pi = 21.49 W\neta = 14.06/21.49 = 65.4 %   (check: (pi/4)(15/18) = 65.4 %)\nPD (both) = 21.49 - 14.06 = 7.42 W, i.e. 3.71 W per transistor\nWorst case per transistor = 18^2/(pi^2 x 8) = 4.10 W at Vm = 2 x 18/pi = 11.46 V"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: class A emitter follower, VCC = +/-12 V, RL = 60 ohm, I = 0.2 A\nNegative swing limit = -I RL = -12 V, so a 10 V peak output is undistorted\nPL = 10^2/(2 x 60) = 0.833 W\nPS = 2 VCC I = 2 x 12 x 0.2 = 4.8 W (constant, signal or not)\neta = 0.833/4.8 = 17.4 %   (check: (1/4)(10/12)(10/12) = 17.4 %)\nIdle dissipation of the follower = VCC x I = 12 x 0.2 = 2.4 W"
+    },
+    {
+      "type": "paragraph",
+      "text": "Crossover distortion is easy to quantify. In an unbiased complementary pair the output stays at zero while |v_in| is below V_BE(on), so the output peak is V_p − 0.7 V and each transistor conducts for 2 arccos(0.7/V_p). With a 1.4 V peak input that is only 120° per device, leaving a dead zone of 60° around every zero crossing. For class D the losses are of a different kind: a MOSFET with on-resistance R_on in series with the load wastes I²R_on while on, so conduction efficiency is R_L/(R_L + R_on), and every transition adds a switching loss that grows with the switching frequency."
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: using V_m²/R_L instead of V_m²/(2R_L) for load power (peak versus rms); treating the class B supply current as I_m instead of 2I_m/π; assuming class B dissipation is greatest at full output; and forgetting that a class A stage dissipates most with no signal at all."
+    },
+    {
+      "type": "examTip",
+      "text": "Two numbers to remember: class B efficiency is proportional to V_m (halve the swing, halve η), while class A efficiency is proportional to V_m² (halve the swing, quarter η). Each class B transistor must be rated for about 0.2 × the maximum output power."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i62_m001",
+      "questionText": "The conduction angle of each output transistor in a class AB stage is:",
+      "options": [
+        "Exactly 180°",
+        "Less than 180°",
+        "Exactly 360°",
+        "Between 180° and 360°"
+      ],
+      "correctIndex": 3,
+      "explanation": "Class AB is biased slightly above cut-off, so each device conducts for a little more than half a cycle but less than the full cycle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m002",
+      "questionText": "An amplifier whose transistor conducts for only 120° of each input cycle is operating in:",
+      "options": [
+        "Class A",
+        "Class B",
+        "Class C",
+        "Class AB"
+      ],
+      "correctIndex": 2,
+      "explanation": "A conduction angle below 180° defines class C; class B is exactly 180°, class AB between 180° and 360°, and class A the full 360°.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m003",
+      "questionText": "A transistor in a power stage conducts for 270° of each input cycle. Its class of operation is:",
+      "options": [
+        "Class AB",
+        "Class A",
+        "Class B",
+        "Class C"
+      ],
+      "correctIndex": 0,
+      "explanation": "270° lies between 180° and 360°, which is class AB.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m004",
+      "questionText": "In a class C amplifier the base of an npn transistor is biased:",
+      "options": [
+        "At the centre of the DC load line",
+        "Below cut-off, with a reverse (negative) DC bias, so only the input peaks cause conduction",
+        "Exactly at cut-off with zero base bias",
+        "Slightly above cut-off with a small forward bias"
+      ],
+      "correctIndex": 1,
+      "explanation": "Class C places the Q-point beyond cut-off, so the input must first overcome the reverse bias and V_BE before any collector current flows, giving conduction for less than 180°.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m005",
+      "questionText": "The low-pass LC filter at the output of a class D amplifier is needed to:",
+      "options": [
+        "Remove the high-frequency switching component and leave the amplified audio signal",
+        "Generate the triangle carrier for the modulator",
+        "Bias the MOSFETs at the edge of conduction",
+        "Store energy between current pulses at the signal frequency, as in a class C tank"
+      ],
+      "correctIndex": 0,
+      "explanation": "The switches produce a full-amplitude PWM square wave; the filter passes its slowly varying average (the audio) and rejects the switching frequency and its harmonics.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m006",
+      "questionText": "Crossover distortion in an unbiased complementary class B stage is caused by:",
+      "options": [
+        "Both transistors conducting simultaneously near the zero crossing",
+        "Saturation of the transistors at the signal peaks",
+        "Neither transistor conducting while the input is below about ±0.7 V",
+        "The output coupling capacitor blocking low frequencies"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each base-emitter junction needs about 0.7 V to turn on, so for small input levels around zero both transistors are off and the output stays at zero, producing a step at each crossing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m007",
+      "questionText": "An unbiased complementary class B emitter-follower stage uses silicon transistors (V_BE(on) = 0.7 V). The input is a sine wave of 5 V peak. Ignoring other losses, the peak output voltage is:",
+      "options": [
+        "5.0 V",
+        "4.3 V",
+        "3.6 V",
+        "5.7 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "The output follows the input minus one V_BE drop: 5 − 0.7 = 4.3 V. Subtracting 2V_BE (3.6 V) confuses it with the voltage between the two bases.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m008",
+      "questionText": "An unbiased complementary class B stage has V_BE(on) = 0.7 V for each transistor and is driven by a 1.4 V peak sine wave. For how many degrees of each cycle does each transistor conduct?",
+      "options": [
+        "180°",
+        "150°",
+        "60°",
+        "120°"
+      ],
+      "correctIndex": 3,
+      "explanation": "Conduction starts when 1.4 sin θ = 0.7, i.e. θ = 30°, and ends at 150°, so each device conducts for 150° − 30° = 120° instead of the ideal 180°.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m009",
+      "questionText": "An emitter follower is widely used as a power output stage mainly because it:",
+      "options": [
+        "Provides a large voltage gain",
+        "Conducts for less than 180° and is therefore very efficient",
+        "Inverts the signal, cancelling even harmonics",
+        "Has a low output resistance and so can drive a low-resistance load without losing gain"
+      ],
+      "correctIndex": 3,
+      "explanation": "The follower's output resistance is only about r_e plus the source resistance divided by β, so a loudspeaker of a few ohms receives almost the full voltage; its voltage gain is just below 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m010",
+      "questionText": "A class A emitter-follower output stage runs from ±12 V, drives R_L = 100 Ω and is biased by a 120 mA constant current source. Ignoring saturation voltages, its efficiency at the largest undistorted output is:",
+      "options": [
+        "25 %",
+        "50 %",
+        "78.5 %",
+        "12.5 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "Maximum swing = I R_L = 12 V, so P_L = 12²/(2 × 100) = 0.72 W; supply power = 2 × 12 × 0.12 = 2.88 W; η = 0.72/2.88 = 25 %.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m011",
+      "questionText": "A series-fed class A amplifier with V_CC = 20 V and a collector load of 20 Ω is biased at the centre of its load line. The maximum AC power it can deliver to the load is:",
+      "options": [
+        "10 W",
+        "5 W",
+        "2.5 W",
+        "20 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Peak voltage = V_CC/2 = 10 V and peak current = I_CQ = 0.5 A, so P_ac = (10 × 0.5)/2 = 2.5 W, i.e. V_CC²/(8R_L). The 10 W figure is the DC input power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m012",
+      "questionText": "A series-fed class A stage with V_CC = 24 V and R_C = 24 Ω is biased at I_CQ = 0.5 A. A signal produces a sinusoidal collector current of 0.3 A peak. Its efficiency is:",
+      "options": [
+        "25 %",
+        "9 %",
+        "18 %",
+        "4.5 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_ac = I_p² R_C/2 = 0.09 × 24/2 = 1.08 W; P_dc = V_CC I_CQ = 12 W; η = 1.08/12 = 9 %. Forgetting the 1/2 of the rms conversion gives 18 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m013",
+      "questionText": "A transformer-coupled class A amplifier operates from V_CC = 12 V with a quiescent collector current of 250 mA. The maximum AC power it can deliver to the load (ideal transformer) is:",
+      "options": [
+        "3 W",
+        "0.75 W",
+        "1.5 W",
+        "2.36 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "P_dc = 12 × 0.25 = 3 W, and the theoretical maximum efficiency of transformer-coupled class A is 50 %, so P_ac(max) = 1.5 W. The 0.75 W figure uses the 25 % series-fed limit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m014",
+      "questionText": "In a transformer-coupled class A amplifier with V_CC = 10 V, the collector voltage swings between 4 V and 16 V. Using η = 50 % × [(V_max − V_min)/(V_max + V_min)]², its efficiency is:",
+      "options": [
+        "30 %",
+        "50 %",
+        "36 %",
+        "18 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "(16 − 4)/(16 + 4) = 0.6; 0.6² = 0.36; η = 50 % × 0.36 = 18 %. Not squaring gives 30 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m015",
+      "questionText": "A class B push-pull stage with V_CC = 20 V delivers a sine output of 10 V peak. Its efficiency is approximately:",
+      "options": [
+        "39.3 %",
+        "78.5 %",
+        "19.6 %",
+        "50 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "η = (π/4)(V_m/V_CC) = 0.785 × 10/20 = 39.3 %. The 78.5 % limit applies only at full swing V_m = V_CC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m016",
+      "questionText": "A complementary class B stage runs from ±15 V and drives an 8 Ω load with an output of 12 V peak. The total DC power drawn from the two supplies is approximately:",
+      "options": [
+        "9.0 W",
+        "14.3 W",
+        "22.5 W",
+        "28.6 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_m = 12/8 = 1.5 A; each supply provides an average of I_m/π, so P_S = 2V_CC I_m/π = 2 × 15 × 1.5/π = 14.3 W. The 9 W figure is the load power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m017",
+      "questionText": "A complementary class B stage with supplies of ±20 V drives an 8 Ω load with 16 V peak output. The power dissipated in each output transistor is approximately:",
+      "options": [
+        "9.46 W",
+        "16.0 W",
+        "25.5 W",
+        "4.73 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_m = 2 A; P_S = 2 × 20 × 2/π = 25.46 W; P_L = 16²/(2 × 8) = 16 W; P_D = 9.46 W for the pair, so 4.73 W per transistor.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m018",
+      "questionText": "A complementary class B amplifier uses ±12 V supplies and an 8 Ω load. The maximum power that each transistor may have to dissipate, over all signal levels, is approximately:",
+      "options": [
+        "3.65 W",
+        "9.0 W",
+        "1.82 W",
+        "4.5 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Worst-case dissipation occurs at V_m = 2V_CC/π and totals 2V_CC²/(π²R_L) = 2 × 144/(9.87 × 8) = 3.65 W, which is 1.82 W per transistor.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m019",
+      "questionText": "Ignoring saturation voltages, the maximum sine-wave power a complementary class B stage with ±15 V supplies can deliver into an 8 Ω load is:",
+      "options": [
+        "14.1 W",
+        "28.1 W",
+        "7.0 W",
+        "56.3 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "At full swing V_m = V_CC = 15 V: P_L = V_m²/(2R_L) = 225/16 = 14.1 W. Using V_m²/R_L gives 28.1 W.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m020",
+      "questionText": "A class B complementary stage is designed for a maximum sine output of 20 W. The worst-case dissipation for which each output transistor must be rated is approximately:",
+      "options": [
+        "10 W",
+        "4.05 W",
+        "20 W",
+        "8.1 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "Per-transistor worst case V_CC²/(π²R_L) divided by P_L(max) = V_CC²/(2R_L) is 2/π² = 0.203, so each device needs about 0.203 × 20 = 4.05 W; 8.1 W is for the pair.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m021",
+      "questionText": "In a class B push-pull stage with V_CC = 18 V, the transistor dissipation is greatest when the peak output voltage is approximately:",
+      "options": [
+        "18 V",
+        "9.0 V",
+        "11.5 V",
+        "14.1 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dissipation peaks at V_m = 2V_CC/π = 36/π = 11.5 V, not at full output.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m022",
+      "questionText": "A series-fed class A stage has V_CC = 12 V, R_C = 6 Ω and a quiescent current of 1 A. With no input signal, the power dissipated in the transistor is:",
+      "options": [
+        "6 W",
+        "12 W",
+        "0 W",
+        "3 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_CEQ = 12 − 1 × 6 = 6 V, so P_D = V_CEQ × I_CQ = 6 W. The supply delivers 12 W, of which the other 6 W heats R_C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m023",
+      "questionText": "In a class A power amplifier, the power dissipated in the transistor is greatest when:",
+      "options": [
+        "The output is at its maximum undistorted swing",
+        "No input signal is applied",
+        "The output swing is 63.7 % of V_CC",
+        "The load is open-circuited during full swing"
+      ],
+      "correctIndex": 1,
+      "explanation": "The DC input power of class A is constant; P_D = P_dc − P_ac, so the transistor dissipates most when P_ac = 0, i.e. at idle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m024",
+      "questionText": "Which statement about power dissipation in a class B push-pull stage is correct?",
+      "options": [
+        "It is greatest with no signal, as in class A",
+        "It rises continuously and is greatest at full output swing",
+        "It is independent of the signal level",
+        "It is zero with no signal and reaches its maximum at a peak output of about 0.64 V_CC"
+      ],
+      "correctIndex": 3,
+      "explanation": "With zero quiescent current there is no idle loss; P_D = P_S − P_L rises and then falls with swing, peaking at V_m = 2V_CC/π ≈ 0.637 V_CC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m025",
+      "questionText": "A class AB complementary output stage runs from ±15 V and is biased at a quiescent current of 20 mA. The power drawn from the supplies with no signal is:",
+      "options": [
+        "0.3 W",
+        "0.6 W",
+        "0 W",
+        "1.2 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "The quiescent current flows from +15 V through both transistors to −15 V, a total of 30 V: P = 30 × 0.02 = 0.6 W. Zero would be true only for pure class B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m026",
+      "questionText": "The output of an unbiased class B stage driven by a small sine wave shows a flat step each time the waveform passes through zero. This defect is called:",
+      "options": [
+        "Crossover distortion",
+        "Clipping distortion",
+        "Frequency distortion",
+        "Intermodulation distortion"
+      ],
+      "correctIndex": 0,
+      "explanation": "The flat step around the zero crossing, where neither transistor conducts, is crossover distortion; clipping occurs at the peaks.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m027",
+      "questionText": "A class C amplifier is driven at 10 MHz and its collector tank is tuned to 30 MHz. The output frequency is:",
+      "options": [
+        "10 MHz",
+        "3.33 MHz",
+        "40 MHz",
+        "30 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "The pulsed collector current is rich in harmonics; a tank tuned to the third harmonic selects 3 × 10 = 30 MHz, so the stage acts as a frequency tripler.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m028",
+      "questionText": "In a class C stage the transistor begins to conduct only when the input exceeds 2.0 V (reverse bias plus V_BE). If the input is a sine wave of 2.83 V peak, the conduction angle is approximately:",
+      "options": [
+        "45°",
+        "135°",
+        "90°",
+        "180°"
+      ],
+      "correctIndex": 2,
+      "explanation": "Conduction begins where 2.83 sin θ = 2.0, i.e. θ ≈ 45°, and ends at 135°, so θ_c = 135° − 45° = 90° (equivalently 2 arccos(2.0/2.83)).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m029",
+      "questionText": "A class C stage cannot be used as a wide-band audio amplifier because:",
+      "options": [
+        "Its efficiency is too low for audio power levels",
+        "It requires a complementary npn-pnp pair",
+        "Its transistor never reaches cut-off",
+        "Its collector current is a train of narrow pulses, and a sine output is restored only by a load tuned to one frequency"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without a tuned tank the output would be the distorted pulse train itself; the tank works at a single frequency, which is unsuitable for a broadband audio signal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m030",
+      "questionText": "A class D half-bridge switches its output between 0 V and 24 V. When the duty cycle is 0.6, the average (filtered) output voltage is:",
+      "options": [
+        "14.4 V",
+        "9.6 V",
+        "24 V",
+        "12 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_o(avg) = D × V_DD = 0.6 × 24 = 14.4 V; 9.6 V would be the result of using the off-time fraction.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m031",
+      "questionText": "In a class D stage only one MOSFET conducts at a time, each having an on-resistance of 0.1 Ω, and the load is 8 Ω. Neglecting switching and filter losses, the efficiency is approximately:",
+      "options": [
+        "78.5 %",
+        "1.2 %",
+        "98.8 %",
+        "50 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "The on-switch is in series with the load, so η = R_L/(R_L + R_on) = 8/8.1 = 98.8 %. 1.2 % is the fraction lost, not the efficiency.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m032",
+      "questionText": "In a class D amplifier the pulse-width-modulated drive signal is usually generated by:",
+      "options": [
+        "Passing the input through a tuned LC tank",
+        "Comparing the input signal with a high-frequency triangle wave in a comparator",
+        "Rectifying the input with a bridge rectifier",
+        "Biasing the output transistors slightly above cut-off"
+      ],
+      "correctIndex": 1,
+      "explanation": "The comparator output is high whenever the input exceeds the triangle, so the pulse width follows the instantaneous input level.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m033",
+      "questionText": "The output transistors of a class D amplifier dissipate very little power because:",
+      "options": [
+        "When on their voltage is almost zero and when off their current is almost zero, so the V × I product stays small",
+        "They conduct for exactly 180° of each cycle",
+        "Their quiescent current is set just above cut-off",
+        "The output filter absorbs the heat"
+      ],
+      "correctIndex": 0,
+      "explanation": "Dissipation is the product of device voltage and current; a switch that is fully on or fully off keeps one of them near zero except during the brief transitions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m034",
+      "questionText": "A class D audio amplifier must reproduce signals up to 20 kHz. Which switching frequency is the most suitable?",
+      "options": [
+        "20 kHz",
+        "400 kHz",
+        "10 kHz",
+        "50 Hz"
+      ],
+      "correctIndex": 1,
+      "explanation": "The switching frequency must be many times the highest audio frequency so the output filter can remove it without affecting the audio band; 400 kHz is 20 times 20 kHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m035",
+      "questionText": "In a complementary-symmetry class B output stage, during the positive half-cycle of the input:",
+      "options": [
+        "The pnp transistor conducts and the npn transistor is cut off",
+        "Both transistors conduct equally",
+        "Neither transistor conducts",
+        "The npn transistor conducts and the pnp transistor is cut off"
+      ],
+      "correctIndex": 3,
+      "explanation": "A positive input forward-biases the npn base-emitter junction and reverse-biases the pnp one, so the npn device sources current into the load; the roles reverse on the negative half-cycle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m036",
+      "questionText": "Which statement about a complementary-symmetry push-pull output stage is correct?",
+      "options": [
+        "It requires both transistors to be of the same polarity (both npn)",
+        "It needs a phase-splitter to produce two antiphase drive signals",
+        "It needs no centre-tapped transformer, because the joined emitters of the npn and pnp devices drive the load directly",
+        "It cannot be operated from a single supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "The opposite polarities of the npn and pnp devices mean one input signal turns on one device per half-cycle, so no phase splitter or transformer is needed; a single supply with an output capacitor also works.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m037",
+      "questionText": "A complementary class B stage is powered from a single 24 V supply, with the midpoint coupled to an 8 Ω load through a large capacitor. Ignoring saturation voltages, the maximum sine output power is:",
+      "options": [
+        "36 W",
+        "18 W",
+        "4.5 W",
+        "9 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "The midpoint sits at 12 V, so the peak swing is V_CC/2 = 12 V and P = 12²/(2 × 8) = 9 W. Using the full 24 V gives 36 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m038",
+      "questionText": "A complementary class B amplifier must deliver 25 W of sine power into an 8 Ω load. If each transistor has V_CE(sat) = 2 V, the minimum symmetrical supply voltage is:",
+      "options": [
+        "±20 V",
+        "±22 V",
+        "±14.1 V",
+        "±42 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_m = √(2 P R_L) = √(2 × 25 × 8) = 20 V peak; allowing 2 V saturation, V_CC = 20 + 2 = 22 V on each rail. 14.1 V is the rms output.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m039",
+      "questionText": "In a transformer-coupled class B push-pull amplifier each transistor carries half-sine pulses of 3 A peak. The average current drawn from the single supply is approximately:",
+      "options": [
+        "0.955 A",
+        "3.0 A",
+        "1.91 A",
+        "2.12 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each transistor averages I_m/π = 0.955 A and both draw from the same supply, so I_dc = 2I_m/π = 1.91 A. 2.12 A is the rms value of a 3 A sine.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m040",
+      "questionText": "In a class B push-pull stage, reducing the peak output voltage to half its previous value changes the efficiency to:",
+      "options": [
+        "Half its previous value",
+        "One quarter of its previous value",
+        "The same value",
+        "Twice its previous value"
+      ],
+      "correctIndex": 0,
+      "explanation": "η = (π/4)(V_m/V_CC) is directly proportional to V_m, so halving the swing halves the efficiency. In class A, where η is proportional to V_m², it would fall to one quarter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m041",
+      "questionText": "A series-fed class A amplifier with V_CC = 24 V is biased at the centre of its load line. When the peak output voltage is 6 V, its efficiency is:",
+      "options": [
+        "6.25 %",
+        "12.5 %",
+        "25 %",
+        "3.1 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "At centre bias P_dc = V_CC²/(2R_C) and P_ac = V_m²/(2R_C), so η = (V_m/V_CC)² = (6/24)² = 6.25 %. Class A efficiency falls with the square of the swing.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m042",
+      "questionText": "A series-fed (resistive-load) class A stage is limited to 25 % efficiency, whereas a transformer-coupled one can reach 50 %, because:",
+      "options": [
+        "The transformer-coupled stage conducts for only 180°",
+        "The transformer adds energy to the signal",
+        "The series-fed stage has a higher quiescent current for the same load",
+        "In the series-fed stage the DC collector current also flows in the load resistor, wasting power and limiting the swing to V_CC/2"
+      ],
+      "correctIndex": 3,
+      "explanation": "With a transformer the load carries no DC and the collector can swing from nearly 0 to 2V_CC, doubling the AC output for the same DC input power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m043",
+      "questionText": "The theoretical maximum efficiency π/4 of a class B push-pull stage is reached when:",
+      "options": [
+        "The peak output voltage equals 2V_CC/π",
+        "The peak output voltage equals the supply voltage V_CC",
+        "There is no input signal",
+        "The quiescent current is set at a few milliamperes"
+      ],
+      "correctIndex": 1,
+      "explanation": "η = (π/4)(V_m/V_CC) reaches its maximum of 78.5 % only when V_m = V_CC; at 2V_CC/π the transistor dissipation is maximum instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i62_m044",
+      "questionText": "Which statement about output-stage classes is NOT correct?",
+      "options": [
+        "A class A transistor conducts for the whole cycle",
+        "Each class B transistor conducts for half of each cycle",
+        "A class C transistor conducts for more than 180° of each cycle",
+        "Class D output transistors operate as switches"
+      ],
+      "correctIndex": 2,
+      "explanation": "Class C conducts for less than 180°, which is why it needs a tuned load; the other three statements are the standard definitions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i62_m045",
+      "questionText": "A class A emitter-follower output stage uses ±15 V supplies, a 0.2 A constant current source as its emitter bias, and a 50 Ω load. Ignoring saturation voltages, the largest symmetrical (undistorted) peak output voltage is:",
+      "options": [
+        "15 V",
+        "7.5 V",
+        "10 V",
+        "30 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "The output can rise to about +15 V but can fall only to −I R_L = −0.2 × 50 = −10 V before the transistor cuts off, so the symmetrical limit is 10 V peak.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i62_m046",
+      "questionText": "A class A emitter-follower output stage with ±15 V supplies, 0.2 A constant-current emitter bias and a 50 Ω load delivers a 10 V peak sine output. Its efficiency is approximately:",
+      "options": [
+        "25 %",
+        "16.7 %",
+        "33.3 %",
+        "8.3 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_L = 10²/(2 × 50) = 1 W; the supplies deliver 2 × 15 × 0.2 = 6 W regardless of signal; η = 1/6 = 16.7 %. Counting only one supply gives 33.3 %.",
+      "difficulty": "hard"
+    }
+  ]
+}

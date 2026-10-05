@@ -1,0 +1,742 @@
+{
+  "topicId": "ch4_t5",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Kernels, Task States and Switching Cost"
+    },
+    {
+      "type": "paragraph",
+      "text": "An embedded OS differs from a desktop OS less in its ideas than in its priorities. It is configured when the firmware is built, so only the kernel objects the application uses are linked in, and the image runs from Flash with a few kilobytes of RAM. Tasks, stacks and queues are often created statically at start-up; there is usually no disk, no demand paging and no MMU, and every kernel service is written so that its worst-case execution time is known. A GPOS instead optimises average throughput and fairness, and paging, dynamic memory allocation and long non-pre-emptible kernel paths make its worst case large and hard to bound."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Aspect",
+          "Monolithic kernel",
+          "Microkernel"
+        ],
+        [
+          "Runs in kernel space",
+          "Scheduler, memory manager, drivers, file systems, network stack",
+          "Only scheduling, IPC, basic memory management and interrupt dispatch"
+        ],
+        [
+          "Service request",
+          "One system call; services call each other directly",
+          "Message to a user-space server and a reply, with extra mode and context switches"
+        ],
+        [
+          "Speed",
+          "Fast, little IPC overhead",
+          "Slower per request because of IPC"
+        ],
+        [
+          "Faulty driver",
+          "Can crash the whole kernel",
+          "Confined to its server process, which can be restarted"
+        ],
+        [
+          "Kernel size",
+          "Large",
+          "Small and easier to verify"
+        ],
+        [
+          "Examples",
+          "Linux, traditional UNIX",
+          "QNX Neutrino, seL4, MINIX 3"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Determinism means that every kernel service and every path from an event to its response has a known upper bound; it does not mean that the average is fast. Between an external event and the first instruction of the task that handles it, four delays add up: interrupt latency (hardware recognition plus any time interrupts are disabled), ISR execution, the scheduler's decision and the context switch, the last two together being the scheduling or dispatch latency. The variation of these delays from one occurrence to the next is called jitter. RTOS kernels keep the scheduler O(1), for example with one bit per priority level in a ready bitmap whose highest set bit is found by a count-leading-zeros instruction, so dispatch time does not grow with the number of tasks."
+    },
+    {
+      "type": "formula",
+      "latex": "t_{\\text{event}\\to\\text{task}} = t_{lat} + t_{ISR} + t_{sched} + t_{cs}",
+      "plainText": "Event-to-task latency = interrupt latency + ISR execution time + scheduler time + context-switch time"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Transition",
+          "Cause",
+          "Example trigger (FreeRTOS)"
+        ],
+        [
+          "Ready → Running",
+          "Scheduler dispatches the highest-priority ready task",
+          "Kernel decision after a tick, ISR or API call"
+        ],
+        [
+          "Running → Ready",
+          "Pre-empted by a higher-priority task, or its time slice ends",
+          "taskYIELD() or a tick with equal-priority tasks ready"
+        ],
+        [
+          "Running → Blocked",
+          "Waits for a delay, semaphore, queue or event",
+          "vTaskDelay(), xSemaphoreTake(), xQueueReceive()"
+        ],
+        [
+          "Blocked → Ready",
+          "The awaited event occurs or the timeout expires",
+          "xSemaphoreGive(), xQueueSendFromISR(), a tick"
+        ],
+        [
+          "Ready, Running or Blocked → Suspended",
+          "Explicitly suspended; no timeout",
+          "vTaskSuspend()"
+        ],
+        [
+          "Suspended → Ready",
+          "Explicitly resumed",
+          "vTaskResume(), xTaskResumeFromISR()"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "What the kernel keeps for each task, and where:",
+      "items": [
+        "TCB: task ID or name, state, current and base priority, saved stack pointer (or saved registers), stack base and size, links into the ready or waiting lists, the event or timeout being waited for, and statistics such as run time.",
+        "Context: program counter, stack pointer, status register and general-purpose registers, plus FPU registers if the task uses floating point; many small kernels push it onto the task's own stack and keep only the stack pointer in the TCB.",
+        "Not in the TCB: the task's code, which stays in Flash or the process image, and its local variables, which live on its stack.",
+        "A GPOS process control block adds the memory map (page-table pointer), open-file table, signal handlers and parent/child links; a thread control block holds only the per-thread part."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Context-switch time on an 80 MHz CPU (12.5 ns per cycle)\nsave 16 registers + restore 16 registers = 32 transfers\n32 transfers x 1 cycle              = 32 cycles\nexception entry/exit + scheduler    = 48 cycles\nt_cs = (32 + 48) x 12.5 ns          = 1.0 µs\nRAM for 6 tasks: TCB 80 B, stack 512 B (1 KB = 1024 B)\n6 x (80 + 512) = 3552 B = 3.47 KB\neach stack must also leave room for one saved frame: 16 x 4 B = 64 B"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Round robin: q = 10 ms, t_cs = 0.2 ms\noverhead = t_cs / (q + t_cs) = 0.2 / 10.2 = 1.96 %\nsmallest q for overhead <= 5 %: q >= t_cs (1 - 0.05) / 0.05 = 3.8 ms\nRTOS load: 1 kHz tick at 4 µs, 300 switches/s at 5 µs\nper second: 1000 x 4 µs + 300 x 5 µs = 4.0 ms + 1.5 ms = 5.5 ms\noverhead = 5.5 ms / 1000 ms = 0.55 %\n32-bit tick counter at 1 kHz wraps after 2^32 ms = 49.7 days"
+    },
+    {
+      "type": "paragraph",
+      "text": "Threads can be provided by a user-space library or by the kernel itself. In the many-to-one model the kernel sees one thread per process, so switching is cheap, but a blocking system call stops every thread and two threads can never run on two cores at once; the one-to-one model of Linux and Windows maps each thread to a kernel thread and removes both limits at the cost of a kernel call per thread operation, and the many-to-many model multiplexes user threads over a pool of kernel threads. In an RTOS every task is effectively a kernel-level thread, and all tasks share one address space. Multithreading brings responsiveness (one thread waits for I/O while another runs), cheap data sharing, lower creation and switching cost than processes, and parallel speed-up on multicore chips."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "Blocked never goes straight to Running, and Ready never goes to Blocked: a task must be running to ask to wait.",
+        "Round-robin overhead is t_cs / (q + t_cs), not t_cs / q; the two differ noticeably when the slice is short.",
+        "With n tasks in round robin, a task waits (n − 1) slices plus n switches before it runs again, because the switch back to it counts too.",
+        "A delay of n ticks blocks for between n − 1 and n tick periods, because the call happens part-way through a tick.",
+        "A thread switch inside one process is cheaper than a process switch because the address space, page tables and TLB stay the same, but the registers must still be saved.",
+        "Firm real-time: a late result is worthless but occasional misses are tolerated; soft real-time: a late result still has some value."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For overhead questions, draw the time line slice, switch, slice, switch, and count every switch, including the one back to the task you are following. Convert cycles to time with t = cycles / f_clk, and add per-second costs (rate × duration) before dividing by one second."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t5_m001",
+      "questionText": "Which feature is typical of an embedded RTOS kernel but not of a desktop general-purpose OS?",
+      "options": [
+        "It relies on demand paging of programs from a disk",
+        "It schedules mainly for fairness and high average throughput",
+        "It needs gigabytes of RAM and a large file system to boot",
+        "It is configured at build time so that only the needed kernel services are linked into a small Flash image"
+      ],
+      "correctIndex": 3,
+      "explanation": "An embedded RTOS is scaled to the application when the firmware is built and runs from ROM or Flash with little RAM. Demand paging, fairness-oriented scheduling and large memory needs describe a desktop GPOS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m002",
+      "questionText": "An RTOS kernel is described as deterministic. What does this mean?",
+      "options": [
+        "Its average response time is the lowest of any operating system",
+        "It runs tasks strictly in the order in which they were created",
+        "Its services and responses take a known, bounded worst-case time",
+        "It keeps interrupts disabled so that tasks are never disturbed"
+      ],
+      "correctIndex": 2,
+      "explanation": "Determinism is about predictability: the worst-case time of every kernel service and response path is bounded and known. It says nothing about the average being low.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m003",
+      "questionText": "A 1 ms periodic control task is released by a timer. Measurements show that it starts between 12 µs and 47 µs after each nominal release instant. What is its start (release) jitter?",
+      "options": [
+        "47 µs",
+        "59 µs",
+        "29.5 µs",
+        "35 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Jitter is the variation of the delay: 47 − 12 = 35 µs. 47 µs is the worst-case latency, 59 µs adds the two values and 29.5 µs is their average.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m004",
+      "questionText": "A hard real-time interrupt must be serviced within 50 µs. RTOS A has an average interrupt latency of 2 µs and a worst case of 200 µs; RTOS B has an average of 6 µs and a worst case of 15 µs. Which should be chosen?",
+      "options": [
+        "A, because its average latency is three times lower",
+        "Either, because both average latencies are well below 50 µs",
+        "B, because only its worst-case latency is guaranteed to meet the deadline",
+        "Neither, because the deadline must exceed the sum of both worst cases"
+      ],
+      "correctIndex": 2,
+      "explanation": "A hard deadline must be met every time, so the worst case decides: 15 µs < 50 µs for B, while A can take up to 200 µs. Average figures are irrelevant for hard real time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m005",
+      "questionText": "In a monolithic kernel such as Linux, where do device drivers, file systems and the network stack run?",
+      "options": [
+        "In separate user-space server processes that exchange messages",
+        "In firmware inside each device controller",
+        "In kernel space, in the same address space as the scheduler",
+        "In the bootloader, before the kernel starts"
+      ],
+      "correctIndex": 2,
+      "explanation": "A monolithic kernel places all OS services in privileged kernel space, where they call each other directly. User-space servers are the microkernel approach.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m006",
+      "questionText": "What is the main reliability advantage of a microkernel (for example QNX Neutrino) over a monolithic kernel?",
+      "options": [
+        "Every service request is a direct function call, so there is no IPC overhead",
+        "All code runs in supervisor mode, so protection faults cannot occur",
+        "It needs no scheduler, because each server polls for work",
+        "Drivers and services run as separate user-space processes, so a faulty driver can be restarted without crashing the kernel"
+      ],
+      "correctIndex": 3,
+      "explanation": "A microkernel keeps only scheduling, IPC and basic memory management in the kernel, so a crashing driver is isolated in its own address space. The price is extra IPC and context switches per request.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m007",
+      "questionText": "A driver request in a monolithic kernel costs one system call. In a microkernel the same request additionally needs 2 IPC messages (request and reply) of 3 µs each and 2 extra context switches of 4 µs each. At 2,500 requests per second, what extra fraction of CPU time does the microkernel spend?",
+      "options": [
+        "2.0 %",
+        "1.5 %",
+        "3.5 %",
+        "1.75 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Extra per request = 2 × 3 + 2 × 4 = 14 µs; per second 2,500 × 14 µs = 35 ms, which is 3.5 % of one second. 2.0 % counts only the switches, 1.5 % only the messages and 1.75 % one of each.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m008",
+      "questionText": "Which statement best distinguishes a process from a program?",
+      "options": [
+        "A process is the source code, and a program is its compiled form",
+        "A process is a program stored in Flash rather than on disk",
+        "A program and a process are two names for the same thing",
+        "A process is a program in execution, with its own state, address space and resources tracked by the OS"
+      ],
+      "correctIndex": 3,
+      "explanation": "A program is passive code; it becomes a process when loaded and run, gaining a PCB, an address space, a stack, register state and resources.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m009",
+      "questionText": "A thread is best described as:",
+      "options": [
+        "A separate process with its own protected address space",
+        "A unit of execution within a process that has its own PC, registers and stack but shares the process's code, data and files",
+        "A hardware interrupt service routine",
+        "A block of memory reserved for inter-process communication"
+      ],
+      "correctIndex": 1,
+      "explanation": "Threads are the schedulable units inside a process; each has a private execution context and stack, while code, global data, heap and open files are shared.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m010",
+      "questionText": "A system runs 3 processes, each with 4 threads. Ignoring kernel stacks, how many thread stacks and how many separate address spaces exist?",
+      "options": [
+        "12 stacks and 3 address spaces",
+        "3 stacks and 12 address spaces",
+        "12 stacks and 12 address spaces",
+        "3 stacks and 3 address spaces"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every thread has its own stack, 3 × 4 = 12, while all threads of a process share its address space, giving 3 address spaces.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m011",
+      "questionText": "In the five-state model, which state does a newly created task enter once the kernel has admitted it?",
+      "options": [
+        "Running",
+        "Blocked",
+        "Ready",
+        "Terminated"
+      ],
+      "correctIndex": 2,
+      "explanation": "Admission moves a task from New to Ready, where it waits for the scheduler to dispatch it; it reaches Running only when dispatched.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m012",
+      "questionText": "In the five-state task model (New, Ready, Running, Blocked, Terminated), which transition can never occur directly?",
+      "options": [
+        "Ready → Blocked",
+        "Running → Blocked",
+        "Blocked → Ready",
+        "Running → Ready"
+      ],
+      "correctIndex": 0,
+      "explanation": "A task can only start waiting by executing a wait request, which requires it to be running, so Ready → Blocked is impossible. The other three are the normal wait, wake-up and pre-emption transitions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m013",
+      "questionText": "A running FreeRTOS task calls the delay function vTaskDelay(100) to wait 100 ticks. Which state does it enter?",
+      "options": [
+        "Ready",
+        "Blocked",
+        "Suspended",
+        "Terminated"
+      ],
+      "correctIndex": 1,
+      "explanation": "Waiting for time, a semaphore or a queue moves the task to Blocked until the timeout or event occurs. In FreeRTOS, Suspended is entered only by an explicit vTaskSuspend() call.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m014",
+      "questionText": "In a pre-emptive priority-based RTOS, low-priority task L is running when an ISR gives a semaphore on which high-priority task H is blocked. What happens when the ISR exits, assuming it requests a context switch?",
+      "options": [
+        "H moves Blocked → Running directly, and L moves to Blocked",
+        "H moves Blocked → Ready → Running, and L moves Running → Ready",
+        "H moves to Ready and waits until L blocks or finishes",
+        "L continues, and H moves to Suspended until L's time slice ends"
+      ],
+      "correctIndex": 1,
+      "explanation": "The semaphore makes H ready; since H now has the highest priority among ready tasks, the scheduler pre-empts L, which goes back to Ready (not Blocked, since it is not waiting). Waiting for L would be cooperative behaviour.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m015",
+      "questionText": "In FreeRTOS, how does the Suspended state differ from the Blocked state?",
+      "options": [
+        "A suspended task is still considered by the scheduler at its normal priority",
+        "A suspended task has no timeout and leaves the state only when another task or an ISR explicitly resumes it",
+        "A suspended task has been deleted and its TCB freed",
+        "A suspended task is waiting for a semaphore with a timeout"
+      ],
+      "correctIndex": 1,
+      "explanation": "Blocked tasks wait for an event or a timeout; suspended tasks are ignored by the scheduler until vTaskResume() or xTaskResumeFromISR() is called.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m016",
+      "questionText": "What is the idle task in an RTOS?",
+      "options": [
+        "The highest-priority task, which runs first after reset",
+        "A task that has been blocked for longer than its timeout",
+        "The ISR that handles the system tick",
+        "A lowest-priority task created by the kernel that runs whenever no other task is ready"
+      ],
+      "correctIndex": 3,
+      "explanation": "The kernel always needs something to run, so it creates an idle task at the lowest priority; it often puts the CPU into a low-power mode or performs housekeeping.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m017",
+      "questionText": "Which item is normally NOT stored in a task's control block (TCB)?",
+      "options": [
+        "The saved stack pointer or saved register context",
+        "The task's current state and priority",
+        "The machine code of the task's function",
+        "Links to the ready or waiting list the task belongs to"
+      ],
+      "correctIndex": 2,
+      "explanation": "The TCB describes the task (state, priority, saved context, list links, stack limits); the code itself stays in Flash or the process image and is only referenced through the saved program counter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m018",
+      "questionText": "In many small RTOSes, a context switch pushes the pre-empted task's registers onto that task's own stack and stores only the stack pointer in its TCB. What does this imply for stack sizing?",
+      "options": [
+        "Only the idle task needs a stack, because the other tasks share it",
+        "Stacks can be made smaller, because registers are no longer stored anywhere",
+        "The TCB must grow to hold a copy of every register of every task",
+        "Every task's stack must have room for a full saved register frame on top of the task's own worst-case usage"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because the context lives on the task's stack whenever the task is not running, each stack needs its own worst-case depth plus one saved frame (and any interrupt frames that land on it).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m019",
+      "questionText": "Which sequence correctly describes a context switch?",
+      "options": [
+        "Restore the next task's context, then save the current task's context, then run the scheduler",
+        "Select the next task, discard the current task's registers and start the next task from its first instruction",
+        "Flush all caches, reboot the kernel and start the highest-priority task",
+        "Save the running task's context in its TCB or stack, let the scheduler select the next task, restore that task's context, and resume it at its saved PC"
+      ],
+      "correctIndex": 3,
+      "explanation": "The outgoing context must be saved before registers are overwritten, and the incoming task continues where it left off, at the PC saved in its context.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m020",
+      "questionText": "Why is switching between two threads of the same process usually faster than switching between two processes?",
+      "options": [
+        "Threads have no registers, so nothing needs to be saved",
+        "Thread switches are done entirely by hardware, without kernel code",
+        "Threads of one process always run on different CPU cores",
+        "The threads share one address space, so the memory map (page tables) need not change and TLB and cache contents stay useful"
+      ],
+      "correctIndex": 3,
+      "explanation": "A process switch must also switch the memory map, which invalidates TLB entries and cools the caches; a thread switch saves and restores only the register context and stack pointer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m021",
+      "questionText": "A context switch on an 80 MHz processor saves 16 registers and restores 16 registers. Each register transfer to or from memory takes 2 clock cycles, and exception entry/exit plus the scheduler add 40 cycles. What is the context-switch time?",
+      "options": [
+        "0.9 µs",
+        "1.3 µs",
+        "0.8 µs",
+        "2.1 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cycles = 32 transfers × 2 + 40 = 104, and 104 / 80 MHz = 1.3 µs. 0.9 µs counts only the saves, 0.8 µs leaves out the 40 cycles and 2.1 µs uses 4 cycles per transfer.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m022",
+      "questionText": "Under round-robin scheduling each time slice of q = 20 ms is followed by a context switch lasting 0.5 ms. What percentage of CPU time is lost to switching?",
+      "options": [
+        "2.50 %",
+        "97.56 %",
+        "0.50 %",
+        "2.44 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "Overhead = t_cs / (q + t_cs) = 0.5 / 20.5 = 2.44 %. 2.50 % divides by q alone, and 97.56 % is the useful fraction.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m023",
+      "questionText": "A context switch takes 0.5 ms. What is the smallest round-robin time slice q that keeps the switching overhead t_cs / (q + t_cs) at or below 20 %?",
+      "options": [
+        "2.5 ms",
+        "2.0 ms",
+        "0.1 ms",
+        "0.4 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "t_cs / (q + t_cs) ≤ 0.2 gives q ≥ t_cs × (1 − 0.2) / 0.2 = 0.5 × 4 = 2.0 ms. 2.5 ms comes from t_cs / q ≤ 0.2, while 0.1 ms and 0.4 ms multiply t_cs by 0.2 and 0.8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m024",
+      "questionText": "Five equal-priority tasks share the CPU round robin with a 10 ms time slice, and every context switch takes 2 ms. When a task's slice ends, how long does it wait before it runs again if every other task uses its full slice?",
+      "options": [
+        "48 ms",
+        "50 ms",
+        "40 ms",
+        "60 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "The other 4 tasks run one slice each and there are 5 switches (including the one back to the task): 4 × 10 + 5 × 2 = 50 ms. 48 ms misses the last switch, 40 ms ignores switching and 60 ms counts five slices.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m025",
+      "questionText": "An RTOS has a 1 kHz tick whose handler takes 8 µs, performs 400 context switches per second at 5 µs each, and services a 2 kHz sensor interrupt whose ISR takes 15 µs. What percentage of CPU time remains for the tasks?",
+      "options": [
+        "96.0 %",
+        "99.0 %",
+        "97.5 %",
+        "4.0 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "Per second: 1000 × 8 µs + 400 × 5 µs + 2000 × 15 µs = 8 + 2 + 30 = 40 ms, so 1000 − 40 = 960 ms (96.0 %) is left. 99.0 % forgets the ISR, 97.5 % runs the ISR at 1 kHz and 4.0 % is the overhead itself.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m026",
+      "questionText": "A system performs 4,000 context switches per second. A switch between processes costs 25 µs, while a switch between threads of one process costs 5 µs. If the design is changed from processes to threads, how much CPU time is saved?",
+      "options": [
+        "10 % (100 ms per second)",
+        "2 % (20 ms per second)",
+        "8 % (80 ms per second)",
+        "0.8 % (8 ms per second)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Processes: 4,000 × 25 µs = 100 ms per second (10 %); threads: 4,000 × 5 µs = 20 ms (2 %); saving = 80 ms per second = 8 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m027",
+      "questionText": "An RTOS application has 8 tasks, each with a TCB of 96 bytes and a stack of 1 KB (1 KB = 1024 bytes). How much RAM do the TCBs and stacks need in total?",
+      "options": [
+        "8960 bytes",
+        "8768 bytes",
+        "8288 bytes",
+        "8192 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "8 × (96 + 1024) = 8 × 1120 = 8960 bytes. 8768 uses 1 KB = 1000 bytes, 8288 counts only one TCB and 8192 counts only the stacks.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m028",
+      "questionText": "After the kernel's own data, 20 KB of RAM (1 KB = 1024 bytes) remains for tasks. Each task needs an 88-byte TCB and a 1.5 KB stack. How many tasks can be created?",
+      "options": [
+        "13",
+        "14",
+        "232",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "Per task 88 + 1536 = 1624 bytes, and 20,480 / 1624 = 12.6, so only 12 complete tasks fit. 13 ignores the TCBs (20,480 / 1536 = 13.3), 14 rounds 13.3 up and 232 ignores the stacks.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m029",
+      "questionText": "An external event raises an interrupt. The interrupt latency is 5 µs, the ISR runs for 20 µs and makes a waiting high-priority task ready, the scheduler then takes 3 µs and the context switch 4 µs. How long after the interrupt request does the task start executing?",
+      "options": [
+        "25 µs",
+        "29 µs",
+        "32 µs",
+        "12 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "t = latency + ISR + scheduler + switch = 5 + 20 + 3 + 4 = 32 µs. 25 µs stops at the end of the ISR, 29 µs forgets the scheduler and 12 µs forgets the ISR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m030",
+      "questionText": "On an MCU at 16 MHz the hardware needs 48 clock cycles to recognise an interrupt and enter its ISR. The kernel's longest section with interrupts disabled lasts 15 µs, and the ISR runs for 10 µs. What is the worst-case time from the interrupt request to the completion of the ISR?",
+      "options": [
+        "28 µs",
+        "13 µs",
+        "25 µs",
+        "18 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hardware entry = 48 / 16 MHz = 3 µs; worst case = 15 (interrupts disabled) + 3 + 10 = 28 µs. 13 µs ignores the critical section, 25 µs ignores the entry cycles and 18 µs is the latency without the ISR.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m031",
+      "questionText": "In FreeRTOS with a 1 ms system tick, the highest-priority task in the system calls vTaskDelay(10) at an arbitrary moment between two ticks. How long does it actually stay blocked?",
+      "options": [
+        "Between 9 ms and 10 ms",
+        "Exactly 10 ms",
+        "Between 10 ms and 11 ms",
+        "Between 0 ms and 10 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "The task unblocks at the 10th tick interrupt after the call, and the first of those ticks arrives less than one full period after the call, so the real delay is between 9 and 10 tick periods. Because it is the highest-priority task it runs as soon as it becomes ready.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t5_m032",
+      "questionText": "An RTOS keeps a 32-bit unsigned tick counter incremented by a 10 kHz tick. After how long does the counter wrap around to zero?",
+      "options": [
+        "4.97 days",
+        "49.7 days",
+        "2.49 days",
+        "119.3 days"
+      ],
+      "correctIndex": 0,
+      "explanation": "2^32 / 10,000 Hz = 429,497 s, and 429,497 / 86,400 = 4.97 days. 49.7 days is the 1 kHz figure, 2.49 days treats the counter as signed and 119.3 is the number of hours, not days.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m033",
+      "questionText": "An RTOS keeps a 32-bit ready bitmap in which bit i is 1 when a task of priority i is ready, and a larger number means a higher priority. The bitmap is 00A4 0010H. Which priority is dispatched, and how is it found in constant time?",
+      "options": [
+        "Priority 4, found as the lowest set bit",
+        "Priority 21, found as 31 − CLZ(bitmap)",
+        "Priority 23, found as 31 − CLZ(bitmap)",
+        "Priority 8, found as CLZ(bitmap)"
+      ],
+      "correctIndex": 2,
+      "explanation": "00A4 0010H has bits 23, 21, 18 and 4 set; count-leading-zeros gives 8, so the highest set bit is 31 − 8 = 23. The lowest set bit would be the lowest priority, and 8 is the CLZ value itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m034",
+      "questionText": "Which design choice increases an RTOS's worst-case interrupt latency?",
+      "options": [
+        "Keeping ISRs short and deferring the remaining work to a task",
+        "Disabling interrupts for long critical sections inside the kernel or drivers",
+        "Allowing nested interrupts with hardware priorities",
+        "Placing the interrupt vector table in fast on-chip memory"
+      ],
+      "correctIndex": 1,
+      "explanation": "An interrupt that arrives while interrupts are disabled must wait until they are re-enabled, so the longest disabled section adds directly to the worst-case latency. The other choices reduce latency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m035",
+      "questionText": "Which statement about an RTOS is NOT correct?",
+      "options": [
+        "An RTOS always delivers higher average throughput than a general-purpose OS on the same hardware",
+        "It uses priority-based pre-emptive scheduling so that urgent tasks run promptly",
+        "It specifies worst-case times for its services and interrupt handling",
+        "It is usually small enough to run from on-chip Flash with little RAM"
+      ],
+      "correctIndex": 0,
+      "explanation": "An RTOS optimises predictability, not average throughput; a GPOS is often faster on average. The other three statements are standard RTOS characteristics.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m036",
+      "questionText": "Which system is best described as soft real-time?",
+      "options": [
+        "An audio streaming player, where a late sample causes a brief glitch but playback continues",
+        "An anti-lock braking controller",
+        "A cardiac pacemaker",
+        "A fly-by-wire flight control computer"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a soft real-time system a missed deadline only degrades quality, and the late result still has some value. Braking, pacing and flight control are hard real-time: a miss can be catastrophic.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m037",
+      "questionText": "A system discards any result that arrives after its deadline because it is then useless, but it tolerates occasional misses without failing. This is:",
+      "options": [
+        "A hard real-time system",
+        "A soft real-time system",
+        "A non-real-time batch system",
+        "A firm real-time system"
+      ],
+      "correctIndex": 3,
+      "explanation": "Firm real-time: a late result has zero value and is dropped, yet infrequent misses are acceptable. Hard real-time cannot tolerate any miss, and in soft real-time late results keep some value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m038",
+      "questionText": "Which of the following is NOT an advantage of multithreading within one process?",
+      "options": [
+        "The application stays responsive while one thread waits for I/O",
+        "Threads are protected from each other's memory errors because each has a private address space",
+        "Threads can share data directly, without kernel IPC",
+        "Creating and switching threads is cheaper than creating and switching processes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Threads of a process share one address space, so a stray pointer in one thread can corrupt the others; protection is a property of separate processes. The other three are the classic benefits of threads.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m039",
+      "questionText": "In the many-to-one threading model, many user-level threads are mapped onto one kernel thread. What happens when one of them makes a blocking system call?",
+      "options": [
+        "The whole process blocks, because the kernel sees only one schedulable thread",
+        "Only that thread blocks, and the kernel schedules another thread of the process",
+        "The kernel automatically turns the call into a non-blocking one",
+        "The other threads carry on in parallel on other CPU cores"
+      ],
+      "correctIndex": 0,
+      "explanation": "The kernel is unaware of user-level threads, so blocking its single kernel thread stops them all; this, and the lack of multicore parallelism, is why most systems use the one-to-one model.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m040",
+      "questionText": "Two RTOS tasks call the same C function, and either may be pre-empted inside it. Which version is reentrant?",
+      "options": [
+        "int f(int x) { static int t; t = x * 2; return t + 1; }",
+        "int f(int x) { int t = x * 2; return t + 1; }",
+        "int t; int f(int x) { t = x * 2; return t + 1; }",
+        "int f(int x) { static int n = 0; n++; return x * n; }"
+      ],
+      "correctIndex": 1,
+      "explanation": "A reentrant function keeps its working data in locals on the caller's stack, so each task has its own copy. The static and global variables in the other versions are shared, so a pre-empting task can overwrite them mid-calculation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m041",
+      "questionText": "A super-loop (foreground/background) program calls A(), B() and C() in turn; they take 2 ms, 5 ms and 3 ms. A checks an event flag as its first action. In the worst case, how long after the flag is set does A next check it?",
+      "options": [
+        "8 ms",
+        "5 ms",
+        "10 ms",
+        "2 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the worst case the flag is set just after A has checked it, so the next check comes one full loop later: 2 + 5 + 3 = 10 ms. 8 ms leaves out A's own run time; a pre-emptive RTOS would instead respond within its bounded latency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m042",
+      "questionText": "How does a user-mode application normally obtain a kernel service such as reading a file?",
+      "options": [
+        "It executes a system call, a trap instruction that switches the CPU to kernel mode at a fixed entry point",
+        "It jumps directly to the kernel function's address while staying in user mode",
+        "It disables interrupts and programs the disk controller registers itself",
+        "It reads the kernel's memory directly through a pointer"
+      ],
+      "correctIndex": 0,
+      "explanation": "User mode cannot execute privileged instructions or touch kernel memory, so the application traps into the kernel through a controlled entry point, and the kernel returns the result.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m043",
+      "questionText": "In RTOS timing, what is the time from the moment an ISR makes a high-priority task ready until that task starts running called?",
+      "options": [
+        "Scheduling (dispatch) latency",
+        "Interrupt latency",
+        "Task execution time",
+        "Tick period"
+      ],
+      "correctIndex": 0,
+      "explanation": "Interrupt latency ends when the ISR starts; the scheduling or dispatch latency covers the scheduler decision and the context switch that follow the ISR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m044",
+      "questionText": "What is the system tick in an RTOS?",
+      "options": [
+        "The oscillator that clocks the CPU pipeline",
+        "A periodic timer interrupt the kernel uses to count time for delays, timeouts and time slicing",
+        "The instruction that ends a task",
+        "A counter of how many tasks are ready"
+      ],
+      "correctIndex": 1,
+      "explanation": "A hardware timer interrupts at a fixed rate, typically 100 Hz to 1 kHz; the tick handler advances the kernel's time, wakes tasks whose delays expire and rotates equal-priority tasks.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t5_m045",
+      "questionText": "Many microcontroller RTOSes, such as FreeRTOS on a Cortex-M microcontroller, run all tasks in one address space without an MMU. What is the main consequence?",
+      "options": [
+        "Tasks cannot share global variables at all",
+        "Every context switch must copy the whole task image into RAM",
+        "A stray pointer in one task can corrupt another task's data or the kernel, unless an MPU is used to restrict access",
+        "Tasks must be written in assembly language"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without memory protection nothing stops a task writing anywhere in RAM; an optional memory protection unit (MPU) can confine each task to its own regions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t5_m046",
+      "questionText": "In a cooperative (non-pre-emptive) kernel, when does a running task give up the CPU?",
+      "options": [
+        "Whenever a higher-priority task becomes ready",
+        "Only when it blocks, yields or finishes",
+        "At every system tick",
+        "Whenever any interrupt occurs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without pre-emption the kernel switches tasks only at points the running task chooses; an interrupt runs its ISR and then returns to the same task. Pre-emption on readiness or on the tick describes a pre-emptive kernel.",
+      "difficulty": "easy"
+    }
+  ]
+}

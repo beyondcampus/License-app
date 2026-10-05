@@ -1,0 +1,702 @@
+{
+  "topicId": "ch1_i54",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Quartz Crystal Resonators"
+    },
+    {
+      "type": "paragraph",
+      "text": "The closeness of f_s and f_p follows from the equivalent circuit. At f_p the motional branch is inductive and resonates with C_M, so its effective capacitance is C_s in series with C_M, which is only very slightly smaller than C_s itself. Writing f_p = f_s√(1 + C_s/C_M) and using √(1 + x) ≈ 1 + x/2 for small x gives the simple spacing formula below. Since C_s/C_M is typically 1/200 to 1/1000, the two resonances are only 0.05 to 0.25 percent apart."
+    },
+    {
+      "type": "formula",
+      "latex": "f_p - f_s \\approx \\frac{f_s C_s}{2 C_M},\\qquad Q = \\frac{1}{R}\\sqrt{\\frac{L}{C_s}}",
+      "plainText": "fp − fs ≈ fs·Cs/(2·CM);  Q = (1/R)·√(L/Cs)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Reactance picture: below f_s the crystal is capacitive, at f_s it is a small resistance R, between f_s and f_p its reactance is inductive and rises steeply, at f_p the impedance is maximum, and above f_p it is capacitive again. A parallel-mode circuit such as the Pierce makes the crystal resonate with an external load capacitance C_L, so the actual frequency lies slightly above f_s. The crystal is therefore specified for a particular C_L, and changing C_L pulls the frequency: a smaller C_L raises it towards f_p and a larger C_L lowers it towards f_s."
+    },
+    {
+      "type": "formula",
+      "latex": "C_L = \\frac{C_1 C_2}{C_1 + C_2} + C_{stray}",
+      "plainText": "CL = C1·C2/(C1 + C2) + Cstray  (Pierce load capacitance)"
+    },
+    {
+      "type": "formula",
+      "latex": "f_L \\approx f_s\\left(1 + \\frac{C_s}{2(C_M + C_L)}\\right)",
+      "plainText": "fL ≈ fs·(1 + Cs/(2(CM + CL)))  (load-resonant frequency)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - resonances and Q of a crystal\nGiven: L = 0.1 H, C_s = 0.05 pF, R = 100 Ω, C_M = 10 pF\nf_s = 1/(2π√(0.1 × 0.05e-12)) = 1/(2π × 7.07e-8) ≈ 2.251 MHz\nf_p = f_s√(1 + 0.05/10) = f_s × 1.0025 ≈ 2.256 MHz\nf_p − f_s ≈ f_s·C_s/(2C_M) = 2.251e6 × 0.0025 ≈ 5.6 kHz\nQ = ω_sL/R = 2π × 2.251e6 × 0.1/100 ≈ 14 100\nCompare: a good LC tank has Q of about 100, so the crystal is about 140 times sharper."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - Pierce clock design\nCrystal: 16 MHz, rated C_L = 20 pF, ±25 ppm; board stray about 4 pF\nC_L = C/2 + C_stray  ->  C/2 = 20 − 4 = 16 pF  ->  C_1 = C_2 = 32 pF\nTolerance: Δf = 16e6 × 25e-6 = ±400 Hz\nPulling check (C_s = 0.015 pF, C_M = 5 pF):\n  f_L − f_s ≈ 16e6 × 0.015/(2 × (5 + 20)) = 4.8 kHz  (300 ppm above f_s)\nWrong C_1, C_2 would shift f by tens of ppm, eating the tolerance budget."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Oscillator",
+          "Typical Q",
+          "Typical stability",
+          "Tunability"
+        ],
+        [
+          "RC (Wien, phase shift)",
+          "Below 10 (network)",
+          "0.1 to 1 percent",
+          "Wide, easy"
+        ],
+        [
+          "LC (Colpitts, Clapp)",
+          "50 to 300",
+          "About 100 to 1000 ppm",
+          "Wide"
+        ],
+        [
+          "Crystal (XO)",
+          "10^4 to 10^6",
+          "About 10 to 100 ppm",
+          "Fixed; a few ppm trim"
+        ],
+        [
+          "TCXO",
+          "10^4 to 10^6",
+          "About ±1 ppm",
+          "Fixed"
+        ],
+        [
+          "OCXO",
+          "10^4 to 10^6",
+          "0.01 ppm or better",
+          "Fixed"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Overtone and series-mode circuits: a crystal vibrates mechanically only at odd multiples of its fundamental thickness-shear mode, so a 20 MHz cut can be used near 60, 100 or 140 MHz. Because the fundamental always has the most loop gain, an overtone oscillator needs an LC tank tuned near the wanted overtone to kill gain at the fundamental. In a series-mode oscillator the crystal sits in the feedback path, where its minimum impedance at f_s lets feedback through only at that frequency. In the Miller oscillator the crystal is between gate and ground and the drain tank is tuned slightly above the crystal frequency so that it looks inductive; feedback is through the gate-drain capacitance."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with crystal questions:",
+      "items": [
+        "Placing f_p below f_s; it is always slightly above.",
+        "Forgetting the square root in f_p = f_s√(1 + C_s/C_M), which doubles the spacing.",
+        "Assuming overtones can be even harmonics; only odd overtones exist.",
+        "Treating ppm as percent: 1 ppm = 10^-6 = 0.0001 percent.",
+        "Adding the two Pierce capacitors; they are in series across the crystal, plus stray."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "The watch crystal frequency 32.768 kHz equals 2^15 Hz, so a chain of 15 divide-by-2 flip-flops gives exactly 1 Hz. A ppm error translates directly into time error: 1 ppm is about 0.0864 s per day."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i54_m001",
+      "questionText": "A quartz crystal has motional inductance L = 0.5 H and motional capacitance C_s = 0.02 pF. Its series resonant frequency is approximately:",
+      "options": [
+        "10 MHz",
+        "159 kHz",
+        "1.59 MHz",
+        "5.03 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f_s = 1/(2π√(LC_s)) = 1/(2π√(0.5 × 0.02 × 10^-12)) = 1/(2π × 10^-7) ≈ 1.59 MHz. Leaving out the 2π gives 10 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m002",
+      "questionText": "A crystal has L = 0.5 H, C_s = 0.02 pF and mounting capacitance C_M = 5 pF. The parallel resonant frequency exceeds the series resonant frequency by about:",
+      "options": [
+        "6.37 kHz",
+        "318 Hz",
+        "3.18 kHz",
+        "31.8 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f_s = 1/(2π√(0.5 × 0.02 × 10^-12)) ≈ 1.5915 MHz and f_p = f_s√(1 + 0.02/5) = f_s√1.004 ≈ 1.5947 MHz, so f_p − f_s ≈ f_sC_s/(2C_M) ≈ 3.18 kHz. Forgetting the square root gives 6.37 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m003",
+      "questionText": "A crystal has L = 0.5 H and motional resistance R = 100 Ω, and its series resonant frequency is 1.59 MHz. Its Q factor is about:",
+      "options": [
+        "50 000",
+        "7 960",
+        "5 000",
+        "500 000"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q = ω_sL/R = (2π × 1.59 × 10^6 × 0.5)/100 ≈ 50 000. Leaving out the 2π gives about 7 960.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m004",
+      "questionText": "A 4 MHz crystal has motional capacitance C_s = 0.04 pF and motional resistance R = 50 Ω. Its Q is approximately:",
+      "options": [
+        "3 180",
+        "19 900",
+        "1 990",
+        "125 000"
+      ],
+      "correctIndex": 1,
+      "explanation": "Q = 1/(ω_sC_sR) = 1/(2π × 4 × 10^6 × 0.04 × 10^-12 × 50) ≈ 19 900. Leaving out the 2π gives 125 000.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m005",
+      "questionText": "A digital watch uses a 32.768 kHz crystal whose frequency is 20 ppm high. The time the watch gains in one day (86 400 s) is about:",
+      "options": [
+        "1.73 s",
+        "17.3 s",
+        "0.173 s",
+        "0.66 s"
+      ],
+      "correctIndex": 0,
+      "explanation": "The watch runs fast by the same fraction as its crystal: 86 400 × 20 × 10^-6 ≈ 1.73 s per day. The 0.66 figure is the frequency error in hertz (32 768 × 20 × 10^-6), not a time.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m006",
+      "questionText": "A 16 MHz microcontroller crystal is rated at ±30 ppm. The maximum deviation from 16 MHz is:",
+      "options": [
+        "±48 Hz",
+        "±4.8 kHz",
+        "±30 Hz",
+        "±480 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "Δf = f × ppm/10^6 = 16 × 10^6 × 30 × 10^-6 = 480 Hz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m007",
+      "questionText": "A 25 MHz crystal oscillator is measured at 25.000125 MHz. Its frequency error is:",
+      "options": [
+        "+5 ppm",
+        "+0.5 ppm",
+        "+50 ppm",
+        "+125 ppm"
+      ],
+      "correctIndex": 0,
+      "explanation": "Error = (125 Hz/25 × 10^6 Hz) × 10^6 = 5 ppm high.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m008",
+      "questionText": "A 10 MHz crystal oscillator has a temperature coefficient of 1 ppm/°C over its operating range (assume linear). If its temperature rises by 30 °C, the frequency changes by about:",
+      "options": [
+        "30 Hz",
+        "3 kHz",
+        "300 Hz",
+        "10 Hz"
+      ],
+      "correctIndex": 2,
+      "explanation": "Total drift = 1 ppm/°C × 30 °C = 30 ppm, so Δf = 10 × 10^6 × 30 × 10^-6 = 300 Hz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m009",
+      "questionText": "A crystal with a fundamental frequency of 20 MHz is operated on its third overtone. The oscillator frequency is approximately:",
+      "options": [
+        "40 MHz",
+        "60 MHz",
+        "6.67 MHz",
+        "80 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "Overtones are odd mechanical modes, so the third overtone is close to 3 × 20 = 60 MHz (in practice slightly off an exact multiple).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m010",
+      "questionText": "The fundamental frequency of an AT-cut quartz plate is approximately f = 1.66/t MHz, with the thickness t in millimetres. The thickness needed for a 10 MHz fundamental is about:",
+      "options": [
+        "1.66 mm",
+        "0.166 mm",
+        "16.6 mm",
+        "0.0166 mm"
+      ],
+      "correctIndex": 1,
+      "explanation": "t = 1.66/f = 1.66/10 ≈ 0.166 mm. Frequency is inversely proportional to thickness, which is why high-frequency fundamental plates become fragile.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m011",
+      "questionText": "A 5 MHz crystal has C_s = 0.025 pF and C_M = 6.25 pF. By what percentage does f_p exceed f_s?",
+      "options": [
+        "About 0.2 %",
+        "About 0.4 %",
+        "About 2 %",
+        "About 0.02 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "f_p/f_s = √(1 + C_s/C_M) = √1.004 ≈ 1.002, so f_p is about 0.2 % (about 10 kHz) above f_s. The 0.4 % figure forgets the square root.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m012",
+      "questionText": "A crystal has f_s = 1.000 MHz, f_p = 1.002 MHz and motional capacitance C_s = 0.02 pF. Its mounting capacitance C_M is about:",
+      "options": [
+        "10 pF",
+        "5 pF",
+        "2.5 pF",
+        "0.04 pF"
+      ],
+      "correctIndex": 1,
+      "explanation": "(f_p/f_s)² = 1 + C_s/C_M, so C_s/C_M = 1.002² − 1 ≈ 0.004 and C_M = 0.02/0.004 ≈ 5 pF. Using f_p/f_s = 1 + C_s/C_M without squaring gives 10 pF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m013",
+      "questionText": "A 10 MHz crystal has motional capacitance C_s = 0.01 pF. Its motional inductance is about:",
+      "options": [
+        "2.53 mH",
+        "253 mH",
+        "25.3 mH",
+        "15.9 mH"
+      ],
+      "correctIndex": 2,
+      "explanation": "L = 1/(4π²f_s²C_s) = 1/(4π² × 10^14 × 10^-14) = 1/39.5 ≈ 25.3 mH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m014",
+      "questionText": "In a Pierce (CMOS inverter) crystal oscillator the two load capacitors are 33 pF each and the stray capacitance is estimated at 5 pF. The load capacitance seen by the crystal is about:",
+      "options": [
+        "71 pF",
+        "38 pF",
+        "21.5 pF",
+        "16.5 pF"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two capacitors are effectively in series across the crystal: C_L = C_1C_2/(C_1 + C_2) + C_stray = 16.5 + 5 = 21.5 pF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m015",
+      "questionText": "A crystal is specified for a load capacitance of 18 pF. In a Pierce circuit with 3 pF of stray capacitance and two equal load capacitors, each capacitor should be:",
+      "options": [
+        "30 pF",
+        "15 pF",
+        "36 pF",
+        "42 pF"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_L = C/2 + C_stray, so C/2 = 18 − 3 = 15 pF and C = 30 pF. Ignoring the stray capacitance would give 36 pF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m016",
+      "questionText": "A 10 MHz crystal (C_s = 0.02 pF, C_M = 5 pF) operates with a load capacitance C_L = 15 pF. Using f_L ≈ f_s[1 + C_s/(2(C_M + C_L))], the oscillation frequency lies above f_s by about:",
+      "options": [
+        "5 kHz",
+        "20 kHz",
+        "6.7 kHz",
+        "10 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "Δf = f_sC_s/(2(C_M + C_L)) = 10 × 10^6 × 0.02/(2 × 20) = 5 kHz, a pull of 500 ppm. Leaving out C_M gives 6.7 kHz and dropping the factor 2 gives 10 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m017",
+      "questionText": "A 10 MHz crystal resonator has Q = 100 000. Its resonance bandwidth (f/Q) is:",
+      "options": [
+        "1 kHz",
+        "100 Hz",
+        "10 Hz",
+        "100 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "BW = f/Q = 10 × 10^6/10^5 = 100 Hz, an extremely narrow resonance compared with an LC tank.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m018",
+      "questionText": "A digital watch divides its 32.768 kHz crystal frequency down to 1 Hz with a chain of divide-by-2 flip-flops. The number of flip-flops needed is:",
+      "options": [
+        "16",
+        "32",
+        "12",
+        "15"
+      ],
+      "correctIndex": 3,
+      "explanation": "32 768 = 2^15, so 15 cascaded divide-by-2 stages give exactly 1 Hz, which is why this frequency is used for watch crystals.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m019",
+      "questionText": "The piezoelectric effect is the property by which a crystal:",
+      "options": [
+        "Develops a voltage when mechanically stressed, and deforms when a voltage is applied",
+        "Emits light when heated",
+        "Conducts current in one direction only",
+        "Changes its resistance in a magnetic field"
+      ],
+      "correctIndex": 0,
+      "explanation": "Piezoelectric materials convert mechanical stress into voltage and voltage into strain; this two-way coupling lets a quartz plate act as an electrical resonator.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m020",
+      "questionText": "Quartz is preferred for oscillator crystals mainly because it:",
+      "options": [
+        "Is mechanically strong, chemically stable and has a very small temperature coefficient",
+        "Has the strongest piezoelectric effect of all materials",
+        "Is a good electrical conductor",
+        "Can be tuned over a wide frequency range"
+      ],
+      "correctIndex": 0,
+      "explanation": "Rochelle salt shows a stronger piezoelectric effect, but quartz is chosen for its strength, stability and low temperature coefficient.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m021",
+      "questionText": "In the electrical equivalent circuit of a quartz crystal, the motional inductance L represents:",
+      "options": [
+        "The elasticity (compliance) of the crystal",
+        "The frictional losses in the crystal",
+        "The mass (inertia) of the vibrating crystal",
+        "The capacitance of the electrodes and holder"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the electro-mechanical analogy L corresponds to mass, C_s to compliance, R to friction, and C_M is the electrode (holder) capacitance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m022",
+      "questionText": "At its series resonant frequency f_s, the impedance of a quartz crystal is:",
+      "options": [
+        "Maximum and purely resistive",
+        "Infinite",
+        "Purely inductive",
+        "Minimum and approximately equal to its motional resistance R"
+      ],
+      "correctIndex": 3,
+      "explanation": "At f_s the reactances of L and C_s cancel, leaving only R in parallel with the high reactance of C_M, so the impedance is minimum and nearly equal to R.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m023",
+      "questionText": "At its parallel (anti-resonant) frequency f_p, a quartz crystal presents:",
+      "options": [
+        "A maximum impedance",
+        "A minimum impedance equal to R",
+        "Zero impedance",
+        "A purely capacitive impedance equal to X_CM"
+      ],
+      "correctIndex": 0,
+      "explanation": "At f_p the inductive motional branch resonates with C_M, forming a parallel resonance with maximum impedance.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m024",
+      "questionText": "Between its series and parallel resonant frequencies, a quartz crystal behaves as:",
+      "options": [
+        "A capacitive reactance",
+        "An inductive reactance",
+        "A pure resistance of zero ohms",
+        "An open circuit"
+      ],
+      "correctIndex": 1,
+      "explanation": "Above f_s the motional branch is inductive, and up to f_p this inductance dominates, so the crystal acts as a high-Q inductor in this narrow band.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m025",
+      "questionText": "At frequencies well below f_s, the reactance of a quartz crystal is:",
+      "options": [
+        "Inductive",
+        "Zero",
+        "Infinite and resistive",
+        "Capacitive"
+      ],
+      "correctIndex": 3,
+      "explanation": "Below f_s the motional branch is dominated by C_s, and in parallel with C_M the whole crystal is capacitive.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m026",
+      "questionText": "The main reason a crystal oscillator has far better frequency stability than an LC oscillator is:",
+      "options": [
+        "The extremely high Q of the quartz resonator",
+        "Its higher supply voltage",
+        "The use of two transistors",
+        "Its larger output amplitude"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Q of 10^4 to 10^6 makes the crystal's phase change very steeply with frequency, so circuit changes shift the frequency only minutely.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m027",
+      "questionText": "The Pierce oscillator is essentially:",
+      "options": [
+        "A Hartley oscillator with a crystal in place of the capacitor",
+        "An RC phase-shift oscillator with a crystal in each section",
+        "A Wien bridge oscillator with a crystal in the bridge",
+        "A Colpitts oscillator with a crystal in place of the inductor"
+      ],
+      "correctIndex": 3,
+      "explanation": "The Pierce keeps the two-capacitor divider of the Colpitts and uses the crystal, operated where it is inductive, as the tank inductor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m028",
+      "questionText": "In a CMOS-inverter Pierce oscillator, a large resistor (about 1 MΩ) connected between the inverter input and output serves to:",
+      "options": [
+        "Bias the inverter into its linear (high-gain) region",
+        "Set the oscillation frequency",
+        "Force the crystal onto its third overtone",
+        "Discharge the load capacitors at switch-off"
+      ],
+      "correctIndex": 0,
+      "explanation": "The feedback resistor sets the DC input equal to the DC output, placing the inverter at the middle of its transfer curve where it acts as a high-gain amplifier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m029",
+      "questionText": "In a Pierce oscillator the crystal operates:",
+      "options": [
+        "Exactly at f_s, where it is almost a short circuit",
+        "Below f_s, where it is capacitive",
+        "Well above f_p, where it is capacitive",
+        "Between f_s and f_p, where it is inductive (parallel mode)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The crystal must supply the inductance of the Colpitts-type tank, and it is inductive only between f_s and f_p.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m030",
+      "questionText": "In a series-mode crystal oscillator the crystal is placed in the feedback path so that:",
+      "options": [
+        "Feedback is large only at f_p, where the crystal impedance is maximum",
+        "Feedback is large only at f_s, where the crystal impedance is minimum",
+        "The crystal provides the amplifier gain",
+        "The crystal acts only as a DC blocking capacitor"
+      ],
+      "correctIndex": 1,
+      "explanation": "At f_s the crystal is a low resistance and passes the feedback signal; at any other frequency its high impedance blocks feedback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m031",
+      "questionText": "Overtone crystal oscillators operate at:",
+      "options": [
+        "Even harmonics (2nd, 4th, 6th) only",
+        "Any integer harmonic including the 2nd",
+        "Sub-harmonics (f/2, f/3) of the fundamental",
+        "Odd harmonics (3rd, 5th, 7th) of the fundamental mechanical mode"
+      ],
+      "correctIndex": 3,
+      "explanation": "A thickness-shear plate can vibrate only in odd modes, so overtones exist near 3, 5, 7 ... times the fundamental.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m032",
+      "questionText": "An overtone crystal oscillator needs an LC tank tuned near the desired overtone because:",
+      "options": [
+        "The crystal cannot vibrate without an external inductor",
+        "Otherwise the crystal would oscillate on its fundamental, which has the most loop gain",
+        "The tank sets the frequency exactly, making the crystal unnecessary",
+        "It converts the output to a square wave"
+      ],
+      "correctIndex": 1,
+      "explanation": "The tank removes gain at the fundamental and lower overtones, so the loop conditions are met only near the chosen overtone while the crystal still fixes the exact frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m033",
+      "questionText": "Fundamental-mode quartz crystals are rarely made above about 30 MHz because:",
+      "options": [
+        "Quartz loses its piezoelectric property above 30 MHz",
+        "The Q becomes infinite",
+        "The plate would have to be so thin that it becomes fragile and hard to make",
+        "The mounting capacitance becomes zero"
+      ],
+      "correctIndex": 2,
+      "explanation": "Frequency is inversely proportional to plate thickness, so very high fundamentals need plates only tens of micrometres thick; overtone operation is used instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m034",
+      "questionText": "The main limitation of a crystal oscillator compared with an LC oscillator is that:",
+      "options": [
+        "Its output is non-sinusoidal",
+        "Its frequency stability is poor",
+        "Its frequency cannot be varied over a wide range",
+        "It needs a very large inductor"
+      ],
+      "correctIndex": 2,
+      "explanation": "The frequency is fixed by the crystal's dimensions; external capacitance can pull it only by a small number of ppm.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m035",
+      "questionText": "In a VCXO (voltage-controlled crystal oscillator) the frequency is varied by:",
+      "options": [
+        "Changing the crystal thickness electronically",
+        "A varactor diode that changes the load capacitance, pulling the frequency by only tens to hundreds of ppm",
+        "Switching between different overtones",
+        "Varying the supply voltage to double the frequency"
+      ],
+      "correctIndex": 1,
+      "explanation": "The varactor alters C_L, and since the crystal is inductive only between f_s and f_p the achievable pull is very small.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m036",
+      "questionText": "Of the following, the crystal oscillator type with the best frequency stability is the:",
+      "options": [
+        "Temperature-compensated crystal oscillator (TCXO)",
+        "Voltage-controlled crystal oscillator (VCXO)",
+        "Uncompensated crystal oscillator (XO)",
+        "Oven-controlled crystal oscillator (OCXO)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Keeping the crystal at a constant elevated temperature in an oven gives stability of about 0.01 ppm or better, ahead of a TCXO (about ±1 ppm).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m037",
+      "questionText": "The AT-cut is the most popular quartz cut for MHz-range crystals because:",
+      "options": [
+        "It gives the strongest piezoelectric voltage",
+        "Its frequency changes very little with temperature over a wide range around room temperature",
+        "It allows even-order overtones",
+        "It has no mounting capacitance"
+      ],
+      "correctIndex": 1,
+      "explanation": "The AT-cut has a cubic frequency-temperature curve that is nearly flat around room temperature, giving a low temperature coefficient.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m038",
+      "questionText": "Which of the following is NOT a typical application of crystal oscillators?",
+      "options": [
+        "Microprocessor clock generator",
+        "Digital wrist-watch timebase",
+        "A variable-frequency audio tone generator tuned from 20 Hz to 20 kHz",
+        "Local oscillator in a GPS receiver"
+      ],
+      "correctIndex": 2,
+      "explanation": "Crystal oscillators are fixed-frequency references; a widely tunable audio generator uses an RC oscillator such as the Wien bridge.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m039",
+      "questionText": "Which statement about a crystal oscillator is correct?",
+      "options": [
+        "The crystal generates oscillations by itself without any amplifier",
+        "The crystal only sets the frequency; an amplifier is still needed to provide gain and satisfy the Barkhausen criterion",
+        "The crystal should be driven at the highest possible power",
+        "The crystal can be tuned over an octave with a trimmer capacitor"
+      ],
+      "correctIndex": 1,
+      "explanation": "The crystal is a passive, high-Q frequency-determining element; the transistor or gate supplies the energy lost in its resistance.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i54_m040",
+      "questionText": "Which statement about a quartz crystal is NOT correct?",
+      "options": [
+        "Its parallel resonant frequency f_p is lower than its series resonant frequency f_s",
+        "Its motional capacitance C_s is much smaller than its mounting capacitance C_M",
+        "Its Q is typically 10^4 or more",
+        "Its impedance is minimum at f_s"
+      ],
+      "correctIndex": 0,
+      "explanation": "f_p = f_s√(1 + C_s/C_M) is always slightly higher than f_s; the other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m041",
+      "questionText": "In a Pierce oscillator the external load capacitance across the crystal is reduced slightly. The frequency of oscillation:",
+      "options": [
+        "Falls slightly, moving towards f_s",
+        "Stays exactly at f_s",
+        "Rises slightly, moving towards f_p",
+        "Jumps to the third overtone"
+      ],
+      "correctIndex": 2,
+      "explanation": "From f_L ≈ f_s[1 + C_s/(2(C_M + C_L))], a smaller C_L increases the fraction, so the frequency rises towards f_p.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m042",
+      "questionText": "The series and parallel resonant frequencies of a quartz crystal lie very close together because:",
+      "options": [
+        "The motional inductance is very small",
+        "The motional capacitance C_s is very much smaller than the mounting capacitance C_M",
+        "The motional resistance is very large",
+        "C_s and C_M are equal"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_p/f_s = √(1 + C_s/C_M); with C_s/C_M of the order of 0.001 to 0.005 the ratio is only just above 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m043",
+      "questionText": "The very high Q of a quartz crystal results from:",
+      "options": [
+        "Its large mounting capacitance",
+        "Its large motional capacitance",
+        "The high gain of the amplifier",
+        "Its very large L/C_s ratio together with a small motional resistance"
+      ],
+      "correctIndex": 3,
+      "explanation": "Q = (1/R)√(L/C_s); a large L (henries or millihenries) with a tiny C_s (hundredths of a pF) and modest R gives Q of 10^4 to 10^6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m044",
+      "questionText": "In a Miller crystal oscillator the crystal is connected between gate and ground and the drain has a parallel LC tank. For oscillation, the drain tank must be tuned:",
+      "options": [
+        "Exactly to the third harmonic of the crystal",
+        "Well below the crystal frequency, so that it is capacitive",
+        "Slightly above the crystal frequency, so that it is inductive, with feedback through the gate-drain capacitance",
+        "To any frequency, since the tank plays no part"
+      ],
+      "correctIndex": 2,
+      "explanation": "A parallel tank is inductive below its own resonance, so tuning it slightly above the crystal frequency makes it inductive at the operating point; with the inductive crystal and C_gd this satisfies the phase condition.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i54_m045",
+      "questionText": "A crystal with a 10 MHz fundamental is used in overtone oscillators. Which of these frequencies is NOT an available overtone?",
+      "options": [
+        "30 MHz",
+        "50 MHz",
+        "70 MHz",
+        "20 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only odd overtones exist (about 30, 50, 70 MHz for a 10 MHz cut); 20 MHz would be an even multiple.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i54_m046",
+      "questionText": "Driving a quartz crystal with excessive power is likely to:",
+      "options": [
+        "Increase its Q without limit",
+        "Convert it into an ordinary LC tank",
+        "Make f_p equal to f_s",
+        "Cause frequency drift and faster ageing, and may even fracture the crystal"
+      ],
+      "correctIndex": 3,
+      "explanation": "Crystals have a maximum drive level of a few milliwatts or less; overdriving heats and stresses the plate, shifting the frequency and possibly cracking it.",
+      "difficulty": "medium"
+    }
+  ]
+}

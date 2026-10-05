@@ -1,0 +1,690 @@
+{
+  "topicId": "ch4_i53",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Feedback Analysis and Digital PID"
+    },
+    {
+      "type": "paragraph",
+      "text": "The closed-loop gain follows from two equations read off the block diagram. The summing junction gives E = R − HC and the forward path gives C = G·E, so C = G(R − HC), which rearranges to C(1 + GH) = G·R and C/R = G/(1 + GH). With positive feedback the junction adds the fed-back signal, giving G/(1 − GH), which grows without limit as GH approaches 1. The product GH is the loop gain, and a disturbance D entering at the plant output is reduced by the same factor, appearing at the output as D/(1 + GH)."
+    },
+    {
+      "type": "formula",
+      "latex": "S_G^T = \\frac{dT/T}{dG/G} = \\frac{1}{1 + GH}",
+      "plainText": "Sensitivity of the closed-loop gain T to the forward gain G: S = (dT/T)/(dG/G) = 1/(1 + GH)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: G = 200, H = 0.05  ->  loop gain GH = 10\nT = 200 / (1 + 10)                          = 18.18\nG falls 20 % to 160:  GH = 8,  T = 160 / 9  = 17.78\nChange in T = (17.78 - 18.18) / 18.18       = -2.2 %  (open loop: -20 %)\nSmall-change estimate: S = 1/(1 + GH) = 0.091, 0.091 x 20 % = 1.8 %\nOutput disturbance of 30 rpm -> 30 / (1 + 10) = 2.7 rpm remains"
+    },
+    {
+      "type": "paragraph",
+      "text": "With a proportional gain Kp driving a plant of DC gain Kplant in a unity-feedback loop, the loop gain is K = Kp·Kplant, the output settles at K/(1 + K) of the setpoint and the steady-state error is 1/(1 + K) of the step. The error cannot reach zero because the plant needs a non-zero drive and a P controller produces drive only from error; raising Kp shrinks the offset but increases overshoot and eventually threatens stability. Closing the loop around a first-order plant K/(τs + 1) also speeds it up: the closed-loop transfer function K/(τs + 1 + K) has time constant τ/(1 + K), and the 2% settling time is about four time constants. For example, τ = 15 s and K = 4 give a closed-loop time constant of 3 s, a settling time near 12 s and a final value of 0.8 of the setpoint."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Gain increased",
+          "Rise time",
+          "Overshoot and settling time",
+          "Steady-state error (step)"
+        ],
+        [
+          "Kp",
+          "Decreases",
+          "Overshoot rises; settling time changes little",
+          "Decreases but never reaches zero"
+        ],
+        [
+          "Ki",
+          "Decreases",
+          "Overshoot rises; settling time increases",
+          "Eliminated"
+        ],
+        [
+          "Kd",
+          "Changes little",
+          "Overshoot falls; settling time decreases",
+          "Not affected (in theory)"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Practical details used when tuning and implementing controllers:",
+      "items": [
+        "Ziegler–Nichols ultimate-gain method: with I and D off, raise Kp until the loop oscillates steadily at gain Ku with period Pu, then set Kp = 0.6 Ku, Ti = Pu/2 and Td = Pu/8 for PID (P only: Kp = 0.5 Ku; PI: Kp = 0.45 Ku, Ti = Pu/1.2).",
+        "The standard and parallel PID forms are linked by Ki = Kp/Ti and Kd = Kp·Td, so a longer integral time Ti means weaker integral action.",
+        "On-off control with switching points L and H: heating time = (H − L)/heating rate and cooling time = (H − L)/cooling rate; a narrower band gives a smaller swing but more frequent switching and relay wear.",
+        "Integral windup: while the actuator is saturated the integral keeps growing and later causes a large overshoot, so the integral is clamped or integration is stopped during saturation.",
+        "Derivative kick: a setpoint step makes de/dt very large for one sample, so many controllers differentiate the measurement instead of the error and low-pass filter the D term to limit noise."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: discrete PID, T = 0.05 s, Kp = 1.5, Ki = 2 s^-1, Kd = 0.05 s\nErrors: e[0] = 2.0, e[1] = 1.6, e[2] = 1.0\nu[1] = 1.5(1.6) + 2(0.05)(2.0 + 1.6) + 0.05(1.6 - 2.0)/0.05\n     = 2.40 + 0.36 - 0.40 = 2.36\nu[2] = 1.5(1.0) + 2(0.05)(2.0 + 1.6 + 1.0) + 0.05(1.0 - 1.6)/0.05\n     = 1.50 + 0.46 - 0.60 = 1.36\nVelocity form: du[2] = 1.5(1.0 - 1.6) + 2(0.05)(1.0) + (0.05/0.05)(1.0 - 3.2 + 2.0)\n                     = -0.90 + 0.10 - 0.20 = -1.00  ->  u[2] = 2.36 - 1.00 = 1.36"
+    },
+    {
+      "type": "formula",
+      "latex": "\\Delta u_k = K_p(e_k - e_{k-1}) + K_i T e_k + \\frac{K_d}{T}(e_k - 2e_{k-1} + e_{k-2})",
+      "plainText": "Velocity (incremental) PID: Δu[k] = Kp(e[k] − e[k−1]) + Ki·T·e[k] + (Kd/T)(e[k] − 2e[k−1] + e[k−2]), then u[k] = u[k−1] + Δu[k]"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "/* Called from a timer ISR every T = 0.01 s */\nfloat pid_step(float sp, float y) {\n    static float integ = 0.0f, e_prev = 0.0f;\n    float e = sp - y;\n    integ += KI * T * e;\n    float u = KP * e + integ + KD * (e - e_prev) / T;\n    e_prev = e;\n    if (u > U_MAX) { u = U_MAX; integ -= KI * T * e; }  /* anti-windup */\n    if (u < U_MIN) { u = U_MIN; integ -= KI * T * e; }\n    return u;\n}"
+    },
+    {
+      "type": "paragraph",
+      "text": "A continuous closed-loop system is stable when every root of its characteristic equation 1 + G(s)H(s) = 0, i.e. every closed-loop pole, has a negative real part and so lies in the left half of the s-plane. For G = K/(s(s + 6)) with unity feedback the equation is s² + 6s + K = 0: K = 5 gives real poles at −1 and −5, while K above 9 gives a complex pair with an oscillatory, overshooting response. A sampled loop is stable when its poles lie inside the unit circle; the plant y[k+1] = a·y[k] + b·u[k] under u[k] = Kp(r − y[k]) has the single pole a − b·Kp, so it is stable only while |a − b·Kp| < 1. Extra loop delay, such as a long sampling period or slow computation, adds phase lag and lowers the gain at which oscillation starts."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: using G/(1 + GH) for a positive-feedback loop; writing the step error of a P loop as 1/K instead of 1/(1 + K); forgetting the sampling period in the discrete integral (Ki·T·Σe) and derivative ((e[k] − e[k−1])/T) terms; quoting the integral time Ti or derivative time Td as if they were the gains Ki and Kd; and letting the integrator wind up while the actuator is saturated."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i53_m001",
+      "questionText": "Which of the following is an open-loop control system?",
+      "options": [
+        "A room air conditioner controlled by a thermostat",
+        "A toaster that heats bread for a time set on a dial",
+        "A car cruise control holding a set speed",
+        "A water-tank float valve that closes as the level rises"
+      ],
+      "correctIndex": 1,
+      "explanation": "The toaster's heating time never depends on how brown the bread actually is, so no output information is fed back. The thermostat, cruise control and float valve all measure the output (temperature, speed, level) and correct the action.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m002",
+      "questionText": "A feedback loop is rewired so that the fed-back signal is added to the reference (positive feedback). With forward gain G = 5 and feedback gain H = 0.1, what is the closed-loop gain?",
+      "options": [
+        "10",
+        "3.33",
+        "5",
+        "0.5"
+      ],
+      "correctIndex": 0,
+      "explanation": "Positive feedback gives T = G/(1 − GH) = 5/(1 − 0.5) = 10. 3.33 is the negative-feedback value 5/(1 + 0.5) and 0.5 is the loop gain GH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m003",
+      "questionText": "Two blocks with gains G1 = 5 and G2 = 6 are connected in cascade in the forward path of a negative-feedback loop whose feedback gain is H = 0.1. What is the overall closed-loop gain?",
+      "options": [
+        "30",
+        "5.24",
+        "7.5",
+        "10"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cascaded blocks multiply: G = 5 × 6 = 30, so T = 30/(1 + 30 × 0.1) = 30/4 = 7.5. Adding the gains gives 11/2.1 = 5.24, 30 is the open-loop gain and 10 is 1/H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m004",
+      "questionText": "Which of the following is a closed-loop control system?",
+      "options": [
+        "Traffic lights switching on a fixed timing plan",
+        "A washing machine running a fixed timed programme",
+        "An automatic voltage regulator that measures the generator output voltage and adjusts the field current",
+        "An electric fan with a three-position speed switch"
+      ],
+      "correctIndex": 2,
+      "explanation": "The voltage regulator compares the measured output voltage with the reference and corrects the error, which is feedback. The other three run preset actions without measuring the result.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m005",
+      "questionText": "An amplifier with forward gain G = 200 must give a closed-loop gain of exactly 10 using negative feedback. What feedback gain H is needed?",
+      "options": [
+        "0.095",
+        "0.1",
+        "0.105",
+        "0.05"
+      ],
+      "correctIndex": 0,
+      "explanation": "10 = 200/(1 + 200H) gives 1 + 200H = 20, so H = 19/200 = 0.095. H = 0.1 is the 1/T approximation, which would actually give 200/21 = 9.52.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m006",
+      "questionText": "A negative-feedback system has loop gain GH = 49. If the forward gain G increases by 10% while H is unchanged, by approximately what percentage does the closed-loop gain change?",
+      "options": [
+        "10%",
+        "0.2%",
+        "2%",
+        "0.02%"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sensitivity S = 1/(1 + GH) = 1/50 = 0.02, so ΔT/T ≈ 0.02 × 10% = 0.2% (recomputing exactly gives 0.18%). Without feedback the gain would change by the full 10%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m007",
+      "questionText": "In a closed-loop control system, which element measures the controlled output and converts it into a signal that can be compared with the setpoint?",
+      "options": [
+        "Actuator",
+        "Plant",
+        "Controller",
+        "Sensor (transducer)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The sensor, e.g. a thermistor or encoder, provides the feedback signal. The actuator applies power to the plant and the controller computes the action from the error.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m008",
+      "questionText": "An open-loop motor drive slows by 50 rpm when a load torque is applied. The drive is then placed in a negative-feedback speed loop with loop gain GH = 24, the load acting as a disturbance at the output. By how much does the speed now drop?",
+      "options": [
+        "50 rpm",
+        "25 rpm",
+        "2 rpm",
+        "48 rpm"
+      ],
+      "correctIndex": 2,
+      "explanation": "An output disturbance is divided by 1 + GH, so the drop becomes 50/(1 + 24) = 2 rpm. 48 rpm is the part of the drop that feedback removes, not the part that remains.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m009",
+      "questionText": "Compared with an open-loop system, what is the main drawback of a closed-loop control system?",
+      "options": [
+        "It cannot correct for disturbances acting on the plant",
+        "Its accuracy depends entirely on the calibration of the plant",
+        "It can oscillate or become unstable if the loop gain or loop delay is too large",
+        "It needs no sensor, so faults go undetected"
+      ],
+      "correctIndex": 2,
+      "explanation": "Feedback adds a sensor, cost and the risk of instability when the gain or delay is too high. Disturbance rejection and insensitivity to plant calibration are advantages of closed loop, and needing no sensor describes open loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m010",
+      "questionText": "A microcontroller keeps a room warm: a thermistor measures the temperature and a solid-state relay switches the heater element on and off. In control-system terms, the relay together with the heater element is the:",
+      "options": [
+        "Sensor",
+        "Controller",
+        "Disturbance",
+        "Actuator"
+      ],
+      "correctIndex": 3,
+      "explanation": "The actuator converts the controller's output into physical action, here heat. The thermistor is the sensor, the microcontroller is the controller and the room is the plant.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m011",
+      "questionText": "Which statement about open-loop control is NOT correct?",
+      "options": [
+        "It automatically corrects the output when a disturbance acts on the plant",
+        "It is simpler and cheaper because no output sensor is needed",
+        "Its accuracy depends on how well it is calibrated",
+        "It cannot be destabilised by feedback, because it has none"
+      ],
+      "correctIndex": 0,
+      "explanation": "An open-loop controller never measures the output, so it cannot notice or correct a disturbance. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m012",
+      "questionText": "A unity-feedback temperature loop uses a proportional controller with Kp = 4 driving a plant whose DC gain is 2. The setpoint is stepped up by 10 °C. What is the steady-state error?",
+      "options": [
+        "1.25 °C",
+        "0 °C",
+        "8.89 °C",
+        "1.11 °C"
+      ],
+      "correctIndex": 3,
+      "explanation": "Loop gain K = Kp × plant gain = 8, so e_ss = 10/(1 + 8) = 1.11 °C and the output rises by 8.89 °C. 1.25 °C comes from 10/K, and zero error would need integral action.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m013",
+      "questionText": "In a cruise-control system, what is the car itself (engine, drivetrain and body), whose speed is being controlled, called?",
+      "options": [
+        "The plant (process)",
+        "The controller",
+        "The feedback element",
+        "The reference input"
+      ],
+      "correctIndex": 0,
+      "explanation": "The plant is the physical system whose output, vehicle speed, is controlled. The controller computes the throttle command, the feedback element is the speed sensor and the reference input is the set speed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m014",
+      "questionText": "In a negative-feedback loop with a very large loop gain (GH ≫ 1), which statement is correct?",
+      "options": [
+        "The closed-loop gain is approximately G, so accuracy depends mainly on the plant",
+        "The closed-loop gain is approximately 1/H, so the overall accuracy depends mainly on the feedback sensor",
+        "The closed-loop gain approaches zero",
+        "The closed-loop gain is approximately GH"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = G/(1 + GH) ≈ G/(GH) = 1/H when GH ≫ 1. Changes in G then matter little, but the loop can be no more accurate than its sensor.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m015",
+      "questionText": "A room heater is controlled by a proportional-only (P) controller in a unity-feedback loop. Why does the room temperature settle slightly below the setpoint?",
+      "options": [
+        "The heater needs a non-zero drive to replace the heat losses, and a P controller produces drive only from a non-zero error",
+        "The sensor always reads low when proportional control is used",
+        "The proportional gain is too low for the loop to be stable",
+        "The rate of change of the error is zero in steady state, which switches the heater off"
+      ],
+      "correctIndex": 0,
+      "explanation": "With u = Kp·e a steady heater output needs a steady error; the offset shrinks as Kp rises (e_ss = 1/(1 + K) of the step) but never reaches zero. Adding integral action removes it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m016",
+      "questionText": "In a negative-feedback loop with reference input r and feedback signal b, what is the actuating error signal produced by the summing junction?",
+      "options": [
+        "e = r + b",
+        "e = b − r",
+        "e = r − b",
+        "e = r × b"
+      ],
+      "correctIndex": 2,
+      "explanation": "With negative feedback the fed-back signal is subtracted from the reference, so e = r − b. Adding the two signals would be positive feedback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m017",
+      "questionText": "A water heater uses on-off control with setpoint 60 °C and hysteresis of ±2 °C, so it switches ON at 58 °C and OFF at 62 °C. The heater is currently ON and the water has risen to 61 °C. What happens next?",
+      "options": [
+        "The heater switches OFF immediately because 61 °C is above the setpoint",
+        "The heater stays ON until the water reaches 62 °C",
+        "The heater reduces its power in proportion to the 1 °C error",
+        "The heater switches rapidly OFF and ON around 60 °C"
+      ],
+      "correctIndex": 1,
+      "explanation": "With hysteresis the output changes only at the band edges, ON at 58 °C and OFF at 62 °C, and keeps its last state in between. This is what prevents relay chatter around the setpoint.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m018",
+      "questionText": "A unity-feedback loop with a P controller drives a plant of DC gain 0.5. What is the minimum Kp that keeps the steady-state error to a step within 2% of the step size?",
+      "options": [
+        "98",
+        "49",
+        "100",
+        "24.5"
+      ],
+      "correctIndex": 0,
+      "explanation": "1/(1 + K) ≤ 0.02 requires loop gain K ≥ 49, and K = Kp × 0.5, so Kp ≥ 98. 49 is the loop gain itself, 100 drops the 1 in 1 + K, and 24.5 multiplies by the plant gain instead of dividing.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m019",
+      "questionText": "What is the transfer function of a linear time-invariant system?",
+      "options": [
+        "The ratio of output to input measured in the time domain at t = 1 s",
+        "The Laplace transform of the output when the input is a unit step",
+        "The difference between the setpoint and the output in the frequency domain",
+        "The ratio of the Laplace transform of the output to that of the input, with all initial conditions zero"
+      ],
+      "correctIndex": 3,
+      "explanation": "G(s) = C(s)/R(s) with zero initial conditions depends only on the system, not on the input applied. The step-response option describes C(s) for one particular input and the last option describes the error signal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m020",
+      "questionText": "A P controller with a bias (manual reset) of 40% and gain Kp = 5% per °C holds an oven at 66 °C while the setpoint is 70 °C. Using u = u0 + Kp·e, what is the controller output?",
+      "options": [
+        "20%",
+        "60%",
+        "40%",
+        "44%"
+      ],
+      "correctIndex": 1,
+      "explanation": "e = 70 − 66 = 4 °C, so u = 40 + 5 × 4 = 60%. Subtracting the P term gives 20%, ignoring it gives 40% and adding the error without the gain gives 44%.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m021",
+      "questionText": "A discrete PID controller runs with sampling period T = 0.01 s and Kd = 0.05 s. The error was 2.0 at the previous sample and is 1.8 now. What is the derivative term Kd(e[k] − e[k−1])/T?",
+      "options": [
+        "−0.01",
+        "+1.0",
+        "−1.0",
+        "−20"
+      ],
+      "correctIndex": 2,
+      "explanation": "D = 0.05 × (1.8 − 2.0)/0.01 = 0.05 × (−20) = −1.0. Forgetting to divide by T gives −0.01, reversing the difference gives +1.0 and leaving out Kd gives −20.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m022",
+      "questionText": "An on-off controller, whose output is either fully ON or fully OFF, is also known as a:",
+      "options": [
+        "Proportional-derivative controller",
+        "Two-position (bang-bang) controller",
+        "Integral controller",
+        "Feedforward controller"
+      ],
+      "correctIndex": 1,
+      "explanation": "On-off control switches the actuator between two states only, hence the names two-position or bang-bang control. P, I and D controllers produce a continuously variable output.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m023",
+      "questionText": "The error applied to a PID controller stays constant at a non-zero value. What does the derivative term contribute?",
+      "options": [
+        "A constant output proportional to the error",
+        "An output that grows steadily with time",
+        "Nothing, because the error is not changing",
+        "An output equal to Kd times the error"
+      ],
+      "correctIndex": 2,
+      "explanation": "The derivative term responds only to de/dt, which is zero for a constant error. A constant contribution is the P term's behaviour and a steadily growing one is the I term's.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m024",
+      "questionText": "An on-off water heater switches ON at 58 °C and OFF at 62 °C. While ON the water warms at 0.5 °C/min; while OFF it cools at 0.25 °C/min. Ignoring any lag, what is the switching period (one ON plus one OFF interval)?",
+      "options": [
+        "8 min",
+        "16 min",
+        "12 min",
+        "24 min"
+      ],
+      "correctIndex": 3,
+      "explanation": "The band is 4 °C, so ON time = 4/0.5 = 8 min and OFF time = 4/0.25 = 16 min, giving a period of 24 min (duty cycle 33%). Using 2 °C instead of the full 4 °C band gives 12 min.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m025",
+      "questionText": "A temperature loop's step response settles at 50 °C and reaches a peak of 56 °C. What is the percentage overshoot?",
+      "options": [
+        "12%",
+        "6%",
+        "10.7%",
+        "112%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overshoot = (peak − final)/final × 100 = (56 − 50)/50 × 100 = 12%. Dividing by the peak gives 10.7%, and 6% simply quotes the 6 °C excess.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m026",
+      "questionText": "In a stable proportional control loop, what normally happens when Kp is increased?",
+      "options": [
+        "Rise time increases and overshoot decreases",
+        "The steady-state error becomes exactly zero",
+        "Rise time and steady-state error decrease, but overshoot increases",
+        "Overshoot and steady-state error both decrease with no side effects"
+      ],
+      "correctIndex": 2,
+      "explanation": "A higher Kp drives the plant harder, so the loop rises faster and leaves a smaller offset 1/(1 + K), but it overshoots more and can eventually become unstable. Only integral action gives zero step error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m027",
+      "questionText": "What is integral windup in a PID loop, and what is the usual remedy?",
+      "options": [
+        "The derivative term amplifies sensor noise; add a low-pass filter on the sensor",
+        "The integral becomes zero when the error is constant; increase Ki",
+        "The proportional term saturates the ADC; reduce the sampling rate",
+        "The integral keeps accumulating while the actuator is saturated, causing a large overshoot later; clamp the integral or stop integrating during saturation"
+      ],
+      "correctIndex": 3,
+      "explanation": "While the output is limited, extra integral action has no effect but keeps building, so the loop overshoots until the stored integral unwinds. Anti-windup limits or stops integration while the actuator is saturated.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m028",
+      "questionText": "A motor speed response settles at 200 rpm. It passes 20 rpm at t = 0.3 s and 180 rpm at t = 1.1 s. What is the 10%–90% rise time?",
+      "options": [
+        "1.1 s",
+        "0.3 s",
+        "1.4 s",
+        "0.8 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "10% and 90% of 200 rpm are 20 rpm and 180 rpm, so the rise time = 1.1 − 0.3 = 0.8 s. 1.1 s is measured from t = 0 and 1.4 s adds the two times.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m029",
+      "questionText": "Why do many PID implementations apply the derivative action to the measured output rather than to the error, and low-pass filter it?",
+      "options": [
+        "The derivative of the error is always zero in a closed loop",
+        "Differentiating the error gives a large spike when the setpoint steps, and differentiation amplifies high-frequency noise",
+        "Differentiating the output removes the steady-state error",
+        "It allows the derivative term to replace the integral term"
+      ],
+      "correctIndex": 1,
+      "explanation": "A setpoint step makes e jump, so de/dt is huge for one sample (derivative kick); the measured output changes smoothly, so differentiating it avoids the spike. Noise has a large slope, so the D term is also filtered.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m030",
+      "questionText": "A discrete PI controller uses u[k] = Kp·e[k] + Ki·T·Σe[j] (sum from j = 0 to k) with Kp = 1.2, Ki = 0.5 s⁻¹ and T = 0.2 s. The errors at k = 0, 1 and 2 are 5, 3 and 2. What is u[2]?",
+      "options": [
+        "2.4",
+        "3.4",
+        "7.4",
+        "3.2"
+      ],
+      "correctIndex": 1,
+      "explanation": "P = 1.2 × 2 = 2.4 and I = 0.5 × 0.2 × (5 + 3 + 2) = 1.0, so u[2] = 3.4. Forgetting T gives 7.4, leaving the current error out of the sum gives 3.2 and dropping the I term gives 2.4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m031",
+      "questionText": "A PID routine takes 120 µs to execute and is run every 1 ms by a timer interrupt. What fraction of CPU time does the control loop use?",
+      "options": [
+        "12%",
+        "1.2%",
+        "8.3%",
+        "88%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Utilisation = execution time/period = 120 µs/1000 µs = 0.12 = 12%. 88% is the time left for other work, and 8.3 comes from inverting the ratio (1000/120).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m032",
+      "questionText": "What is the main risk of choosing a sampling period that is too long for a digital control loop?",
+      "options": [
+        "The integral term can no longer remove steady-state error",
+        "The extra delay adds phase lag, reducing the stability margin and causing oscillation or instability",
+        "The ADC resolution in bits decreases",
+        "The time constant of the plant becomes longer"
+      ],
+      "correctIndex": 1,
+      "explanation": "A slow loop acts on old information, which behaves like added loop delay and lowers the gain at which oscillation starts. Sampling well faster than the plant time constants avoids this.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m033",
+      "questionText": "In what order should a periodic digital control task perform its work in each sampling period?",
+      "options": [
+        "Read the sensor (ADC) → compute the error and control law → write the actuator output (PWM/DAC) → wait for the next tick",
+        "Write the actuator output → compute the control law → read the sensor → wait for the next tick",
+        "Compute the control law → read the sensor → wait for the next tick → write the actuator output",
+        "Read the sensor → write the actuator output → wait for the next tick → compute the control law"
+      ],
+      "correctIndex": 0,
+      "explanation": "The control law needs a fresh measurement, and the result should be output as soon as it is computed to keep the delay between sampling and actuation small.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m034",
+      "questionText": "A control task is started by a timer interrupt. The timer is clocked at 1 MHz and interrupts every 5000 counts. What are the sampling period and sampling frequency?",
+      "options": [
+        "5 ms and 200 Hz",
+        "0.5 ms and 2 kHz",
+        "50 ms and 20 Hz",
+        "5 µs and 200 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each count takes 1/1 MHz = 1 µs, so T = 5000 × 1 µs = 5 ms and f = 1/T = 200 Hz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m035",
+      "questionText": "Why is a digital PID routine normally triggered by a periodic timer interrupt (or a high-priority periodic RTOS task) rather than run in a free-running main loop?",
+      "options": [
+        "Timer interrupts make each ADC conversion more accurate",
+        "A free-running loop cannot use floating-point arithmetic",
+        "Interrupt-driven control removes the need for anti-windup",
+        "The discrete integral and derivative terms assume a constant sampling period T, so the timing must be fixed and jitter-free"
+      ],
+      "correctIndex": 3,
+      "explanation": "Ki·T·Σe and Kd(e[k] − e[k−1])/T are only correct if samples are exactly T apart, while a free-running loop's period varies with the other work it does. Jitter in T acts like noise and extra delay in the loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m036",
+      "questionText": "A velocity-form PID uses Δu[k] = Kp(e[k] − e[k−1]) + Ki·T·e[k] + (Kd/T)(e[k] − 2e[k−1] + e[k−2]) and u[k] = u[k−1] + Δu[k], with Kp = 2, Ki = 1 s⁻¹, Kd = 0.1 s and T = 0.1 s. The errors are e[0] = 4, e[1] = 3 and e[2] = 2.5, and u[1] = 5.7. What is u[2]?",
+      "options": [
+        "5.2",
+        "4.45",
+        "5.45",
+        "7.7"
+      ],
+      "correctIndex": 2,
+      "explanation": "Δu = 2(2.5 − 3) + 1(0.1)(2.5) + (0.1/0.1)(2.5 − 6 + 4) = −1 + 0.25 + 0.5 = −0.25, so u[2] = 5.7 − 0.25 = 5.45. Dropping the integral term gives 5.2, using a first difference in the D term gives 4.45 and forgetting T in the integral term gives 7.7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m037",
+      "questionText": "In a feedback control system with forward-path gain G and feedback-path gain H, what is meant by the loop gain?",
+      "options": [
+        "The ratio G/H of forward gain to feedback gain",
+        "The closed-loop gain G/(1 + GH)",
+        "The product GH, the gain a signal sees travelling once around the loop",
+        "The sum G + H of the two path gains"
+      ],
+      "correctIndex": 2,
+      "explanation": "The loop gain GH is the gain around the loop from the summing junction back to itself. It sets how strongly feedback acts: the closed-loop gain is G/(1 + GH), and sensitivity and output disturbances are reduced by the factor 1 + GH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m038",
+      "questionText": "A fixed-point P controller stores Kp = 1.5 in Q8 format (scaled by 256). What value of u does this C code compute?\n\nint32_t kp_q8 = 384;\nint32_t e = 20;\nint32_t u = (kp_q8 * e) >> 8;",
+      "options": [
+        "7680",
+        "20",
+        "15",
+        "30"
+      ],
+      "correctIndex": 3,
+      "explanation": "384 × 20 = 7680, and shifting right by 8 divides by 256: 7680/256 = 30 = 1.5 × 20. Shifting kp_q8 before multiplying would truncate Kp to 1 and give 20; forgetting the shift leaves 7680.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m039",
+      "questionText": "A plant G(s) = 10/(s + 2) is placed in a unity negative-feedback loop. What is the closed-loop transfer function?",
+      "options": [
+        "10/(s + 2)",
+        "10/(s − 8)",
+        "(s + 2)/(s + 12)",
+        "10/(s + 12)"
+      ],
+      "correctIndex": 3,
+      "explanation": "T = G/(1 + G) = [10/(s + 2)] / [(s + 12)/(s + 2)] = 10/(s + 12), with DC gain 10/12 = 0.83. 10/(s − 8) is the positive-feedback result.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m040",
+      "questionText": "Adding derivative action to a proportional controller mainly:",
+      "options": [
+        "Improves damping and reduces overshoot",
+        "Eliminates the steady-state error to a step input",
+        "Increases the steady-state gain of the loop",
+        "Removes the need for a feedback sensor"
+      ],
+      "correctIndex": 0,
+      "explanation": "The derivative term opposes rapid changes of the error, adding damping and reducing overshoot. It gives nothing for a constant error, so it cannot remove steady-state error; that is the integral term's job.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i53_m041",
+      "questionText": "A continuous-time closed-loop LTI system is stable if and only if:",
+      "options": [
+        "All open-loop zeros lie in the right half of the s-plane",
+        "All closed-loop poles (roots of 1 + G(s)H(s) = 0) have negative real parts",
+        "The open-loop DC gain is greater than 1",
+        "At least one closed-loop pole lies on the positive real axis"
+      ],
+      "correctIndex": 1,
+      "explanation": "Poles in the left half-plane give exponentially decaying terms, so a bounded input produces a bounded output. A pole with a positive real part gives a growing term and instability.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m042",
+      "questionText": "A loop oscillates steadily at the ultimate gain Ku = 10 with period Pu = 2 s. Using the Ziegler–Nichols closed-loop PID rules Kp = 0.6Ku, Ti = Pu/2 and Td = Pu/8, what are the parallel-form gains Kp, Ki = Kp/Ti and Kd = Kp·Td?",
+      "options": [
+        "Kp = 6, Ki = 1 s⁻¹, Kd = 0.25 s",
+        "Kp = 5, Ki = 5 s⁻¹, Kd = 1.25 s",
+        "Kp = 6, Ki = 6 s⁻¹, Kd = 1.5 s",
+        "Kp = 6, Ki = 0.17 s⁻¹, Kd = 0.04 s"
+      ],
+      "correctIndex": 2,
+      "explanation": "Kp = 0.6 × 10 = 6, Ti = 2/2 = 1 s and Td = 2/8 = 0.25 s, so Ki = 6/1 = 6 s⁻¹ and Kd = 6 × 0.25 = 1.5 s. Quoting Ti and Td as the gains, or dividing them by Kp, are the usual slips.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m043",
+      "questionText": "A unity-feedback loop has G(s) = K/(s(s + 4)). For K = 3, where are the closed-loop poles?",
+      "options": [
+        "s = 0 and s = −4",
+        "s = −1 and s = −3 (stable)",
+        "s = +1 and s = +3 (unstable)",
+        "s = −2 ± j1.73"
+      ],
+      "correctIndex": 1,
+      "explanation": "1 + G(s) = 0 gives s² + 4s + 3 = (s + 1)(s + 3) = 0, so the poles are −1 and −3, both in the left half-plane. 0 and −4 are the open-loop poles, and −2 ± j1.73 would need K = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i53_m044",
+      "questionText": "A first-order plant G(s) = 2/(10s + 1) is controlled by a P controller with Kp = 2 in a unity-feedback loop. What are the closed-loop time constant and the approximate 2% settling time (take 4 time constants)?",
+      "options": [
+        "10 s and 40 s",
+        "2.5 s and 10 s",
+        "3.33 s and 13.3 s",
+        "2 s and 8 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loop gain is K = 2 × 2 = 4, so T(s) = 4/(10s + 5) = 0.8/(2s + 1): τ_cl = 10/(1 + 4) = 2 s and t_s ≈ 4 × 2 = 8 s. 10 s is the open-loop time constant, 2.5 s uses τ/K and 3.33 s ignores the plant gain.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m045",
+      "questionText": "A sampled plant obeys y[k+1] = 0.9·y[k] + 0.1·u[k] and is controlled by u[k] = Kp(r − y[k]). For which range of positive Kp is the closed loop stable?",
+      "options": [
+        "0 < Kp < 19",
+        "0 < Kp < 10",
+        "0 < Kp < 9",
+        "Any positive Kp"
+      ],
+      "correctIndex": 0,
+      "explanation": "Substituting gives y[k+1] = (0.9 − 0.1Kp)·y[k] + 0.1Kp·r, a single pole at 0.9 − 0.1Kp. Stability needs |0.9 − 0.1Kp| < 1, i.e. −1 < Kp < 19; Kp < 9 only keeps the pole positive so the response does not alternate in sign.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i53_m046",
+      "questionText": "The PI loop body below runs three times with a constant error of 30. Anti-windup is done by undoing the last integration whenever the output is clamped. What are u and integ after the third pass?\n\nfloat kp = 2.0f, ki_t = 1.0f, integ = 0.0f, u;\nfor (int k = 0; k < 3; k++) {\n    float e = 30.0f;\n    integ += ki_t * e;\n    u = kp * e + integ;\n    if (u > 100.0f) { u = 100.0f; integ -= ki_t * e; }\n}",
+      "options": [
+        "u = 100, integ = 90",
+        "u = 100, integ = 30",
+        "u = 150, integ = 90",
+        "u = 120, integ = 60"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pass 1: integ = 30 and u = 60 + 30 = 90. In passes 2 and 3 integ would reach 60 and u = 120, so u is clamped to 100 and integ is restored to 30; without anti-windup integ would have wound up to 90.",
+      "difficulty": "hard"
+    }
+  ]
+}

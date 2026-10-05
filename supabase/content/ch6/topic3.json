@@ -1,0 +1,283 @@
+{
+  "parent": {"id": "ch6_p3", "title": "Turing Machines"},
+  "subtopics": [
+    {
+      "id": "ch6_t3",
+      "title": "Turing Machine: Model, Notation & String Acceptance",
+      "subtitle": "Tape, head and finite control, the 7-tuple, IDs, acceptance and a 0ⁿ1ⁿ machine",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "The Turing Machine Model"},
+          {"type": "paragraph", "text": "A Turing machine (TM), proposed by Alan Turing in 1936, is the most powerful standard model of computation. It consists of a finite state control, a tape that is infinite (at least to the right) and divided into cells, and a read/write head that scans one cell at a time. Unlike a finite automaton it can overwrite the input and move in both directions, so the tape serves as unlimited memory. The input is written on the tape at the start and every other cell holds the blank symbol B."},
+          {"type": "bulletList", "text": "In one move the TM, depending on its current state and the symbol under the head:", "items": [
+            "Changes to a new state (possibly the same one).",
+            "Writes a tape symbol in the scanned cell (possibly the same symbol).",
+            "Moves the head one cell left (L) or right (R); some texts also allow S (stay), which adds no power.",
+            "If no move is defined for the current (state, symbol) pair, the machine halts."
+          ]},
+          {"type": "formula", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, B, F)", "plainText": "M = (Q, Σ, Γ, δ, q0, B, F)"},
+          {"type": "bulletList", "text": "Meaning of the seven components (Hopcroft–Motwani–Ullman notation):", "items": [
+            "Q: finite set of states; q0 ∈ Q is the start state.",
+            "Σ: input alphabet, a subset of Γ that does not contain the blank.",
+            "Γ: tape alphabet, with Σ ⊂ Γ and B ∈ Γ.",
+            "δ: the (partial) transition function Q × Γ → Q × Γ × {L, R}.",
+            "B: the blank symbol, which fills every cell outside the input.",
+            "F ⊆ Q: set of final (accepting) states; the machine halts when it enters one."
+          ]},
+          {"type": "heading", "text": "Transition Function and Instantaneous Descriptions"},
+          {"type": "formula", "latex": "\\delta : Q \\times \\Gamma \\rightarrow Q \\times \\Gamma \\times \\{L, R\\}", "plainText": "δ: Q × Γ → Q × Γ × {L, R}"},
+          {"type": "paragraph", "text": "An instantaneous description (ID) records the whole configuration as a string αqβ: α is the tape contents left of the head, q is the current state, and the head is on the first symbol of β. One move is written ID1 ⊢ ID2 and zero or more moves ID1 ⊢* ID2. For example, if δ(q, a) = (p, X, R), then the ID 01 q a1 becomes 01X p 1. Transitions can be shown as a table (rows = states, columns = tape symbols) or as a transition diagram whose edges are labelled a/X, R meaning read a, write X, move right."},
+          {"type": "bulletList", "text": "On an input w a TM has exactly three possible outcomes:", "items": [
+            "Accept: it enters a final state (and halts). The language of M is L(M) = { w ∈ Σ* : q0 w ⊢* α p β with p ∈ F }.",
+            "Reject: it halts in a non-final state because no transition is defined.",
+            "Loop: it runs forever without halting; a looping input is not accepted, but the machine never announces rejection."
+          ]},
+          {"type": "heading", "text": "Worked Example: TM for L = { 0ⁿ1ⁿ : n ≥ 1 }"},
+          {"type": "paragraph", "text": "Idea: repeatedly mark the leftmost 0 as X, run right to the leftmost unmarked 1 and mark it Y, then run back left to the X. When no 0 remains, check that only Y's are left followed by a blank. Each pass crosses about 2n cells and there are n passes, so this single-tape machine runs in O(n²) moves. States: q0 start, q1 seek 1, q2 return left, q3 final check, q4 accept."},
+          {"type": "code", "language": "text", "text": "state |  0        1        X        Y        B\n------+-----------------------------------------------\n q0   | (q1,X,R)   -        -     (q3,Y,R)    -\n q1   | (q1,0,R) (q2,Y,L)   -     (q1,Y,R)    -\n q2   | (q2,0,L)   -     (q0,X,R) (q2,Y,L)    -\n q3   |   -        -        -     (q3,Y,R) (q4,B,R)\n q4   | accept (no moves: halts in F)"},
+          {"type": "code", "language": "text", "text": "Trace on input 0011:\nq0 0011 ⊢ X q1 011 ⊢ X0 q1 11 ⊢ X q2 0Y1\n⊢ q2 X0Y1 ⊢ X q0 0Y1 ⊢ XX q1 Y1 ⊢ XXY q1 1\n⊢ XX q2 YY ⊢ X q2 XYY ⊢ XX q0 YY ⊢ XXY q3 Y\n⊢ XXYY q3 B ⊢ XXYYB q4   => ACCEPT\nOn 001: after XXY q1 B no move is defined => halts, REJECT"},
+          {"type": "heading", "text": "TM vs FA vs PDA"},
+          {"type": "table", "rows": [
+            ["Feature", "Finite automaton", "Pushdown automaton", "Turing machine"],
+            ["Memory", "None beyond states", "One stack (LIFO)", "Infinite read/write tape"],
+            ["Head movement", "Left to right only", "Left to right on input", "Left and right"],
+            ["Can write", "No", "Only on stack", "Yes, anywhere on tape"],
+            ["Language class", "Regular (type 3)", "Context-free (type 2)", "Recursively enumerable (type 0)"],
+            ["Nondeterminism adds power?", "No (NFA = DFA)", "Yes (NPDA > DPDA)", "No (NTM = DTM)"],
+            ["Always halts?", "Yes, after reading input", "Can be made to", "No, may loop forever"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, B, F)", "plainText": "M = (Q, Σ, Γ, δ, q0, B, F)"},
+          {"type": "formula", "latex": "\\delta(q, a) = (p, X, D),\\; D \\in \\{L, R\\}", "plainText": "δ(q, a) = (p, X, D), D ∈ {L, R}"},
+          {"type": "formula", "latex": "L(M) = \\{ w \\in \\Sigma^* : q_0 w \\vdash^* \\alpha\\, p\\, \\beta,\\; p \\in F \\}", "plainText": "L(M) = { w ∈ Σ* : q0 w ⊢* α p β, p ∈ F }"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Read a transition δ(q, a) = (p, X, L) as: in state q scanning a, write X, move the head left and enter state p. MCQs often test the order of the three outputs (state, symbol, direction)."},
+          {"type": "warning", "text": "A TM does not accept by consuming its input as an FA does; it accepts only by entering a final state. A string on which the machine loops forever is not in L(M), even though the machine never rejects it."},
+          {"type": "note", "text": "The blank B belongs to Γ but not to Σ, so the machine can always detect the end of the input. The input alphabet is a proper subset of the tape alphabet."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_t3_01", "title": "TM 7-tuple", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, B, F)", "plainText": "M = (Q, Σ, Γ, δ, q0, B, F)", "description": "States, input alphabet, tape alphabet, transition function, start state, blank symbol and final states."},
+        {"id": "f_ch6_t3_02", "title": "TM transition function", "latex": "\\delta : Q \\times \\Gamma \\rightarrow Q \\times \\Gamma \\times \\{L, R\\}", "plainText": "δ: Q × Γ → Q × Γ × {L, R}", "description": "From a state and scanned symbol, the TM picks a next state, a symbol to write and a head direction."},
+        {"id": "f_ch6_t3_03", "title": "Language accepted by a TM", "latex": "L(M) = \\{ w : q_0 w \\vdash^* \\alpha\\, p\\, \\beta,\\; p \\in F \\}", "plainText": "L(M) = { w : q0 w ⊢* α p β, p ∈ F }", "description": "A string is accepted when some sequence of moves from the start ID reaches a final state."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_t3_01", "front": "What are the three possible outcomes of running a TM on an input?", "back": "It can accept (halt in a final state), reject (halt in a non-final state with no move defined) or loop forever without halting.", "difficulty": "easy"},
+        {"id": "fc_ch6_t3_02", "front": "What does the instantaneous description X0 q1 1Y mean?", "back": "The tape holds X01Y, the machine is in state q1 and the head is scanning the symbol 1 immediately right of q1.", "difficulty": "medium"},
+        {"id": "fc_ch6_t3_03", "front": "How many moves does the standard single-tape marking TM for 0ⁿ1ⁿ need?", "back": "O(n²): it makes n passes, each crossing about 2n cells.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch6_t3_n01", "questionText": "A Turing machine has the transition δ(q2, a) = (q5, b, L). What happens when it is in state q2 scanning a?", "options": ["It writes a, moves right and enters q5", "It writes b, moves left and enters q5", "It writes b, moves left and stays in q2", "It moves left without writing and enters q5"], "correctIndex": 1, "explanation": "The triple on the right is (next state, symbol to write, head direction), so the machine writes b over a, moves one cell left and enters q5.", "difficulty": "easy"},
+        {"id": "q_ch6_t3_n02", "questionText": "The standard single-tape TM that accepts 0ⁿ1ⁿ by repeatedly marking one 0 and one matching 1 runs in how many moves on an input of length 2n?", "options": ["O(n)", "O(n log n)", "O(2ⁿ)", "O(n²)"], "correctIndex": 3, "explanation": "There are n marking passes and each pass sweeps across O(n) cells, giving O(n²) moves in total.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch6_i31",
+      "title": "TM as Language Recognizer, Computing Function & Enumerator",
+      "subtitle": "Recursive vs RE languages, deciders, function-computing TMs, enumerators, closure",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Recursive vs Recursively Enumerable Languages"},
+          {"type": "paragraph", "text": "Used as a language recognizer, a TM M accepts L(M). If some TM accepts L, L is recursively enumerable (RE), also called Turing-recognisable; such a machine may loop forever on strings outside L. If some TM accepts L and halts on every input, L is recursive, also called decidable, and the machine is a decider. Every recursive language is RE, but not the reverse: the halting language and the universal language are RE but not recursive."},
+          {"type": "table", "rows": [
+            ["Property", "Recursive (decidable)", "Recursively enumerable (recognisable)"],
+            ["Machine", "Decider: halts on every input", "Recogniser: may loop"],
+            ["On w ∈ L", "Halts and accepts", "Halts and accepts"],
+            ["On w ∉ L", "Halts and rejects", "Rejects or loops forever"],
+            ["Complement", "Also recursive", "Not necessarily RE"],
+            ["Example", "{ 0ⁿ1ⁿ2ⁿ }, any CFL", "Halting language HALT_TM"]
+          ]},
+          {"type": "formula", "latex": "L \\text{ recursive} \\iff L \\in \\mathrm{RE} \\text{ and } \\overline{L} \\in \\mathrm{RE}", "plainText": "L recursive ⟺ L ∈ RE and complement(L) ∈ RE"},
+          {"type": "heading", "text": "TM as a Computing Function"},
+          {"type": "paragraph", "text": "A TM computes a function f if, started with an encoding of the argument on the tape, it halts with an encoding of f(argument) on the tape. Numbers are usually written in unary (n as 1ⁿ) with 0 as a separator. A function computed by a TM that halts on every argument is total recursive; if it may loop on some arguments it is partial recursive. Unary addition 1ᵐ01ⁿ → 1^(m+n) needs only three states: move right over the 1s, change the separator 0 into 1, run to the right end, and erase the last 1."},
+          {"type": "code", "language": "text", "text": "Unary addition: q0,1 -> q0,1,R   q0,0 -> q1,1,R\n                q1,1 -> q1,1,R   q1,B -> q2,B,L\n                q2,1 -> q3,B,L   (q3 = halt)\nTrace for 2 + 2 (input 11011):\nq0 11011 ⊢ 1 q0 1011 ⊢ 11 q0 011 ⊢ 111 q1 11\n⊢ 1111 q1 1 ⊢ 11111 q1 B ⊢ 1111 q2 1 ⊢ 111 q3 1B\nTape now holds 1111 = 4, so 2 + 2 = 4"},
+          {"type": "bulletList", "text": "Other arithmetic TMs in outline:", "items": [
+            "Proper subtraction m ∸ n on 1ᵐ01ⁿ: repeatedly replace the leftmost 1 of the first block and the leftmost 1 of the second block with blanks; stop when either block runs out, then clean up so the remaining 1s give max(m − n, 0).",
+            "Multiplication m × n on 1ᵐ01ⁿ: for each 1 of the first block, mark it and copy the whole second block to the end of the tape; finally erase the inputs, leaving 1^(mn).",
+            "Composite functions are built by running such machines as subroutines one after another."
+          ]},
+          {"type": "formula", "latex": "m \\mathbin{\\dot{-}} n = \\max(m - n, 0)", "plainText": "m ∸ n = max(m − n, 0)"},
+          {"type": "heading", "text": "TM as an Enumerator"},
+          {"type": "paragraph", "text": "An enumerator is a TM with an output tape (or printer) that starts with a blank input and prints strings of a language, possibly forever and possibly with repeats. The language it enumerates is the set of all strings it ever prints. A language is RE exactly when some enumerator enumerates it, which is why RE languages are called recursively enumerable."},
+          {"type": "bulletList", "text": "Why enumerators and recognisers are equivalent:", "items": [
+            "Enumerator to recogniser: on input w, run the enumerator and accept whenever it prints w (loops if w is never printed).",
+            "Recogniser to enumerator: for i = 1, 2, 3, ..., run M for i steps on each of the first i strings s1..si of Σ* in shortlex order and print those accepted. Dovetailing avoids getting stuck on a looping input.",
+            "A language is recursive if and only if some enumerator prints it in shortlex (length, then lexicographic) order."
+          ]},
+          {"type": "heading", "text": "Closure Properties"},
+          {"type": "table", "rows": [
+            ["Operation", "Recursive languages", "RE languages"],
+            ["Union", "Closed", "Closed"],
+            ["Intersection", "Closed", "Closed"],
+            ["Concatenation", "Closed", "Closed"],
+            ["Kleene star", "Closed", "Closed"],
+            ["Complement", "Closed", "Not closed"],
+            ["Homomorphism", "Not closed", "Closed"]
+          ]},
+          {"type": "paragraph", "text": "A language whose complement is RE is called co-RE. Recursive = RE ∩ co-RE: if both L and its complement have recognisers, run them in parallel on w; exactly one must accept, so the combination always halts. Since HALT_TM is RE but not recursive, its complement is not RE, and so it is co-RE but not RE."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\mathrm{Recursive} = \\mathrm{RE} \\cap \\text{co-}\\mathrm{RE}", "plainText": "Recursive = RE ∩ co-RE"},
+          {"type": "formula", "latex": "q_0\\, 1^m 0 1^n \\vdash^* 1^{m+n}", "plainText": "q0 1^m 0 1^n ⊢* 1^(m+n)"},
+          {"type": "formula", "latex": "m \\mathbin{\\dot{-}} n = \\max(m - n, 0)", "plainText": "m ∸ n = max(m − n, 0)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "The quickest test for which class a closure property belongs to is complement: recursive languages are closed under it, RE languages are not. If both L and its complement are RE, L must be recursive."},
+          {"type": "warning", "text": "Recognisable and decidable are not synonyms. A recogniser only has to accept strings in L; it may loop on the rest. Only a decider is required to halt on every input."},
+          {"type": "note", "text": "Recursive languages are closed under inverse homomorphism but not under homomorphism; RE languages are closed under both. Every context-free and context-sensitive language is recursive."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i31_01", "title": "Recursive = RE ∩ co-RE", "latex": "L \\text{ recursive} \\iff L, \\overline{L} \\in \\mathrm{RE}", "plainText": "L recursive ⟺ L and complement(L) both RE", "description": "A language is decidable exactly when both it and its complement are Turing-recognisable."},
+        {"id": "f_ch6_i31_02", "title": "Unary addition TM", "latex": "q_0\\, 1^m 0 1^n \\vdash^* 1^{m+n}", "plainText": "q0 1^m 0 1^n ⊢* 1^(m+n)", "description": "Replacing the separator 0 by 1 and erasing the last 1 turns 1ᵐ01ⁿ into 1^(m+n)."},
+        {"id": "f_ch6_i31_03", "title": "Proper subtraction", "latex": "m \\mathbin{\\dot{-}} n = \\max(m - n, 0)", "plainText": "m ∸ n = max(m − n, 0)", "description": "Monus, a total function on natural numbers that a TM computes by cancelling 1s pairwise."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i31_01", "front": "What is the difference between a recursive and a recursively enumerable language?", "back": "A recursive language has a TM that halts on every input (a decider); an RE language only needs a TM that accepts its strings and may loop on others.", "difficulty": "easy"},
+        {"id": "fc_ch6_i31_02", "front": "What is a TM enumerator?", "back": "A TM with an output tape that, starting from a blank tape, prints all strings of a language; a language is RE iff some enumerator prints it.", "difficulty": "medium"},
+        {"id": "fc_ch6_i31_03", "front": "Why is the complement of HALT_TM not RE?", "back": "HALT_TM is RE; if its complement were also RE, HALT_TM would be recursive, which contradicts the undecidability of the halting problem.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i31_n01", "questionText": "A TM computes unary addition, turning 1ᵐ01ⁿ into 1^(m+n). If the input tape holds 1110111, what does the tape hold when the machine halts?", "options": ["111111", "1110111", "11111", "1111111"], "correctIndex": 0, "explanation": "The input encodes m = 3 and n = 3, so the output is 1⁶ = 111111.", "difficulty": "easy"},
+        {"id": "q_ch6_i31_n02", "questionText": "If a language L and its complement are both recursively enumerable, then L is:", "options": ["Regular", "Context-free but not regular", "Recursive", "Recursively enumerable but not recursive"], "correctIndex": 2, "explanation": "Running recognisers for L and its complement in parallel always halts because one of them must accept, giving a decider for L.", "difficulty": "medium"},
+        {"id": "q_ch6_i31_n03", "questionText": "Recursively enumerable languages are NOT closed under which operation?", "options": ["Union", "Intersection", "Kleene star", "Complement"], "correctIndex": 3, "explanation": "RE languages are closed under union, intersection, concatenation and star, but the complement of HALT_TM is not RE, so they are not closed under complement.", "difficulty": "medium"},
+        {"id": "q_ch6_i31_n04", "questionText": "A language can be enumerated by some TM enumerator that prints its strings in strictly increasing shortlex order if and only if the language is:", "options": ["Regular", "Recursive", "Context-free", "Co-RE but not RE"], "correctIndex": 1, "explanation": "An ordered enumerator gives a decider (stop once strings longer than w appear), and a decider can list strings in order by testing each one, so this characterises recursive languages.", "difficulty": "hard"}
+      ]
+    },
+    {
+      "id": "ch6_i32",
+      "title": "TM Variants: Multi-track, Multi-tape, Non-deterministic & Universal",
+      "subtitle": "Why every TM extension has the same power, what it costs, and the universal TM",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Variants of the Turing Machine"},
+          {"type": "paragraph", "text": "The TM model is robust: adding tapes, tracks, a two-way infinite tape or nondeterminism does not enlarge the class of languages accepted. Each variant can be simulated by the standard single-tape deterministic TM, and vice versa. The variants differ only in convenience and speed, which matters for complexity theory but not for computability."},
+          {"type": "bulletList", "text": "Tape-shape variants:", "items": [
+            "Two-way infinite tape: the tape extends without bound in both directions. Simulated by a one-way tape with two tracks, one holding the right half and one holding the left half reversed, plus a marker at the fold.",
+            "Multi-track TM: one tape and one head, but each cell holds a k-tuple of symbols, one per track. It is a standard TM whose tape alphabet is the set of all tuples.",
+            "A track is often used to hold a marker (for example * under the head position of another tape) while the other track keeps the data."
+          ]},
+          {"type": "formula", "latex": "\\Gamma = \\Gamma_1 \\times \\Gamma_2 \\times \\cdots \\times \\Gamma_k,\\quad |\\Gamma| = \\prod_{i=1}^{k} |\\Gamma_i|", "plainText": "Γ = Γ1 × Γ2 × … × Γk, |Γ| = |Γ1|·|Γ2|·…·|Γk|"},
+          {"type": "heading", "text": "Multi-tape TM"},
+          {"type": "paragraph", "text": "A k-tape TM has k tapes, each with its own independent head. The input starts on tape 1 and the others are blank. In one move the machine reads all k scanned symbols, then writes on each tape and moves each head independently (L, R or S). A single-tape TM simulates it with 2k tracks: k tracks hold the tape contents and k tracks mark the head positions. Each simulated step needs a sweep over the used portion of the tape, so t(n) steps become O(t(n)²) steps."},
+          {"type": "formula", "latex": "\\delta : Q \\times \\Gamma^k \\rightarrow Q \\times \\Gamma^k \\times \\{L, R, S\\}^k", "plainText": "δ: Q × Γ^k → Q × Γ^k × {L, R, S}^k"},
+          {"type": "heading", "text": "Non-deterministic TM"},
+          {"type": "paragraph", "text": "In a non-deterministic TM (NTM), δ(q, a) is a finite set of possible moves, so a computation is a tree of branches. The NTM accepts w if at least one branch reaches an accepting state. A deterministic TM simulates it by breadth-first search of the computation tree, using a queue of IDs on a work tape (depth-first search could follow an infinite branch forever). If every branch has length at most t(n) and each node has at most b children, the simulation takes about bᵗ⁽ⁿ⁾ steps, an exponential slowdown, but the language accepted is the same."},
+          {"type": "table", "rows": [
+            ["Variant", "Extra feature", "Cost of simulation on a standard TM", "Power"],
+            ["Two-way infinite tape", "Tape unbounded both ways", "Linear (two tracks)", "Same as standard TM"],
+            ["Multi-track", "k symbols per cell", "None (larger alphabet)", "Same as standard TM"],
+            ["Multi-tape (k tapes)", "k tapes and k heads", "O(t(n)²) time", "Same as standard TM"],
+            ["Non-deterministic", "Several moves per step", "2^O(t(n)) time via BFS", "Same as standard TM"],
+            ["Stay option (S)", "Head may remain still", "Two moves (R then L)", "Same as standard TM"]
+          ]},
+          {"type": "heading", "text": "Encoding TMs and the Universal TM"},
+          {"type": "paragraph", "text": "Any TM can be written as a binary string ⟨M⟩. In the Hopcroft–Motwani–Ullman scheme, number the states q1, q2, ... (q1 start, q2 the single final state), tape symbols X1 = 0, X2 = 1, X3 = B, and directions D1 = L, D2 = R. The transition δ(qi, Xj) = (qk, Xl, Dm) is coded as 0ⁱ 1 0ʲ 1 0ᵏ 1 0ˡ 1 0ᵐ, and codes of successive transitions are separated by 11. Because every TM has such a code, TMs are countable, while languages over {0, 1} are uncountable, so some languages are not RE at all."},
+          {"type": "code", "language": "text", "text": "Transition δ(q1, 1) = (q3, 0, R)\ni=1  j=2  k=3  l=1  m=2\ncode  = 0 1 00 1 000 1 0 1 00\n      = 0100100010100\nWhole TM: C1 11 C2 11 C3 ... 11 Cn"},
+          {"type": "paragraph", "text": "A universal Turing machine U takes ⟨M, w⟩ (the code of a TM followed by an input) and simulates M on w: it accepts if M accepts w and loops if M loops. A convenient U has three tapes: one for ⟨M⟩, one for M's simulated tape and one for M's current state. U is the theoretical model of a stored-program computer, and its language L_u = { ⟨M, w⟩ : M accepts w } is RE but not recursive."},
+          {"type": "heading", "text": "Linear Bounded Automata"},
+          {"type": "paragraph", "text": "A linear bounded automaton (LBA) is a non-deterministic TM whose head may never leave the cells holding the input, which are bracketed by end markers. LBAs accept exactly the context-sensitive (type 1) languages, such as { aⁿbⁿcⁿ : n ≥ 1 }, which no PDA can accept. Membership for an LBA is decidable because it has only finitely many IDs for a given input length, so every context-sensitive language is recursive."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\mathrm{TIME}_{1\\text{-tape}} = O(t(n)^2) \\text{ for a } t(n)\\text{-time } k\\text{-tape TM}", "plainText": "k-tape TM in t(n) steps → single-tape TM in O(t(n)²) steps"},
+          {"type": "formula", "latex": "\\mathrm{NTM}\\; t(n) \\Rightarrow \\mathrm{DTM}\\; 2^{O(t(n))}", "plainText": "NTM in t(n) steps → DTM in 2^O(t(n)) steps"},
+          {"type": "formula", "latex": "\\delta(q_i, X_j) = (q_k, X_l, D_m) \\mapsto 0^i 1 0^j 1 0^k 1 0^l 1 0^m", "plainText": "δ(qi, Xj) = (qk, Xl, Dm) coded as 0^i 1 0^j 1 0^k 1 0^l 1 0^m"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Remember the pair of slowdowns: multi-tape to single-tape is quadratic, nondeterministic to deterministic is exponential. Neither changes which languages can be accepted."},
+          {"type": "warning", "text": "Nondeterminism adds power to PDAs (NPDA > DPDA) but not to finite automata or Turing machines. Do not carry the PDA result over to TMs."},
+          {"type": "note", "text": "The universal TM is a recogniser, not a decider: when the simulated machine loops, U loops too. This is the root of the undecidability of L_u and the halting problem."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i32_01", "title": "Multi-tape transition", "latex": "\\delta : Q \\times \\Gamma^k \\rightarrow Q \\times \\Gamma^k \\times \\{L, R, S\\}^k", "plainText": "δ: Q × Γ^k → Q × Γ^k × {L, R, S}^k", "description": "A k-tape TM reads all k heads, then writes and moves each head independently."},
+        {"id": "f_ch6_i32_02", "title": "Multi-track alphabet size", "latex": "|\\Gamma| = |\\Gamma_1| \\cdot |\\Gamma_2| \\cdots |\\Gamma_k|", "plainText": "|Γ| = |Γ1| · |Γ2| · … · |Γk|", "description": "A k-track tape is an ordinary tape whose symbols are k-tuples, one component per track."},
+        {"id": "f_ch6_i32_03", "title": "Simulation slowdowns", "latex": "k\\text{-tape}: O(t^2),\\quad \\mathrm{NTM}: 2^{O(t)}", "plainText": "k-tape: O(t²), NTM: 2^O(t)", "description": "Cost of simulating each variant on a single-tape deterministic TM running t(n) steps."},
+        {"id": "f_ch6_i32_04", "title": "Transition encoding", "latex": "0^i 1 0^j 1 0^k 1 0^l 1 0^m", "plainText": "0^i 1 0^j 1 0^k 1 0^l 1 0^m", "description": "Binary code of δ(qi, Xj) = (qk, Xl, Dm); transitions are separated by 11."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i32_01", "front": "What does a universal Turing machine do?", "back": "Given ⟨M, w⟩, it simulates TM M on input w, accepting exactly when M accepts w; it models a stored-program computer.", "difficulty": "easy"},
+        {"id": "fc_ch6_i32_02", "front": "Why does a deterministic TM simulate an NTM with breadth-first rather than depth-first search?", "back": "A depth-first search could follow one infinite branch forever and miss an accepting branch elsewhere; BFS explores all branches level by level.", "difficulty": "medium"},
+        {"id": "fc_ch6_i32_03", "front": "Which automaton accepts exactly the context-sensitive languages?", "back": "The linear bounded automaton, a non-deterministic TM restricted to the tape cells occupied by the input.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i32_n01", "questionText": "A 3-tape TM decides a language in t(n) = n² steps. A single-tape TM simulating it by the standard construction needs, in the worst case, on the order of:", "options": ["n² steps", "n⁴ steps", "n³ steps", "2ⁿ steps"], "correctIndex": 1, "explanation": "The standard multi-tape simulation is quadratic in the running time, so (n²)² = n⁴.", "difficulty": "medium"},
+        {"id": "q_ch6_i32_n02", "questionText": "A multi-track TM has 3 tracks and each track uses an alphabet of 4 symbols. How many symbols does the tape alphabet of the equivalent single-track TM have?", "options": ["12", "7", "64", "81"], "correctIndex": 2, "explanation": "Each cell holds a triple of track symbols, so the alphabet size is 4 × 4 × 4 = 64.", "difficulty": "easy"},
+        {"id": "q_ch6_i32_n03", "questionText": "Which statement about non-deterministic Turing machines is correct?", "options": ["They accept a strictly larger class of languages than deterministic TMs", "They can be simulated by a deterministic TM, possibly with exponential slowdown", "They can accept only context-free languages", "They cannot be simulated by any deterministic machine"], "correctIndex": 1, "explanation": "A DTM simulates an NTM by breadth-first search of its computation tree; power is the same but time may grow exponentially.", "difficulty": "easy"},
+        {"id": "q_ch6_i32_n04", "questionText": "The language { aⁿbⁿcⁿ : n ≥ 1 } can be accepted by which of the following as the most restricted suitable machine?", "options": ["Deterministic PDA", "Non-deterministic PDA", "Linear bounded automaton", "Finite automaton with two stacks limited to one symbol"], "correctIndex": 2, "explanation": "aⁿbⁿcⁿ is context-sensitive but not context-free, so no PDA accepts it; an LBA, which accepts exactly the context-sensitive languages, does.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch6_i33",
+      "title": "Church–Turing Thesis, Complexity, Intractability & Reducibility",
+      "subtitle": "Limits of computation, undecidable problems, reductions, P, NP and NP-completeness",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "The Church–Turing Thesis"},
+          {"type": "paragraph", "text": "The Church–Turing thesis states that every function that is effectively computable by an algorithm (a finite, mechanical step-by-step procedure) can be computed by a Turing machine. It is a thesis, not a theorem: effective computability is an informal notion, so it cannot be proved, but every proposed model (lambda calculus, recursive functions, Post systems, RAM machines, modern programming languages) has turned out equivalent to the TM. In practice it lets us say that a problem with no TM solution has no algorithm at all."},
+          {"type": "heading", "text": "Undecidability"},
+          {"type": "paragraph", "text": "A problem is decidable if some TM halts on every instance with the correct yes/no answer. The halting problem HALT_TM = { ⟨M, w⟩ : M halts on w } is the classic undecidable problem, proved by diagonalisation: assuming a decider H exists, one builds a machine D that does the opposite of what H predicts about D run on its own description."},
+          {"type": "code", "language": "text", "text": "Assume decider H(<M>, w) answers 'halts' or 'loops'.\nBuild D(<M>):\n    if H(<M>, <M>) = 'halts' then loop forever\n    else halt\nRun D on <D>:\n    D halts  => H said D loops   (contradiction)\n    D loops  => H said D halts   (contradiction)\nSo H cannot exist: HALT_TM is undecidable (but RE)."},
+          {"type": "bulletList", "text": "Other standard undecidable problems:", "items": [
+            "Post correspondence problem (PCP): given pairs of strings (x1, y1) ... (xk, yk), is there an index sequence i1...im with x_i1...x_im = y_i1...y_im? Undecidable, and used to prove CFG problems undecidable.",
+            "Rice's theorem: every non-trivial property of the language recognised by a TM is undecidable (for example, is L(M) empty, finite or regular?).",
+            "Whether a CFG is ambiguous, whether two CFGs generate the same language, and whether a CFG generates Σ* are all undecidable."
+          ]},
+          {"type": "heading", "text": "Reducibility"},
+          {"type": "paragraph", "text": "A mapping (many-one) reduction from A to B, written A ≤m B, is a computable function f such that w ∈ A exactly when f(w) ∈ B. It turns any solver for B into a solver for A. So if A ≤ B and B is decidable, A is decidable; equivalently, if A is undecidable, B is undecidable. To prove a new problem B undecidable, reduce a known undecidable problem (such as HALT_TM or L_u) to B, never the other way round."},
+          {"type": "formula", "latex": "A \\le_m B \\iff \\exists \\text{ computable } f : w \\in A \\Leftrightarrow f(w) \\in B", "plainText": "A ≤m B ⟺ there is a computable f with w ∈ A ⟺ f(w) ∈ B"},
+          {"type": "heading", "text": "Time and Space Complexity"},
+          {"type": "paragraph", "text": "The time complexity of a deterministic TM that halts on all inputs is the function t(n) giving the maximum number of moves on any input of length n; space complexity s(n) is the maximum number of tape cells scanned. Complexity is stated in big-O form, and the model matters: a language decided in O(n) on a two-tape TM (such as 0ⁿ1ⁿ, by copying the 0s to tape 2) takes O(n²) with the simple single-tape method. Polynomial time is the same class on all reasonable deterministic models, which is why P is robust. PSPACE is the class of problems decidable in polynomial space, and P ⊆ NP ⊆ PSPACE ⊆ EXPTIME."},
+          {"type": "table", "rows": [
+            ["Class", "Definition", "Examples"],
+            ["P", "Decidable by a DTM in polynomial time O(nᵏ)", "Sorting, shortest path, 2-SAT, primality"],
+            ["NP", "Decidable by an NTM in polynomial time; a certificate is verifiable in polynomial time", "Every problem in P, SAT, graph isomorphism"],
+            ["NP-complete", "In NP, and every NP problem reduces to it in polynomial time", "SAT, 3-SAT, clique, vertex cover, Hamiltonian cycle, TSP decision"],
+            ["NP-hard", "Every NP problem reduces to it; need not be in NP", "TSP optimisation, halting problem"]
+          ]},
+          {"type": "bulletList", "text": "NP-completeness, key facts:", "items": [
+            "Cook–Levin theorem (1971): SAT, satisfiability of a Boolean formula, is NP-complete; it was the first problem shown to be so.",
+            "A polynomial-time reduction A ≤p B maps instances of A to instances of B in polynomial time. If A is NP-complete, A ≤p B and B ∈ NP, then B is NP-complete.",
+            "Standard chain: SAT ≤p 3-SAT ≤p clique ≤p vertex cover; 3-SAT ≤p Hamiltonian cycle ≤p TSP.",
+            "P vs NP: P ⊆ NP is known; whether P = NP is open. If any NP-complete problem is in P, then P = NP."
+          ]},
+          {"type": "formula", "latex": "\\mathrm{P} \\subseteq \\mathrm{NP} \\subseteq \\mathrm{PSPACE} \\subseteq \\mathrm{EXPTIME}", "plainText": "P ⊆ NP ⊆ PSPACE ⊆ EXPTIME"},
+          {"type": "heading", "text": "Intractability"},
+          {"type": "bulletList", "text": "A problem is intractable when it is decidable but has no known polynomial-time algorithm (for NP-complete problems, none exists unless P = NP). Ways of coping:", "items": [
+            "Approximation algorithms with a guaranteed ratio, such as a 2-approximation for vertex cover.",
+            "Heuristics and metaheuristics (greedy, local search, genetic algorithms, simulated annealing) that work well in practice.",
+            "Exact algorithms that are exponential but pruned: backtracking, branch and bound, dynamic programming on small or special inputs.",
+            "Restricting the input to special cases solvable in P, such as 2-SAT or problems on trees."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "A \\le B,\\; B \\text{ decidable} \\Rightarrow A \\text{ decidable}", "plainText": "A ≤ B and B decidable ⇒ A decidable"},
+          {"type": "formula", "latex": "\\mathrm{P} = \\bigcup_{k \\ge 1} \\mathrm{TIME}(n^k)", "plainText": "P = union over k ≥ 1 of TIME(n^k)"},
+          {"type": "formula", "latex": "B \\in \\mathrm{NP},\\; A \\text{ NP-complete},\\; A \\le_p B \\Rightarrow B \\text{ NP-complete}", "plainText": "B ∈ NP, A NP-complete, A ≤p B ⇒ B NP-complete"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Direction of reduction is a favourite trap: to show B is hard, reduce a known hard problem A to B (A ≤ B). Reducing B to a hard problem proves nothing about B."},
+          {"type": "warning", "text": "NP does not mean non-polynomial. It means non-deterministic polynomial time, and every problem in P is also in NP. NP-hard problems need not be in NP at all; the halting problem is NP-hard but undecidable."},
+          {"type": "note", "text": "Decidability and complexity are separate questions. Undecidable problems have no algorithm at all; intractable problems have algorithms, but only impractically slow ones."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i33_01", "title": "Mapping reduction", "latex": "A \\le_m B \\iff (w \\in A \\Leftrightarrow f(w) \\in B)", "plainText": "A ≤m B ⟺ (w ∈ A ⟺ f(w) ∈ B) for a computable f", "description": "A computable map sends yes-instances of A to yes-instances of B and no-instances to no-instances."},
+        {"id": "f_ch6_i33_02", "title": "Class P", "latex": "\\mathrm{P} = \\bigcup_{k \\ge 1} \\mathrm{TIME}(n^k)", "plainText": "P = union over k ≥ 1 of TIME(n^k)", "description": "Languages decided by a deterministic TM in time bounded by some polynomial of the input length."},
+        {"id": "f_ch6_i33_03", "title": "Complexity class inclusions", "latex": "\\mathrm{P} \\subseteq \\mathrm{NP} \\subseteq \\mathrm{PSPACE} \\subseteq \\mathrm{EXPTIME}", "plainText": "P ⊆ NP ⊆ PSPACE ⊆ EXPTIME", "description": "Known inclusions; P ≠ EXPTIME is proved, but whether P = NP is open."},
+        {"id": "f_ch6_i33_04", "title": "Proving NP-completeness", "latex": "B \\in \\mathrm{NP},\\; A \\text{ NPC},\\; A \\le_p B \\Rightarrow B \\text{ NPC}", "plainText": "B ∈ NP, A NP-complete, A ≤p B ⇒ B NP-complete", "description": "Show membership in NP and a polynomial-time reduction from a known NP-complete problem."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i33_01", "front": "What does the Cook–Levin theorem state?", "back": "The Boolean satisfiability problem SAT is NP-complete; it was the first problem proved NP-complete.", "difficulty": "easy"},
+        {"id": "fc_ch6_i33_02", "front": "What does Rice's theorem say?", "back": "Every non-trivial property of the language recognised by a Turing machine is undecidable.", "difficulty": "medium"},
+        {"id": "fc_ch6_i33_03", "front": "How do NP-complete and NP-hard differ?", "back": "An NP-complete problem is NP-hard and also lies in NP; an NP-hard problem need not be in NP (it may even be undecidable).", "difficulty": "medium"},
+        {"id": "fc_ch6_i33_04", "front": "If A ≤ B and A is undecidable, what follows about B?", "back": "B is undecidable, because a decider for B combined with the reduction would decide A.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i33_n01", "questionText": "Problem A is NP-complete, problem B is in NP, and A reduces to B in polynomial time (A ≤p B). What can be concluded about B?", "options": ["B is in P", "B is undecidable", "B is NP-complete", "Nothing, because the reduction goes the wrong way"], "correctIndex": 2, "explanation": "Every NP problem reduces to A, and A reduces to B, so every NP problem reduces to B; together with B ∈ NP this makes B NP-complete.", "difficulty": "medium"}
+      ]
+    }
+  ]
+}

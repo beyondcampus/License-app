@@ -1,0 +1,536 @@
+{
+  "topicId": "ch5_i41",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Ports, Sockets and Demultiplexing"
+    },
+    {
+      "type": "paragraph",
+      "text": "If an IP address is the street address of an apartment building, a port number is the flat number inside it: the network layer brings the packet to the right building (host), and the transport layer hands it to the right flat (process). The transport layer also works like a mail sorting office: outgoing letters from many residents are collected, labelled and sent out together (multiplexing), and incoming letters are sorted and delivered to the right door (demultiplexing). A socket address such as 192.168.1.5:80 names both at once: the computer at 192.168.1.5 and the web-server process on port 80 there."
+    },
+    {
+      "type": "bulletList",
+      "text": "Notes on the common port list:",
+      "items": [
+        "DNS uses port 53 over both UDP and TCP: UDP for ordinary queries, TCP for zone transfers and for answers too large for one UDP message. DNS over TLS uses TCP port 853.",
+        "FTP uses two connections: port 21 for control and, in active mode, port 20 for data; in passive mode the server picks a high data port.",
+        "SMTP on port 25 relays mail between servers, while mail clients submit new mail on port 587 (with STARTTLS) or 465 (implicit TLS); POP3 (110) and IMAP (143) are for reading mail.",
+        "Services with implicit TLS have their own ports: HTTPS 443, IMAPS 993, POP3S 995 and LDAPS 636. Telnet (23) normally sends everything, passwords included, in clear text, which is why SSH (22) has replaced it.",
+        "A port is a number in software that names an application endpoint; it has nothing to do with the physical sockets (jacks) on a computer or switch."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Port",
+          "Service",
+          "Transport"
+        ],
+        [
+          "853",
+          "DNS over TLS",
+          "TCP"
+        ],
+        [
+          "1433",
+          "Microsoft SQL Server",
+          "TCP"
+        ],
+        [
+          "3306",
+          "MySQL",
+          "TCP"
+        ],
+        [
+          "3389",
+          "Remote Desktop Protocol (RDP)",
+          "TCP (also UDP)"
+        ],
+        [
+          "5060 / 5061",
+          "SIP VoIP signalling / SIP over TLS",
+          "UDP or TCP / TCP"
+        ],
+        [
+          "5432",
+          "PostgreSQL",
+          "TCP"
+        ],
+        [
+          "8080",
+          "HTTP alternate, proxies and test servers",
+          "TCP"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "python",
+      "text": "import socket\n# Server program: socket -> bind -> listen -> accept -> recv/send -> close\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.bind((\"0.0.0.0\", 8080))        # claim local port 8080 on every address\nsrv.listen(5)                      # passive socket, backlog of 5\nconn, addr = srv.accept()          # blocks; returns a new socket per client\nconn.sendall(conn.recv(1024))      # echo one message back\nconn.close()\n# Client program (run separately): socket -> connect -> send/recv -> close\ncli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ncli.connect((\"192.0.2.10\", 8080))  # OS picks an ephemeral port, sends SYN\ncli.sendall(b\"hello\")\nprint(cli.recv(1024))\ncli.close()"
+    },
+    {
+      "type": "paragraph",
+      "text": "bind() attaches a socket to a local IP address and port; a server must call it to claim its well-known port, while a client normally skips it and lets connect() pick an ephemeral port. listen() turns the socket into a passive listening socket with a queue (backlog) of connections whose handshake has completed, and accept() takes the next one from that queue and returns a brand-new socket for it. The new socket has the same local port as the listening socket but its own remote IP address and port, so every client has its own 4-tuple. A UDP server needs only socket() and bind(), and then uses recvfrom() and sendto() on that single socket for every client."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: demultiplexing at server 10.0.0.1\nSockets: S1 = UDP 10.0.0.1:53        S2 = TCP listening on 10.0.0.1:80\n         S3 = TCP (10.0.0.1:80, 10.0.0.7:40000), established\nArriving packet                           Delivered to\nUDP 10.0.0.7:40000 -> 10.0.0.1:53         S1 (UDP matches destination IP and port)\nUDP 10.0.0.8:61000 -> 10.0.0.1:53         S1 (same socket, whatever the source)\nTCP 10.0.0.7:40000 -> 10.0.0.1:80, data   S3 (the full 4-tuple matches)\nTCP 10.0.0.8:40000 -> 10.0.0.1:80, SYN    S2 (no connection matches; accept() makes S4)\nTCP 10.0.0.9:5555  -> 10.0.0.1:25, SYN    no socket: TCP replies with RST\nUDP 10.0.0.9:5555  -> 10.0.0.1:9999       no socket: ICMP port unreachable (type 3, code 3)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: PAT on a router whose public address is 198.51.100.1\nOut 192.168.0.10:50000 -> 93.184.216.34:443   sent as 198.51.100.1:40001 -> 93.184.216.34:443\nOut 192.168.0.11:50000 -> 93.184.216.34:443   sent as 198.51.100.1:40002 -> 93.184.216.34:443\nTable: 40001 <-> 192.168.0.10:50000    40002 <-> 192.168.0.11:50000\nIn  93.184.216.34:443 -> 198.51.100.1:40002    delivered to 192.168.0.11:50000\nIn  203.0.113.9:5000 -> 198.51.100.1:40005     no table entry -> dropped\nPort forwarding 198.51.100.1:2222 -> 192.168.0.20:22 lets outsiders reach an inside SSH server"
+    },
+    {
+      "type": "formula",
+      "latex": "N_{\\max} = P \\times n_{\\text{src}} \\times n_{\\text{dst}}, \\quad P = p_{hi} - p_{lo} + 1",
+      "plainText": "Maximum simultaneous connections when only 4-tuple uniqueness limits them = P x n_src x n_dst, where n_src = number of client IP addresses, n_dst = number of server sockets (IP, port) and P = highest - lowest port + 1 in the client's port range"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Term",
+          "What it identifies",
+          "Example"
+        ],
+        [
+          "Port",
+          "One application endpoint on a host, separately for TCP and for UDP",
+          "TCP 443"
+        ],
+        [
+          "Socket address",
+          "One endpoint: IP address plus port",
+          "203.0.113.5:443"
+        ],
+        [
+          "TCP connection",
+          "A pair of socket addresses (the 4-tuple)",
+          "(198.51.100.7:51000, 203.0.113.5:443)"
+        ],
+        [
+          "5-tuple",
+          "A flow, as tracked by firewalls and NAT",
+          "The 4-tuple plus the protocol (6 = TCP, 17 = UDP)"
+        ],
+        [
+          "Socket (API object)",
+          "The handle an application reads and writes",
+          "The descriptor returned by socket() or accept()"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Special cases and common mistakes:",
+      "items": [
+        "Binding to 0.0.0.0 (INADDR_ANY) means 'every local address'; binding to 127.0.0.1 accepts only connections made from the same machine.",
+        "Normally only one socket at a time may bind a given IP address, port and protocol; a second bind() fails with 'Address already in use' (EADDRINUSE) unless options such as SO_REUSEADDR or SO_REUSEPORT change the rules.",
+        "Binding to port 0 asks the OS for any free port, and getsockname() reveals which one was chosen.",
+        "On Linux, by default only root or a process with the CAP_NET_BIND_SERVICE capability may bind a port below 1024.",
+        "Ephemeral ranges differ: IANA and Windows use 49152 to 65535 (16,384 ports), while Linux defaults to 32768 to 60999 (28,232 ports). An actively closed connection keeps its port in TIME_WAIT for a while, so a client that opens connections very quickly to one server socket can run out of ports.",
+        "The listening socket and all of its accepted sockets share one local port; they differ only in the remote IP address and port."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "In a demultiplexing question, check the protocol first, because TCP and UDP ports are separate. For UDP match only the destination IP address and port; for TCP match the full 4-tuple first, and only a SYN that matches no existing connection goes to the listening socket."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i41_m001",
+      "questionText": "Which port does FTP use for its control connection?",
+      "options": [
+        "20",
+        "21",
+        "22",
+        "23"
+      ],
+      "correctIndex": 1,
+      "explanation": "FTP keeps its control connection, which carries commands and replies, on TCP port 21, and moves files over a separate data connection (port 20 in active mode, a server-chosen high port in passive mode). Port 22 is SSH and 23 is Telnet.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m002",
+      "questionText": "In the socket address 192.168.1.5:80, what do the two parts identify?",
+      "options": [
+        "The network address and the subnet mask of the host",
+        "The MAC address and the IP address of the host",
+        "The host's IP address, and the port of the process on that host (here a web server)",
+        "The IP address of the default router and the number of hops to the host"
+      ],
+      "correctIndex": 2,
+      "explanation": "A socket address is an IP address plus a port number: 192.168.1.5 selects the computer, and port 80 selects the application on it, normally a web server (HTTP). MAC addresses and subnet masks are not part of a socket address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m003",
+      "questionText": "What is the function of multiplexing at the transport layer?",
+      "options": [
+        "To combine several subnets into one LAN",
+        "To send the same data to every host on the network",
+        "To encrypt the data of several applications with one key",
+        "To let many application processes on a host send data through the one network layer at the same time, with each chunk labelled by port numbers"
+      ],
+      "correctIndex": 3,
+      "explanation": "At the sender, the transport layer collects data from many sockets, adds a header with source and destination ports to each chunk and passes all the segments to IP. The port numbers are what later let the receiver separate the streams again (demultiplexing).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m004",
+      "questionText": "Which of these well-known ports belongs to a service that is encrypted with TLS from the very first byte (implicit TLS), as HTTPS on port 443 is?",
+      "options": [
+        "993",
+        "143",
+        "110",
+        "23"
+      ],
+      "correctIndex": 0,
+      "explanation": "993 is IMAPS, that is IMAP over TLS, just as 443 is HTTP over TLS. IMAP on 143 and POP3 on 110 start in clear text (they can upgrade with STARTTLS), and Telnet on 23 normally sends everything, passwords included, in clear text.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m005",
+      "questionText": "What is the difference between multiplexing and demultiplexing at the transport layer?",
+      "options": [
+        "Multiplexing, at the sender, gathers data from many sockets into segments for the network layer; demultiplexing, at the receiver, uses the header fields to deliver each segment to the correct socket",
+        "Multiplexing encrypts data, while demultiplexing decrypts it",
+        "Multiplexing is done only by TCP, while demultiplexing is done only by UDP",
+        "Multiplexing works only with IPv6, while demultiplexing works only with IPv4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both happen in TCP and in UDP, over IPv4 or IPv6: the sender merges many application streams into one flow of segments (many to one), and the receiver splits them again by port numbers (one to many). It is like a mail sorting office that collects outgoing letters and distributes incoming ones.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m006",
+      "questionText": "Port numbers are carried in 16-bit fields of the TCP and UDP headers. How many different values can such a field hold, and what is the highest port number?",
+      "options": [
+        "1,024 values; highest port 1,023",
+        "32,768 values; highest port 32,767",
+        "65,535 values; highest port 65,535",
+        "65,536 values; highest port 65,535"
+      ],
+      "correctIndex": 3,
+      "explanation": "A 16-bit field holds 2^16 = 65,536 values, numbered 0 to 65,535 (port 0 itself is reserved). 1,024 is only the size of the well-known range, 0 to 1,023.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m007",
+      "questionText": "MySQL listens on TCP port 3306 and Remote Desktop (RDP) on TCP port 3389. In which IANA port range do these ports lie?",
+      "options": [
+        "Well-known (system) ports",
+        "Registered (user) ports",
+        "Dynamic (private or ephemeral) ports",
+        "Multicast ports"
+      ],
+      "correctIndex": 1,
+      "explanation": "3306 and 3389 lie between 1024 and 49151, the registered range, in which IANA records ports for specific applications. The well-known range ends at 1023 and the dynamic range starts at 49152.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m008",
+      "questionText": "In the study analogy in which an IP address is like the street address of an apartment building, what does the port number correspond to?",
+      "options": [
+        "The city in which the building stands",
+        "The postman who carries the letter",
+        "The flat (apartment) number of the resident inside the building",
+        "The stamp on the envelope"
+      ],
+      "correctIndex": 2,
+      "explanation": "The IP address gets the data to the right building (host), and the port number picks the right flat inside it, that is, the right application process on the host.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m009",
+      "questionText": "At the transport layer, what is a port number?",
+      "options": [
+        "A physical connector (jack) on the network interface card",
+        "The hardware address burned into the network card",
+        "A 16-bit logical number that identifies an application endpoint, such as a process or service, on a host",
+        "The number of the router interface that a packet leaves from"
+      ],
+      "correctIndex": 2,
+      "explanation": "A transport-layer port is a logical number in software (0 to 65,535) that tells TCP or UDP which process should receive the data; it has nothing to do with the physical sockets on a card or switch. The hardware address is the MAC address, used at the data link layer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m010",
+      "questionText": "A browser using source port 51500 sends a request to an HTTPS server. Which source and destination ports does the server's reply segment carry?",
+      "options": [
+        "Source 443, destination 51500",
+        "Source 51500, destination 443",
+        "Source 443, destination 443",
+        "Source 80, destination 51500"
+      ],
+      "correctIndex": 0,
+      "explanation": "The reply swaps the two ports: it comes from the server's port 443 and goes to the client's ephemeral port 51500, which the client's transport layer uses to find the browser's socket.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m011",
+      "questionText": "Which socket call makes a TCP client send the SYN segment that starts the three-way handshake?",
+      "options": [
+        "bind()",
+        "listen()",
+        "send()",
+        "connect()"
+      ],
+      "correctIndex": 3,
+      "explanation": "connect() performs the active open: the client's TCP sends a SYN, and the call returns once the handshake completes or fails. bind() only assigns a local address, listen() makes a server socket passive, and send() needs an existing connection.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i41_m012",
+      "questionText": "An e-mail client submits outgoing mail to its provider's server and protects the session with STARTTLS. Which TCP port does this mail submission normally use?",
+      "options": [
+        "25",
+        "110",
+        "587",
+        "993"
+      ],
+      "correctIndex": 2,
+      "explanation": "Port 587 is the mail submission port (RFC 6409), used by clients with STARTTLS; port 465 is the implicit-TLS alternative. Port 25 is for relaying between servers, 110 is POP3 and 993 is IMAPS, both for reading mail.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m013",
+      "questionText": "Which list gives the well-known ports of SMTP, DNS, SNMP (agent queries) and NTP, in that order?",
+      "options": [
+        "25, 53, 161, 123",
+        "25, 53, 162, 119",
+        "110, 53, 161, 123",
+        "25, 69, 161, 123"
+      ],
+      "correctIndex": 0,
+      "explanation": "SMTP uses TCP 25, DNS uses 53, SNMP agents receive queries on UDP 161 and NTP uses UDP 123. 162 is the SNMP trap port, 119 is NNTP, 110 is POP3 and 69 is TFTP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m014",
+      "questionText": "DNS normally answers queries over UDP port 53. When does DNS use TCP port 53 instead?",
+      "options": [
+        "Only when the client is behind a NAT router",
+        "For zone transfers between servers and for responses too large for a single UDP message",
+        "For every query sent to a root server",
+        "Never; DNS is defined only over UDP"
+      ],
+      "correctIndex": 1,
+      "explanation": "Zone transfers (AXFR/IXFR) and truncated answers (TC bit set) are carried over TCP 53, and RFC 7766 requires DNS software to support TCP. Short queries stay on UDP because a single request and reply need no connection setup.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m015",
+      "questionText": "A client program calls connect() on a TCP socket without calling bind() first. Which statement about its source port is correct?",
+      "options": [
+        "The operating system automatically assigns an unused ephemeral port",
+        "The source port is set equal to the destination port",
+        "The source port stays 0 for the whole connection",
+        "connect() fails, because bind() is mandatory for clients"
+      ],
+      "correctIndex": 0,
+      "explanation": "If the socket is unbound, connect() makes the OS bind it implicitly to a free ephemeral port (for example from 49152 to 65535, or 32768 to 60999 on Linux). Clients rarely call bind() because they do not need a fixed port.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m016",
+      "questionText": "A UDP server has one unconnected socket bound to port 5000. Clients at 10.0.0.2:40000 and 10.0.0.3:40000 each send it a datagram. How does UDP demultiplex them?",
+      "options": [
+        "Each datagram goes to a new socket created for its sender, as with TCP's accept()",
+        "The second datagram is dropped because both clients use source port 40000",
+        "The two datagrams are merged into a single message before delivery",
+        "Both go to the same socket, because UDP matches only the destination IP address and port; the application learns each sender from recvfrom()"
+      ],
+      "correctIndex": 3,
+      "explanation": "A UDP socket is identified by its destination IP address and port only, so every datagram for port 5000 reaches the same socket, whatever its source. recvfrom() returns each sender's address so that the server can reply with sendto().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m017",
+      "questionText": "Host 10.0.0.1 has three sockets: S1 is a UDP socket bound to port 53, S2 is a TCP socket listening on port 80, and S3 is a TCP connection between 10.0.0.1:80 and 10.0.0.5:45000. Three packets arrive: (i) a TCP data segment from 10.0.0.5:45000 to port 80, (ii) a TCP SYN from 10.0.0.6:45000 to port 80, and (iii) a UDP datagram from 10.0.0.5:45000 to port 53. Which sockets receive (i), (ii) and (iii)?",
+      "options": [
+        "S2, S2 and S1",
+        "S3, S2 and S1",
+        "S3, S3 and S1",
+        "S3, S2 and S3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Segment (i) matches S3's full 4-tuple; the SYN in (ii) matches no connection because its source IP differs, so it goes to the listening socket S2, which will create a new connection socket; and (iii) is UDP, so only the destination port 53 matters and it goes to S1. Matching on the source port alone, or ignoring the protocol, gives the wrong answers.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i41_m018",
+      "questionText": "In what order does a typical TCP server call the socket API functions before it can exchange data with a client?",
+      "options": [
+        "socket(), bind(), listen(), accept()",
+        "socket(), listen(), bind(), accept()",
+        "socket(), connect(), listen(), accept()",
+        "bind(), socket(), accept(), listen()"
+      ],
+      "correctIndex": 0,
+      "explanation": "The server creates the socket, binds it to its well-known address and port, marks it passive with listen() and then calls accept(), which waits for a client and returns a new connected socket. connect() is the client's call.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m019",
+      "questionText": "On a Linux server with default settings, a program running as an ordinary (non-root) user calls bind() on TCP port 80. What happens?",
+      "options": [
+        "bind() succeeds, because any user may use any port",
+        "bind() succeeds, but the port is silently changed to 8080",
+        "bind() fails, because port 80 is reserved for UDP",
+        "bind() fails with a permission error, because ports below 1024 need root or the CAP_NET_BIND_SERVICE capability"
+      ],
+      "correctIndex": 3,
+      "explanation": "By default Linux treats the well-known ports 0 to 1023 as privileged, so only root or a process with CAP_NET_BIND_SERVICE may bind them, and bind() returns EACCES otherwise. This is why development servers often use a registered port such as 8080 instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m020",
+      "questionText": "Can a host run a TCP service and a separate UDP service on port 5000 at the same time?",
+      "options": [
+        "Yes; TCP and UDP have independent port spaces, and the IP protocol field tells the host which one a packet is for",
+        "No; a port number can be bound only once per host, whatever the protocol",
+        "Only if both services run in the same process",
+        "Only if the port number is above 49151"
+      ],
+      "correctIndex": 0,
+      "explanation": "A port is always a TCP port or a UDP port: the host first looks at the IP Protocol field (6 or 17) and only then at the port number. DNS relies on exactly this, serving UDP 53 and TCP 53 side by side.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m021",
+      "questionText": "Server 10.0.0.1 runs a TCP web server on port 80 and a DNS server that uses one unconnected UDP socket on port 53. Client A (10.0.0.2) has two browser connections open to port 80 and sends DNS queries from UDP port 51000; client B (10.0.0.3) has one browser connection open and also sends DNS queries from UDP port 51000. How many sockets are in use on the server?",
+      "options": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "TCP needs the listening socket plus one connected socket per connection, 1 + 3 = 4, while UDP needs only the one socket on port 53 for all clients, so the total is 4 + 1 = 5. 3 counts only the connections, and 6 wrongly gives each UDP client its own socket.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i41_m022",
+      "questionText": "netstat on a PC shows these two lines:\n\nTCP  0.0.0.0:3389      0.0.0.0:0           LISTENING\nTCP  10.1.1.25:59876   93.184.216.34:443   ESTABLISHED\n\nWhich statement is correct?",
+      "options": [
+        "The PC is running an HTTPS server on port 59876",
+        "Port 3389 is the ephemeral port chosen for the HTTPS connection",
+        "The PC accepts Remote Desktop connections on all of its addresses, and it is also a client of an HTTPS server, using ephemeral port 59876",
+        "The PC accepts Remote Desktop connections only from the host 0.0.0.0"
+      ],
+      "correctIndex": 2,
+      "explanation": "0.0.0.0:3389 LISTENING is an RDP server socket bound to every local address; the ESTABLISHED line pairs the local ephemeral port 59876 with the remote port 443, so the PC is the HTTPS client. 0.0.0.0 in the local address column means 'any local address', not a remote host.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m023",
+      "questionText": "A developer's test server binds its TCP socket to 127.0.0.1:8000. A colleague's computer on the LAN then tries to connect to the server machine's LAN address on port 8000 (no firewall is involved). What happens?",
+      "options": [
+        "The connection succeeds, because the port number matches",
+        "The connection is refused (the host answers with RST), because the socket accepts only connections addressed to the loopback address",
+        "The router automatically forwards the connection to 127.0.0.1",
+        "The connection succeeds, but only for UDP traffic"
+      ],
+      "correctIndex": 1,
+      "explanation": "Binding to 127.0.0.1 limits the socket to packets addressed to the loopback interface, so a SYN addressed to the LAN IP finds no matching socket and TCP replies with RST ('connection refused'). Binding to 0.0.0.0 or to the LAN address would accept it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m024",
+      "questionText": "What does this Python program print?\n\nimport socket\na = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\na.bind((\"127.0.0.1\", 0))\nport = a.getsockname()[1]\na.listen()\nb = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ntry:\n    b.bind((\"127.0.0.1\", port))\n    print(\"bound\")\nexcept OSError:\n    print(\"in use\")",
+      "options": [
+        "in use",
+        "bound",
+        "0",
+        "Nothing: the program blocks at listen()"
+      ],
+      "correctIndex": 0,
+      "explanation": "Binding to port 0 lets the OS choose a free port, which getsockname() reveals; a second socket cannot bind the same address and port while the first holds it, so bind() raises OSError (EADDRINUSE, 'Address already in use'). listen() does not block; only accept() waits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m025",
+      "questionText": "What does this Python program print?\n\nimport socket\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.bind((\"127.0.0.1\", 0))\nsrv.listen()\nport = srv.getsockname()[1]\nc1 = socket.create_connection((\"127.0.0.1\", port))\nc2 = socket.create_connection((\"127.0.0.1\", port))\ns1, _ = srv.accept()\ns2, _ = srv.accept()\nprint(s1.getsockname()[1] == port,\n      s2.getsockname()[1] == port,\n      s1.getpeername()[1] == s2.getpeername()[1])",
+      "options": [
+        "True True True",
+        "True True False",
+        "False False False",
+        "False False True"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sockets returned by accept() keep the server's local port, so the first two tests are True, but the two clients were given different ephemeral source ports, so the last test is False. The two 4-tuples therefore differ, which is how TCP demultiplexes both connections on one server port.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i41_m026",
+      "questionText": "A home router with public address 198.51.100.9 has a port-forwarding rule: TCP 8443 to 192.168.1.20:443. An outside client at 203.0.113.50:52000 connects to 198.51.100.9:8443. When the router passes the SYN onto the LAN, what are its destination and source socket addresses? (The router translates only the destination.)",
+      "options": [
+        "Destination 192.168.1.20:8443, source 203.0.113.50:52000",
+        "Destination 192.168.1.20:443, source 198.51.100.9:8443",
+        "Destination 198.51.100.9:443, source 203.0.113.50:52000",
+        "Destination 192.168.1.20:443, source 203.0.113.50:52000"
+      ],
+      "correctIndex": 3,
+      "explanation": "Port forwarding (destination NAT) rewrites the destination socket from 198.51.100.9:8443 to 192.168.1.20:443 and leaves the client's source socket unchanged, so the server sees the real client address. The router records the mapping and reverses it on the server's replies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m027",
+      "questionText": "Inside hosts 192.168.1.10 and 192.168.1.11 both open TCP connections from source port 50000 to 93.184.216.34:443 through a PAT router whose public address is 203.0.113.5. The router maps the first connection to public port 62000 and the second to 62001. A reply arrives from 93.184.216.34:443 addressed to 203.0.113.5:62001. After translation, what are the reply's source and destination socket addresses?",
+      "options": [
+        "Source 203.0.113.5:62001, destination 192.168.1.11:50000",
+        "Source 93.184.216.34:443, destination 192.168.1.10:50000",
+        "Source 93.184.216.34:443, destination 192.168.1.11:50000",
+        "Source 93.184.216.34:443, destination 192.168.1.11:62001"
+      ],
+      "correctIndex": 2,
+      "explanation": "Public port 62001 belongs to the second mapping, so the router rewrites the destination back to 192.168.1.11:50000 and leaves the server's source socket untouched. The different public ports are what let PAT tell apart two inside hosts that happened to pick the same private port.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i41_m028",
+      "questionText": "Which statement about sockets and TCP connections is NOT correct?",
+      "options": [
+        "A TCP connection is identified by the pair of socket addresses at its two ends",
+        "A server's listening socket and the sockets returned by accept() all use the same local port",
+        "A client may hold several connections to the same server port at once, each from a different source port",
+        "Two simultaneous TCP connections on one host may have the same 4-tuple if they belong to different processes"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 4-tuple is what identifies a connection, so two live connections can never share one, whichever processes own them. The other statements are true: accepted sockets share the server port, and a browser can open many connections to port 443 from different ephemeral ports.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i41_m029",
+      "questionText": "A load-testing client has 2 IP addresses and uses the ephemeral port range 32768 to 60999. It opens TCP connections to one server IP address on ports 80 and 443. If the only limit is that every connection's 4-tuple must be unique, what is the maximum number of simultaneous connections?",
+      "options": [
+        "28,232",
+        "56,464",
+        "112,928",
+        "262,144"
+      ],
+      "correctIndex": 2,
+      "explanation": "The range holds 60,999 − 32,768 + 1 = 28,232 ports, and every (client IP, server port) pair can use all of them: 28,232 × 2 × 2 = 112,928 connections. 56,464 applies only one of the two factors of 2, and 262,144 wrongly uses all 65,536 ports.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i41_m030",
+      "questionText": "A client with one IP address uses the ephemeral range 32768 to 60999 and keeps opening short TCP connections to the same server socket, closing each one itself (active close). Each closed connection keeps its port in TIME_WAIT for 60 s, and a port is not reused until TIME_WAIT ends. What is the highest connection rate the client can sustain?",
+      "options": [
+        "About 1,092 per second",
+        "About 470 per second",
+        "About 273 per second",
+        "About 235 per second"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each connection ties up one of the 60,999 − 32,768 + 1 = 28,232 ports for about 60 s, so at most 28,232 / 60 ≈ 470.5, about 470 new connections per second, can be sustained. 1,092 uses all 65,536 ports, 273 uses the 16,384-port IANA range, and 235 assumes that TIME_WAIT lasts 120 s.",
+      "difficulty": "hard"
+    }
+  ]
+}

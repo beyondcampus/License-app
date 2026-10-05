@@ -1,0 +1,695 @@
+{
+  "topicId": "ch2_t3",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Latches and Flip-Flops"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why does a pair of cross-coupled NOR gates remember a bit? With S = R = 0 each NOR gate simply inverts the output of the other, so the circuit is a loop of two inverters. Such a loop is stable only with Q = 1, Q-bar = 0 or Q = 0, Q-bar = 1, and it stays in whichever state it was last pushed into. A 1 on S forces the Q-bar gate to 0, which in turn drives Q to 1; once the feedback has taken over, S can return to 0 and the state is kept. The NAND latch works the same way with the roles of 0 and 1 swapped, which is why its inputs are active-low."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: NOR SR latch, starting with Q = 0\nStep  S R   Q  Q-bar   Action\n 1    0 1   0   1      reset (already 0)\n 2    0 0   0   1      hold\n 3    1 0   1   0      set\n 4    0 0   1   0      hold, the latch remembers the set\n 5    1 1   0   0      forbidden: outputs no longer complementary\n 6    0 0   ?   ?      both inputs released together: race"
+    },
+    {
+      "type": "paragraph",
+      "text": "Step 6 shows the race condition. After S = R = 1 both outputs are 0; when both inputs drop to 0 at once, both gates see 0 on both inputs and both start switching to 1. The faster gate reaches 1 first and forces the other gate back to 0, so the final state is decided by tiny, uncontrollable differences in gate delay. In ideal, perfectly matched gates the outputs could even oscillate. This is why S = R = 1 is not merely unused but forbidden."
+    },
+    {
+      "type": "paragraph",
+      "text": "A characteristic equation is obtained from the characteristic table like any other Boolean function: treat the inputs and the present state Q as variables, write Q+ as the output column, and minimise with a K-map. Any input combination that is not allowed (S = R = 1 in the SR flip-flop) becomes a don't care, which is why the SR equation is shorter than a direct sum of its minterms."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: characteristic equation of the JK flip-flop\nK-map of Q+ (rows Q, columns JK in Gray order 00 01 11 10)\n          JK=00  01  11  10\n  Q = 0     0    0   1   1     -> group of two: J Q-bar\n  Q = 1     1    0   0   1     -> wrap-around pair: K-bar Q\nQ+ = J Q-bar + K-bar Q\nCheck J = K = 1: Q+ = Q-bar + 0 = Q-bar (toggle)"
+    },
+    {
+      "type": "formula",
+      "latex": "Q^{+} = EN\\cdot D + \\overline{EN}\\cdot Q",
+      "plainText": "Gated D latch: Q+ = EN D + EN' Q (transparent when EN = 1, hold when EN = 0)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Conversion between flip-flop types uses the excitation table of the flip-flop you have. For each row of the target flip-flop's characteristic table, read off the inputs that the available flip-flop needs for that Q to Q+ transition, then minimise each input with a K-map, using the X entries as don't cares. The example below builds a T flip-flop from an SR flip-flop, a conversion not listed in the main table."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: SR flip-flop converted to a T flip-flop\nT Q | Q+ | S R  (from SR excitation table)\n0 0 | 0  | 0 X\n0 1 | 1  | X 0\n1 0 | 1  | 1 0\n1 1 | 0  | 0 1\nS: 1 only at T = 1, Q = 0 (X at T = 0, Q = 1)  ->  S = T Q-bar\nR: 1 only at T = 1, Q = 1 (X at T = 0, Q = 0)  ->  R = T Q\nS and R are never 1 together, so the forbidden input is avoided."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Flip-flop",
+          "Invalid input",
+          "Don't cares in excitation table",
+          "Typical use"
+        ],
+        [
+          "SR",
+          "S = R = 1",
+          "2",
+          "Simple set/reset control, switch debouncing"
+        ],
+        [
+          "JK",
+          "None (11 toggles)",
+          "4",
+          "General purpose, counters with fewest gates"
+        ],
+        [
+          "D",
+          "None",
+          "0",
+          "Registers and data storage"
+        ],
+        [
+          "T",
+          "None",
+          "0",
+          "Counters and frequency division"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in flip-flop questions:",
+      "items": [
+        "Using the NOR-latch table for a NAND latch: the NAND latch holds with both inputs at 1 and is invalid with both at 0.",
+        "Treating J = K = 1 as set instead of toggle when tracing a JK sequence.",
+        "Mixing up the characteristic table (inputs give next state) with the excitation table (transition gives inputs).",
+        "Forgetting that a D latch follows D for the whole enable time, so the stored value is D at the moment the enable goes inactive.",
+        "Writing the T characteristic as XNOR: Q+ = T xor Q, not T xnor Q."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any conversion, remember two shortcuts: to make a D flip-flop act like X, drive D with X's characteristic equation; to make a T flip-flop act like X, drive T with Q xor (X's characteristic equation). Both follow directly from Q+ = D and Q+ = T xor Q."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t3_m001",
+      "questionText": "Which statement correctly distinguishes a latch from a flip-flop?",
+      "options": [
+        "A latch is level-sensitive and transparent while enabled; a flip-flop changes state only at a clock edge",
+        "A latch is edge-triggered; a flip-flop is level-sensitive",
+        "A latch has no feedback path; a flip-flop has one",
+        "A latch stores two bits; a flip-flop stores one bit"
+      ],
+      "correctIndex": 0,
+      "explanation": "A latch follows its inputs for as long as its enable is active, whereas a flip-flop samples its inputs only at the rising or falling clock edge. Both are one-bit bistables built with feedback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m002",
+      "questionText": "A bistable element, the basic memory cell of sequential circuits, has how many stable states?",
+      "options": [
+        "One",
+        "Three",
+        "Two",
+        "Four"
+      ],
+      "correctIndex": 2,
+      "explanation": "A bistable has exactly two stable states (Q = 0 and Q = 1), so it stores one bit.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m003",
+      "questionText": "In an SR latch built from two cross-coupled NOR gates, applying S = 1 and R = 0 gives:",
+      "options": [
+        "Q = 0 (reset)",
+        "Q = 1 (set)",
+        "No change in Q",
+        "Q = Q-bar = 0 (invalid)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The NOR latch has active-high inputs: S = 1, R = 0 forces Q to 1 and Q-bar to 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m004",
+      "questionText": "In a NOR-based SR latch, applying S = 1 and R = 1 at the same time makes the outputs:",
+      "options": [
+        "Q = 1 and Q-bar = 1",
+        "Q = 1 and Q-bar = 0",
+        "Q toggle continuously",
+        "Q = 0 and Q-bar = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "A NOR gate outputs 0 whenever any input is 1, so both gates output 0. The outputs are no longer complementary, which is why S = R = 1 is forbidden.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m005",
+      "questionText": "A T flip-flop receives T = 0 at an active clock edge. Its output:",
+      "options": [
+        "Toggles",
+        "Is reset to 0",
+        "Keeps its previous value",
+        "Is set to 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Q+ = T xor Q; with T = 0 this gives Q+ = Q, so the flip-flop holds its state.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m006",
+      "questionText": "Which flip-flop is also called a delay flip-flop because its output reproduces its input one clock period later?",
+      "options": [
+        "D flip-flop",
+        "T flip-flop",
+        "JK flip-flop",
+        "SR flip-flop"
+      ],
+      "correctIndex": 0,
+      "explanation": "The D flip-flop stores the value on D at the clock edge (Q+ = D), so its output is the input delayed by one clock period.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m007",
+      "questionText": "Joining the J and K inputs of a JK flip-flop into a single input produces which flip-flop?",
+      "options": [
+        "D flip-flop",
+        "SR flip-flop",
+        "Gated SR latch",
+        "T flip-flop"
+      ],
+      "correctIndex": 3,
+      "explanation": "With J = K = T the JK holds when T = 0 and toggles when T = 1, which is the T (toggle) flip-flop.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m008",
+      "questionText": "A gated SR latch has its enable EN = 0. If S = 1 and R = 0 are applied, the output:",
+      "options": [
+        "Is set to 1",
+        "Does not change",
+        "Is reset to 0",
+        "Becomes invalid"
+      ],
+      "correctIndex": 1,
+      "explanation": "The steering gates block S and R while EN = 0, so the latch keeps its stored state whatever the inputs are.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m009",
+      "questionText": "A positive-edge JK flip-flop with Q = 1 receives J = 0, K = 1 at the rising edge. The new output is:",
+      "options": [
+        "Q = 0",
+        "Q = 1",
+        "Q toggles twice and returns to 1",
+        "Q is indeterminate"
+      ],
+      "correctIndex": 0,
+      "explanation": "J = 0, K = 1 is the reset condition: Q+ = J Q-bar + K-bar Q = 0 + 0 = 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m010",
+      "questionText": "Which feature makes a circuit sequential rather than combinational?",
+      "options": [
+        "It is built only from NAND and NOR gates",
+        "Its outputs depend only on the present inputs",
+        "It contains memory elements, so its outputs depend on the stored state as well as the present inputs",
+        "It has more outputs than inputs"
+      ],
+      "correctIndex": 2,
+      "explanation": "A sequential circuit stores state in latches or flip-flops, so the same input can give different outputs at different times; a combinational circuit's outputs depend on the present inputs alone.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m011",
+      "questionText": "The excitation table of a flip-flop lists:",
+      "options": [
+        "The next state for each combination of inputs and present state",
+        "The inputs required to cause a given transition from Q to Q+",
+        "The propagation delay for each input combination",
+        "The clock frequency needed for each transition"
+      ],
+      "correctIndex": 1,
+      "explanation": "The excitation table is the characteristic table read backwards: for each present-to-next-state transition it gives the required inputs, with X for don't care. Listing the next state for each input is the characteristic table.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m012",
+      "questionText": "In an SR latch built from cross-coupled NAND gates (active-low inputs S-bar and R-bar), which input pair is not allowed?",
+      "options": [
+        "S-bar = 1, R-bar = 1",
+        "S-bar = 0, R-bar = 1",
+        "S-bar = 1, R-bar = 0",
+        "S-bar = 0, R-bar = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "With both active-low inputs at 0 each NAND gate outputs 1, so Q = Q-bar = 1, which is invalid. Both inputs at 1 is the hold condition.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m013",
+      "questionText": "How many NOR gates are needed to build a basic (ungated) SR latch?",
+      "options": [
+        "1",
+        "3",
+        "2",
+        "4"
+      ],
+      "correctIndex": 2,
+      "explanation": "The basic SR latch is two cross-coupled NOR gates, each output feeding one input of the other gate.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m014",
+      "questionText": "Which flip-flop has two data inputs that can hold, set, reset or toggle the output and has no invalid input combination?",
+      "options": [
+        "JK flip-flop",
+        "SR flip-flop",
+        "D flip-flop",
+        "T flip-flop"
+      ],
+      "correctIndex": 0,
+      "explanation": "The JK flip-flop gives hold (00), reset (01), set (10) and toggle (11). The SR has an invalid 11 input, and D and T have only one input each.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t3_m015",
+      "questionText": "A negative-edge JK flip-flop starts with Q = 0. At four successive falling edges the inputs (J, K) are (1,0), (1,1), (1,1) and (0,1). The values of Q after each edge are:",
+      "options": [
+        "1, 1, 1, 0",
+        "1, 0, 0, 0",
+        "0, 1, 0, 1",
+        "1, 0, 1, 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "(1,0) sets Q to 1; (1,1) toggles it to 0; (1,1) toggles it back to 1; (0,1) resets it to 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m016",
+      "questionText": "A T flip-flop starts with Q = 1 and receives T = 1, 0, 1, 1, 0, 1 at six successive active edges. The values of Q after each edge are:",
+      "options": [
+        "0, 1, 0, 1, 0, 1",
+        "0, 0, 1, 0, 0, 1",
+        "1, 1, 0, 1, 1, 0",
+        "0, 0, 1, 1, 1, 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "Q toggles only when T = 1: 1 to 0, hold 0, 0 to 1, 1 to 0, hold 0, 0 to 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m017",
+      "questionText": "In the SR flip-flop excitation table, the entry for the transition Q = 1 to Q+ = 1 is:",
+      "options": [
+        "S = X, R = 0",
+        "S = 1, R = X",
+        "S = 0, R = X",
+        "S = 0, R = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "To stay at 1 the flip-flop must not be reset, so R = 0; S may be 0 (hold) or 1 (set), so S = X.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m018",
+      "questionText": "Which input produces the transition Q = 1 to Q+ = 1 in a T flip-flop?",
+      "options": [
+        "T = 1",
+        "T = X (don't care)",
+        "T = 0",
+        "T = 1 applied with the clock held LOW"
+      ],
+      "correctIndex": 2,
+      "explanation": "Q+ = T xor Q = T xor 1 = T-bar, so Q+ = 1 needs T = 0. A T flip-flop's excitation table has no don't cares.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m019",
+      "questionText": "In the JK flip-flop excitation table, the entry for the transition Q = 0 to Q+ = 1 is:",
+      "options": [
+        "J = X, K = 1",
+        "J = 1, K = X",
+        "J = 0, K = X",
+        "J = X, K = 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "From Q = 0 the output reaches 1 either by set (J = 1, K = 0) or by toggle (J = 1, K = 1), so J = 1 and K is a don't care.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m020",
+      "questionText": "Treating S = R = 1 as a don't care, the characteristic equation of the SR flip-flop obtained from its K-map is:",
+      "options": [
+        "Q+ = S-bar + R Q",
+        "Q+ = S Q-bar + R Q",
+        "Q+ = S R + Q",
+        "Q+ = S + R-bar Q"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 1s of Q+ are at S = 1 (set) and at S = 0, R = 0, Q = 1 (hold); grouping with the don't cares gives Q+ = S + R-bar Q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m021",
+      "questionText": "Which expression is equivalent to the T flip-flop characteristic equation Q+ = T xor Q?",
+      "options": [
+        "Q+ = T Q + T-bar Q-bar",
+        "Q+ = T + Q",
+        "Q+ = T Q-bar + T-bar Q",
+        "Q+ = T Q-bar"
+      ],
+      "correctIndex": 2,
+      "explanation": "Expanding the XOR gives T Q-bar + T-bar Q. T Q + T-bar Q-bar is the XNOR, the complement.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m022",
+      "questionText": "A flip-flop with inputs A and B behaves as follows at the clock edge: AB = 00 hold, 01 set, 10 reset, 11 toggle. It is equivalent to a JK flip-flop connected as:",
+      "options": [
+        "J = B, K = A",
+        "J = A, K = B",
+        "J = A-bar, K = B-bar",
+        "J = K = A xor B"
+      ],
+      "correctIndex": 0,
+      "explanation": "B = 1 alone sets and A = 1 alone resets, so B plays the role of J and A the role of K; both at 1 toggles, exactly like J = K = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m023",
+      "questionText": "A NOR SR latch starts with Q = 0 and receives the input pairs (S, R) = (1,0), (0,0), (0,1), (0,0) in that order. The values of Q after each pair are:",
+      "options": [
+        "1, 0, 0, 0",
+        "1, 0, 0, 1",
+        "1, 1, 0, 1",
+        "1, 1, 0, 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "(1,0) sets Q = 1; (0,0) holds 1; (0,1) resets Q = 0; (0,0) holds 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m024",
+      "questionText": "An SR latch made of cross-coupled NAND gates receives S-bar = 0 and R-bar = 1. The outputs are:",
+      "options": [
+        "Q = 0, Q-bar = 1",
+        "Q = 1, Q-bar = 0",
+        "Q = 1, Q-bar = 1",
+        "Unchanged from the previous state"
+      ],
+      "correctIndex": 1,
+      "explanation": "The NAND latch inputs are active-low, so S-bar = 0 is an active set: the gate producing Q outputs 1 and the other gate then outputs 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m025",
+      "questionText": "A D flip-flop is to be made to behave as a JK flip-flop. The logic driving D must be:",
+      "options": [
+        "D = J Q-bar + K-bar Q",
+        "D = J Q + K Q-bar",
+        "D = J xor K",
+        "D = J K-bar"
+      ],
+      "correctIndex": 0,
+      "explanation": "A D flip-flop gives Q+ = D, so D must equal the JK characteristic equation, J Q-bar + K-bar Q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m026",
+      "questionText": "A T flip-flop is to be made to behave as a JK flip-flop. The logic driving T must be:",
+      "options": [
+        "T = J Q + K Q-bar",
+        "T = J Q-bar + K-bar Q",
+        "T = J Q-bar + K Q",
+        "T = J K"
+      ],
+      "correctIndex": 2,
+      "explanation": "T must be 1 exactly when the output has to change: from 0 to 1 when J = 1 (J Q-bar) and from 1 to 0 when K = 1 (K Q).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m027",
+      "questionText": "To convert an SR flip-flop into a T flip-flop, the S and R inputs should be driven by:",
+      "options": [
+        "S = T, R = T-bar",
+        "S = T Q-bar, R = T Q",
+        "S = T Q, R = T Q-bar",
+        "S = R = T"
+      ],
+      "correctIndex": 1,
+      "explanation": "With T = 1 the flip-flop must set when Q = 0 (S = T Q-bar) and reset when Q = 1 (R = T Q); with T = 0 both are 0 and it holds. S and R are never 1 together.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m028",
+      "questionText": "To make a T flip-flop behave as a D flip-flop, its T input must be:",
+      "options": [
+        "T = D",
+        "T = D Q",
+        "T = D + Q",
+        "T = D xor Q"
+      ],
+      "correctIndex": 3,
+      "explanation": "The output must change only when D differs from the present Q, so T = D xor Q; then Q+ = (D xor Q) xor Q = D.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m029",
+      "questionText": "An SR latch has both inputs at the forbidden value 1, 1, and then both inputs return to 0 at exactly the same instant. The final state is unpredictable because:",
+      "options": [
+        "Both gates stay disabled until power is cycled",
+        "The latch always resets to 0",
+        "The outcome depends on which gate responds faster (a race)",
+        "The latch always sets to 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both gates start from the same output level and both try to switch; whichever is faster wins and locks the other out. The result depends on small delay differences, which is a race condition.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m030",
+      "questionText": "A T flip-flop with T permanently at 1 is clocked at 10 MHz. The frequency of its Q output is:",
+      "options": [
+        "5 MHz",
+        "10 MHz",
+        "20 MHz",
+        "2.5 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "With T = 1 the output toggles once per clock edge, so one output cycle takes two clock cycles: f = 10 MHz / 2 = 5 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m031",
+      "questionText": "A gated D latch has EN = 1 from t = 0 to 10 ns and EN = 0 afterwards. D rises to 1 at t = 2 ns, falls to 0 at t = 7 ns and rises to 1 again at t = 12 ns. Q starts at 0. The value of Q at t = 15 ns is:",
+      "options": [
+        "1, because D is 1 at t = 15 ns",
+        "1, the first value captured at t = 2 ns",
+        "Indeterminate, because D changed while EN = 1",
+        "0, the value of D when EN went low"
+      ],
+      "correctIndex": 3,
+      "explanation": "While EN = 1 the latch is transparent, so Q followed D to 1 at 2 ns and back to 0 at 7 ns. When EN fell at 10 ns D was 0, and the later change at 12 ns is ignored.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m032",
+      "questionText": "Which statement about the gated D latch is NOT correct?",
+      "options": [
+        "Its output follows D while the enable is active",
+        "It has an invalid input combination, like the SR latch",
+        "It can be built from a gated SR latch with S = D and R = D-bar",
+        "It holds its last value while the enable is inactive"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because R is always the complement of S, the D latch can never receive S = R = 1, so it has no invalid input. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m033",
+      "questionText": "The excitation tables of which flip-flops contain no don't-care entries?",
+      "options": [
+        "D and T",
+        "SR and JK",
+        "JK only",
+        "All four types"
+      ],
+      "correctIndex": 0,
+      "explanation": "For D the required input is simply Q+, and for T it is Q xor Q+, so every entry is fixed. SR has 2 don't cares and JK has 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m034",
+      "questionText": "How many don't-care (X) entries are there in the complete JK excitation table (four transitions, J and K columns)?",
+      "options": [
+        "2",
+        "0",
+        "4",
+        "8"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each of the four transitions has exactly one don't care: 0 to 0 (0 X), 0 to 1 (1 X), 1 to 0 (X 1), 1 to 1 (X 0), giving 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m035",
+      "questionText": "A gated SR latch built only from 2-input NAND gates needs how many gates?",
+      "options": [
+        "2",
+        "4",
+        "3",
+        "5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Two NAND gates steer S and R with the enable, and two cross-coupled NAND gates form the latch, a total of 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m036",
+      "questionText": "The characteristic equation of a gated D latch with enable input EN is:",
+      "options": [
+        "Q+ = EN D + EN Q",
+        "Q+ = D + EN Q",
+        "Q+ = EN xor D",
+        "Q+ = EN D + EN-bar Q"
+      ],
+      "correctIndex": 3,
+      "explanation": "When EN = 1 the latch is transparent (Q+ = D); when EN = 0 it holds (Q+ = Q). Combining the two cases gives EN D + EN-bar Q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m037",
+      "questionText": "A NAND SR latch (active-low inputs) starts with Q = 0 and receives (S-bar, R-bar) = (1,0), (1,1), (0,1), (0,0) in that order. The outputs after the fourth pair are:",
+      "options": [
+        "Q = 0, Q-bar = 0",
+        "Q = 1, Q-bar = 0",
+        "Q = 1, Q-bar = 1",
+        "Q = 0, Q-bar = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "(1,0) resets, (1,1) holds, (0,1) sets Q = 1, and (0,0) drives both NAND outputs to 1, the invalid state for this latch.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t3_m038",
+      "questionText": "A new flip-flop with inputs A and B has the characteristic table AB = 00: Q+ = 0; 01: Q+ = Q; 10: Q+ = Q-bar; 11: Q+ = 1. Its minimised characteristic equation is:",
+      "options": [
+        "Q+ = A Q-bar + B Q",
+        "Q+ = A Q-bar + B-bar Q",
+        "Q+ = A-bar Q + B Q-bar",
+        "Q+ = A B + Q"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 1s of Q+ (in A B Q order) are minterms 3, 4, 6 and 7. Grouping 4 and 6 gives A Q-bar, grouping 3 and 7 gives B Q, so Q+ = A Q-bar + B Q.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m039",
+      "questionText": "The flip-flop defined by AB = 00: reset, 01: hold, 10: toggle, 11: set is to be built from a JK flip-flop without extra state. The required connections are:",
+      "options": [
+        "J = A, K = B",
+        "J = B, K = A-bar",
+        "J = A-bar, K = B",
+        "J = A, K = B-bar"
+      ],
+      "correctIndex": 3,
+      "explanation": "Its characteristic equation is Q+ = A Q-bar + B Q. Matching with Q+ = J Q-bar + K-bar Q gives J = A and K-bar = B, so K = B-bar.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m040",
+      "questionText": "The same AB flip-flop (Q+ = A Q-bar + B Q) is to be built from a T flip-flop. The logic driving T must be:",
+      "options": [
+        "T = A Q-bar + B Q",
+        "T = A Q-bar + B-bar Q",
+        "T = A xor B",
+        "T = A-bar Q + B Q-bar"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = Q xor Q+. When Q = 0, Q+ = A so T = A; when Q = 1, Q+ = B so T = B-bar. Hence T = A Q-bar + B-bar Q.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m041",
+      "questionText": "A JK flip-flop has its J input driven by an external signal X and its K input connected to its own Q-bar output. The next-state equation of the circuit is:",
+      "options": [
+        "Q+ = X + Q",
+        "Q+ = X",
+        "Q+ = X xor Q",
+        "Q+ = X Q"
+      ],
+      "correctIndex": 0,
+      "explanation": "Substituting K = Q-bar into Q+ = J Q-bar + K-bar Q gives X Q-bar + Q Q = X Q-bar + Q = X + Q. Once set, the output stays at 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m042",
+      "questionText": "A T flip-flop has its T input driven by X xor Q, where Q is its own output. The circuit behaves as:",
+      "options": [
+        "A T flip-flop with T = X",
+        "A JK flip-flop with J = K = X",
+        "A D flip-flop with D = X",
+        "A flip-flop that toggles on every edge"
+      ],
+      "correctIndex": 2,
+      "explanation": "Q+ = T xor Q = (X xor Q) xor Q = X, so the output simply takes the value of X at each edge, which is D flip-flop behaviour.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m043",
+      "questionText": "A D flip-flop has D = X xor Q-bar, where Q-bar is its own complemented output. It starts with Q = 0 and X = 0, 1, 1, 0 at four successive clock edges. The values of Q after each edge are:",
+      "options": [
+        "0, 1, 1, 0",
+        "1, 1, 1, 0",
+        "1, 0, 0, 1",
+        "1, 0, 1, 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Q+ = X xor Q-bar. Edge 1: 0 xor 1 = 1; edge 2: 1 xor 0 = 1; edge 3: 1 xor 0 = 1; edge 4: 0 xor 0 = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m044",
+      "questionText": "A positive-edge JK flip-flop starts with Q = 1. The (J, K) values at six successive rising edges are (0,1), (0,0), (1,0), (1,1), (1,1), (0,1). The values of Q after each edge are:",
+      "options": [
+        "0, 0, 1, 1, 1, 0",
+        "0, 1, 1, 0, 1, 0",
+        "1, 0, 1, 0, 1, 0",
+        "0, 0, 1, 0, 1, 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reset to 0; hold 0; set to 1; toggle to 0; toggle to 1; reset to 0. Treating J = K = 1 as set gives the wrong 0, 0, 1, 1, 1, 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m045",
+      "questionText": "Using a JK flip-flop, Q must go through 0 to 1 to 1 to 0 over three clock edges. From the excitation table, the (J, K) inputs for the three edges are:",
+      "options": [
+        "(1, X), (X, 1), (X, 0)",
+        "(X, 1), (X, 0), (1, X)",
+        "(1, X), (X, 0), (X, 1)",
+        "(0, X), (X, 0), (X, 1)"
+      ],
+      "correctIndex": 2,
+      "explanation": "0 to 1 needs J = 1, K = X; 1 to 1 needs J = X, K = 0; 1 to 0 needs J = X, K = 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t3_m046",
+      "questionText": "A NOR SR latch has S = R = 1 applied, then both inputs fall to 0 at the same instant. If the NOR gate that produces Q responds faster than the gate that produces Q-bar, the latch settles to:",
+      "options": [
+        "Q = 1, Q-bar = 0",
+        "Q = 0, Q-bar = 1",
+        "Q = 0, Q-bar = 0",
+        "Q = 1, Q-bar = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both outputs start at 0 with S = R = 0, so both gates begin to switch to 1. The Q gate gets there first, and Q = 1 then holds the Q-bar gate's output at 0.",
+      "difficulty": "hard"
+    }
+  ]
+}

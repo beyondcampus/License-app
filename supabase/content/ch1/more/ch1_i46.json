@@ -1,0 +1,720 @@
+{
+  "topicId": "ch1_i46",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Deriving and Applying the BJT Models"
+    },
+    {
+      "type": "paragraph",
+      "text": "The transconductance comes straight from the exponential law. Differentiating I_C = I_S e^(V_BE/V_T) with respect to V_BE gives I_S e^(V_BE/V_T) / V_T, which is simply I_C / V_T. The same law shows that V_BE rises by V_T ln 10, about 60 mV, for every tenfold increase in collector current, and by V_T ln 2, about 18 mV, when the current doubles. Expanding e^(v_be/V_T) as 1 + v_be/V_T + ... shows why the linear model needs v_be much smaller than V_T: at 5 mV the neglected square term is already about 10 % of the linear term."
+    },
+    {
+      "type": "formula",
+      "latex": "g_m = \\frac{dI_C}{dV_{BE}} = \\frac{I_C}{V_T}, \\quad \\Delta V_{BE} = V_T \\ln(I_{C2}/I_{C1})",
+      "plainText": "g_m = di_C/dv_BE = I_C / V_T;  ΔV_BE = V_T·ln(I_C2 / I_C1)"
+    },
+    {
+      "type": "paragraph",
+      "text": "In the Ebers-Moll equations each junction current follows the diode law, I_F = I_ES (e^(V_BE/V_T) − 1) for the emitter diode and I_R = I_CS (e^(V_BC/V_T) − 1) for the collector diode. The terminal currents are I_C = α_F I_F − I_R and I_E = I_F − α_R I_R. Reciprocity requires α_F I_ES = α_R I_CS = I_S. Because the collector is large and lightly doped, α_R is small (roughly 0.1 to 0.5), so the reverse-active current gain β_R = α_R / (1 − α_R) is usually below 1; this is why a transistor with collector and emitter swapped is a poor amplifier."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Region",
+          "B-E junction",
+          "B-C junction",
+          "Hand model"
+        ],
+        [
+          "Forward-active",
+          "Forward",
+          "Reverse",
+          "V_BE = 0.7 V, I_C = β I_B"
+        ],
+        [
+          "Saturation",
+          "Forward",
+          "Forward",
+          "V_BE ≈ 0.8 V, V_CE(sat) ≈ 0.2 V, I_C < β I_B"
+        ],
+        [
+          "Cut-off",
+          "Reverse",
+          "Reverse",
+          "All currents ≈ 0 (open switch)"
+        ],
+        [
+          "Reverse-active",
+          "Reverse",
+          "Forward",
+          "Roles swapped; β_R well below β_F"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - is the transistor saturated?\nGiven: V_BB = 3.3 V, R_B = 10 kΩ, V_CC = 5 V, R_C = 1 kΩ, β = 80\nAssume active: I_B = (3.3 − 0.7) / 10 kΩ = 0.26 mA\n  I_C = β I_B = 80 × 0.26 mA = 20.8 mA\n  V_CE = 5 − 20.8 mA × 1 kΩ = −15.8 V  -> impossible\nSo the BJT is saturated: V_CE = 0.2 V\n  I_C(sat) = (5 − 0.2) / 1 kΩ = 4.8 mA\n  Forced beta = I_C / I_B = 4.8 / 0.26 = 18.5 (less than 80)\n  Minimum base current for saturation = 4.8 mA / 80 = 60 µA"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - complete CE amplifier (V_T = 25 mV)\nGiven: V_CC = 12 V, R1 = 47 kΩ, R2 = 10 kΩ, R_C = 3.3 kΩ, R_E = 1 kΩ (bypassed)\n       R_L = 10 kΩ, R_s = 600 Ω, β = 120, V_A = 100 V\nDC: V_TH = 12 × 10/57 = 2.105 V, R_TH = 47k ∥ 10k = 8.25 kΩ\n    I_B = (2.105 − 0.7) / (8.25k + 121 × 1k) = 10.9 µA\n    I_C = 120 × 10.9 µA = 1.30 mA, V_CE = 12 − 4.31 − 1.32 = 6.4 V (active)\nAC: g_m = 1.30 mA / 25 mV = 52.2 mA/V, r_π = 120 / g_m = 2.30 kΩ\n    r_o = 100 V / 1.30 mA = 76.6 kΩ\n    R_C ∥ R_L ∥ r_o = 3.3k ∥ 10k ∥ 76.6k = 2.40 kΩ\n    A_v = −g_m × 2.40 kΩ = −125\n    R_in = R_TH ∥ r_π = 8.25k ∥ 2.30k = 1.80 kΩ\n    A_vs = −125 × 1.80 / (1.80 + 0.60) = −94"
+    },
+    {
+      "type": "bulletList",
+      "text": "Converting between the model families (common-emitter h-parameters on the left):",
+      "items": [
+        "h_fe = β and h_ie = r_π, so g_m = h_fe / h_ie; for example h_fe = 100 and h_ie = 2.5 kΩ give g_m = 40 mA/V, which at V_T = 25 mV means I_C = 1 mA.",
+        "h_oe = 1 / r_o, so a data-sheet h_oe of 20 µS corresponds to r_o = 50 kΩ in the hybrid-π model.",
+        "Common-base values follow from the CE ones: h_ib = h_ie / (1 + h_fe), which is r_e, and h_fb = −h_fe / (1 + h_fe), which is −α.",
+        "h_re and h_fe are dimensionless, h_ie is in ohms and h_oe is in siemens; that mix of units is why they are called hybrid parameters."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "A_i = \\frac{h_{fe}}{1 + h_{oe} R_L}, \\quad Z_i = h_{ie} - h_{re} A_i R_L",
+      "plainText": "A_i = h_fe / (1 + h_oe·R_L);  Z_i = h_ie − h_re·A_i·R_L = h_ie − h_re·h_fe·R_L / (1 + h_oe·R_L)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Writing the CE gain as A_v = −g_m R_C = −I_C R_C / V_T shows that the gain equals the DC voltage dropped across R_C divided by V_T: a 5 V drop gives about −200 at V_T = 25 mV, whatever the individual values of I_C and R_C. The largest gain a single transistor can give, with only its own r_o as load, is the intrinsic gain g_m r_o = V_A / V_T, a few thousand. At high frequencies the hybrid-π model adds C_π between base and emitter and C_µ between base and collector, and the transition frequency where the short-circuit current gain falls to 1 is f_T = g_m / (2π (C_π + C_µ))."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity",
+          "R_E bypassed",
+          "R_E unbypassed"
+        ],
+        [
+          "Voltage gain",
+          "−R_C / r_e (large)",
+          "−R_C / (r_e + R_E) ≈ −R_C / R_E (small)"
+        ],
+        [
+          "Input resistance at base",
+          "(β + 1) r_e",
+          "(β + 1)(r_e + R_E) (much larger)"
+        ],
+        [
+          "Gain depends on",
+          "I_C and temperature through r_e",
+          "Mainly the resistor ratio (stable)"
+        ],
+        [
+          "Distortion",
+          "Higher",
+          "Lower (local negative feedback)"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Frequent slips in model questions: using r_e = 26 mV / I_E with I_E in amperes and quoting the answer in ohms without the factor 1000; taking g_m = I_B / V_T instead of I_C / V_T; forgetting R_L in parallel with R_C in the AC load; using −R_C / r_e when R_E is not bypassed; and trusting I_C = β I_B without first checking that V_CE is above V_CE(sat)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i46_m001",
+      "questionText": "The Ebers-Moll model of a BJT is valid in which operating regions?",
+      "options": [
+        "All four: forward-active, saturation, cut-off and reverse-active",
+        "Forward-active region only",
+        "Forward-active and cut-off only",
+        "Saturation and cut-off only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The Ebers-Moll model uses the full diode law for both junctions with two dependent sources, so it describes all four regions; piecewise models are region-specific.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m002",
+      "questionText": "The Ebers-Moll large-signal model of a BJT consists of:",
+      "options": [
+        "A single diode in series with a resistor",
+        "Two back-to-back diodes, each paralleled by a current-controlled current source",
+        "A voltage-controlled voltage source and an output resistance",
+        "A 0.7 V battery and a resistor r_e only"
+      ],
+      "correctIndex": 1,
+      "explanation": "Ebers-Moll represents the base-emitter and base-collector junctions as diodes, each shunted by a dependent source carrying α times the other junction's diode current.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m003",
+      "questionText": "A silicon BJT in the active region has I_S = 10^-14 A. Using I_C = I_S e^(V_BE/V_T) with V_T = 26 mV, the collector current at V_BE = 0.65 V is about:",
+      "options": [
+        "7.2 mA",
+        "0.72 mA",
+        "25 mA",
+        "0.072 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_BE/V_T = 0.65/0.026 = 25; e^25 = 7.2 × 10^10; I_C = 10^-14 × 7.2 × 10^10 = 0.72 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m004",
+      "questionText": "For a BJT obeying I_C = I_S e^(V_BE/V_T) with V_T = 26 mV, by how much must V_BE increase to raise I_C tenfold?",
+      "options": [
+        "About 26 mV",
+        "About 60 mV",
+        "About 260 mV",
+        "About 18 mV"
+      ],
+      "correctIndex": 1,
+      "explanation": "ΔV_BE = V_T ln(10) = 26 mV × 2.303 = 59.9 mV, about 60 mV per decade of current.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m005",
+      "questionText": "A BJT is operating at I_C = 1 mA. With V_T = 26 mV, the increase in V_BE required to double the collector current to 2 mA is about:",
+      "options": [
+        "18 mV",
+        "26 mV",
+        "52 mV",
+        "60 mV"
+      ],
+      "correctIndex": 0,
+      "explanation": "ΔV_BE = V_T ln(2) = 26 mV × 0.693 = 18 mV.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m006",
+      "questionText": "In a base-driven switch, V_BB = 5 V is applied through R_B = 20 kΩ; the collector is fed from V_CC = 10 V through R_C = 2 kΩ, and β = 100 (V_BE = 0.7 V, V_CE(sat) = 0.2 V). The transistor is:",
+      "options": [
+        "Active, with I_C ≈ 21.5 mA and V_CE ≈ −33 V",
+        "Active, with I_C ≈ 2.15 mA and V_CE ≈ 5.7 V",
+        "Saturated, with I_C ≈ 4.9 mA and V_CE ≈ 0.2 V",
+        "Cut off, with I_C ≈ 0 and V_CE = 10 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_B = (5 − 0.7)/20 kΩ = 215 µA, so β I_B = 21.5 mA would need V_CE = 10 − 43 = −33 V, which is impossible. The BJT saturates: I_C = (10 − 0.2)/2 kΩ = 4.9 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m007",
+      "questionText": "A fixed-bias silicon BJT has V_CC = 12 V, R_B = 565 kΩ, R_C = 3 kΩ and β = 100 (V_BE = 0.7 V). The Q-point (I_CQ, V_CEQ) is:",
+      "options": [
+        "20 µA, 11.9 V",
+        "2 mA, 12 V",
+        "4 mA, 0 V",
+        "2 mA, 6 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_B = (12 − 0.7)/565 kΩ = 20 µA; I_C = 100 × 20 µA = 2 mA; V_CE = 12 − 2 mA × 3 kΩ = 6 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m008",
+      "questionText": "A saturated BJT switch carries I_C = 5 mA with a base current of 0.5 mA. Its forced beta is:",
+      "options": [
+        "100",
+        "0.1",
+        "50",
+        "10"
+      ],
+      "correctIndex": 3,
+      "explanation": "Forced beta = I_C/I_B = 5 mA / 0.5 mA = 10; in saturation this is always below the active-region β.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m009",
+      "questionText": "In the large-signal piecewise model, a BJT in cut-off is represented between collector and emitter by:",
+      "options": [
+        "A short circuit",
+        "A 0.2 V battery",
+        "An open circuit",
+        "A current source β I_B"
+      ],
+      "correctIndex": 2,
+      "explanation": "In cut-off both junctions are reverse biased and all currents are practically zero, so the collector-emitter path is an open switch.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m010",
+      "questionText": "When a BJT is operated in the reverse-active mode (collector and emitter roles interchanged), its current gain is:",
+      "options": [
+        "Much smaller than the forward β, usually below 1",
+        "Equal to the forward β",
+        "About twice the forward β",
+        "Infinite, because the base current becomes zero"
+      ],
+      "correctIndex": 0,
+      "explanation": "The lightly doped, large collector is a poor emitter, so α_R is small (about 0.1 to 0.5) and β_R = α_R/(1 − α_R) is usually less than 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m011",
+      "questionText": "In the Ebers-Moll model, reciprocity requires α_F I_ES = α_R I_CS = I_S. A transistor has I_S = 2 × 10^-15 A and reverse alpha α_R = 0.4. Its collector-diode saturation current I_CS is:",
+      "options": [
+        "0.8 × 10^-15 A",
+        "2 × 10^-15 A",
+        "5 × 10^-15 A",
+        "3.33 × 10^-15 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_CS = I_S/α_R = 2 × 10^-15 / 0.4 = 5 × 10^-15 A; the collector diode has the larger saturation current because α_R is small.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m012",
+      "questionText": "A CE stage (emitter bypassed) runs at I_C = 2 mA with V_T = 25 mV and Early voltage V_A = 100 V. R_C = 5 kΩ and the load R_L = 5 kΩ. Including r_o, the voltage gain is about:",
+      "options": [
+        "−190",
+        "−200",
+        "−400",
+        "−381"
+      ],
+      "correctIndex": 0,
+      "explanation": "g_m = 2 mA/25 mV = 80 mA/V; r_o = 100 V/2 mA = 50 kΩ; R_C ∥ R_L ∥ r_o = 2.5 kΩ ∥ 50 kΩ = 2.38 kΩ; A_v = −80 mA/V × 2.38 kΩ = −190.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m013",
+      "questionText": "At room temperature (V_T = 25 mV), a BJT biased at I_C = 0.5 mA has a transconductance of:",
+      "options": [
+        "12.5 mA/V",
+        "20 mA/V",
+        "50 mA/V",
+        "2 mA/V"
+      ],
+      "correctIndex": 1,
+      "explanation": "g_m = I_C/V_T = 0.5 mA / 25 mV = 20 mA/V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m014",
+      "questionText": "A BJT with β = 150 is biased at I_C = 1.5 mA (V_T = 25 mV). Its hybrid-π input resistance r_π is:",
+      "options": [
+        "16.7 Ω",
+        "375 kΩ",
+        "60 Ω",
+        "2.5 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "g_m = 1.5 mA/25 mV = 60 mA/V; r_π = β/g_m = 150/0.06 = 2.5 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m015",
+      "questionText": "The quiescent base current of a BJT is 10 µA. With V_T = 26 mV, the small-signal resistance r_π is:",
+      "options": [
+        "26 Ω",
+        "260 Ω",
+        "26 kΩ",
+        "2.6 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "r_π = V_T/I_B = 26 mV / 10 µA = 2.6 kΩ.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m016",
+      "questionText": "A BJT has an Early voltage V_A = 100 V and is biased at I_C = 2 mA. Its small-signal output resistance r_o is:",
+      "options": [
+        "200 kΩ",
+        "5 kΩ",
+        "20 kΩ",
+        "50 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "r_o = V_A/I_C = 100 V / 2 mA = 50 kΩ.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m017",
+      "questionText": "For a BJT with V_A = 50 V at room temperature (V_T = 25 mV), the intrinsic voltage gain g_m r_o is:",
+      "options": [
+        "2000",
+        "200",
+        "1250",
+        "20,000"
+      ],
+      "correctIndex": 0,
+      "explanation": "g_m r_o = (I_C/V_T)(V_A/I_C) = V_A/V_T = 50/0.025 = 2000, independent of the bias current.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m018",
+      "questionText": "Which statement about the hybrid-π parameters of a BJT is correct?",
+      "options": [
+        "g_m depends only on I_C and temperature, not on β",
+        "g_m is proportional to β",
+        "r_π is independent of the bias current",
+        "r_o decreases when the Early voltage increases"
+      ],
+      "correctIndex": 0,
+      "explanation": "g_m = I_C/V_T contains no β; r_π = β/g_m falls as I_C rises, and r_o = V_A/I_C grows with V_A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m019",
+      "questionText": "A BJT with β = 99 is biased at I_E = 2.5 mA (V_T = 25 mV). Its r_e and r_π are respectively:",
+      "options": [
+        "10 Ω and 1 kΩ",
+        "1 Ω and 100 Ω",
+        "25 Ω and 2.5 kΩ",
+        "100 Ω and 10 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "r_e = V_T/I_E = 25 mV/2.5 mA = 10 Ω; r_π = (β + 1) r_e = 100 × 10 Ω = 1 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m020",
+      "questionText": "The small-signal (linear) models of a BJT are valid only when:",
+      "options": [
+        "The AC base-emitter voltage is larger than 0.7 V",
+        "The transistor is in saturation",
+        "The collector current is zero",
+        "The AC base-emitter voltage is much smaller than V_T (a few millivolts)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The exponential i_C-v_BE law is well approximated by its tangent only if v_be ≪ V_T ≈ 25 mV.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m021",
+      "questionText": "The thermal voltage V_T = kT/q at T = 300 K (k = 1.38 × 10^-23 J/K, q = 1.6 × 10^-19 C) is about:",
+      "options": [
+        "0.7 V",
+        "2.59 mV",
+        "259 mV",
+        "25.9 mV"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_T = 1.38 × 10^-23 × 300 / 1.6 × 10^-19 = 25.9 mV.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m022",
+      "questionText": "In the high-frequency hybrid-π model of a BJT, the capacitances C_π and C_µ represent:",
+      "options": [
+        "The base-emitter and base-collector junction capacitances",
+        "The coupling and bypass capacitors of the amplifier",
+        "The collector-emitter and collector-substrate capacitances only",
+        "The capacitances of the DC power supply"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_π (diffusion plus depletion) sits between base and emitter, C_µ (depletion) between base and collector; external coupling and bypass capacitors are separate.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m023",
+      "questionText": "A BJT biased at I_C = 1 mA (V_T = 25 mV) has C_π = 11 pF and C_µ = 1 pF. Its transition frequency f_T = g_m / (2π(C_π + C_µ)) is about:",
+      "options": [
+        "579 MHz",
+        "3.33 GHz",
+        "13.3 MHz",
+        "531 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "g_m = 1 mA/25 mV = 40 mA/V; f_T = 0.04 / (2π × 12 pF) = 531 MHz (using C_π alone would give 579 MHz).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m024",
+      "questionText": "When drawing the small-signal AC equivalent circuit of a BJT amplifier, the DC supply V_CC and the large coupling/bypass capacitors are replaced by:",
+      "options": [
+        "Open circuits",
+        "Current sources",
+        "Short circuits",
+        "Their DC voltages"
+      ],
+      "correctIndex": 2,
+      "explanation": "An ideal DC source has zero AC voltage and a large capacitor has negligible reactance at signal frequency, so both become shorts in the AC model.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m025",
+      "questionText": "A BJT is biased at I_C = 2 mA (V_T = 25 mV) and a 5 mV peak signal is applied between base and emitter. The resulting peak AC collector current is about:",
+      "options": [
+        "0.2 mA",
+        "10 mA",
+        "0.4 mA",
+        "0.04 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "i_c = g_m v_be = (2 mA/25 mV) × 5 mV = 80 mA/V × 5 mV = 0.4 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m026",
+      "questionText": "The CE h-parameter h_oe is measured in:",
+      "options": [
+        "Siemens (mho)",
+        "Ohms",
+        "Volts per ampere",
+        "It is dimensionless"
+      ],
+      "correctIndex": 0,
+      "explanation": "h_oe = i_c/v_ce with the input open; a current divided by a voltage is an admittance, in siemens.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m027",
+      "questionText": "Which pair of CE h-parameters is dimensionless?",
+      "options": [
+        "h_ie and h_oe",
+        "h_ie and h_fe",
+        "h_re and h_fe",
+        "h_re and h_oe"
+      ],
+      "correctIndex": 2,
+      "explanation": "h_re is a voltage ratio and h_fe a current ratio, so both are pure numbers; h_ie is in ohms and h_oe in siemens.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m028",
+      "questionText": "A CE amplifier uses a transistor with h_fe = 120 and h_ie = 2 kΩ. R_C = 4 kΩ and R_L = 4 kΩ (h_re and h_oe neglected). The voltage gain is:",
+      "options": [
+        "−240",
+        "−120",
+        "−60",
+        "−480"
+      ],
+      "correctIndex": 1,
+      "explanation": "AC load = R_C ∥ R_L = 2 kΩ; A_v = −h_fe R_ac/h_ie = −120 × 2 kΩ/2 kΩ = −120.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m029",
+      "questionText": "A CE transistor has h_fe = 100 and h_oe = 25 µS and drives a load R_L = 4 kΩ. Its current gain A_i = h_fe/(1 + h_oe R_L) is about:",
+      "options": [
+        "100",
+        "110",
+        "50",
+        "91"
+      ],
+      "correctIndex": 3,
+      "explanation": "h_oe R_L = 25 µS × 4 kΩ = 0.1; A_i = 100/1.1 = 90.9 ≈ 91.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m030",
+      "questionText": "A CE transistor has h_ie = 1.1 kΩ, h_re = 2.5 × 10^-4, h_fe = 50 and h_oe = 25 µS, with R_L = 1 kΩ. Its exact input impedance Z_i = h_ie − h_re h_fe R_L/(1 + h_oe R_L) is about:",
+      "options": [
+        "1.09 kΩ",
+        "1.21 kΩ",
+        "44.0 kΩ",
+        "12.2 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "h_oe R_L = 0.025; h_re h_fe R_L/(1.025) = 2.5 × 10^-4 × 50 × 1000/1.025 = 12.2 Ω; Z_i = 1100 − 12.2 = 1088 Ω ≈ 1.09 kΩ. Adding the term instead of subtracting it gives 1.11 kΩ, which is wrong.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m031",
+      "questionText": "A transistor data sheet gives h_fe = 100 and h_ie = 2.5 kΩ at the operating point. Taking V_T = 25 mV, the collector bias current is about:",
+      "options": [
+        "10 µA",
+        "0.1 mA",
+        "1 mA",
+        "4 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "g_m = h_fe/h_ie = 100/2.5 kΩ = 40 mA/V; I_C = g_m V_T = 40 mA/V × 25 mV = 1 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m032",
+      "questionText": "A transistor has CE current gain h_fe = 99. Its common-base short-circuit current gain h_fb is:",
+      "options": [
+        "−99",
+        "−100",
+        "+1.01",
+        "−0.99"
+      ],
+      "correctIndex": 3,
+      "explanation": "h_fb = −h_fe/(1 + h_fe) = −99/100 = −0.99, i.e. −α.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m033",
+      "questionText": "A transistor has h_ie = 2 kΩ and h_fe = 99 in the CE configuration. Its common-base input resistance h_ib is about:",
+      "options": [
+        "20 Ω",
+        "2 kΩ",
+        "198 kΩ",
+        "200 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "h_ib = h_ie/(1 + h_fe) = 2000/100 = 20 Ω; this is the emitter resistance r_e.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m034",
+      "questionText": "Which statement about the h-parameter model of a BJT is NOT correct?",
+      "options": [
+        "Its values depend on the Q-point",
+        "It remains accurate at high frequencies without any added capacitances",
+        "h_ie and h_fe correspond to r_π and β of the hybrid-π model",
+        "h_re and h_oe are often neglected in approximate analysis"
+      ],
+      "correctIndex": 1,
+      "explanation": "Data-sheet h-parameters are low-frequency, real-valued quantities; they ignore junction capacitances, so they are not valid at high frequencies. The other statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m035",
+      "questionText": "A CE stage runs at I_C = 1 mA (V_T = 25 mV) with R_C = 5 kΩ and no external load. The transistor's h_oe is 20 µS. Including h_oe, the voltage gain is about:",
+      "options": [
+        "−200",
+        "−182",
+        "−2000",
+        "−167"
+      ],
+      "correctIndex": 1,
+      "explanation": "g_m = 40 mA/V; r_o = 1/h_oe = 50 kΩ; R_C ∥ r_o = 4.55 kΩ; A_v = −40 mA/V × 4.55 kΩ = −182.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m036",
+      "questionText": "A voltage-divider CE amplifier has V_CC = 12 V, R1 = 40 kΩ, R2 = 10 kΩ, R_E = 1 kΩ (fully bypassed), R_C = 4 kΩ and R_L = 4 kΩ. Using the approximate analysis (base current neglected, V_BE = 0.7 V, V_T = 25 mV), the voltage gain is about:",
+      "options": [
+        "−272",
+        "−160",
+        "−2",
+        "−136"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_B = 12 × 10/50 = 2.4 V; I_E = (2.4 − 0.7)/1 kΩ = 1.7 mA; r_e = 25 mV/1.7 mA = 14.7 Ω; A_v = −(4k ∥ 4k)/r_e = −2000/14.7 = −136.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m037",
+      "questionText": "A CE amplifier has R_C = 4.7 kΩ and an unbypassed emitter resistor R_E = 470 Ω. At the Q-point r_e = 13 Ω. The voltage gain is about:",
+      "options": [
+        "−10.3",
+        "−362",
+        "−9.7",
+        "−0.1"
+      ],
+      "correctIndex": 2,
+      "explanation": "A_v = −R_C/(r_e + R_E) = −4700/(13 + 470) = −4700/483 = −9.7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m038",
+      "questionText": "A CE stage with R_C = 10 kΩ has an unbypassed emitter resistance R_E = 1 kΩ, which is much larger than r_e. Its voltage gain is approximately:",
+      "options": [
+        "−100",
+        "−10",
+        "−0.1",
+        "−400"
+      ],
+      "correctIndex": 1,
+      "explanation": "When R_E ≫ r_e, A_v ≈ −R_C/R_E = −10 kΩ/1 kΩ = −10, nearly independent of the transistor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m039",
+      "questionText": "A BJT with β = 99 has r_e = 25 Ω and an unbypassed emitter resistor R_E = 500 Ω. The resistance looking into its base is about:",
+      "options": [
+        "2.5 kΩ",
+        "52.5 kΩ",
+        "49.5 kΩ",
+        "525 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_in(base) = (β + 1)(r_e + R_E) = 100 × 525 Ω = 52.5 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m040",
+      "questionText": "A CE amplifier has an unloaded-source voltage gain A_v = −150, bias resistance R_B = 10 kΩ and r_π = 2.5 kΩ. It is driven by a source with internal resistance R_s = 1 kΩ. The overall gain v_o/v_s is about:",
+      "options": [
+        "−150",
+        "−100",
+        "−107",
+        "−214"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_in = R_B ∥ r_π = 10k ∥ 2.5k = 2 kΩ; A_vs = A_v × R_in/(R_in + R_s) = −150 × 2/3 = −100 (using r_π alone gives −107).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i46_m041",
+      "questionText": "A CE amplifier has R_C = 10 kΩ and the transistor's r_o = 40 kΩ. Its output resistance (looking back into the collector node) is:",
+      "options": [
+        "50 kΩ",
+        "10 kΩ",
+        "8 kΩ",
+        "40 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "R_o = R_C ∥ r_o = 10 × 40/50 = 8 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m042",
+      "questionText": "The phase difference between the input and output voltages of a common-emitter amplifier at mid-band frequencies is:",
+      "options": [
+        "0°",
+        "90°",
+        "180°",
+        "360°"
+      ],
+      "correctIndex": 2,
+      "explanation": "A rise in base voltage raises i_c, increasing the drop across R_C, so the collector voltage falls: the CE stage inverts (negative gain, 180°).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i46_m043",
+      "questionText": "If the emitter bypass capacitor of a CE amplifier opens (becomes disconnected), then:",
+      "options": [
+        "The voltage gain rises and the input resistance falls",
+        "The voltage gain falls and the input resistance rises",
+        "Both the voltage gain and input resistance rise",
+        "The DC Q-point shifts into saturation"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without the bypass, R_E appears in the AC emitter circuit: gain drops to about −R_C/(r_e + R_E) and base input resistance rises to (β + 1)(r_e + R_E). The DC bias is unchanged because the capacitor is open for DC anyway.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m044",
+      "questionText": "In a bypassed CE stage the quiescent voltage drop across R_C is 5 V. With V_T = 25 mV, the voltage gain magnitude (no load) is:",
+      "options": [
+        "20",
+        "125",
+        "200",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "|A_v| = g_m R_C = I_C R_C/V_T = 5 V/25 mV = 200, whatever the separate values of I_C and R_C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m045",
+      "questionText": "An emitter follower has R_E = 1 kΩ (no external load) and r_e = 25 Ω. Its voltage gain is about:",
+      "options": [
+        "40",
+        "0.976",
+        "1.025",
+        "0.025"
+      ],
+      "correctIndex": 1,
+      "explanation": "A_v = R_E/(R_E + r_e) = 1000/1025 = 0.976: slightly less than one with no phase inversion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i46_m046",
+      "questionText": "A common-base amplifier runs at I_E = 0.5 mA (V_T = 25 mV). Its input resistance looking into the emitter is about:",
+      "options": [
+        "50 Ω",
+        "5 kΩ",
+        "12.5 Ω",
+        "20 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "R_in(CB) ≈ r_e = V_T/I_E = 25 mV/0.5 mA = 50 Ω, which is why the CB stage has a very low input resistance.",
+      "difficulty": "easy"
+    }
+  ]
+}

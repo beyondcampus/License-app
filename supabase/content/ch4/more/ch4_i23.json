@@ -1,0 +1,690 @@
+{
+  "topicId": "ch4_i23",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Chip Pins, Composition and Decoding"
+    },
+    {
+      "type": "paragraph",
+      "text": "A memory chip described as W × B holds W words of B bits, so it needs log2 W address pins, B data pins (usually bidirectional), a few control pins such as chip select (CS), output enable (OE) and write enable (WE), and power pins. The same number of bits can be organised in different ways: a 16-Kbit part may be 16K × 1 or 2K × 8, trading address pins for data pins. The 2K × 8 static RAM is a handy reference: 11 address pins, 8 data pins, 3 control pins and 2 power pins fit a 24-pin package. DRAMs halve the address pins by sending the row half and the column half of the address one after the other on the same pins."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{pins} = \\log_2 W + B + n_{ctrl} + n_{pwr} = 11 + 8 + 3 + 2 = 24",
+      "plainText": "Pins = log2(words) + data bits + control pins + power pins; for 2K × 8: 11 + 8 + 3 + 2 = 24"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why the composition rules work: one word of the composed memory is read in a single access, so all its bits must come from chips that are selected together, which is what a row of chips is. Different rows must hold different addresses, so a row is chosen by the address bits that the chips themselves do not use, decoded to one-of-R. Hence rows = total words ÷ words per chip, columns = word width ÷ chip width, the decoder has log2(rows) inputs, and the lowest log2(words per chip) address bits go to every chip."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 16K x 16 memory from 4K x 4 chips (K = 1024)\nrows    = 16K / 4K = 4          columns = 16 / 4 = 4\nchips   = 4 x 4 = 16\naddress = log2(16384) = 14 lines, A13-A0 (word addresses)\nto every chip : A11-A0 (log2 4096 = 12 lines)\ndecoder       : A13 A12 -> 2-to-4; output Yi = CS of all 4 chips in row i\ndata          : column j drives D(4j+3)-D(4j), j = 0..3\nrow 0: 0000H-0FFFH   row 1: 1000H-1FFFH\nrow 2: 2000H-2FFFH   row 3: 3000H-3FFFH"
+    },
+    {
+      "type": "paragraph",
+      "text": "In a larger address space the high-order lines that the memory does not need must still be dealt with. Full decoding feeds every one of them into the chip-select logic, so each location has exactly one address. Partial decoding leaves m of them out; because the chip cannot tell their values apart, each location answers to 2^m addresses and the whole chip appears 2^m times (mirror images or fold-back). That is harmless as long as the images of different chips never overlap and software uses only one of them, but it blocks later expansion into the mirrored space. Linear select is the extreme case: one address line drives each chip select directly and no decoder is used at all."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{images} = 2^{n_{bus} - n_{chip} - n_{sel}}",
+      "plainText": "Images = 2^(bus address lines − lines used inside the chip − lines used for chip select)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 74LS138 in an 8085 system (A15-A0, 2 KB chips)\ninputs  C B A = A13 A12 A11     enables G1 = 1, /G2A = A15, /G2B = A14\nenabled only when A15 = A14 = 0  -> decoded window 0000H-3FFFH\nY0: 0000H-07FFH   Y1: 0800H-0FFFH   Y2: 1000H-17FFH   Y3: 1800H-1FFFH\nY4: 2000H-27FFH   Y5: 2800H-2FFFH   Y6: 3000H-37FFH   Y7: 3800H-3FFFH\nlines used: 11 in the chip + 3 decoded + 2 enables = 16 -> 1 image\nif /G2B is tied to 0 instead of A14: 2^1 = 2 images (Y0 also at 4000H-47FFH)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Scheme",
+          "Logic needed",
+          "Addresses per location",
+          "Main drawback"
+        ],
+        [
+          "Full decoding",
+          "Decoder plus gating on every unused high-order line",
+          "Exactly 1",
+          "Most decoding logic"
+        ],
+        [
+          "Partial decoding",
+          "Decoder on only some of the high-order lines",
+          "2^m, where m lines are ignored",
+          "Mirror images use up space and hinder expansion"
+        ],
+        [
+          "Linear select",
+          "None: one address line per chip select",
+          "Many, with large gaps",
+          "Few chips, wasted space, bus contention if two select lines are active"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Write ability also has a time cost. An EEPROM byte write starts an internal erase-and-program cycle of several milliseconds, but many parts accept a whole page per cycle: at 10 ms per cycle, 96 bytes take 0.96 s byte by byte but only 3 × 10 ms = 30 ms in 32-byte pages. Flash must erase a whole block before it can be reprogrammed and each block survives only about 10^4 to 10^5 erase cycles, so flash file systems buffer small changes in RAM and spread erasures over all blocks (wear levelling). DRAM is the opposite extreme: fast, unlimited writes, but bits that must be refreshed every few milliseconds."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in composition and address-map questions:",
+      "items": [
+        "Counting address lines from bits instead of words: a 64-Kbit chip organised as 8K × 8 has 13 address lines, not 16.",
+        "Adding a decoder for width expansion: chips placed side by side share one chip select and the same address lines.",
+        "Off-by-one range ends: the last address is start + size − 1, so an 8 KB block starting at 6000H ends at 7FFFH, not 8000H.",
+        "Mixing K = 1000 and K = 1024: memory sizes use K = 1024, so a span of 1000H addresses is 4096 bytes = 4 KB.",
+        "Confusing decoder inputs with outputs: selecting one of 64 rows needs a 6-to-64 decoder, i.e. 6 address inputs.",
+        "Forgetting byte lanes: in a byte-addressable memory with a 32-bit data bus, A1–A0 pick the byte, so the chip address lines start at A2."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any address-map question, write the address in binary: the bits used inside the chip are x's, the decoded bits are fixed 0s and 1s, and each ignored bit doubles the number of images. The first address has all x's = 0 and the last has all x's = 1."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i23_m001",
+      "questionText": "In Vahid and Givargis's classification, which memory has its bits set by masks during chip fabrication, giving it the lowest write ability and the highest storage permanence?",
+      "options": [
+        "OTP ROM",
+        "EPROM",
+        "Mask-programmed ROM",
+        "Flash memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "Mask-programmed ROM connections are fixed when the chip is fabricated, so it can never be rewritten (lowest write ability) and its bits never change unless the chip is damaged (highest permanence). OTP ROM is programmed once by the user with a ROM programmer, while EPROM and flash can be erased and rewritten.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m002",
+      "questionText": "Which memory sits at the low end of the storage-permanence scale, starting to lose its bits almost immediately after they are written unless it is refreshed?",
+      "options": [
+        "DRAM",
+        "SRAM",
+        "NVRAM",
+        "EEPROM"
+      ],
+      "correctIndex": 0,
+      "explanation": "A DRAM cell stores its bit as charge on a tiny capacitor that leaks away within milliseconds, so every row must be refreshed periodically. SRAM holds data without refresh as long as power is applied, and NVRAM and EEPROM are nonvolatile.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m003",
+      "questionText": "Which group lists only in-system programmable memories, i.e. memories that the embedded processor itself can write without the chip being removed from the board?",
+      "options": [
+        "Mask ROM, OTP ROM, EEPROM and flash",
+        "EPROM, EEPROM, flash and DRAM",
+        "OTP ROM, EPROM, NVRAM and SRAM",
+        "EEPROM, flash, NVRAM and SRAM"
+      ],
+      "correctIndex": 3,
+      "explanation": "In-system programmable memories are those in the high and middle range of write ability: RAM, NVRAM, EEPROM and flash. Mask ROM is fixed at fabrication, and OTP ROM and EPROM need an external programmer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m004",
+      "questionText": "Which statement about one-time programmable (OTP) ROM is correct?",
+      "options": [
+        "It is erased by exposing the die to ultraviolet light through a quartz window",
+        "The user programs it once by having a ROM programmer blow fuses; it cannot be erased, so its write ability is very low and its storage permanence very high",
+        "It can be rewritten byte by byte by the processor while installed in the system",
+        "Its contents are defined by the metal masks used when the chip is fabricated"
+      ],
+      "correctIndex": 1,
+      "explanation": "An OTP ROM ships blank, and a ROM programmer blows the fuses where connections should not exist; a blown fuse cannot be restored. Being cheaper than erasable parts and hard to change by accident, it is common in final products. UV erasure describes EPROM, in-system byte writes describe EEPROM, and mask-defined contents describe mask ROM.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m005",
+      "questionText": "Vahid lists typical uses of ROM in an embedded system. Which of the following is NOT one of them?",
+      "options": [
+        "Holding the stack and the local variables of running tasks",
+        "Storing the program of a general-purpose processor",
+        "Storing constant data such as lookup tables",
+        "Implementing a combinational circuit directly as a truth table"
+      ],
+      "correctIndex": 0,
+      "explanation": "A ROM is not written during normal operation, so it holds programs, constant data and the truth tables of combinational functions. The stack and local variables change constantly and must live in RAM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m006",
+      "questionText": "On Vahid's write-ability scale, which memories lie in the middle range, where the embedded processor itself can write the memory but much more slowly than it can read it?",
+      "options": [
+        "SRAM and DRAM",
+        "EPROM and OTP ROM",
+        "EEPROM and flash",
+        "Mask-programmed ROM only"
+      ],
+      "correctIndex": 2,
+      "explanation": "The high end is RAM, written quickly by the processor; the middle range is EEPROM and flash, written in-system but slowly; the lower range is EPROM and OTP ROM, which need an external programmer; the low end is mask ROM, written only during fabrication.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m007",
+      "questionText": "A program changes a single byte inside a flash block that already holds data. Why can this take much longer than rewriting one byte of EEPROM?",
+      "options": [
+        "Flash must be exposed to ultraviolet light before any byte can be rewritten",
+        "The whole block must be read out, erased and written back with the modified byte, because flash can erase only whole blocks",
+        "Flash can be written only by an external programmer after the chip is removed",
+        "Each flash write must wait until a DRAM-style refresh cycle has finished"
+      ],
+      "correctIndex": 1,
+      "explanation": "Programming can only change bits from 1 to 0; restoring 1s needs an erase, and flash erases whole blocks. Updating one byte in place therefore means copying the block, erasing it and reprogramming it, whereas EEPROM can erase and rewrite the single word.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m008",
+      "questionText": "Which memory keeps its contents after external power is removed and can still be written as fast as it is read, with no limit on the number of writes?",
+      "options": [
+        "Flash memory",
+        "EEPROM",
+        "DRAM",
+        "Battery-backed NVRAM (SRAM with its own battery)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Battery-backed NVRAM is SRAM with a permanently connected battery, so writes run at SRAM speed with unlimited cycles and the data survive power loss. Flash and EEPROM are nonvolatile but write slowly and wear out, and DRAM is volatile.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m009",
+      "questionText": "What is pseudo-static RAM (PSRAM)?",
+      "options": [
+        "An SRAM with its own battery so that it becomes nonvolatile",
+        "An SRAM whose contents are copied into EEPROM when power fails",
+        "A DRAM with a built-in refresh controller, so that to the processor it behaves like an SRAM",
+        "A mask ROM whose contents are copied into SRAM at power-up"
+      ],
+      "correctIndex": 2,
+      "explanation": "PSRAM uses dense one-transistor DRAM cells but refreshes itself internally, giving a low-cost, high-density substitute for SRAM. Battery-backed SRAM and SRAM paired with EEPROM or flash are the two forms of NVRAM.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m010",
+      "questionText": "An embedded product needs (i) calibration constants that are changed a few times a year in the field, one byte at a time, (ii) a large nonvolatile area for storing photos, and (iii) firmware for a product made in millions of units that will never be updated. Which assignment is the best match?",
+      "options": [
+        "(i) EEPROM, (ii) flash, (iii) mask-programmed ROM",
+        "(i) mask-programmed ROM, (ii) EEPROM, (iii) flash",
+        "(i) flash, (ii) DRAM, (iii) EPROM",
+        "(i) SRAM, (ii) mask-programmed ROM, (iii) EEPROM"
+      ],
+      "correctIndex": 0,
+      "explanation": "EEPROM suits small data rewritten occasionally word by word, flash suits large nonvolatile data such as photos (dense, fast block erase), and mask ROM gives the lowest unit cost for high-volume code that never changes because its mask NRE is spread over millions of units.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m011",
+      "questionText": "Which list orders memories correctly from HIGHEST to LOWEST storage permanence?",
+      "options": [
+        "Flash, mask ROM, DRAM, SRAM",
+        "SRAM, DRAM, flash, mask ROM",
+        "Mask ROM, DRAM, flash, SRAM",
+        "Mask ROM, flash, SRAM, DRAM"
+      ],
+      "correctIndex": 3,
+      "explanation": "Mask ROM keeps its bits for the life of the product, flash retains data without power for about ten years, SRAM keeps data only while powered, and DRAM loses data within milliseconds unless refreshed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m012",
+      "questionText": "Many EEPROMs provide a READY/BUSY output. What is it used for during in-system programming?",
+      "options": [
+        "It shows that the EEPROM is being refreshed, as a DRAM would be",
+        "It tells the processor that an internal erase-and-program cycle lasting milliseconds is still in progress, so the next write must wait",
+        "It signals that the ultraviolet erase of the chip has finished",
+        "It requests the system bus so that the EEPROM can perform a DMA transfer"
+      ],
+      "correctIndex": 1,
+      "explanation": "EEPROM writes are slow because each word is erased and then programmed with an internally generated higher voltage. The on-chip controller holds BUSY until the write finishes, and the processor polls this pin (or a status bit) before the next write.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m013",
+      "questionText": "A memory is organised as 16K × 4 (K = 1024). How many address lines and data lines does it have, and what is its capacity in bits?",
+      "options": [
+        "16 address lines, 4 data lines, 65,536 bits",
+        "14 address lines, 4 data lines, 65,536 bits",
+        "14 address lines, 4 data lines, 16,384 bits",
+        "12 address lines, 16 data lines, 65,536 bits"
+      ],
+      "correctIndex": 1,
+      "explanation": "16K = 2^14 words need log2(16,384) = 14 address lines; each word has 4 bits, so there are 4 data lines and 16,384 × 4 = 65,536 bits (64 Kbit).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m014",
+      "questionText": "A combinational circuit with 6 inputs and 3 outputs is to be implemented directly as a ROM truth table (the inputs drive the address lines and the outputs are the data lines). What is the minimum ROM size?",
+      "options": [
+        "6 × 3 (18 bits)",
+        "64 × 6 (384 bits)",
+        "8 × 3 (24 bits)",
+        "64 × 3 (192 bits)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every input combination needs its own ROM word: 2^6 = 64 words, each holding the 3 output bits, so 64 × 3 = 192 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m015",
+      "questionText": "A 32K × 8 SRAM chip (K = 1024) has separate address pins, 8 bidirectional data pins, three control inputs (CS, OE, WE), one supply pin and one ground pin. What is the minimum number of pins?",
+      "options": [
+        "28",
+        "23",
+        "31",
+        "36"
+      ],
+      "correctIndex": 0,
+      "explanation": "32K = 2^15 words need 15 address pins; adding 8 data, 3 control and 2 power pins gives 15 + 8 + 3 + 2 = 28, the familiar 28-pin 32K × 8 SRAM package.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m016",
+      "questionText": "A memory chip has 11 address inputs and 16 data lines (K = 1024). What is its capacity?",
+      "options": [
+        "2048 words × 16 bits = 32,768 bits (32 KB)",
+        "11 words × 16 bits = 176 bits",
+        "2048 words × 16 bits = 32,768 bits (4 KB)",
+        "65,536 words × 11 bits = 720,896 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "11 address inputs select 2^11 = 2048 words and each word has 16 bits, so the chip holds 2048 × 16 = 32,768 bits = 4096 bytes = 4 KB (a 2K × 16 organisation).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m017",
+      "questionText": "A 64-Kbit static RAM is sold in two organisations, 64K × 1 and 8K × 8 (K = 1024), each with one bidirectional data pin per data bit. How many address-plus-data pins does each organisation need?",
+      "options": [
+        "64K × 1: 17 pins; 8K × 8: 17 pins",
+        "64K × 1: 16 pins; 8K × 8: 13 pins",
+        "64K × 1: 17 pins; 8K × 8: 14 pins",
+        "64K × 1: 17 pins; 8K × 8: 21 pins"
+      ],
+      "correctIndex": 3,
+      "explanation": "64K × 1 needs 16 address + 1 data = 17 pins; 8K × 8 needs 13 address + 8 data = 21 pins. The bit count is the same, but the wider organisation trades address pins for data pins.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m018",
+      "questionText": "A 4K × 32 memory is built from 4K × 8 chips. How many chips are needed, how many address lines does the composed memory use, and is a chip-select decoder required?",
+      "options": [
+        "4 chips, 12 address lines, no decoder",
+        "4 chips, 14 address lines, a 2-to-4 decoder",
+        "32 chips, 12 address lines, no decoder",
+        "4 chips, 12 address lines, a 2-to-4 decoder on the two highest address lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only the width grows (8 → 32 bits), so 32 / 8 = 4 chips sit side by side, sharing A11–A0 (2^12 = 4096 words) and one chip select; each supplies 8 of the 32 data bits and no decoder is needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m019",
+      "questionText": "A 64K × 8 memory is built from 16K × 8 chips on a 16-bit address bus A15–A0, with each chip holding one contiguous quarter of the addresses. Which address lines go to every chip, and which drive the chip-select decoder?",
+      "options": [
+        "A15–A0 to every chip; no decoder is needed",
+        "A11–A0 to every chip; A15–A12 to a 4-to-16 decoder",
+        "A13–A0 to every chip; A15–A14 to a 2-to-4 decoder",
+        "A14–A0 to every chip; A15 to a 1-to-2 decoder"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each 16K chip needs log2(16,384) = 14 lines, A13–A0, shared by all chips. There are 64K / 16K = 4 chips, so the remaining two lines A15–A14 feed a 2-to-4 decoder whose outputs drive the four chip selects.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m020",
+      "questionText": "A 64K × 16 memory is built from 16K × 4 chips using a decoder on the high-order address bits. How many chips are needed, and how many chips does each decoder output enable at the same time?",
+      "options": [
+        "16 chips; each decoder output enables 1 chip",
+        "16 chips; each decoder output enables 4 chips",
+        "8 chips; each decoder output enables 2 chips",
+        "4 chips; each decoder output enables 4 chips"
+      ],
+      "correctIndex": 1,
+      "explanation": "Rows = 64K / 16K = 4 and columns = 16 / 4 = 4, so 4 × 4 = 16 chips. A 2-to-4 decoder selects a row, and all 4 chips of that row share its output because together they supply the 16-bit word.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m021",
+      "questionText": "A 2 MB memory organised as 2M × 8 (M = 2^20) is to be built from 256K × 4 chips (K = 2^10), ignoring any address multiplexing. How many chips are needed, what decoder selects a row, and how many address lines go to every chip?",
+      "options": [
+        "16 chips, a 3-to-8 decoder, 18 lines to every chip",
+        "8 chips, a 3-to-8 decoder, 18 lines to every chip",
+        "16 chips, a 4-to-16 decoder, 17 lines to every chip",
+        "16 chips, a 3-to-8 decoder, 21 lines to every chip"
+      ],
+      "correctIndex": 0,
+      "explanation": "Rows = 2M / 256K = 8 and columns = 8 / 4 = 2, so 16 chips. The memory needs 21 address lines (2^21 words): 18 of them (A17–A0, 2^18 = 256K) go to every chip, and the top 3 (A20–A18) drive a 3-to-8 decoder that selects one row of two chips.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m022",
+      "questionText": "A byte-addressable 16 MB memory (MB = 2^20 bytes) with a 32-bit data bus is built from 1M × 8 chips arranged in rows of four chips, one chip per byte lane; A1–A0 generate the byte enables. Which address lines connect to every chip, and which drive the row decoder?",
+      "options": [
+        "A19–A0 to every chip; A23–A20 to a 4-to-16 decoder",
+        "A21–A2 to every chip; A23–A22 and A1–A0 to a 4-to-16 decoder",
+        "A19–A0 to every chip; A21–A20 to a 2-to-4 decoder",
+        "A21–A2 to every chip; A23–A22 to a 2-to-4 decoder"
+      ],
+      "correctIndex": 3,
+      "explanation": "16 MB needs 24 byte-address bits. A1–A0 choose the byte lane, each 1M-word chip needs 20 lines (A21–A2), and 16 chips / 4 per row = 4 rows are selected by A23–A22 through a 2-to-4 decoder.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m023",
+      "questionText": "A 4096-byte memory is to be built from 256 × 8 RAM chips. How many chips are needed, how many address lines are common to all chips, and what size of decoder generates the chip selects?",
+      "options": [
+        "16 chips; 12 common lines; a 4-to-16 decoder",
+        "16 chips; 8 common lines; a 4-to-16 decoder",
+        "8 chips; 8 common lines; a 3-to-8 decoder",
+        "16 chips; 4 common lines; an 8-to-256 decoder"
+      ],
+      "correctIndex": 1,
+      "explanation": "4096 / 256 = 16 chips, and 4096 bytes need 12 address lines. Each chip uses log2(256) = 8 of them (A7–A0) in common, and the remaining 4 (A11–A8) feed a 4-to-16 decoder, one output per chip.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m024",
+      "questionText": "How many 64-Kbit RAM chips organised as 8K × 8 are needed to build 256 KB of byte-organised memory (K = 1024), and how many address inputs does the chip-select decoder need?",
+      "options": [
+        "4 chips; 2 decoder inputs",
+        "32 chips; 32 decoder inputs",
+        "32 chips; 5 decoder inputs",
+        "256 chips; 8 decoder inputs"
+      ],
+      "correctIndex": 2,
+      "explanation": "256 KB = 256K × 8 = 2,097,152 bits and one chip holds 65,536 bits, so 32 chips, each 8 bits wide, stacked as 256K / 8K = 32 rows. Selecting one of 32 rows needs log2 32 = 5 decoder inputs (a 5-to-32 decoder).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m025",
+      "questionText": "An 8-bit, byte-addressable system must fill the address range 0000H–7FFFH with RAM built from 4K × 4 chips (K = 1024). How many chips are needed, and how are they arranged?",
+      "options": [
+        "8 chips: 8 rows of 1",
+        "16 chips: 4 rows of 4",
+        "32 chips: 16 rows of 2",
+        "16 chips: 8 rows of 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "0000H–7FFFH spans 8000H = 32,768 bytes = 32K × 8. Rows = 32K / 4K = 8 and columns = 8 / 4 = 2, so 16 chips; each row of two chips covers 4 KB (1000H addresses) and supplies both 4-bit halves of the byte.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m026",
+      "questionText": "In a byte-addressable system, a memory chip is selected for addresses 8000H through 9FFFH. What is its capacity (KB = 1024 bytes)?",
+      "options": [
+        "8 KB",
+        "4 KB",
+        "16 KB",
+        "32 KB"
+      ],
+      "correctIndex": 0,
+      "explanation": "Size = 9FFFH − 8000H + 1 = 2000H = 8192 bytes = 8 KB.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m027",
+      "questionText": "A 16 KB RAM (KB = 1024 bytes) in a byte-addressable system starts at address 4000H. What is its last address?",
+      "options": [
+        "8000H",
+        "5FFFH",
+        "7FFFH",
+        "BFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "16 KB = 4000H bytes, so the last address is 4000H + 4000H − 1 = 7FFFH; 8000H is the first address after the RAM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m028",
+      "questionText": "Four 8K × 8 chips are mapped one after another from address 0000H in a byte-addressable system, chip 0 first. What address range does chip 2 occupy?",
+      "options": [
+        "2000H–3FFFH",
+        "4000H–5FFFH",
+        "6000H–7FFFH",
+        "4000H–4FFFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each chip spans 8K = 2000H addresses: chip 0 at 0000H–1FFFH, chip 1 at 2000H–3FFFH and chip 2 at 4000H–5FFFH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m029",
+      "questionText": "In a system with a 16-bit address bus, a 3-to-8 decoder (74LS138, permanently enabled) has its inputs C B A connected to A15 A14 A13, and each output selects one 8 KB memory chip. Which address range does output Y5 select?",
+      "options": [
+        "A000H–BFFFH",
+        "8000H–9FFFH",
+        "C000H–DFFFH",
+        "5000H–5FFFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Y5 is active when A15 A14 A13 = 101 while A12–A0 range over 8 KB, so the range runs from 1010 0000 0000 0000 = A000H to 1011 1111 1111 1111 = BFFFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m030",
+      "questionText": "A 74LS138 decoder has C B A = A13 A12 A11 and is enabled only when A15 = 0 and A14 = 1 (address bus A15–A0). Each output selects a 2 KB chip whose address inputs are A10–A0. Which address range does output Y3 select?",
+      "options": [
+        "1800H–1FFFH",
+        "5000H–57FFH",
+        "D800H–DFFFH",
+        "5800H–5FFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "The enables require A15 A14 = 01 and Y3 requires A13 A12 A11 = 011, so the address is 0101 1xxx xxxx xxxx: from 0101 1000 0000 0000 = 5800H to 0101 1111 1111 1111 = 5FFFH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m031",
+      "questionText": "A small computer has four 128 × 8 RAM chips (RAM 1 at 0000H–007FH, RAM 2 at 0080H–00FFH, and so on up to 01FFH) and one 512 × 8 ROM at 0200H–03FFH, fully decoded on address lines A9–A0. Which lines select one of the four RAM chips, and which line separates RAM from ROM?",
+      "options": [
+        "A1–A0 select the RAM chip; A9 = 0 selects RAM and A9 = 1 selects ROM",
+        "A9–A8 select the RAM chip; A7 separates RAM from ROM",
+        "A8–A7 select the RAM chip; A9 = 0 selects RAM and A9 = 1 selects ROM",
+        "A8–A7 select the RAM chip; A9 = 1 selects RAM and A9 = 0 selects ROM"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each RAM chip uses A6–A0 (128 = 2^7) and the four chips occupy consecutive 80H blocks, so A8 A7 = 00, 01, 10, 11 pick RAM 1–4. The ROM uses A8–A0 (512 = 2^9), and A9 is 0 throughout 0000H–01FFH (RAM) and 1 throughout 0200H–03FFH (ROM).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m032",
+      "questionText": "An 8085 system (16-bit address bus, byte-addressable) needs 16 KB of ROM starting at 0000H built from 4K × 8 EPROMs, followed immediately by 8 KB of RAM built from 2K × 8 SRAMs (K = 1024). What is the RAM address range, and how many memory chips are used in total?",
+      "options": [
+        "4000H–5FFFH; 6 chips",
+        "4000H–5FFFH; 8 chips",
+        "2000H–3FFFH; 8 chips",
+        "4000H–7FFFH; 8 chips"
+      ],
+      "correctIndex": 1,
+      "explanation": "ROM: 16 KB / 4 KB = 4 EPROMs covering 0000H–3FFFH. RAM: 8 KB / 2 KB = 4 SRAMs from 4000H to 4000H + 2000H − 1 = 5FFFH. Total 4 + 4 = 8 chips.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m033",
+      "questionText": "In a 64 KB byte-addressable space, ROM occupies 0000H–3FFFH and RAM occupies 8000H–FFFFH, with nothing else decoded. How much memory is installed, and how much address space is unused (KB = 1024 bytes)?",
+      "options": [
+        "24 KB installed; 40 KB unused",
+        "36 KB installed; 28 KB unused",
+        "32 KB installed; 32 KB unused",
+        "48 KB installed; 16 KB unused"
+      ],
+      "correctIndex": 3,
+      "explanation": "ROM: 3FFFH − 0000H + 1 = 4000H = 16 KB; RAM: FFFFH − 8000H + 1 = 8000H = 32 KB. Installed = 48 KB, leaving 64 − 48 = 16 KB (4000H–7FFFH) unused.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m034",
+      "questionText": "An 8 KB memory chip uses address lines A12–A0, and its chip select is driven by A15 alone (selected when A15 = 0); A14 and A13 are not decoded. In a 16-bit address space, at how many different address ranges (images) does the chip appear?",
+      "options": [
+        "4",
+        "1",
+        "2",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two address lines (A14 and A13) are ignored, so each location answers to 2^2 = 4 addresses: the chip appears at 0000H–1FFFH, 2000H–3FFFH, 4000H–5FFFH and 6000H–7FFFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m035",
+      "questionText": "A 2 KB chip uses A10–A0, and its chip select is A15 AND (NOT A14), with A13–A11 not decoded, on a 16-bit address bus. Over which total address range does the chip respond, and how many images does it have?",
+      "options": [
+        "8000H–87FFH, 1 image",
+        "8000H–BFFFH, 8 images",
+        "8000H–FFFFH, 16 images",
+        "4000H–7FFFH, 8 images"
+      ],
+      "correctIndex": 1,
+      "explanation": "The chip is selected when A15 A14 = 10, i.e. anywhere in 8000H–BFFFH (16 KB). Three lines (A13–A11) are ignored, so the 2 KB chip repeats 2^3 = 8 times: 8000H–87FFH, 8800H–8FFFH, …, B800H–BFFFH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m036",
+      "questionText": "Which statement about partial address decoding is NOT correct?",
+      "options": [
+        "It uses fewer decoding gates than full decoding",
+        "Each device appears at several mirrored (fold-back) address ranges",
+        "Every memory location still has exactly one unique address",
+        "Later expansion is harder because the mirror images already occupy address space"
+      ],
+      "correctIndex": 2,
+      "explanation": "Partial decoding ignores some high-order address lines, so each location answers to 2^m addresses, where m is the number of ignored lines; a unique address for every location is the property of full decoding. Partial decoding saves logic but wastes address space and complicates expansion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m037",
+      "questionText": "In linear-select decoding, each of several high-order address lines is wired directly to the chip select of one memory chip, with no decoder. What is its main drawback?",
+      "options": [
+        "It wastes most of the address space, and an address with two select lines active enables two chips at once, causing bus contention on a read",
+        "It needs a large multi-level decoder, which makes it the most expensive scheme",
+        "It gives every location a unique address but needs more address lines than the CPU has",
+        "It can be used only with ROM chips, never with RAM"
+      ],
+      "correctIndex": 0,
+      "explanation": "Linear select needs no decoder at all, which is its advantage. But each line serves only one chip, most address combinations are unusable or mirrored, and software must never activate two select lines together, or two chips will drive the data bus at once.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m038",
+      "questionText": "When several memory chips are stacked to increase the number of words, their data lines are wired together. Why does this not cause a conflict?",
+      "options": [
+        "The data lines are ORed together, so every chip may drive the bus at once",
+        "Each chip drives a different bit position of the data word",
+        "The decoder converts the outputs of all chips into one serial stream",
+        "The chips have tri-state outputs, and only the chip whose chip select is active drives the bus while the others stay in the high-impedance state"
+      ],
+      "correctIndex": 3,
+      "explanation": "A deselected chip's output buffers float (high impedance), so exactly one chip, chosen by the decoder through its chip select, places data on the shared bus. Different bit positions per chip describe width expansion, not depth expansion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m039",
+      "questionText": "A design needs a 2K × 4 memory, but the only chip available is 8K × 8 (K = 1024). Following Vahid's approach, how is the larger chip used?",
+      "options": [
+        "It cannot be used, because the chip must match the required size exactly",
+        "Connect A10–A0 to the system, hold the two unneeded high-order address inputs (A12, A11) at a fixed level, and leave four data lines unused",
+        "Use four 8K × 8 chips in parallel so that the widths match",
+        "Connect only A3–A0, because 4 data bits are needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "When the available memory is larger than required, the unneeded high-order address bits are simply ignored (held constant) and the extra data lines are left unused; the chip then behaves as a 2K × 4 memory, and the remaining cells are wasted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m040",
+      "questionText": "Which statement about memory composition is NOT correct?",
+      "options": [
+        "Increasing the number of words needs a decoder on the high-order address lines",
+        "Chips connected side by side to widen the word share all address lines and the chip select",
+        "Doubling the word width from 8 to 16 bits needs one extra address line and a 1-to-2 decoder",
+        "Chips needed = (words required / words per chip) × (bits required / bits per chip)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Width expansion only places chips side by side; all of them are selected together and the number of address lines does not change. Extra address lines and a decoder are needed only when the number of words grows.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m041",
+      "questionText": "On a typical SRAM chip, what is the difference between chip select (CS) and output enable (OE)?",
+      "options": [
+        "CS chooses between read and write, while OE selects the row address",
+        "CS and OE are two names for the same pin",
+        "OE is used only during writes, to latch the data into the cells",
+        "CS activates the chip for any read or write access, while OE turns on its output buffers so that the selected chip drives the data bus during a read"
+      ],
+      "correctIndex": 3,
+      "explanation": "Chip select (chip enable) decides whether the chip takes part in the current cycle, output enable controls its tri-state data outputs during reads, and the separate write enable decides whether the cycle is a write.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m042",
+      "questionText": "Four 8-bit-wide memory chips are placed side by side to form a 32-bit word, and each chip has a cycle time of 50 ns. What is the maximum data bandwidth of the composed memory (MB = 10^6 bytes)?",
+      "options": [
+        "80 MB/s",
+        "20 MB/s",
+        "640 MB/s",
+        "80 Mbit/s"
+      ],
+      "correctIndex": 0,
+      "explanation": "All four chips are accessed in the same cycle, so every 50 ns delivers 4 bytes: 4 B / 50 ns = 80 × 10^6 B/s = 80 MB/s (640 Mbit/s). One chip alone would give 20 MB/s.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i23_m043",
+      "questionText": "A 64-word memory is built from four 16-word modules using low-order interleaving, i.e. the two least significant address bits select the module. In which module, and at which word within that module, is address 29 (decimal) stored?",
+      "options": [
+        "Module 1, word 13",
+        "Module 7, word 1",
+        "Module 1, word 7",
+        "Module 3, word 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "29 = 011101 in binary. Low-order interleaving uses the two LSBs (01) as the module number and the upper four bits (0111 = 7) as the word within the module. High-order (block) selection would instead give module 1, word 13.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i23_m044",
+      "questionText": "An EEPROM needs 5 ms for each internal write cycle and can write either a single byte or a whole 64-byte page per cycle. Ignoring bus transfer time, how long does it take to store 256 bytes (starting on a page boundary) byte by byte, and how long using page writes?",
+      "options": [
+        "1.28 s byte by byte; 5 ms with page writes",
+        "1.28 s byte by byte; 20 ms with page writes",
+        "1.28 s byte by byte; 320 ms with page writes",
+        "20 ms byte by byte; 1.28 s with page writes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Byte mode: 256 cycles × 5 ms = 1280 ms = 1.28 s. Page mode: 256 / 64 = 4 pages × 5 ms = 20 ms, which is why EEPROM drivers group writes into pages.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m045",
+      "questionText": "A data logger erases and rewrites one flash block every minute, and each block is rated for 100,000 erase cycles. Approximately how long will the flash last if wear levelling spreads the erasures evenly over 64 blocks (1 year = 365 days)?",
+      "options": [
+        "About 69 days",
+        "About 730 years",
+        "About 1.2 years",
+        "About 12.2 years"
+      ],
+      "correctIndex": 3,
+      "explanation": "Available erasures = 64 × 100,000 = 6.4 × 10^6; at one per minute that is 6.4 × 10^6 min ÷ (60 × 24 × 365 min per year) ≈ 12.2 years. Without wear levelling one block would wear out after 100,000 min ≈ 69 days.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i23_m046",
+      "questionText": "A 4-to-16 decoder drives the chip selects of 4K × 8 memory chips, one chip per decoder output (K = 1024). What is the largest memory that can be built this way, and how many address lines does it use?",
+      "options": [
+        "64 KB, using 16 address lines",
+        "16 KB, using 14 address lines",
+        "64 KB, using 12 address lines",
+        "64 KB, using 28 address lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "16 outputs select 16 chips of 4 KB, giving 16 × 4 KB = 64 KB. Each chip needs 12 lines (A11–A0) and the decoder adds 4 inputs (A15–A12), so 16 address lines in total; the 16 decoder outputs are chip selects, not address lines.",
+      "difficulty": "easy"
+    }
+  ]
+}

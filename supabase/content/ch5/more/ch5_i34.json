@@ -1,0 +1,498 @@
+{
+  "topicId": "ch5_i34",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: IPv6 Addressing, Headers and Transition"
+    },
+    {
+      "type": "paragraph",
+      "text": "IPv4 offers only 2^32, about 4.3 billion, addresses, and the Internet grew far faster than its designers expected, so the free pool ran out despite CIDR and NAT. IPv6 has 2^128, about 3.4 × 10^38 or 340 undecillion, addresses, written as eight groups of four hexadecimal digits (16 bits per group), for example 2001:0db8:85a3:0000:0000:8a2e:0370:7334, which shortens to 2001:db8:85a3::8a2e:370:7334. Its other improvements are a simpler fixed header that routers process faster, end-to-end addressing without NAT, better multicast support and automatic address configuration. Three families of methods let the two versions coexist: dual stack (run both), tunnelling (IPv6 packets inside IPv4 packets) and translation (convert between the two)."
+    },
+    {
+      "type": "note",
+      "text": "IPsec in IPv6 is often described as 'mandatory', but that is out of date. AH and ESP are defined as IPv6 extension headers and early node requirements (RFC 4294, 2006) made IPsec support mandatory, but RFC 6434 (2011) and RFC 8504 (2019) only recommend it, and actually using IPsec has always been optional, exactly as in IPv4."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: shortening and expanding IPv6 addresses\nFull form:                2001:0db8:85a3:0000:0000:8a2e:0370:7334\n1. Drop leading zeros:    2001:db8:85a3:0:0:8a2e:370:7334\n2. Longest zero run -> :: 2001:db8:85a3::8a2e:370:7334\nExpanding: 6 groups are written, so :: stands for 8 - 6 = 2 groups of 0000\nTie between two runs: 2001:db8:0:0:ab:0:0:5 -> compress the first -> 2001:db8::ab:0:0:5\nA single zero group is not replaced by ::  -> 2001:db8:0:1:1:1:1:1 stays as written\nCanonical form (RFC 5952): lowercase hex, no leading zeros, :: once on the longest run"
+    },
+    {
+      "type": "formula",
+      "latex": "N_{\\text{subnets}} = 2^{\\,p_2 - p_1}, \\qquad N_{\\text{addresses}} = 2^{\\,128 - p}",
+      "plainText": "A /p1 prefix holds 2^(p2 − p1) subnets of length /p2, and a /p prefix holds 2^(128 − p) addresses (no network or broadcast address is subtracted in IPv6)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: MAC 00:0C:29:AB:CD:EF on a LAN with prefix 2001:db8:1:1::/64\nSplit the MAC and insert FFFE:        000C29 | FFFE | ABCDEF\nFlip the U/L bit of the first byte (7th bit from the left, value 0x02): 00 -> 02\nInterface ID:           020c:29ff:feab:cdef\nLink-local address:     fe80::20c:29ff:feab:cdef\nGlobal address (SLAAC): 2001:db8:1:1:20c:29ff:feab:cdef\nSolicited-node group:   ff02::1:ff + last 24 bits -> ff02::1:ffab:cdef\nIts Ethernet MAC:       33:33 + last 32 bits of the group -> 33:33:ff:ab:cd:ef\nMany hosts now use a stable random ID (RFC 7217) or temporary IDs (RFC 8981) instead"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: IPv6 addresses that embed an IPv4 address (192.0.2.33)\nIPv4 in hex: 192 = c0, 0 = 00, 2 = 02, 33 = 21 -> c000:0221\n6to4 site prefix:   2002:c000:221::/48, which leaves 2^(64-48) = 65,536 /64 subnets\nNAT64 (well-known prefix 64:ff9b::/96): DNS64 answers with 64:ff9b::c000:221\nIPv4-mapped form used by dual-stack socket APIs: ::ffff:192.0.2.33\nTunnels: 6in4 and 6to4 use IPv4 protocol 41; Teredo uses UDP port 3544 and 2001::/32"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Mechanism",
+          "How it works",
+          "Typical use"
+        ],
+        [
+          "Dual stack",
+          "Hosts and routers run IPv4 and IPv6 side by side; DNS A or AAAA answers pick the version",
+          "The normal long-term approach"
+        ],
+        [
+          "Configured tunnel (6in4)",
+          "IPv6 packet inside an IPv4 packet (protocol 41) between two fixed endpoints",
+          "Linking IPv6 islands across an IPv4 core"
+        ],
+        [
+          "6to4",
+          "Automatic tunnel; the site prefix 2002:WWXX:YYZZ::/48 embeds its public IPv4 address",
+          "Early automatic tunnelling; public relays deprecated in 2015 (RFC 7526)"
+        ],
+        [
+          "Teredo",
+          "IPv6 inside UDP so that it passes IPv4 NAT; addresses in 2001::/32",
+          "A single host behind a NAT"
+        ],
+        [
+          "ISATAP",
+          "Treats an IPv4 site network as one link for automatic tunnels inside the site",
+          "Enterprise intranets"
+        ],
+        [
+          "NAT64 + DNS64",
+          "A translator rewrites headers between IPv6 and IPv4; DNS64 builds addresses in 64:ff9b::/96",
+          "IPv6-only clients reaching IPv4-only servers"
+        ],
+        [
+          "464XLAT",
+          "Client-side translation to IPv6 plus NAT64 in the provider network (RFC 6877)",
+          "IPv4-only apps on IPv6-only mobile networks"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "IPv6 fragmentation and length rules:",
+      "items": [
+        "Only the source fragments. A router whose next link is too small drops the packet and returns ICMPv6 Packet Too Big (type 2) with that link's MTU, and the source lowers its path MTU; there is no DF bit because routers behave as if it were always set.",
+        "The packet is split into an unfragmentable part (the base header plus the headers routers on the way must see: Hop-by-Hop Options, Routing, and a Destination Options header placed before the Routing header), repeated in every fragment, and a fragmentable part (everything after it).",
+        "The 8-byte Fragment header (Next Header 44) carries a 13-bit offset in 8-byte units, an M (more fragments) flag and a 32-bit Identification, twice as long as IPv4's.",
+        "Every fragment except the last carries a multiple of 8 bytes: with MTU 1500 and no other extension headers, 1500 − 40 − 8 = 1452, rounded down to 1448 bytes per fragment.",
+        "Payload Length counts everything after the 40-byte base header, extension headers included; a Jumbo Payload option in the Hop-by-Hop header allows packets above 65,535 bytes on links that support them."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: a host joins an IPv6 LAN with SLAAC\n1. Form link-local fe80::<ID>; send NS from :: to its solicited-node group (DAD)\n2. No NA arrives within about 1 s -> the address is unique and is used\n3. Send Router Solicitation (133) to ff02::2, all routers on the link\n4. Router Advertisement (134) returns prefix 2001:db8:1:1::/64, flags and router lifetime\n5. Form the global address prefix + ID and run DAD again\n6. RA flag M = 1 -> also get an address from DHCPv6; O = 1 -> ask DHCPv6 only for DNS etc.\n7. To reach 2001:db8:1:1::7, send NS to ff02::1:ff00:7; its NA returns the MAC address"
+    },
+    {
+      "type": "examTip",
+      "text": "For IPv6 address questions work in 16-bit hex groups: each group is 4 hex digits, a prefix boundary inside a group is found by writing that group in binary, and counts are plain powers of two (a /48 holds 2^16 /64 subnets, with nothing subtracted). For mapped addresses convert each IPv4 octet to two hex digits: 6to4 puts the 32 bits right after 2002, NAT64 puts them in the last 32 bits of 64:ff9b::/96, and a solicited-node group takes the last 24 bits of the unicast address."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: :: may be used only once, and only leading zeros of a group may be dropped, never trailing ones. IPv6 has no broadcast, so ARP-style broadcasts become solicited-node multicasts. Routers never fragment IPv6 packets. Payload Length excludes the 40-byte base header but includes extension headers. 6to4 is tunnelling, while NAT64 is translation. Link-local fe80::/10 addresses are never forwarded by routers."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i34_m001",
+      "questionText": "Which of the following is an IPv6 transition mechanism?",
+      "options": [
+        "RIPng",
+        "6to4 tunnelling",
+        "Frequency-division multiplexing",
+        "Port Address Translation (PAT) between two IPv4 networks"
+      ],
+      "correctIndex": 1,
+      "explanation": "6to4 is an automatic tunnel that carries IPv6 packets inside IPv4 packets across the IPv4 Internet, using prefixes 2002::/16 that embed the site's IPv4 address. RIPng is simply RIP for IPv6, and PAT and multiplexing do not help IPv4 and IPv6 interwork.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m002",
+      "questionText": "In IPv6, what is the function of extension headers?",
+      "options": [
+        "To store addresses for private networks",
+        "To make IPv6 packets backward compatible with IPv4",
+        "To compress the packet header",
+        "To carry optional information, such as routing, fragmentation and IPsec security, outside the fixed base header"
+      ],
+      "correctIndex": 3,
+      "explanation": "IPv6 keeps a fixed 40-byte base header and moves optional features into a chain of extension headers linked by Next Header fields. Routers normally examine only the base header (and Hop-by-Hop options), which speeds up forwarding.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m003",
+      "questionText": "How many times larger is the IPv6 address space than the IPv4 address space?",
+      "options": [
+        "2^96 times (about 7.9 × 10^28)",
+        "4 times, because 128 bits is four times 32 bits",
+        "96 times",
+        "2^32 times (about 4.3 × 10^9)"
+      ],
+      "correctIndex": 0,
+      "explanation": "2^128 / 2^32 = 2^(128 − 32) = 2^96, about 7.9 × 10^28. Each extra bit doubles the space, so four times as many bits does not mean four times as many addresses.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m004",
+      "questionText": "What is the minimum link MTU that every link carrying IPv6 must support?",
+      "options": [
+        "576 bytes",
+        "1500 bytes",
+        "1280 bytes",
+        "68 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "RFC 8200 requires every link to carry packets of at least 1280 bytes, fragmenting below IPv6 if necessary. 68 bytes is the IPv4 minimum MTU, 576 bytes the IPv4 minimum reassembly size, and 1500 bytes the Ethernet MTU.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m005",
+      "questionText": "Which 20-bit field of the IPv6 base header lets a source label the packets of one flow so that routers can give them the same special handling?",
+      "options": [
+        "Traffic Class",
+        "Flow Label",
+        "Next Header",
+        "Hop Limit"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Flow Label (20 bits) identifies a sequence of packets, such as one video stream, for consistent treatment and load balancing. Traffic Class (8 bits) carries DSCP and ECN, Next Header names the following header and Hop Limit replaces IPv4's TTL.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m006",
+      "questionText": "Which IPv6 address does a node use to reach all routers on its own link?",
+      "options": [
+        "ff02::2",
+        "ff02::1",
+        "ff05::2",
+        "::1"
+      ],
+      "correctIndex": 0,
+      "explanation": "ff02::2 is the link-local all-routers multicast group, used for example by Router Solicitations. ff02::1 is all nodes on the link, ff05::2 is all routers in the site, and ::1 is loopback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m007",
+      "questionText": "What is an IPv6 anycast address?",
+      "options": [
+        "An address that delivers each packet to every member of a group",
+        "An address that delivers each packet to every node on the link",
+        "A temporary address that changes every day for privacy",
+        "A unicast-format address assigned to interfaces on several nodes, with each packet delivered to the nearest one according to routing"
+      ],
+      "correctIndex": 3,
+      "explanation": "Anycast addresses come from the unicast space and are shared by several interfaces; routing delivers each packet to just one, the closest. Delivery to all group members is multicast, and IPv6 has no broadcast at all.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m008",
+      "questionText": "What is the fully expanded form of the IPv6 address fe80::1:2a?",
+      "options": [
+        "fe80:0000:0000:0000:0000:0000:1000:2a00",
+        "fe80:0001:002a:0000:0000:0000:0000:0000",
+        "fe80:0000:0000:0000:0000:0000:0001:002a",
+        "fe80:0000:0000:0000:0000:0001:002a:0000"
+      ],
+      "correctIndex": 2,
+      "explanation": "Three groups are written (fe80, 1, 2a), so :: stands for 8 − 3 = 5 zero groups placed where the :: is, and each group is padded with leading zeros: 1 becomes 0001 and 2a becomes 002a. Padding on the right or moving the zeros changes the address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i34_m009",
+      "questionText": "RFC 5952 defines one recommended (canonical) text form for every IPv6 address. What is it for 2001:0db8:0000:0000:0001:0000:0000:0001?",
+      "options": [
+        "2001:db8::1:0:0:1",
+        "2001:db8:0:0:1::1",
+        "2001:db8::1::1",
+        "2001:DB8::1:0:0:1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Leading zeros are dropped, and when two zero runs are equally long the first one is replaced by ::, in lowercase. 2001:db8:0:0:1::1 is valid but not canonical, 2001:db8::1::1 is invalid because :: appears twice, and uppercase is not the recommended form.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m010",
+      "questionText": "Which pairing of IPv6 prefix and address type is correct?",
+      "options": [
+        "fe80::/10 – multicast",
+        "fc00::/7 – unique local unicast",
+        "ff00::/8 – link-local unicast",
+        "2000::/3 – loopback"
+      ],
+      "correctIndex": 1,
+      "explanation": "fc00::/7 (fd00::/8 in practice) holds unique local addresses, the IPv6 counterpart of private IPv4 ranges. fe80::/10 is link-local, ff00::/8 multicast, 2000::/3 global unicast and ::1 loopback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m011",
+      "questionText": "What is the scope of the IPv6 multicast address ff05::1:3 (the all-DHCP-servers group)?",
+      "options": [
+        "Link-local, because its scope field is 2",
+        "Global, because its scope field is e",
+        "Interface-local, because its scope field is 1",
+        "Site-local, because its scope field is 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "In ffXY::, X holds the flags and Y the 4-bit scope; here Y = 5, which is site-local. By contrast, ff02::1:2 (scope 2) is the link-local group of all DHCP relay agents and servers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m012",
+      "questionText": "What is the solicited-node multicast address of 2001:db8::2aa:ff:fe9a:4ca2?",
+      "options": [
+        "ff02::1:fe9a:4ca2",
+        "ff02::2:ff9a:4ca2",
+        "ff02::1:ff9a:4ca2",
+        "ff05::1:ff9a:4ca2"
+      ],
+      "correctIndex": 2,
+      "explanation": "The group is ff02::1:ff00:0/104 followed by the last 24 bits of the unicast address, here 9a:4ca2, giving ff02::1:ff9a:4ca2. Neighbour Solicitations are sent to this group instead of a broadcast.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m013",
+      "questionText": "A site's public IPv4 address is 203.0.113.9. What is its 6to4 IPv6 prefix?",
+      "options": [
+        "2002:cb00:7109::/48",
+        "2002:203:113:9::/48",
+        "2002:7109:cb00::/48",
+        "2002::cb00:7109/48"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each IPv4 octet becomes two hex digits: 203 = cb, 0 = 00, 113 = 71, 9 = 09, so the 32 bits cb00:7109 follow 2002 to form a /48. Writing the octets in decimal, reversing them or putting them at the end of the address are the usual slips.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m014",
+      "questionText": "An IPv6 packet carries an 8-byte Hop-by-Hop Options header, a 24-byte Routing header and a 1200-byte TCP segment. What are its Payload Length field and its total size?",
+      "options": [
+        "Payload Length 1200; total size 1240 bytes",
+        "Payload Length 1272; total size 1272 bytes",
+        "Payload Length 1232; total size 1252 bytes",
+        "Payload Length 1232; total size 1272 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Payload Length counts everything after the 40-byte base header: 8 + 24 + 1200 = 1232. The total size adds the base header: 1232 + 40 = 1272 bytes; 1252 wrongly uses a 20-byte IPv4 header.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m015",
+      "questionText": "In an IPv6 packet the base header has Next Header = 0, the following header has Next Header = 43, the one after that has Next Header = 44, and the last extension header has Next Header = 17. In what order do the headers appear?",
+      "options": [
+        "Base header, Routing, Fragment, UDP",
+        "Base header, Hop-by-Hop Options, Routing, Fragment, UDP",
+        "Base header, Hop-by-Hop Options, Fragment, Routing, TCP",
+        "Base header, Destination Options, Routing, Fragment, UDP"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each Next Header value names the header that follows: 0 is Hop-by-Hop Options, 43 Routing, 44 Fragment and 17 UDP. The first distractor drops the header named by the base header's value 0, and 60, not 0, would mean Destination Options.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m016",
+      "questionText": "Which sequence of headers follows the order recommended by RFC 8200?",
+      "options": [
+        "Base header, Routing, Hop-by-Hop Options, Fragment, ESP, AH, upper-layer header",
+        "Base header, Fragment, Routing, Hop-by-Hop Options, AH, upper-layer header",
+        "Base header, Hop-by-Hop Options, Routing, Fragment, AH, ESP, upper-layer header",
+        "Base header, ESP, AH, Fragment, Routing, Hop-by-Hop Options, upper-layer header"
+      ],
+      "correctIndex": 2,
+      "explanation": "Hop-by-Hop Options must come first because every router reads it; then come Routing, Fragment, AH and ESP, with Destination Options allowed before Routing and before the upper-layer header. Putting ESP before the headers routers need would hide them inside the encrypted part.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m017",
+      "questionText": "An IPv6 router must forward a 1500-byte packet onto a link whose MTU is 1400 bytes. What does it do?",
+      "options": [
+        "It drops the packet and returns ICMPv6 Packet Too Big (type 2) giving the MTU of 1400",
+        "It fragments the packet and adds a Fragment header",
+        "It sets the DF bit and forwards the packet anyway",
+        "It returns ICMPv6 Time Exceeded to the source"
+      ],
+      "correctIndex": 0,
+      "explanation": "IPv6 routers never fragment; only the source can, using the Fragment header. The Packet Too Big message tells the source the smaller MTU so that path MTU discovery can resend correctly sized packets; IPv6 has no DF bit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m018",
+      "questionText": "Why was the header checksum removed from IPv6?",
+      "options": [
+        "Because IPsec encrypts every IPv6 header",
+        "Because IPv6 addresses carry their own error-correcting code",
+        "Because the Flow Label field now does the same job",
+        "Link-layer CRCs and the transport checksums already catch errors (the UDP checksum, optional in IPv4, is required by default in IPv6), and routers no longer have to recompute a checksum as the hop limit changes"
+      ],
+      "correctIndex": 3,
+      "explanation": "IPv4 routers must recompute the checksum at every hop because TTL changes; dropping it speeds up forwarding. To keep end-to-end protection the TCP, UDP and ICMPv6 checksums cover a pseudo-header with the IPv6 addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m019",
+      "questionText": "How does a host form a global unicast address with stateless address autoconfiguration (SLAAC)?",
+      "options": [
+        "It asks a DHCPv6 server to lease it an address",
+        "It sends an ARP request for its own MAC address",
+        "It takes the /64 prefix from a Router Advertisement, appends a 64-bit interface ID it creates itself, and runs duplicate address detection",
+        "It uses the complete address that the router writes into its Router Advertisement"
+      ],
+      "correctIndex": 2,
+      "explanation": "SLAAC is stateless: routers only advertise prefixes, and the host adds its own interface ID (from EUI-64 or random) and checks with DAD that nobody else uses it. DHCPv6 is the stateful alternative, and IPv6 has no ARP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m020",
+      "questionText": "Before using a new tentative address, an IPv6 host sends a Neighbor Solicitation from the unspecified address :: to that address's solicited-node multicast group. What is this procedure called, and what does an answer mean?",
+      "options": [
+        "Router discovery; an answer carries the default router's prefix",
+        "Duplicate address detection; a Neighbor Advertisement in reply means another node already uses the address",
+        "Path MTU discovery; an answer gives the largest packet size on the path",
+        "Multicast listener discovery; an answer means a group member exists"
+      ],
+      "correctIndex": 1,
+      "explanation": "DAD makes sure an address is unique on the link before it is assigned. The source :: is used because the host may not use the tentative address yet; if a Neighbor Advertisement arrives the address is abandoned.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m021",
+      "questionText": "Which statement about ICMPv6 is NOT correct?",
+      "options": [
+        "Neighbor Solicitation and Neighbor Advertisement messages replace ARP for address resolution",
+        "Multicast Listener Discovery (MLD), carried in ICMPv6, replaces IGMP for multicast group membership",
+        "Router Advertisements announce the on-link prefixes that hosts use for SLAAC",
+        "ICMPv6 messages are identified by Next Header value 1, the same number ICMP uses in IPv4"
+      ],
+      "correctIndex": 3,
+      "explanation": "ICMPv6 uses Next Header 58; the value 1 belongs to ICMP for IPv4. ICMPv6 absorbs the jobs of ARP (Neighbor Discovery), IGMP (MLD) and router discovery, so the other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m022",
+      "questionText": "A dual-stack host looks up www.example.com and receives both an A record and an AAAA record. What does it normally do?",
+      "options": [
+        "It prefers the IPv6 address from the AAAA record by default and falls back to IPv4 if the IPv6 connection fails",
+        "It must use IPv4, because dual-stack hosts always prefer the older protocol",
+        "It tunnels its IPv4 packets inside IPv6 packets",
+        "It asks a NAT64 translator to convert the A record into an IPv6 address"
+      ],
+      "correctIndex": 0,
+      "explanation": "Default address selection (RFC 6724) ranks native IPv6 above IPv4, and Happy Eyeballs (RFC 8305) tries IPv6 first and quickly falls back to IPv4 if it stalls. Tunnelling and NAT64 are for hosts that lack one of the two protocols.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m023",
+      "questionText": "An IPv6-capable host sits behind a home IPv4 NAT that passes only TCP and UDP traffic, and the ISP offers no native IPv6. Which transition mechanism can give the host IPv6 connectivity?",
+      "options": [
+        "6to4, which carries IPv6 directly in IPv4 with protocol 41",
+        "Dual stack, which needs native IPv6 from the ISP",
+        "Teredo, which tunnels IPv6 inside UDP so that it passes through the NAT",
+        "ISATAP, which works only inside an enterprise site"
+      ],
+      "correctIndex": 2,
+      "explanation": "Teredo wraps IPv6 in UDP (server port 3544) and gives the host an address in 2001::/32, so an ordinary NAT forwards it. 6to4 uses IP protocol 41, which most NATs cannot translate, and needs a public IPv4 address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m024",
+      "questionText": "Which statement about IPsec and IPv6 is correct today?",
+      "options": [
+        "Every IPv6 packet is automatically encrypted with ESP",
+        "AH and ESP are defined as IPv6 extension headers; IPsec support was once required of every IPv6 node, but current node requirements only recommend it, and using it is optional",
+        "IPsec can be used only with IPv4, not with IPv6",
+        "IPv6 replaced IPsec with TLS at the network layer"
+      ],
+      "correctIndex": 1,
+      "explanation": "RFC 4294 (2006) made IPsec mandatory to implement, but RFC 6434 (2011) and RFC 8504 (2019) changed this to a recommendation. IPsec works with both IP versions and is used only when configured, for example in VPNs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i34_m025",
+      "questionText": "A host with MAC address 00:1A:2B:3C:4D:5E forms its link-local address using the modified EUI-64 method. What is the address?",
+      "options": [
+        "fe80::21a:2bff:fe3c:4d5e",
+        "fe80::1a:2bff:fe3c:4d5e",
+        "fe80::21a:2bfe:ff3c:4d5e",
+        "fe80::21a:2b3c:4d5e"
+      ],
+      "correctIndex": 0,
+      "explanation": "Insert FFFE in the middle (001A2B FFFE 3C4D5E) and flip the universal/local bit of the first byte (00 becomes 02), giving the interface ID 021a:2bff:fe3c:4d5e after fe80::/64. Forgetting the bit flip gives fe80::1a:..., and swapping FF and FE or leaving FFFE out gives the other wrong answers.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i34_m026",
+      "questionText": "A host needs the MAC address of neighbour 2001:db8::20c:29ff:fe12:3456 and sends a Neighbor Solicitation. Which Ethernet destination MAC address does the frame use?",
+      "options": [
+        "33:33:fe:12:34:56",
+        "01:00:5e:12:34:56",
+        "ff:ff:ff:ff:ff:ff",
+        "33:33:ff:12:34:56"
+      ],
+      "correctIndex": 3,
+      "explanation": "The NS goes to the solicited-node group ff02::1:ff12:3456 (ff02::1:ff plus the last 24 bits), and an IPv6 multicast maps to 33:33 followed by the group's last 32 bits: 33:33:ff:12:34:56. 01:00:5e is the IPv4 multicast prefix, and IPv6 never uses broadcast.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i34_m027",
+      "questionText": "A source must send a 3000-byte UDP datagram (UDP header included) over IPv6 with a path MTU of 1280 bytes and no extension headers other than the Fragment header. How many fragments are sent, and what is the fragment offset field of the last one?",
+      "options": [
+        "3 fragments; offset 2464",
+        "3 fragments; offset 310",
+        "3 fragments; offset 308",
+        "3 fragments; offset 306"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each fragment can carry 1280 − 40 (base header) − 8 (Fragment header) = 1232 bytes, a multiple of 8, so the pieces are 1232, 1232 and 536 bytes. The last starts at byte 2464, so its offset field is 2464 / 8 = 308; forgetting the Fragment header gives 310 and giving the byte count gives 2464.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i34_m028",
+      "questionText": "An IPv6-only client uses DNS64 and a NAT64 gateway with the well-known prefix 64:ff9b::/96 to reach an IPv4-only server at 198.51.100.10. Which IPv6 address does DNS64 return for the server?",
+      "options": [
+        "64:ff9b::198:51:100:10",
+        "64:ff9b::c633:640a",
+        "::ffff:c633:640a",
+        "2002:c633:640a::"
+      ],
+      "correctIndex": 1,
+      "explanation": "The IPv4 address goes into the last 32 bits: 198 = c6, 51 = 33, 100 = 64, 10 = 0a, giving 64:ff9b::c633:640a. ::ffff:... is the IPv4-mapped form used inside a host, and 2002:... is a 6to4 prefix, not NAT64.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i34_m029",
+      "questionText": "An ISP holds 2001:db8::/32. It gives each customer a /48, and customers use /64 subnets. How many customers can it serve, and how many /64 subnets does each customer get?",
+      "options": [
+        "65,534 customers, each with 65,534 /64 subnets",
+        "65,536 customers, each with 2^64 /64 subnets",
+        "16 customers, each with 16 /64 subnets",
+        "65,536 customers, each with 65,536 /64 subnets"
+      ],
+      "correctIndex": 3,
+      "explanation": "From /32 to /48 is 16 bits, so 2^16 = 65,536 customers; from /48 to /64 is another 16 bits, so 2^16 = 65,536 subnets each. IPv6 prefixes subtract nothing, so the IPv4 habit of taking away 2 does not apply, and 16 is the number of bits, not of subnets.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i34_m030",
+      "questionText": "A host is configured as 2001:db8:abcd:12::5/62. What range of addresses does its /62 prefix cover?",
+      "options": [
+        "2001:db8:abcd:10:: to 2001:db8:abcd:13:ffff:ffff:ffff:ffff",
+        "2001:db8:abcd:12:: to 2001:db8:abcd:15:ffff:ffff:ffff:ffff",
+        "2001:db8:abcd:10:: to 2001:db8:abcd:1f:ffff:ffff:ffff:ffff",
+        "2001:db8:abcd:12:: to 2001:db8:abcd:12:ffff:ffff:ffff:ffff"
+      ],
+      "correctIndex": 0,
+      "explanation": "A /62 fixes 14 bits of the fourth group, leaving 2 free bits, so the block covers 4 values aligned on a multiple of 4: 0x12 = 0001 0010 rounds down to 0x10, giving groups 10 to 13. Starting at 12 ignores the alignment, 10 to 1f is a /60 and 12 alone is a /64.",
+      "difficulty": "hard"
+    }
+  ]
+}

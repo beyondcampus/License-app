@@ -1,0 +1,701 @@
+{
+  "topicId": "ch2_i53",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: DMA Timing and Controller Programming"
+    },
+    {
+      "type": "paragraph",
+      "text": "Bus grant is never instant. The 8085 checks HOLD once per machine cycle and gives up the bus only at the end of the cycle it is running, so the DMA latency is short, of the order of one machine cycle. HOLD is not an interrupt: DI, masks and SIM have no effect on it. After HLDA the CPU runs no bus cycles (the 8085 can only finish an internal operation already under way, and an 8086 can keep executing from its prefetch queue), and when HOLD drops it continues with no registers changed."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{CPU fraction lost} = r \\times t_{steal}",
+      "plainText": "Fraction of bus time taken by cycle stealing = transfer rate (bytes/s) x time per stolen cycle"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: CPU load for a 20 000 byte/s device\nInterrupt I/O, 25 us per byte:\n  20 000 x 25 us  = 0.5 s per second  -> 50 % of the CPU\nCycle-stealing DMA, 1 us per stolen cycle:\n  20 000 x 1 us   = 0.02 s per second -> 2 % of the bus\nAt 50 000 byte/s the interrupt method would need\n  50 000 x 25 us  = 1.25 s per second -> impossible (> 100 %)\nDMA at the same rate needs only 5 % of the bus."
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; Worked example 2: 8237 at I/O 00H-0FH, channel 1\n; 1000 bytes, I/O -> memory, from 2000H, single mode\n      MVI A,00H\n      OUT 0CH       ; clear byte pointer flip-flop\n      OUT 02H       ; address low  = 00H\n      MVI A,20H\n      OUT 02H       ; address high = 20H\n      MVI A,0E7H\n      OUT 03H       ; count low  (999 = 03E7H)\n      MVI A,03H\n      OUT 03H       ; count high\n      MVI A,45H\n      OUT 0BH       ; mode: 01 0 0 01 01 = single, write, ch 1\n      MVI A,01H\n      OUT 0AH       ; clear mask bit of channel 1"
+    },
+    {
+      "type": "paragraph",
+      "text": "Reading the example: the 16-bit registers are written through one 8-bit port, low byte first, and an internal flip-flop chooses the byte, which is why it is cleared first. The count is 1000 - 1 = 999 because terminal count occurs as the count passes from 0000H to FFFFH. The mode byte 45H is built as D7D6 = 01 (single), D5 = 0 (increment), D4 = 0 (no auto-init), D3D2 = 01 (write: I/O to memory) and D1D0 = 01 (channel 1). The block ends at 2000H + 999 = 23E7H."
+    },
+    {
+      "type": "formula",
+      "latex": "TC_{8257} = \\text{op} \\times 2^{14} + (N - 1)",
+      "plainText": "8257 terminal count register = operation bits (15-14: 00 verify, 01 write, 10 read) followed by N - 1 in bits 13-0"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "Intel 8257",
+          "Intel 8237A"
+        ],
+        [
+          "Channels",
+          "4, fixed or rotating priority",
+          "4, fixed or rotating, cascadable"
+        ],
+        [
+          "Count register",
+          "14-bit count + 2 operation bits (16 KB max)",
+          "16-bit count (64 KB max)"
+        ],
+        [
+          "Upper address byte",
+          "Sent on data pins, latched with ADSTB",
+          "Sent on data pins, latched with ADSTB"
+        ],
+        [
+          "Transfer modes",
+          "One mode; burst or cycle stealing set by DREQ timing",
+          "Single, block, demand, cascade"
+        ],
+        [
+          "Repeat blocks",
+          "Auto load: channel 3 reloads channel 2",
+          "Auto-initialise on any channel"
+        ],
+        [
+          "Memory to memory",
+          "Not supported",
+          "Channels 0 and 1 via temporary register"
+        ],
+        [
+          "Typical host",
+          "8085 systems",
+          "8086/8088 systems (original IBM PC)"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Addresses above 64 KB. The 8237 produces only A0-A15, so on an 8086 system an external page register supplies A16-A19 for each channel. The page register does not change during a transfer: if a buffer starts at 2FF00H and is 512 bytes long, the 8237 address wraps from FFFFH to 0000H after 256 bytes and the remaining data goes to 20000H, not 30000H. Drivers therefore place DMA buffers so they never cross a 64 KB boundary."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in DMA questions:",
+      "items": [
+        "Loading the count register with N instead of N - 1 (both 8237 and 8257).",
+        "Mixing up the direction: a DMA read is memory to I/O (MEMR + IOW), a DMA write is I/O to memory (IOR + MEMW).",
+        "Confusing HLDA (CPU to DMAC) with DACK (DMAC to device).",
+        "Assuming the CPU saves registers or runs a routine during DMA; it only floats its buses.",
+        "Counting one bus cycle per byte for memory-to-memory copies; each byte needs a read and a write."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For DMA calculations, first find the time per byte (clocks per byte x clock period), then multiply by the number of bytes, and add any stated set-up and completion time. For the CPU fraction lost to cycle stealing, multiply the byte rate by the stolen cycle time; for interrupt I/O multiply the byte rate by the ISR time."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i53_m001",
+      "questionText": "On the 8085, which output does the CPU assert to tell a DMA controller that it has released the buses?",
+      "options": [
+        "HLDA",
+        "INTA",
+        "READY",
+        "DACK"
+      ],
+      "correctIndex": 0,
+      "explanation": "The CPU answers HOLD with Hold Acknowledge (HLDA) once its buses are floated. INTA acknowledges an interrupt, READY is an input for wait states, and DACK is sent by the DMA controller to the peripheral.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m002",
+      "questionText": "Which signal does a DMA controller send to the peripheral to tell it that its DMA request is being serviced?",
+      "options": [
+        "HLDA (hold acknowledge)",
+        "DACK (DMA acknowledge)",
+        "DREQ (DMA request)",
+        "INTR (interrupt request)"
+      ],
+      "correctIndex": 1,
+      "explanation": "DACK selects the device for the transfer cycle. HLDA goes from the CPU to the DMAC, DREQ goes from the device to the DMAC, and INTR is the CPU's interrupt input.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m003",
+      "questionText": "How does a peripheral ask a DMA controller channel for a transfer?",
+      "options": [
+        "By asserting the CPU's HOLD pin directly",
+        "By sending an interrupt to the 8259",
+        "By asserting that channel's DREQ input",
+        "By writing a command byte to the DMA controller's mode register"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each DMAC channel has its own DREQ line from the device; the DMAC then raises HOLD (HRQ) to the CPU on the device's behalf. Mode register writes are done by the CPU while setting the channel up.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m004",
+      "questionText": "While the 8085 is in the hold state (HLDA = 1), what is the condition of its address/data bus and its RD, WR and IO/M lines?",
+      "options": [
+        "Driven to logic 0",
+        "Driven to logic 1",
+        "Holding the last address and data the CPU placed on them",
+        "High impedance (tri-stated)"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the hold state the CPU floats its bus drivers so the DMAC can drive them as bus master; two drivers on one line would clash.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m005",
+      "questionText": "What is the correct order of signals in a DMA transfer request?",
+      "options": [
+        "HOLD -> DREQ -> DACK -> HLDA",
+        "DREQ -> HOLD -> HLDA -> DACK",
+        "DREQ -> DACK -> HOLD -> HLDA",
+        "HLDA -> HOLD -> DREQ -> DACK"
+      ],
+      "correctIndex": 1,
+      "explanation": "The device raises DREQ, the DMAC requests the bus with HOLD, the CPU grants it with HLDA, and only then does the DMAC acknowledge the device with DACK and run the transfer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m006",
+      "questionText": "Which statement about DMA is NOT correct?",
+      "options": [
+        "The CPU pushes its registers onto the stack before the DMA transfer begins",
+        "The data still travels over the system address and data buses",
+        "The DMA controller generates the memory addresses and read/write strobes",
+        "The CPU must program the DMA controller before the transfer starts"
+      ],
+      "correctIndex": 0,
+      "explanation": "No registers are saved because the CPU runs no service routine; it just floats its buses and resumes exactly where it stopped. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m007",
+      "questionText": "What is the main drawback of programmed (polled) I/O for a fast device?",
+      "options": [
+        "It needs an extra DMA controller chip",
+        "It requires a separate interrupt controller",
+        "The CPU wastes time repeatedly testing a status flag and moving every byte itself",
+        "It cannot transfer data from memory to an output port"
+      ],
+      "correctIndex": 2,
+      "explanation": "In programmed I/O the processor loops on the status bit and executes the IN/OUT and memory instructions for every byte, so little time is left for other work. It needs no extra hardware at all.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m008",
+      "questionText": "An 8085 has just executed DI (disable interrupts). A DMA controller now raises HOLD. What happens?",
+      "options": [
+        "The request is ignored until an EI instruction is executed",
+        "The CPU releases the buses at once, even in the middle of a machine cycle",
+        "The CPU treats HOLD as a TRAP and jumps to 0024H",
+        "The CPU finishes its current machine cycle, floats its buses and asserts HLDA"
+      ],
+      "correctIndex": 3,
+      "explanation": "HOLD is a bus request, not an interrupt, so DI and the interrupt masks have no effect on it. The 8085 grants the bus only at the end of the current machine cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m009",
+      "questionText": "How does a bus master request the buses from an 8086 operating in maximum mode?",
+      "options": [
+        "Through the HOLD input and HLDA output",
+        "Through the bidirectional RQ/GT0 or RQ/GT1 pins",
+        "Through the INTR input",
+        "Through the TEST input"
+      ],
+      "correctIndex": 1,
+      "explanation": "In maximum mode the HOLD/HLDA pins are reused, and bus requests use the request/grant pins: a pulse from the master requests, a pulse from the 8086 grants, and a pulse from the master releases. HOLD/HLDA are used in minimum mode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m010",
+      "questionText": "Which DMA mode transfers data only during bus cycles that the CPU is not using, so the program is never slowed down?",
+      "options": [
+        "Burst (block) mode",
+        "Cycle stealing",
+        "Demand transfer mode",
+        "Transparent (hidden) DMA"
+      ],
+      "correctIndex": 3,
+      "explanation": "Transparent DMA fits transfers into idle bus time, such as internal decode or execute cycles, giving zero CPU slowdown at the cost of the slowest device rate and extra logic to detect free cycles.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m011",
+      "questionText": "Which DMA mode gives a peripheral the highest transfer rate but keeps the CPU off the bus for the entire block?",
+      "options": [
+        "Burst (block) mode",
+        "Cycle stealing",
+        "Transparent DMA",
+        "Single transfer mode"
+      ],
+      "correctIndex": 0,
+      "explanation": "In burst mode the DMAC holds the bus until the whole block (or terminal count) is done, so transfers run back to back while the CPU waits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m012",
+      "questionText": "In the 8237 demand transfer mode, how long does the channel keep transferring?",
+      "options": [
+        "For exactly one byte per DREQ, then the bus is always returned",
+        "Until terminal count, regardless of the DREQ level",
+        "As long as DREQ stays active, pausing when DREQ goes inactive and resuming when it returns",
+        "Only during bus cycles the CPU leaves idle"
+      ],
+      "correctIndex": 2,
+      "explanation": "Demand mode lets the device control the flow: it transfers while DREQ is held and releases the bus when the device runs out of data, until TC or EOP ends the block. The other options describe single, block and transparent operation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m013",
+      "questionText": "How many independent DMA channels does a single Intel 8237A provide?",
+      "options": [
+        "8",
+        "4",
+        "2",
+        "16"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8237A has four channels (DREQ0-3/DACK0-3). More are obtained by cascading further 8237s into its channels.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m014",
+      "questionText": "An 8237 channel is to transfer a block of 512 bytes. What value must be loaded into its base word count register?",
+      "options": [
+        "0200H",
+        "0512H",
+        "01FFH",
+        "01FEH"
+      ],
+      "correctIndex": 2,
+      "explanation": "The count is loaded with N - 1 because terminal count occurs when the register decrements past 0000H: 512 - 1 = 511 = 01FFH. 0200H is 512 itself and 0512H writes the decimal digits as hex.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m015",
+      "questionText": "An 8237 channel is programmed with base address 3000H, word count 00FFH and address increment. How many bytes are transferred, and what is the address of the last byte?",
+      "options": [
+        "255 bytes; last address 30FEH",
+        "256 bytes; last address 3100H",
+        "255 bytes; last address 30FFH",
+        "256 bytes; last address 30FFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Transfers = count + 1 = 00FFH + 1 = 256. Addresses run 3000H to 3000H + 00FFH = 30FFH. 3100H would be one byte beyond the block.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m016",
+      "questionText": "What 8237 mode register byte selects channel 2, block transfer, read transfer (memory to I/O), address increment and auto-initialisation?",
+      "options": [
+        "9AH",
+        "96H",
+        "8AH",
+        "5AH"
+      ],
+      "correctIndex": 0,
+      "explanation": "D7D6 = 10 (block), D5 = 0 (increment), D4 = 1 (auto-init), D3D2 = 10 (read), D1D0 = 10 (channel 2): 1001 1010 = 9AH. 96H selects a write transfer, 8AH omits auto-init and 5AH is single mode.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m017",
+      "questionText": "The byte 48H is written to the 8237 mode register. How is the channel configured?",
+      "options": [
+        "Channel 0, single transfer, read (memory to I/O), address increment, no auto-initialise",
+        "Channel 2, single transfer, read (memory to I/O), address increment, no auto-initialise",
+        "Channel 0, block transfer, write (I/O to memory), address increment, no auto-initialise",
+        "Channel 0, single transfer, write (I/O to memory), address decrement, auto-initialise"
+      ],
+      "correctIndex": 0,
+      "explanation": "48H = 01 0 0 10 00: D7D6 = 01 single mode, D5 = 0 increment, D4 = 0 no auto-init, D3D2 = 10 read transfer, D1D0 = 00 channel 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m018",
+      "questionText": "In 8237 terminology, what does a 'read transfer' do?",
+      "options": [
+        "Moves data from an I/O device to memory (IOR and MEMW active)",
+        "Reads the channel's status register into the CPU",
+        "Moves data from memory to an I/O device (MEMR and IOW active)",
+        "Checks addresses without any data being moved"
+      ],
+      "correctIndex": 2,
+      "explanation": "DMA read and write are named from memory's point of view: a read transfer reads memory and writes it to the device. I/O to memory is a write transfer, and address-only cycles are verify transfers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m019",
+      "questionText": "Which 8237 transfer type generates addresses and counts down like a normal transfer but activates no memory or I/O read/write strobes?",
+      "options": [
+        "Read transfer",
+        "Write transfer",
+        "Cascade mode",
+        "Verify transfer"
+      ],
+      "correctIndex": 3,
+      "explanation": "A verify transfer runs the address and count machinery without moving data, which is useful for testing a channel or for devices that check data themselves. Cascade is a mode for linking controllers, not a transfer type.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m020",
+      "questionText": "Which 8237 channels are used for a memory-to-memory transfer?",
+      "options": [
+        "Channels 2 and 3",
+        "Channels 0 and 1",
+        "Channels 0 and 3",
+        "Any two channels chosen in the mode register"
+      ],
+      "correctIndex": 1,
+      "explanation": "Channel 0 supplies the source address and channel 1 the destination address and count; each byte is read into the 8237's temporary register and then written out. Memory-to-memory is enabled in the command register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m021",
+      "questionText": "What does auto-initialisation do on an 8237 channel?",
+      "options": [
+        "Clears all channel registers when the chip is reset",
+        "Automatically unmasks all four channels at power-on",
+        "Reloads the current address and count registers from the base registers after terminal count",
+        "Programs the mode register with a default value"
+      ],
+      "correctIndex": 2,
+      "explanation": "The base registers keep the original start address and count, and with auto-init set the channel copies them back at TC so it can repeat the same buffer with no CPU help.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m022",
+      "questionText": "Which description of the 8237 EOP pin is correct?",
+      "options": [
+        "It is an input only, used to request a DMA cycle",
+        "It is bidirectional: the 8237 drives it low at terminal count, and an external low input ends the transfer",
+        "It is an output that requests the bus from the CPU",
+        "It is an output that strobes the upper address byte into a latch"
+      ],
+      "correctIndex": 1,
+      "explanation": "End Of Process signals completion and also lets hardware abort a transfer early. Bus requests use HRQ, and the upper-address strobe is ADSTB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m023",
+      "questionText": "One master 8237 has all four of its channels in cascade mode, each connected to a slave 8237. How many DMA channels are available to peripherals?",
+      "options": [
+        "16",
+        "20",
+        "19",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "A master channel in cascade mode only passes on the slave's HRQ/HLDA handshake and does no transfers itself, so the usable channels are 4 slaves x 4 = 16. 20 wrongly counts the master's four channels as well.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m024",
+      "questionText": "An 8237 uses fixed priority. DREQ1 and DREQ3 become active at exactly the same time. Which channel is serviced first?",
+      "options": [
+        "Channel 3",
+        "Both at once",
+        "Whichever was serviced least recently",
+        "Channel 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "In fixed priority channel 0 is highest and channel 3 lowest, so channel 1 wins. Serving the least recently used channel describes rotating priority.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m025",
+      "questionText": "An 8237 is set for rotating priority, and channel 1 has just been serviced. Which channel now has the highest priority?",
+      "options": [
+        "Channel 0",
+        "Channel 1",
+        "Channel 3",
+        "Channel 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "With rotating priority the channel just served drops to the lowest level, so the order becomes 2, 3, 0, 1 and channel 2 is highest.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m026",
+      "questionText": "In an 8086-based PC, a DMA channel has page register 2H and 8237 address FF00H, and is programmed to transfer 512 bytes with address increment. Where do the bytes go?",
+      "options": [
+        "All 512 go to 2FF00H-300FFH, because the page register increments automatically",
+        "Only 256 bytes are moved and then terminal count is reached",
+        "The first 256 go to 2FF00H-2FFFFH; the rest wrap to 20000H-200FFH",
+        "The first 256 go to 2FF00H-2FFFFH; the rest go to 1FF00H-1FFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8237 address counter is only 16 bits: after FFFFH it wraps to 0000H, and the external page register does not change, so bytes 257-512 land at 20000H-200FFH. Buffers must therefore not cross a 64 KB page boundary.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m027",
+      "questionText": "In a PC, a DMA page register holds 0AH and the 8237 channel's current address is 3400H. What 20-bit physical address is placed on the bus?",
+      "options": [
+        "A3400H",
+        "0D400H",
+        "034A0H",
+        "3400AH"
+      ],
+      "correctIndex": 0,
+      "explanation": "The page register supplies A19-A16 and the 8237 supplies A15-A0, so the address is 0AH followed by 3400H = A3400H. Adding the page x 16 as if it were a segment gives 034A0H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m028",
+      "questionText": "A DMA controller in burst mode needs one 250 ns bus cycle per byte. What is its maximum transfer rate?",
+      "options": [
+        "2 MB/s",
+        "4 MB/s",
+        "40 MB/s",
+        "400 kB/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Rate = 1 / t_cycle = 1 / 250 ns = 4 x 10^6 bytes/s = 4 MB/s. 2 MB/s corresponds to a 500 ns cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m029",
+      "questionText": "A device delivers 20 000 bytes/s. With interrupt-driven I/O each byte costs 30 µs of CPU time; with cycle-stealing DMA each byte steals one 0.5 µs bus cycle from the CPU. What percentage of the CPU's time is freed by switching to DMA?",
+      "options": [
+        "60 %",
+        "1 %",
+        "59 %",
+        "50 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Interrupt I/O uses 20 000 x 30 µs = 0.6 s per second = 60 %; DMA steals 20 000 x 0.5 µs = 0.01 s = 1 %. Time freed = 60 - 1 = 59 %. 60 % ignores the cycles DMA still steals.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m030",
+      "questionText": "A disk controller uses cycle-stealing DMA at 50 000 bytes/s, and each stolen bus cycle lasts 400 ns. What fraction of the bus time is taken from the CPU?",
+      "options": [
+        "20 %",
+        "2 %",
+        "0.2 %",
+        "4 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fraction = rate x t_cycle = 50 000 x 400 ns = 0.02 = 2 % of every second. 20 % and 0.2 % are power-of-ten slips in the unit conversion.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m031",
+      "questionText": "A DMA controller clocked at 5 MHz needs 4 clock cycles per byte in burst mode. Setting up the channel and handling the completion interrupt cost the CPU a further 20 µs. What is the total time to move an 8 KB (8192-byte) block?",
+      "options": [
+        "6.57 ms",
+        "1.66 ms",
+        "32.79 ms",
+        "3.30 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "One byte = 4 x 0.2 µs = 0.8 µs, so the block takes 8192 x 0.8 µs = 6553.6 µs, and adding 20 µs gives 6573.6 µs = 6.57 ms. 1.66 ms uses one clock per byte and 32.79 ms treats the clock period as 1 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m032",
+      "questionText": "A 4 KB (4096-byte) block can be moved either by interrupt-driven I/O at 16 µs of CPU time per byte, or by burst DMA at 0.4 µs per byte plus 50 µs for set-up and completion. To the nearest whole number, by what factor is DMA faster?",
+      "options": [
+        "40",
+        "32",
+        "10",
+        "39"
+      ],
+      "correctIndex": 3,
+      "explanation": "Interrupt: 4096 x 16 µs = 65536 µs. DMA: 4096 x 0.4 + 50 = 1688.4 µs. Ratio = 65536 / 1688.4 = 38.8, which rounds to 39. 40 ignores the 50 µs overhead (16 / 0.4).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m033",
+      "questionText": "The 8257's terminal count register uses 14 bits for the byte count. What is the largest block one 8257 channel can transfer before it must be reprogrammed?",
+      "options": [
+        "65 536 bytes (64 KB)",
+        "4096 bytes (4 KB)",
+        "16 384 bytes (16 KB)",
+        "16 383 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "14 bits hold N - 1 from 0 to 16 383, so N can be up to 2^14 = 16384 bytes. 64 KB is the 8237's limit with its 16-bit count, and 16 383 is the largest value in the register, not the block size.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m034",
+      "questionText": "An 8257 channel must perform a DMA read (memory to I/O) of 100 bytes. What 16-bit value is written to its terminal count register?",
+      "options": [
+        "8063H",
+        "4063H",
+        "8064H",
+        "0063H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Bits 15-14 select the operation (10 = read, 01 = write, 00 = verify) and bits 13-0 hold N - 1 = 99 = 0063H, giving 8063H. 4063H selects a write, 8064H loads N instead of N - 1, and 0063H has no operation bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i53_m035",
+      "questionText": "During an 8257 DMA cycle, how are address lines A8-A15 supplied to the system bus?",
+      "options": [
+        "They come from a dedicated set of eight address pins on the 8257",
+        "They are output on the 8257's data pins and latched by an external latch (such as the 8212) using ADSTB",
+        "The CPU keeps driving them while in the hold state",
+        "They are fixed at 00H, so the 8257 can only reach the first 256 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8257 drives A0-A7 directly but multiplexes the upper address byte onto D0-D7, and ADSTB strobes it into an 8212; AEN keeps other bus drivers off during DMA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m036",
+      "questionText": "What does the auto load feature of the 8257 do?",
+      "options": [
+        "At terminal count, it reloads every channel from its own base registers",
+        "It loads the mode set register automatically after reset",
+        "It lets channel 0 and channel 1 perform memory-to-memory copies",
+        "At terminal count, it reloads channel 2's address and count from channel 3's registers"
+      ],
+      "correctIndex": 3,
+      "explanation": "In auto load mode channel 3 holds the reload parameters for channel 2, so repeated or chained blocks can run without CPU intervention. Per-channel base registers are an 8237 feature, and the 8257 has no memory-to-memory mode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m037",
+      "questionText": "While the CPU is writing the address, count and mode registers of an 8237, the 8237 is acting as:",
+      "options": [
+        "The bus master",
+        "A slave I/O device selected by CS and addressed by A0-A3",
+        "An interrupt controller",
+        "A memory device mapped at address 0000H"
+      ],
+      "correctIndex": 1,
+      "explanation": "The DMAC has two roles: it is a programmable slave during set-up (in its idle state) and becomes the bus master only after it receives HLDA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m038",
+      "questionText": "Which statement correctly contrasts interrupt-driven I/O with DMA?",
+      "options": [
+        "In interrupt I/O the CPU runs a service routine for each transfer; in DMA the controller moves the data and the CPU is involved only at the start and end of the block",
+        "In both methods the CPU executes an instruction for every byte transferred",
+        "Interrupt I/O needs a HOLD/HLDA handshake, while DMA needs INTR/INTA",
+        "DMA is preferred for slow, occasional devices such as keyboards"
+      ],
+      "correctIndex": 0,
+      "explanation": "Interrupt I/O removes busy waiting but still costs an ISR per byte, whereas DMA removes the CPU from the data path. The handshakes are the other way round, and DMA suits fast block devices.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m039",
+      "questionText": "Which Intel chip is a programmable DMA controller?",
+      "options": [
+        "8259",
+        "8255",
+        "8251",
+        "8237"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8237 (and the earlier 8257) are DMA controllers. The 8259 is an interrupt controller, the 8255 a parallel interface and the 8251 a USART.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m040",
+      "questionText": "On the 8085, what kind of pin is HLDA?",
+      "options": [
+        "An input to the CPU",
+        "A bidirectional request/grant pin",
+        "An output from the CPU",
+        "An open-drain input shared with READY"
+      ],
+      "correctIndex": 2,
+      "explanation": "HOLD is an input that receives the bus request and HLDA is an output that grants it. Bidirectional request/grant pins exist only on the 8086 in maximum mode.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m041",
+      "questionText": "How many bus cycles does an 8237 need to copy a 1000-byte block from one memory area to another using its memory-to-memory mode?",
+      "options": [
+        "2000",
+        "1000",
+        "3000",
+        "4000"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each byte needs a memory read into the temporary register and then a memory write, so 2 x 1000 = 2000 bus cycles. 1000 assumes a single cycle per byte as in memory-I/O transfers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m042",
+      "questionText": "While an 8086 is in the hold state, what can it still do?",
+      "options": [
+        "Fetch new instruction bytes from memory",
+        "Respond to an INTR by reading the interrupt vector",
+        "Write the results of instructions to memory",
+        "Execute instructions already in its prefetch queue that need no bus cycles"
+      ],
+      "correctIndex": 3,
+      "explanation": "The BIU has given up the bus, so any fetch, memory access or interrupt acknowledge must wait; the EU can keep running from the queue until it needs the bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m043",
+      "questionText": "What does terminal count (TC) indicate on a DMA controller channel?",
+      "options": [
+        "The channel has been given the highest priority",
+        "The programmed number of transfers has been completed",
+        "The CPU has granted the buses",
+        "The peripheral has requested service"
+      ],
+      "correctIndex": 1,
+      "explanation": "TC is reached when the word count runs out; the DMAC then signals it (EOP on the 8237, TC pin on the 8257) and the block is finished.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m044",
+      "questionText": "During a DMA transfer, which device generates the memory address on the address bus?",
+      "options": [
+        "The CPU",
+        "The peripheral",
+        "The DMA controller",
+        "The memory chip itself"
+      ],
+      "correctIndex": 2,
+      "explanation": "Once it holds the bus the DMAC outputs the address from its current address register and increments or decrements it after each transfer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i53_m045",
+      "questionText": "The CPU reads the 8237 status register and gets 21H. What does this mean?",
+      "options": [
+        "Channel 1 has reached terminal count and channel 0 has a pending request",
+        "Channels 0 and 5 have reached terminal count",
+        "Channel 0 has reached terminal count and channel 1 has a pending DMA request",
+        "Channel 2 has reached terminal count and channel 1 is masked"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bits D3-D0 flag terminal count for channels 3-0 and bits D7-D4 flag pending requests. 21H = 0010 0001: D0 = 1 (TC on channel 0) and D5 = 1 (request on channel 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i53_m046",
+      "questionText": "The byte 05H is written to the 8237 single mask register. What is the effect?",
+      "options": [
+        "The mask bit of channel 1 is cleared, so channel 1 is enabled",
+        "The mask bits of channels 0 and 2 are set",
+        "Channel 5 is masked in the slave controller",
+        "The mask bit of channel 1 is set, so DREQ1 is ignored"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the single mask register D1D0 select the channel and D2 = 1 sets (D2 = 0 clears) its mask bit. 05H = 0000 0101: D2 = 1 and D1D0 = 01, so channel 1 is masked.",
+      "difficulty": "medium"
+    }
+  ]
+}

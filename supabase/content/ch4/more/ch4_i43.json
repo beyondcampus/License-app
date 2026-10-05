@@ -1,0 +1,713 @@
+{
+ "topicId": "ch4_i43",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Inside MCUs and DSPs"
+  },
+  {
+   "type": "paragraph",
+   "text": "An ASIP designer starts by profiling the target applications, finds the few operations that dominate run time and turns each into a single instruction backed by its own hardware. On a general-purpose RISC one FIR tap costs about seven instructions: two loads, a multiply, an add, two pointer updates and a loop test and branch. A DSP performs the same tap with one MAC instruction whose two operand fetches and pointer updates happen in parallel in the same cycle, so both time and energy per result fall because far fewer instructions are fetched and decoded. The price is that code outside the chosen domain gains nothing, and the compiler, assembler and debugger must all understand the special instructions."
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Feature",
+     "Microcontroller",
+     "DSP",
+     "General-purpose processor"
+    ],
+    [
+     "Memory organisation",
+     "Harvard or modified Harvard; on-chip Flash and SRAM",
+     "Modified Harvard with two or more data buses",
+     "Von Neumann view; split L1 instruction and data caches"
+    ],
+    [
+     "Key arithmetic",
+     "8/16/32-bit integer and single-bit operations",
+     "Single-cycle MAC, wide accumulator, saturation",
+     "Integer and floating point, SIMD extensions"
+    ],
+    [
+     "Special addressing",
+     "Bit addressing, direct access to special-function registers",
+     "Circular (modulo) and bit-reversed",
+     "Virtual addressing through an MMU"
+    ],
+    [
+     "Loop support",
+     "Ordinary decrement-and-branch instructions",
+     "Zero-overhead hardware loops",
+     "Branch prediction"
+    ],
+    [
+     "On-chip I/O",
+     "Timers, PWM, ADC, UART, SPI, I2C, GPIO",
+     "Serial audio ports and DMA channels",
+     "Few; relies on an external chipset"
+    ],
+    [
+     "Typical software",
+     "Bare-metal loop or a small RTOS",
+     "Tight signal-processing kernels plus an RTOS",
+     "Full OS such as Linux or Windows"
+    ],
+    [
+     "Figure of merit",
+     "Cost, power and peripheral mix",
+     "MMACS and MMACS per mW",
+     "MIPS and benchmark scores"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "A Q15 number stores the fraction x as the 16-bit integer round(x × 2^15), so its range is −1 to 1 − 2^−15. Multiplying two Q15 integers gives a Q30 product in 32 bits with two sign bits; shifting it right by 15 returns a Q15 result, while DSP hardware in fractional mode shifts left by one to form Q31 and keeps the upper half. Addition needs no shift but can leave the range, so DSPs saturate, clamping to 7FFFH or 8000H instead of wrapping round to the wrong sign. The only product that overflows is −1 × −1 = +1, and a 40-bit accumulator holding 32-bit products has 8 guard bits, so sums of up to 2^8 times full scale fit before the final rounding and saturation."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Q15 multiply: 0.625 x (-0.5)\n0.625 -> 0.625 x 32768 = 20480 = 5000H\n-0.5  -> -0.5 x 32768  = -16384 = C000H\nQ30 product = 20480 x (-16384) = -335544320\n>> 15 (back to Q15) = -10240 = D800H = -0.3125\nSaturating add: 6000H (0.75) + 4000H (0.5)\ntrue sum = 24576 + 16384 = 40960 > 32767\nwrap-around result: A000H = -0.75 (wrong sign)\nsaturated result:   7FFFH = +0.99997 (closest value)"
+  },
+  {
+   "type": "paragraph",
+   "text": "DSP address generators update pointers in parallel with the arithmetic. With circular (modulo) addressing the pointer follows p ← base + ((p − base + step) mod L), so the samples of a filter delay line of length L never have to be shifted; bit-reversed addressing reverses the log2 N index bits so that radix-2 FFT results can be read out in natural order. A zero-overhead loop keeps a loop counter and the loop start and end addresses in hardware registers: when the program counter reaches the end address the sequencer jumps back and decrements the counter without executing any instruction. With a one-cycle MAC body and a three-cycle software decrement, test and branch, a 64-tap loop drops from 256 to 64 cycles."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Mono FIR: 128 taps, fs = 48 kHz, DSP at 100 MHz, 1 MAC per cycle\nMAC cycles per second     = 128 x 48 000 = 6.144 M\noverhead 12 cycles/sample = 12 x 48 000  = 0.576 M\ntotal                     = 6.720 M cycles per second\nCPU load                  = 6.72 M / 100 M = 6.72 %\ncycles per sample         = 100 MHz / 48 kHz = 2083 (rounded down)\nlargest filter            = 2083 - 12 = 2071 taps\nsame filter on a RISC at 7 cycles per tap: 128 x 7 + 12 = 908 cycles/sample"
+  },
+  {
+   "type": "formula",
+   "latex": "N_{reload} = 2^{n} - \\frac{T \\cdot f_{clk}}{p}",
+   "plainText": "Reload value = 2^n − T × f_clk / p for an n-bit up-counter that flags on overflow; p is the prescaler (p = 12 on a classic 8051, one count per machine cycle)"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "8051, f_osc = 12 MHz, Timer 0 mode 1 (16-bit), 1 ms delay\ncount rate = 12 MHz / 12 = 1 MHz, so 1 count = 1 µs\ncounts     = 1 ms / 1 µs = 1000\nreload     = 65536 - 1000 = 64536 = FC18H (TH0 = FCH, TL0 = 18H)\nUART mode 1, Timer 1 mode 2, f_osc = 11.0592 MHz, SMOD = 0\nbaud       = 2^SMOD x f_osc / (384 x (256 - TH1))\n9600 baud  -> 256 - TH1 = 11 059 200 / (384 x 9600) = 3 -> TH1 = FDH\nSMOD = 1   -> the same TH1 gives 19 200 baud\nAVR at 16 MHz: UBRR = f_osc / (16 x baud) - 1 = 207 for 4800 baud"
+  },
+  {
+   "type": "bulletList",
+   "text": "Selecting a processor, and when to add a co-processor:",
+   "items": [
+    "Start from the workload: control and I/O with modest arithmetic points to an MCU, continuous arithmetic on sampled data to a DSP (compared in MMACS), and large, changing software with an OS to a general-purpose processor.",
+    "Then check the peripheral mix, memory size, active and sleep power, unit cost, tool chain and RTOS support, and long-term availability; for battery products compare energy per task, E = P × t, not power alone.",
+    "A co-processor is a separate execution unit that the host CPU drives through special instructions or memory-mapped command registers, such as the 8087 floating-point unit beside the 8086, an AES engine or a GPU; the host keeps control of the program.",
+    "A co-processor speeds up only the fraction f of run time that it handles, so the overall gain follows Amdahl's law below."
+   ]
+  },
+  {
+   "type": "formula",
+   "latex": "S = \\frac{1}{(1 - f) + f/k}",
+   "plainText": "Overall speedup S = 1 / ((1 − f) + f/k), where f is the accelerated fraction of run time and k is the co-processor's speedup on that fraction"
+  },
+  {
+   "type": "warning",
+   "text": "Common slips: a classic 8051 timer counts machine cycles (f_osc/12), not oscillator cycles; the value loaded is 2^n minus the count, not the count; AVR UBRR and CTC compare values end in −1 because the counter includes zero; a Q15 product is shifted by 15, not 16; and a bit-reversed index uses log2 N bits, so index 1 becomes 4 in an 8-point FFT but 8 in a 16-point FFT."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch4_i43_m001",
+   "questionText": "Compared with a general-purpose processor running the same signal-processing application, a well-designed ASIP typically offers:",
+   "options": [
+    "Lower NRE cost, because no special compiler or tools are needed",
+    "Hard-wired logic with no instruction stream at all",
+    "Better performance on every kind of program, including those outside its domain",
+    "Higher performance and lower power for its target domain, but little advantage on code outside that domain"
+   ],
+   "correctIndex": 3,
+   "explanation": "An ASIP's instruction set and functional units are tuned to one class of applications, which raises performance and cuts power there; it still runs software, and building its tool chain adds NRE compared with buying a general-purpose chip.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m002",
+   "questionText": "Why might a designer choose an ASIP rather than a custom single-purpose processor for a product whose algorithm may change after release?",
+   "options": [
+    "The ASIP is programmable, so a changed algorithm needs only new software",
+    "The ASIP always consumes less power than a single-purpose processor",
+    "The ASIP has the lowest possible unit cost at any production volume",
+    "The ASIP needs no compiler or other development tools"
+   ],
+   "correctIndex": 0,
+   "explanation": "A single-purpose processor is hard-wired for one algorithm, so any change needs a new chip; an ASIP keeps domain-specific speed while remaining programmable. The single-purpose design usually wins on power and unit cost.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m003",
+   "questionText": "Which of the following is NOT normally classified as an application-specific instruction-set processor?",
+   "options": [
+    "An 8-bit microcontroller for appliance control",
+    "A desktop x86 CPU designed to run any kind of application",
+    "A fixed-point digital signal processor",
+    "A network processor for packet forwarding"
+   ],
+   "correctIndex": 1,
+   "explanation": "Microcontrollers, DSPs and network processors are ASIPs whose instruction sets are tuned to control, signal processing and packet handling. A desktop CPU is the classic general-purpose processor.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m004",
+   "questionText": "Which statement about ASIPs is NOT correct?",
+   "options": [
+    "Once fabricated, an ASIP cannot be given new functionality, because its behaviour is fixed in hardware",
+    "Its instruction set and functional units are chosen by profiling a class of applications",
+    "It usually needs its own compiler, assembler and simulator, which adds NRE",
+    "Microcontrollers and DSPs are common examples of ASIPs"
+   ],
+   "correctIndex": 0,
+   "explanation": "An ASIP is programmable: new functionality within (or even outside) its domain is added by loading new software. Fixed behaviour describes a single-purpose processor; the other three statements are correct.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m005",
+   "questionText": "Configurable processor cores such as Tensilica Xtensa lower the main barrier to using ASIPs because they:",
+   "options": [
+    "Remove the need for software by converting the program into hard-wired logic",
+    "Are available only as FPGAs, so no chip fabrication is ever needed",
+    "Execute standard x86 binaries without recompilation",
+    "Let the designer add custom instructions and automatically generate the matching compiler, simulator and synthesizable hardware"
+   ],
+   "correctIndex": 3,
+   "explanation": "The high NRE of an ASIP comes largely from designing the processor and its tool chain. A configurable core generator produces the processor RTL together with a compiler, assembler and instruction-set simulator for the chosen custom instructions.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m006",
+   "questionText": "A product can use a general-purpose processor (unit cost $30, no NRE), an ASIP (unit cost $10, NRE $100,000) or a custom single-purpose processor (unit cost $4, NRE $400,000). At a volume of 20,000 units, which option has the lowest total cost, and what is that cost?",
+   "options": [
+    "Single-purpose processor, $480,000",
+    "General-purpose processor, $600,000",
+    "ASIP, $300,000",
+    "Single-purpose processor, $80,000"
+   ],
+   "correctIndex": 2,
+   "explanation": "Total = NRE + unit cost × volume: GPP 30 × 20,000 = $600,000; ASIP 100,000 + 10 × 20,000 = $300,000; single-purpose 400,000 + 4 × 20,000 = $480,000. The $80,000 figure forgets the NRE; the single-purpose option only wins above 300,000/6 = 50,000 units.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m007",
+   "questionText": "What mainly distinguishes a microcontroller from a microprocessor?",
+   "options": [
+    "A microcontroller always has a wider data path than a microprocessor",
+    "A microcontroller cannot respond to interrupts",
+    "A microcontroller needs external RAM and ROM chips before it can run any program",
+    "A microcontroller integrates the CPU with program memory, RAM and peripherals such as timers, an ADC and serial ports on one chip"
+   ],
+   "correctIndex": 3,
+   "explanation": "A microcontroller is a complete computer on one chip, built for embedded control; a microprocessor is just the CPU and needs external memory and peripheral chips.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m008",
+   "questionText": "Which of the following is normally NOT found on the chip of a typical 8-bit microcontroller?",
+   "options": [
+    "Timer/counter units",
+    "A memory-management unit supporting demand-paged virtual memory",
+    "A UART serial interface",
+    "A watchdog timer"
+   ],
+   "correctIndex": 1,
+   "explanation": "Timers, a UART and a watchdog are standard MCU peripherals. Demand-paged virtual memory with an MMU belongs to general-purpose processors running full operating systems.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m009",
+   "questionText": "What is the purpose of the watchdog timer in a microcontroller?",
+   "options": [
+    "To measure the width of external pulses",
+    "To generate the baud-rate clock for the UART",
+    "To reset the system if the software stops refreshing it within its timeout, for example after a program hang",
+    "To keep a real-time calendar while the MCU sleeps"
+   ],
+   "correctIndex": 2,
+   "explanation": "The program must restart (kick) the watchdog periodically; if a fault stops it from doing so, the watchdog times out and resets the MCU so it recovers without human help.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m010",
+   "questionText": "An 8-bit port variable is manipulated with this embedded C: uint8_t port = 0xA5; port |= (1u << 1); port &= (uint8_t)~(1u << 5); port ^= (1u << 7); What value does port hold at the end?",
+   "options": [
+    "0x27",
+    "0x87",
+    "0xE5",
+    "0x07"
+   ],
+   "correctIndex": 3,
+   "explanation": "0xA5 = 1010 0101; setting bit 1 gives 1010 0111 (0xA7); clearing bit 5 gives 1000 0111 (0x87); toggling bit 7 gives 0000 0111 = 0x07. 0x27 skips the clear, 0x87 skips the toggle and 0xE5 numbers the bits from 1.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m011",
+   "questionText": "In the 8051, the bit-addressable RAM starts at byte 20H, and bit address 00H is bit 0 of byte 20H. What is the bit address of bit 5 of byte 22H?",
+   "options": [
+    "15H",
+    "21H",
+    "27H",
+    "0DH"
+   ],
+   "correctIndex": 0,
+   "explanation": "Bit address = (byte − 20H) × 8 + bit = 2 × 8 + 5 = 21 decimal = 15H. Writing 21 decimal as 21H, adding 5 to 22H (27H) or using one byte fewer (0DH) are the usual slips.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m012",
+   "questionText": "When an MCU timer/counter is configured in counter mode rather than timer mode, what makes its register increment?",
+   "options": [
+    "Every cycle of the internal, prescaled clock",
+    "Each instruction that writes to an output port",
+    "Edges of an external signal applied to the counter input pin",
+    "Each completed ADC conversion"
+   ],
+   "correctIndex": 2,
+   "explanation": "In timer mode the register counts the internal (prescaled) clock and so measures time; in counter mode it counts pulses on an external pin, for example to count items on a conveyor.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m013",
+   "questionText": "A classic 8051 (12 oscillator periods per machine cycle) runs at 12 MHz. Timer 0 in mode 1 (16-bit) must overflow 5 ms after being loaded. What value should be loaded into TH0:TL0?",
+   "options": [
+    "1388H",
+    "EC78H",
+    "15A0H",
+    "FC18H"
+   ],
+   "correctIndex": 1,
+   "explanation": "One count = 12 / 12 MHz = 1 µs, so 5 ms needs 5000 counts; reload = 65536 − 5000 = 60536 = EC78H. 1388H is the count itself, 15A0H forgets the divide-by-12 (65536 − 60000) and FC18H is the 1 ms value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m014",
+   "questionText": "A classic 8051 at 12 MHz runs Timer 0 in mode 2 (8-bit auto-reload) with TH0 = 38H. At what rate does TF0 get set?",
+   "options": [
+    "17.9 kHz",
+    "60 kHz",
+    "3.91 kHz",
+    "5 kHz"
+   ],
+   "correctIndex": 3,
+   "explanation": "38H = 56, so the timer counts 256 − 56 = 200 machine cycles of 1 µs between overflows: period 200 µs, rate 5 kHz. 17.9 kHz uses 56 counts, 60 kHz forgets the divide-by-12 and 3.91 kHz ignores the reload value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m015",
+   "questionText": "What is the longest delay a classic 8051 at 11.0592 MHz can time with a single overflow of Timer 0 in mode 1 (16-bit)?",
+   "options": [
+    "71.11 ms",
+    "65.54 ms",
+    "5.93 ms",
+    "0.28 ms"
+   ],
+   "correctIndex": 0,
+   "explanation": "One machine cycle = 12 / 11.0592 MHz = 1.085 µs, so 65536 counts take 65536 × 1.085 µs = 71.11 ms. 65.54 ms assumes 1 µs per count, 5.93 ms forgets the divide-by-12 and 0.28 ms is the 8-bit (mode 2) limit.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m016",
+   "questionText": "A classic 8051 at 11.0592 MHz uses serial mode 1 with Timer 1 in mode 2 and SMOD = 0, so baud = f_osc / (384 × (256 − TH1)). Which TH1 value gives 4800 baud?",
+   "options": [
+    "FDH",
+    "F4H",
+    "FAH",
+    "06H"
+   ],
+   "correctIndex": 2,
+   "explanation": "256 − TH1 = 11,059,200 / (384 × 4800) = 6, so TH1 = 250 = FAH. FDH gives 9600 baud and F4H gives 2400 baud; 06H is the difference itself, not 256 − 6.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m017",
+   "questionText": "An AVR USART in normal asynchronous mode uses UBRR = f_osc / (16 × baud) − 1, rounded to the nearest integer, and produces baud = f_osc / (16 × (UBRR + 1)). With f_osc = 16 MHz and a target of 9600 baud, what UBRR is used and what baud rate results?",
+   "options": [
+    "104, about 9524 baud",
+    "103, about 9615 baud (+0.16 %)",
+    "207, about 9615 baud",
+    "103, exactly 9600 baud"
+   ],
+   "correctIndex": 1,
+   "explanation": "16,000,000 / (16 × 9600) − 1 = 103.17, so UBRR = 103; actual baud = 16,000,000 / (16 × 104) = 9615.4, an error of +0.16 %. UBRR = 104 forgets the −1, 207 is the double-speed (divide-by-8) value, and the rounding means the rate is not exact.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m018",
+   "questionText": "An AVR timer in CTC mode counts from 0 up to the compare value OCR, then clears and raises an interrupt. It is clocked at 16 MHz through a prescaler of 64. Which OCR value gives an interrupt every 1 ms?",
+   "options": [
+    "250",
+    "15999",
+    "249",
+    "124"
+   ],
+   "correctIndex": 2,
+   "explanation": "Timer clock = 16 MHz / 64 = 250 kHz, so 1 ms = 250 counts; because the count includes 0, OCR = 250 − 1 = 249. 250 forgets the −1, 15999 ignores the prescaler and 124 gives 0.5 ms.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m019",
+   "questionText": "A PWM timer is clocked at 16 MHz through a prescaler of 8 and counts from 0 to TOP = 1999 before restarting. The output is high while the count is below the compare value of 500. What are the PWM frequency and duty cycle?",
+   "options": [
+    "1 kHz, 75 %",
+    "8 kHz, 25 %",
+    "1 kHz, 25 %",
+    "2 MHz, 25 %"
+   ],
+   "correctIndex": 2,
+   "explanation": "f_PWM = 16 MHz / (8 × (1999 + 1)) = 1000 Hz; the output is high for 500 of the 2000 counts, so duty = 25 %. 75 % is the low time, 8 kHz ignores the prescaler and 2 MHz ignores TOP.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m020",
+   "questionText": "A 10-bit ADC with Vref = 5.0 V truncates its result (code = floor(Vin × 2^10 / Vref)). What code does it output for Vin = 2.0 V?",
+   "options": [
+    "102",
+    "1638",
+    "400",
+    "409"
+   ],
+   "correctIndex": 3,
+   "explanation": "Code = floor(2.0 × 1024 / 5.0) = floor(409.6) = 409. 102 is the 8-bit result, 1638 the 12-bit result and 400 assumes an LSB of exactly 5 mV instead of 4.883 mV.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m021",
+   "questionText": "An LM35 temperature sensor (10 mV per °C, 0 V at 0 °C) feeds a 10-bit ADC with Vref = 5.0 V, where Vin = code × Vref / 1024. The ADC reads 62. What is the temperature, to one decimal place?",
+   "options": [
+    "31.0 °C",
+    "3.0 °C",
+    "62.0 °C",
+    "30.3 °C"
+   ],
+   "correctIndex": 3,
+   "explanation": "Vin = 62 × 5.0 / 1024 = 0.3027 V = 302.7 mV, and 302.7 mV / 10 mV per °C = 30.3 °C. 31.0 °C assumes a 5 mV LSB, 3.0 °C divides by 100 mV per °C and 62.0 °C takes the code as the temperature.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m022",
+   "questionText": "On an AVR microcontroller the program sits in Flash and the variables in SRAM, on separate buses and in separate address spaces. A constant table stored in Flash must therefore be read with:",
+   "options": [
+    "An ordinary LD instruction, since both memories share one address space",
+    "A special program-memory load instruction (LPM), because ordinary data loads address SRAM",
+    "A DMA transfer, because the CPU cannot read Flash at all",
+    "An EEPROM read cycle through the EEPROM control registers"
+   ],
+   "correctIndex": 1,
+   "explanation": "In a Harvard MCU the data load instructions reach only the data space; the modified-Harvard AVR provides LPM (load program memory) so that constants can be fetched from Flash.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m023",
+   "questionText": "Why do most DSPs use a Harvard or modified Harvard memory architecture?",
+   "options": [
+    "So that programs can modify their own code more easily",
+    "To support virtual memory with demand paging",
+    "To reduce the number of pins on the package",
+    "So that an instruction and its data operands can be fetched in the same clock cycle, keeping the MAC unit busy every cycle"
+   ],
+   "correctIndex": 3,
+   "explanation": "An FIR tap needs an instruction, a coefficient and a sample every cycle; separate program and data buses (often two data buses) supply all three at once, which a single shared bus cannot.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m024",
+   "questionText": "Each tap of a 100-tap FIR filter needs one instruction fetch, one coefficient read and one sample read. Without caches, how many memory cycles per output sample are needed on a single-bus (von Neumann) processor doing one access per cycle, and on a DSP with a program bus and two data buses?",
+   "options": [
+    "100 and 300",
+    "300 and 100",
+    "300 and 150",
+    "200 and 100"
+   ],
+   "correctIndex": 1,
+   "explanation": "Single bus: 3 accesses × 100 taps = 300 cycles. With three buses all three accesses of a tap overlap, so 100 cycles. 150 would correspond to only two buses.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m025",
+   "questionText": "What is circular (modulo) addressing in a DSP mainly used for?",
+   "options": [
+    "Implementing a filter's delay line, where the pointer wraps from the end of the buffer back to its start automatically",
+    "Reordering FFT outputs into natural order",
+    "Translating virtual addresses into physical addresses",
+    "Rotating the bits of a register left or right"
+   ],
+   "correctIndex": 0,
+   "explanation": "A circular buffer lets new samples overwrite the oldest one without moving data; the address generator wraps the pointer modulo the buffer length. Reordering FFT results uses bit-reversed addressing.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m026",
+   "questionText": "A DSP address generator implements a circular buffer of length 10 occupying word addresses 0200H to 0209H. The pointer is at 0207H and is post-incremented by 4, wrapping modulo the buffer length. What is its new value?",
+   "options": [
+    "020BH",
+    "0201H",
+    "0203H",
+    "0200H"
+   ],
+   "correctIndex": 1,
+   "explanation": "New offset = (7 + 4) mod 10 = 1, so the pointer becomes 0200H + 1 = 0201H. 020BH ignores the wrap, 0203H wraps modulo 8 and 0200H simply resets to the base.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m027",
+   "questionText": "A 16-point radix-2 FFT reads its data in bit-reversed order. With which index does index 11 exchange places?",
+   "options": [
+    "4",
+    "13",
+    "7",
+    "11"
+   ],
+   "correctIndex": 1,
+   "explanation": "With log2 16 = 4 bits, 11 = 1011 reversed is 1101 = 13. 4 is the bit complement (0100), 7 is a left rotation (0111) and 11 would mean no reordering.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m028",
+   "questionText": "What does a zero-overhead loop facility in a DSP provide?",
+   "options": [
+    "A loop that the compiler unrolls completely at compile time",
+    "Hardware loop-counter and loop-address registers that repeat a block without spending cycles on decrement, compare and branch instructions",
+    "An instruction cache that is never flushed",
+    "A loop that runs with interrupts permanently disabled"
+   ],
+   "correctIndex": 1,
+   "explanation": "The program sequencer compares the program counter with the loop-end address and jumps back automatically while decrementing the counter, so the loop body runs back to back.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m029",
+   "questionText": "A 32-tap FIR inner loop has a single 1-cycle MAC instruction as its body. In software each iteration also needs 3 cycles to decrement, test and branch. With a zero-overhead hardware loop (ignoring the one-time loop set-up), how many cycles does the loop take, and what speedup is that?",
+   "options": [
+    "32 cycles, 4.0 times faster",
+    "32 cycles, 3.0 times faster",
+    "96 cycles, 1.33 times faster",
+    "35 cycles, 3.66 times faster"
+   ],
+   "correctIndex": 0,
+   "explanation": "Software loop: 32 × (1 + 3) = 128 cycles; hardware loop: 32 × 1 = 32 cycles; speedup = 128 / 32 = 4.0. 3.0 compares the overhead with the body, and 35 cycles adds a set-up the question excludes.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m030",
+   "questionText": "A fixed-point DSP at 150 MHz performs one MAC per cycle. It runs a 256-tap FIR filter on each of 2 audio channels sampled at 48 kHz, with 20 extra cycles of overhead per output sample. What percentage of the DSP's cycles does this use?",
+   "options": [
+    "8.83 %",
+    "17.66 %",
+    "16.38 %",
+    "34.05 %"
+   ],
+   "correctIndex": 1,
+   "explanation": "Cycles per second = 2 × 48,000 × (256 + 20) = 26.496 M, and 26.496 / 150 = 17.66 %. 8.83 % covers one channel, 16.38 % ignores the overhead and 34.05 % spends two cycles per tap, as if the multiply and the add were separate.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m031",
+   "questionText": "A DSP has two MAC units, each completing one multiply-accumulate per cycle, and runs at 300 MHz. What is its peak MAC throughput?",
+   "options": [
+    "300 MMACS",
+    "600 MMACS",
+    "150 MMACS",
+    "1200 MMACS"
+   ],
+   "correctIndex": 1,
+   "explanation": "Peak throughput = MAC units × clock = 2 × 300 MHz = 600 million MACs per second. 300 MMACS counts one unit and 1200 MMACS counts the multiply and add as two operations each.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m032",
+   "questionText": "A DSP at 200 MHz performs one MAC per cycle. For a mono signal sampled at 96 kHz, each output sample also needs 16 cycles of fixed overhead. What is the largest number of FIR taps it can run in real time?",
+   "options": [
+    "2083",
+    "1033",
+    "2067",
+    "2099"
+   ],
+   "correctIndex": 2,
+   "explanation": "Cycles per sample = 200 MHz / 96 kHz = 2083.3; subtracting the 16 overhead cycles leaves 2067.3, so at most 2067 taps. 2083 ignores the overhead, 2099 adds it and 1033 assumes two cycles per tap.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m033",
+   "questionText": "What value does the 16-bit Q15 number A000H represent?",
+   "options": [
+    "1.25",
+    "−0.25",
+    "−0.75",
+    "0.625"
+   ],
+   "correctIndex": 2,
+   "explanation": "A000H = 40960 unsigned, which as a 16-bit 2's complement integer is 40960 − 65536 = −24576; dividing by 2^15 gives −24576 / 32768 = −0.75. 1.25 reads it as unsigned, −0.25 as sign-magnitude and 0.625 divides by 2^16.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m034",
+   "questionText": "What is 0.3 in 16-bit Q15 format, rounded to the nearest code?",
+   "options": [
+    "2666H",
+    "4CCDH",
+    "1333H",
+    "012CH"
+   ],
+   "correctIndex": 0,
+   "explanation": "0.3 × 2^15 = 9830.4, which rounds to 9830 = 2666H. 4CCDH scales by 2^16, 1333H scales by 2^14 and 012CH is simply 300 in hexadecimal.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m035",
+   "questionText": "This C code multiplies two Q15 numbers: int16_t a = 0x6000; int16_t b = -0x4000; int32_t p = (int32_t)a * b; int16_t r = (int16_t)(p >> 15); Assuming >> on a negative int32_t is an arithmetic shift (as on GCC and Clang), what 16-bit pattern does r hold?",
+   "options": [
+    "D000H (−0.375)",
+    "E800H (−0.1875)",
+    "3000H (+0.375)",
+    "A000H (−0.75)"
+   ],
+   "correctIndex": 0,
+   "explanation": "a = 24576 (0.75) and b = −16384 (−0.5); p = −402,653,184, a Q30 value, and p >> 15 = −12288 = D000H = −0.375. E800H comes from shifting by 16, 3000H loses the sign and A000H is just the first operand negated.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m036",
+   "questionText": "A 16-bit signed fixed-point format has 1 sign bit, 3 integer bits and 12 fraction bits (Q3.12). What are its resolution and range?",
+   "options": [
+    "Resolution 2^−3 = 0.125; range −4096 to +4095.875",
+    "Resolution 2^−15 ≈ 0.0000305; range −1 to +0.99997",
+    "Resolution 2^−12 ≈ 0.000244; range −8 to +7.999756",
+    "Resolution 2^−12 ≈ 0.000244; range −16 to +15.999756"
+   ],
+   "correctIndex": 2,
+   "explanation": "Qm.f has resolution 2^−f and range −2^m to 2^m − 2^−f: with m = 3 and f = 12 that is −8 to 8 − 0.000244 = 7.999756. The other options describe Q12.3, Q15 and a format with 4 integer bits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m037",
+   "questionText": "The Q15 numbers 7000H (0.875) and 2000H (0.25) are added in a 16-bit register. What is the result with ordinary wrap-around 2's complement addition, and with saturating addition?",
+   "options": [
+    "Wrap-around: 9000H (−0.875); saturating: 7FFFH (≈ +0.99997)",
+    "Wrap-around: 9000H (−0.875); saturating: 8000H (−1.0)",
+    "Wrap-around: 7FFFH (≈ +0.99997); saturating: 9000H (−0.875)",
+    "Wrap-around: 9000H (+1.125); saturating: 7FFFH (≈ +0.99997)"
+   ],
+   "correctIndex": 0,
+   "explanation": "28672 + 8192 = 36864 exceeds +32767; the 16 bits 9000H read as −28672 / 32768 = −0.875, the wrong sign. Saturation clamps a positive overflow to the largest positive code 7FFFH = 32767 / 32768.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m038",
+   "questionText": "A DSP multiplies two Q15 operands in fractional mode (product shifted left by one to give Q31). Which operand pair gives the only product that cannot be represented, and what does a saturating multiplier return for it in Q15?",
+   "options": [
+    "8000H × 8000H; the result is saturated to 7FFFH",
+    "7FFFH × 7FFFH; the result is saturated to 7FFFH",
+    "8000H × 7FFFH; the result is saturated to 8000H",
+    "8000H × 8000H; the result is saturated to 8000H"
+   ],
+   "correctIndex": 0,
+   "explanation": "(−1) × (−1) = +1, but Q15 and Q31 stop just below +1: 32768 × 32768 × 2 = 2^31 exceeds 2^31 − 1, so it saturates to the largest positive value 7FFFH. 7FFFH × 7FFFH ≈ 0.99994 and 8000H × 7FFFH ≈ −0.99997 are both representable.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m039",
+   "questionText": "A 16 × 16-bit MAC unit produces 32-bit products and sums them in a 40-bit accumulator. How many guard bits does the accumulator provide, and roughly how many products of magnitude below full scale can be summed before overflow becomes possible?",
+   "options": [
+    "8 guard bits; up to 2^8 = 256 products",
+    "8 guard bits; up to 8 products",
+    "24 guard bits; up to 2^24 products",
+    "16 guard bits; up to 2^16 products"
+   ],
+   "correctIndex": 0,
+   "explanation": "Guard bits = 40 − 32 = 8, so the accumulator can grow to 2^8 = 256 times the full-scale product before it overflows. 24 bits wrongly compares with the 16-bit operands, and 8 products confuses the number of bits with the growth factor.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m040",
+   "questionText": "Which statement comparing fixed-point and floating-point DSPs is NOT correct?",
+   "options": [
+    "Fixed-point code needs careful scaling to avoid overflow and loss of precision",
+    "Floating-point DSPs offer a much wider dynamic range and make porting algorithms easier",
+    "Floating-point DSPs are normally cheaper and use less power than fixed-point DSPs of similar speed",
+    "Fixed-point DSPs dominate high-volume, cost- and power-sensitive products"
+   ],
+   "correctIndex": 2,
+   "explanation": "Fixed-point DSPs are smaller, cheaper and lower in power, which is why they dominate high-volume products; floating-point DSPs cost more and use more power in exchange for dynamic range and easier programming.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m041",
+   "questionText": "High-end DSPs such as the TI TMS320C6000 family use a VLIW architecture. Which statement describes it?",
+   "options": [
+    "Hardware reorders instructions at run time, as in an out-of-order superscalar CPU",
+    "Each instruction is expanded by microcode into many micro-operations",
+    "The compiler packs several independent operations into one long instruction word that issues to multiple functional units in the same cycle",
+    "There is a single functional unit, made fast by a very high clock rate"
+   ],
+   "correctIndex": 2,
+   "explanation": "In VLIW the parallelism is found and scheduled statically by the compiler, so the hardware needs no dynamic scheduling logic; the C6000 core can issue up to eight operations per cycle to its functional units.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m042",
+   "questionText": "Which description best fits a co-processor such as the 8087 working with an 8086?",
+   "options": [
+    "A second identical CPU that runs its own independent operating system",
+    "A DMA controller that moves blocks of data between memory and I/O without the CPU",
+    "A cache that stores frequently used floating-point constants",
+    "A separate processing unit that executes a specialised class of instructions (here floating point) on behalf of the host CPU, which stays in control of the program"
+   ],
+   "correctIndex": 3,
+   "explanation": "A co-processor extends the host's capabilities: the host fetches the program and hands the specialised instructions or commands to the co-processor. A second identical CPU would be multiprocessing, and a DMA controller only moves data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m043",
+   "questionText": "Profiling shows that 60 % of an application's run time is spent in FFT routines. A co-processor runs these routines 10 times faster and the rest of the program is unchanged. What is the overall speedup?",
+   "options": [
+    "6.40",
+    "10.0",
+    "1.67",
+    "2.17"
+   ],
+   "correctIndex": 3,
+   "explanation": "Amdahl's law: S = 1 / ((1 − 0.6) + 0.6/10) = 1 / (0.4 + 0.06) = 2.17. 6.40 averages the speeds (0.4 × 1 + 0.6 × 10), 10.0 assumes everything is accelerated and 1.67 is 1/0.6.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i43_m044",
+   "questionText": "Which processor is the best fit for a hearing aid that must filter audio continuously for days on a tiny battery?",
+   "options": [
+    "A high-end floating-point desktop CPU with a large cache",
+    "An 8-bit microcontroller without a hardware multiplier",
+    "A general-purpose processor running a desktop operating system",
+    "A low-power fixed-point DSP, or an MCU core with DSP (MAC) instructions"
+   ],
+   "correctIndex": 3,
+   "explanation": "Continuous filtering is MAC-heavy, so DSP hardware is needed, and the battery rules out high-power parts; fixed-point DSPs give the most MACs per milliwatt. An 8-bit MCU without a multiplier cannot sustain the arithmetic.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i43_m045",
+   "questionText": "Which processor type is the usual choice for a washing-machine controller that reads buttons and sensors, drives a motor and valves and shows its state on a small display?",
+   "options": [
+    "A microcontroller with on-chip timers, PWM, ADC and GPIO",
+    "A floating-point DSP",
+    "A network processor",
+    "A 64-bit server processor"
+   ],
+   "correctIndex": 0,
+   "explanation": "The task is control-oriented with many I/O lines and modest arithmetic, and it must be cheap: exactly the domain of a microcontroller.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i43_m046",
+   "questionText": "A sensor node wakes every 10 ms to run one task and sleeps for the rest of the period. Processor A draws 50 mW when active and needs 2 ms per task; processor B draws 200 mW and needs 0.4 ms. Both draw 1 mW while asleep. Which uses less energy per 10 ms period, and how much does it use?",
+   "options": [
+    "B, 80.0 µJ",
+    "B, 89.6 µJ",
+    "A, 108 µJ",
+    "A, 100 µJ"
+   ],
+   "correctIndex": 1,
+   "explanation": "A: 50 mW × 2 ms + 1 mW × 8 ms = 100 + 8 = 108 µJ. B: 200 mW × 0.4 ms + 1 mW × 9.6 ms = 80 + 9.6 = 89.6 µJ, so B wins despite its higher power. 80.0 µJ ignores the sleep energy.",
+   "difficulty": "hard"
+  }
+ ]
+}

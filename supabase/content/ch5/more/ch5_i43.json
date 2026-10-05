@@ -1,0 +1,496 @@
+{
+  "topicId": "ch5_i43",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Windows, Congestion Control and Traffic Shaping"
+    },
+    {
+      "type": "paragraph",
+      "text": "The study notes set the two problems side by side. Flow control solves 'the sender may be faster than the receiver can process': the receiver tells the sender how much buffer space it has left, the sender sends only that much, and the receiver's buffer never overflows (a sliding window). Congestion control solves 'too much traffic can overload the network' with four cooperating algorithms: slow start, congestion avoidance, fast retransmit and fast recovery. Both limits apply at the same time, so the sender always uses the smaller of the two windows."
+    },
+    {
+      "type": "bulletList",
+      "text": "The four algorithms stated precisely (correcting the usual shorthand):",
+      "items": [
+        "Slow start: cwnd starts small (1 MSS in textbook problems; RFC 5681 allows 2 to 4 segments depending on the MSS, and many stacks now use 10) and grows by 1 MSS for every ACK of new data. A full window of ACKs returns each RTT, so cwnd doubles once per RTT; it does not double on every ACK.",
+        "Congestion avoidance: once cwnd reaches ssthresh, each ACK adds about MSS x MSS / cwnd bytes, which sums to roughly 1 MSS per RTT (linear growth).",
+        "Fast retransmit: the third duplicate ACK (four identical ACKs in a row) makes the sender resend the missing segment at once instead of waiting for the RTO.",
+        "Fast recovery (Reno, RFC 5681): ssthresh = cwnd / 2 and cwnd = ssthresh + 3 MSS, plus 1 MSS for each further duplicate ACK; when an ACK for new data arrives, cwnd deflates to ssthresh and congestion avoidance continues. Round-by-round textbook traces simply write cwnd = ssthresh.",
+        "Timeout (Tahoe and Reno): ssthresh = cwnd / 2, cwnd = 1 MSS, slow start again, and the RTO is doubled. Precisely, RFC 5681 sets ssthresh = max(FlightSize / 2, 2 MSS), where FlightSize is the amount of data in flight."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "W = \\min(\\text{rwnd}, \\text{cwnd}) - (\\text{LastByteSent} - \\text{LastByteAcked})",
+      "plainText": "Usable window W = min(rwnd, cwnd) - (LastByteSent - LastByteAcked): new bytes the sender may transmit now"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: sender window in bytes (cwnd = 10,000 B, so rwnd decides)\nReceive buffer 6,000 B; the application has read everything up to byte 2,000\nACK 3,001 arrives: rwnd = 6,000 - (3,000 - 2,000) = 5,000\n  window = bytes 3,001..8,000; the sender has already sent up to 6,000\n  usable = min(5,000, 10,000) - (6,000 - 3,000) = 2,000 -> send 6,001..8,000\nBytes 3,001..6,000 arrive, the application reads nothing: ACK 6,001\n  rwnd = 6,000 - (6,000 - 2,000) = 2,000 -> window 6,001..8,000 (right edge unchanged)\nBytes 6,001..8,000 arrive: ACK 8,001, rwnd = 0 -> the sender starts its persist timer"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: cwnd in MSS, ssthresh starts at 8, one column per RTT\nRound   1  2  3  4  5  6  7  8  9 10 11 12 | 13 14 15 16 17\nBoth    1  2  4  8  9 10 11 12 13 14 15 16 | 3 dup ACKs at cwnd 16 -> ssthresh 8\nTahoe                                      |  1  2  4  8  9\nReno                                       |  8  9 10 11 12\nA timeout in round 12 would give the Tahoe row in both versions\nReno model: cwnd = new ssthresh after fast recovery (ignoring the +3 MSS inflation)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Phase or event",
+          "Rule per ACK or per event",
+          "Net effect per RTT"
+        ],
+        [
+          "Slow start (cwnd below ssthresh)",
+          "cwnd += 1 MSS for each ACK",
+          "cwnd doubles"
+        ],
+        [
+          "Congestion avoidance",
+          "cwnd += MSS x MSS / cwnd for each ACK",
+          "cwnd grows by about 1 MSS"
+        ],
+        [
+          "3 duplicate ACKs, Reno",
+          "Fast retransmit; ssthresh = cwnd/2; cwnd = ssthresh + 3 MSS, deflated to ssthresh on a new ACK",
+          "Window about halved; stays in congestion avoidance"
+        ],
+        [
+          "3 duplicate ACKs, Tahoe",
+          "Fast retransmit; ssthresh = cwnd/2; cwnd = 1 MSS",
+          "Back to slow start"
+        ],
+        [
+          "Timeout, Tahoe and Reno",
+          "ssthresh = cwnd/2; cwnd = 1 MSS; RTO doubled",
+          "Back to slow start"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: RTO with alpha = 1/8, beta = 1/4 (RFC 6298 order)\nBefore any sample: RTO = 1 s\nFirst sample R = 80 ms: SRTT = 80, RTTVAR = 80 / 2 = 40, RTO = 80 + 4 x 40 = 240 ms\nNext sample R = 120 ms (update RTTVAR first, using the old SRTT):\n  RTTVAR = 0.75 x 40 + 0.25 x |80 - 120| = 30 + 10 = 40 ms\n  SRTT   = 0.875 x 80 + 0.125 x 120 = 70 + 15 = 85 ms\n  RTO    = 85 + 4 x 40 = 245 ms\nRFC 6298 rounds an RTO below 1 s up to 1 s (Linux uses a 200 ms floor instead)\nKarn: an ACK for a retransmitted segment gives no sample; keep the doubled RTO"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why AIMD? Adding 1 MSS per RTT probes gently for spare capacity, while halving on loss backs off fast enough to drain the router queues. When several flows share a bottleneck, additive increase keeps the gap between their windows constant and every halving cuts that gap in half, so the flows drift towards equal shares. A single long-lived Reno flow therefore traces a sawtooth between W/2 and W, averaging 0.75 W per RTT, which gives a throughput of about 0.75 x W x MSS / RTT."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 4: token bucket C = 250 KB, rho = 2 MB/s, line rate M = 25 MB/s (1 MB = 1,000 KB)\nBurst time      S = C / (M - rho) = 250 KB / 23 MB/s = 10.9 ms\nData in burst   M x S = 25 MB/s x 10.9 ms = 272 KB  (= C + rho x S)\nAfter the burst the host is held to rho = 2 MB/s while data keeps coming\nLargest amount sent in any interval t: min(M x t, C + rho x t)\nLeaky bucket with output rate 2 MB/s, same burst: output never exceeds 2 MB/s;\nthe queue grows at (input rate - 2 MB/s), and packets are dropped once it is full"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "Compare cwnd and rwnd in the same unit (convert MSS to bytes first), and convert bytes to bits before dividing by the RTT to get bit/s.",
+        "Slow start stops at ssthresh: if doubling would overshoot it, round-by-round traces cap cwnd at ssthresh and continue linearly from there.",
+        "rwnd = 0 does not close the connection. The sender sends small window probes each time its persist timer expires, because the update that reopens the window is a pure ACK that is never retransmitted; if it were lost, both sides would wait forever.",
+        "Silly window syndrome has two sides: Nagle's algorithm fixes a sender that writes tiny pieces (at most one small segment unacknowledged at a time; the TCP_NODELAY option turns it off), and Clark's rule fixes a receiver that frees tiny pieces (keep advertising 0 until min(MSS, buffer/2) is free).",
+        "Nagle's algorithm combined with delayed ACKs (RFC 1122 allows up to 0.5 s) can stall request-response traffic, which is why interactive and RPC programs often set TCP_NODELAY.",
+        "Most current operating systems, including Linux, default to CUBIC (RFC 9438), which on a loss reduces cwnd to 0.7 times its value rather than 0.5 times and regrows it along a cubic curve; exam traces assume Tahoe or Reno."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For a congestion-window trace, write one row per RTT: double below ssthresh and add 1 once ssthresh is reached. At each loss first set ssthresh = cwnd/2, then apply the event: a timeout sets cwnd = 1 in every version, while three duplicate ACKs set cwnd = 1 in Tahoe but cwnd = ssthresh in Reno. Check whether the question counts rounds from 0 or from 1."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i43_m001",
+      "questionText": "What is the main function of flow control at the transport layer?",
+      "options": [
+        "To manage congestion inside the routers",
+        "To make sure data is sent no faster than the receiver can accept and process it",
+        "To determine the IP addresses of the two hosts",
+        "To detect bit errors in arriving segments"
+      ],
+      "correctIndex": 1,
+      "explanation": "Flow control protects the receiver's buffer by matching the sending rate to what the receiver can take. Protecting the routers is congestion control, and bit errors are caught by the checksum.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m002",
+      "questionText": "TCP flow control uses a sliding window. Who decides the size of this flow-control window, and how does the other side learn it?",
+      "options": [
+        "The sender, which measures the round-trip time and picks a window from it",
+        "The routers on the path, which write the window into the IP header",
+        "The receiver, which advertises its free buffer space in the window field of every segment it sends",
+        "The application, which fixes the window once when the socket is created"
+      ],
+      "correctIndex": 2,
+      "explanation": "The receive window (rwnd) is set by the receiver from its free buffer space and carried in the 16-bit window field of every segment it sends back. The sender's own limit from the network is the separate congestion window.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m003",
+      "questionText": "What does the congestion window (cwnd) represent in TCP?",
+      "options": [
+        "The free space in the receiver's buffer, advertised in each ACK",
+        "The total number of TCP connections open on the host",
+        "The time the sender waits before retransmitting a segment",
+        "A limit, kept by the sender, on how much unacknowledged data it may have in the network, based on its view of congestion"
+      ],
+      "correctIndex": 3,
+      "explanation": "cwnd is a sender-side variable adjusted by slow start, congestion avoidance and loss reactions; the sender may have at most min(cwnd, rwnd) bytes unacknowledged. The receiver's free buffer space is rwnd, and the retransmission wait is the RTO.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m004",
+      "questionText": "Which algorithms does TCP use for congestion control?",
+      "options": [
+        "Slow start and congestion avoidance",
+        "Token passing",
+        "Cyclic redundancy check",
+        "Distance-vector routing"
+      ],
+      "correctIndex": 0,
+      "explanation": "TCP controls congestion with slow start and congestion avoidance, together with fast retransmit and fast recovery. Token passing is a MAC method, CRC detects errors and distance vector is a routing algorithm.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m005",
+      "questionText": "What is the purpose of buffering at the transport layer?",
+      "options": [
+        "To encrypt sensitive data before it is sent",
+        "To hold data temporarily: at the receiver until the application reads it (and out-of-order segments until the gap is filled), and at the sender until it is acknowledged",
+        "To choose the route that each segment will take",
+        "To compress the data before transmission"
+      ],
+      "correctIndex": 1,
+      "explanation": "Transport buffers absorb the speed difference between the network and the applications and keep sent data for possible retransmission. The free space in the receive buffer is exactly what TCP advertises as its window.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m006",
+      "questionText": "A TCP sender's retransmission timer expires while cwnd = 30 MSS (assume the amount of data in flight equals cwnd). Following standard Tahoe/Reno behaviour, what are the new ssthresh and cwnd?",
+      "options": [
+        "ssthresh = 15 MSS, cwnd = 15 MSS",
+        "ssthresh = 30 MSS, cwnd = 1 MSS",
+        "ssthresh = 15 MSS, cwnd = 1 MSS",
+        "ssthresh = 1 MSS, cwnd = 15 MSS"
+      ],
+      "correctIndex": 2,
+      "explanation": "On a timeout ssthresh = 30 / 2 = 15 MSS and cwnd drops to 1 MSS, so slow start begins again. Setting cwnd = ssthresh = 15 is Reno's reaction to three duplicate ACKs, not to a timeout.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m007",
+      "questionText": "A TCP sender has cwnd = 12,000 bytes, and the receiver's latest advertised window is rwnd = 8,000 bytes. 5,000 bytes have been sent but not yet acknowledged. How many more bytes of new data may the sender transmit right now?",
+      "options": [
+        "3,000",
+        "7,000",
+        "8,000",
+        "12,000"
+      ],
+      "correctIndex": 0,
+      "explanation": "Usable window = min(rwnd, cwnd) - bytes in flight = min(8,000, 12,000) - 5,000 = 3,000 bytes. Using cwnd instead gives 7,000, and ignoring the unacknowledged bytes gives 8,000.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m008",
+      "questionText": "A receiver has a 65,536-byte receive buffer. All bytes up to number 40,000 have arrived in order (LastByteRcvd = 40,000), and the application has read up to byte 22,000 (LastByteRead = 22,000). What window does the receiver advertise?",
+      "options": [
+        "18,000 bytes",
+        "25,536 bytes",
+        "43,536 bytes",
+        "47,536 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "rwnd = RcvBuffer - (LastByteRcvd - LastByteRead) = 65,536 - (40,000 - 22,000) = 65,536 - 18,000 = 47,536 bytes. 18,000 bytes is the unread data itself, not the free space.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m009",
+      "questionText": "A TCP sender has sent every byte up to byte 13,000. It then receives an ACK with acknowledgement number 12,001 and an advertised window of 3,000 bytes (the previous ACK was 10,001 with a window of 4,000). cwnd is large enough not to matter. Which bytes may the sender now transmit for the first time?",
+      "options": [
+        "Bytes 13,001 to 14,000",
+        "Bytes 13,001 to 15,000",
+        "Bytes 12,001 to 15,000",
+        "Bytes 13,001 to 16,000"
+      ],
+      "correctIndex": 1,
+      "explanation": "The window now starts at the acknowledged number and covers 3,000 bytes: 12,001 to 15,000. Bytes up to 13,000 are already in flight, so the new bytes are 13,001 to 15,000; 14,000 was the old right edge (10,001 + 4,000 - 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m010",
+      "questionText": "A TCP receiver advertises a window of 0 bytes. What does the sender do?",
+      "options": [
+        "It closes the connection because the receiver has failed",
+        "It keeps sending at half its previous rate",
+        "It retransmits all unacknowledged data each time the RTO expires",
+        "It stops sending new data and starts the persist timer; each time the timer expires it sends a small window probe until a non-zero window is advertised"
+      ],
+      "correctIndex": 3,
+      "explanation": "A zero window pauses the sender but keeps the connection open. The persist timer and its window probes guard against deadlock, because the ACK that reopens the window is never retransmitted and could be lost.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m011",
+      "questionText": "A Telnet user types steadily, one character every 50 ms, over a TCP connection with an RTT of 200 ms, and each character is written to the socket as soon as it is typed. With Nagle's algorithm enabled and the receiver acknowledging every segment at once, how many data segments per second does the sender transmit once typing is under way?",
+      "options": [
+        "20 per second",
+        "10 per second",
+        "5 per second",
+        "4 per second"
+      ],
+      "correctIndex": 2,
+      "explanation": "Nagle allows only one small segment to be unacknowledged, so a new segment leaves only when the previous one's ACK returns: one segment per RTT = 1 / 0.2 s = 5 per second, each carrying about 4 characters. Without Nagle every keystroke would be a segment: 20 per second.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m012",
+      "questionText": "A receiver has an 8,000-byte buffer and an MSS of 1,460 bytes. Its buffer is full, so it advertises a window of 0, and its application then starts reading 100 bytes at a time. Using Clark's solution to silly window syndrome, what is the least free space the receiver must have before it advertises a non-zero window?",
+      "options": [
+        "100 bytes",
+        "1,460 bytes",
+        "4,000 bytes",
+        "8,000 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Clark's rule: keep advertising 0 until the free space reaches the smaller of one MSS and half the buffer, min(1,460, 8,000 / 2 = 4,000) = 1,460 bytes. Reopening the window every time 100 bytes are read is exactly the silly window syndrome.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m013",
+      "questionText": "A TCP connection has cwnd = 40 MSS with an MSS of 1,000 bytes, the receiver advertises rwnd = 24,000 bytes, and the RTT is 60 ms. Ignoring headers, what is the maximum throughput (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "0.4 Mbps",
+        "1.6 Mbps",
+        "3.2 Mbps",
+        "5.3 Mbps"
+      ],
+      "correctIndex": 2,
+      "explanation": "Effective window = min(40 x 1,000, 24,000) = 24,000 bytes; throughput = 24,000 x 8 bits / 0.06 s = 3.2 Mbps. Using cwnd gives 5.3 Mbps, and 0.4 confuses 400,000 bytes/s with bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m014",
+      "questionText": "A long-lived TCP Reno flow stays in congestion avoidance: its cwnd grows by 1 segment per RTT from 20 to 40 segments, a single loss detected by three duplicate ACKs then halves it back to 20, and the cycle repeats. With 1,500-byte segments and an RTT of 100 ms, what is its average throughput (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "0.45 Mbps",
+        "2.4 Mbps",
+        "3.6 Mbps",
+        "4.8 Mbps"
+      ],
+      "correctIndex": 2,
+      "explanation": "The window saws between W/2 = 20 and W = 40 segments, averaging 0.75 x 40 = 30 segments per RTT: 30 x 1,500 x 8 / 0.1 s = 3.6 Mbps. The peak window alone would give 4.8 Mbps and the minimum 2.4 Mbps.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m015",
+      "questionText": "A sender in slow start begins with cwnd = 1 segment and doubles cwnd every RTT; it never reaches ssthresh or rwnd, and there are no losses. How many RTTs (rounds of transmission) does it need to send a 30-segment file?",
+      "options": [
+        "4",
+        "5",
+        "8",
+        "30"
+      ],
+      "correctIndex": 1,
+      "explanation": "Windows of 1, 2, 4, 8 and 16 segments give running totals of 1, 3, 7, 15 and 31, so the 30th segment goes out in round 5. Growing by only one segment per round would need 8 rounds, and stop-and-wait would need 30.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m016",
+      "questionText": "A TCP Tahoe sender and a TCP Reno sender both have cwnd = 24 MSS in congestion avoidance when three duplicate ACKs arrive. Tahoe sets ssthresh = cwnd/2 and restarts slow start at 1 MSS; model Reno as setting cwnd = ssthresh = cwnd/2 after fast recovery (ignore the temporary +3 MSS inflation). Counting the round in which the new cwnd is first used as round 1, what is each sender's cwnd in round 4?",
+      "options": [
+        "Tahoe 8 MSS, Reno 15 MSS",
+        "Tahoe 4 MSS, Reno 14 MSS",
+        "Tahoe 12 MSS, Reno 15 MSS",
+        "Tahoe 8 MSS, Reno 12 MSS"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both set ssthresh = 12. Tahoe restarts at 1 and doubles below ssthresh: 1, 2, 4, 8 in rounds 1 to 4. Reno continues in congestion avoidance from 12: 12, 13, 14, 15.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m017",
+      "questionText": "A TCP Reno sender starts with cwnd = 1 MSS and ssthresh = 32 MSS. cwnd doubles each round in slow start and grows by 1 MSS per round in congestion avoidance. Three duplicate ACKs arrive in round 10, and a timeout occurs in round 13; each reaction takes effect in the next round. Model fast recovery as cwnd = ssthresh = half the cwnd at the loss. What are cwnd and ssthresh in round 17?",
+      "options": [
+        "cwnd = 4 MSS, ssthresh = 10 MSS",
+        "cwnd = 8 MSS, ssthresh = 18 MSS",
+        "cwnd = 24 MSS, ssthresh = 18 MSS",
+        "cwnd = 8 MSS, ssthresh = 10 MSS"
+      ],
+      "correctIndex": 3,
+      "explanation": "Rounds 1 to 6 give 1, 2, 4, 8, 16, 32, then 33 to 36 in rounds 7 to 10; the duplicate ACKs at 36 set ssthresh = cwnd = 18 (rounds 11 to 13: 18, 19, 20). The timeout at 20 sets ssthresh = 10 and cwnd = 1, so rounds 14 to 17 are 1, 2, 4, 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m018",
+      "questionText": "A sender transmits segments 1 to 8 back to back. Segment 3 is lost; all the others arrive, and for every segment it receives the receiver sends an ACK naming the next segment it expects. The sender performs fast retransmit on the third duplicate ACK. The ACK caused by the arrival of which segment triggers the retransmission of segment 3?",
+      "options": [
+        "Segment 4",
+        "Segment 5",
+        "Segment 6",
+        "Segment 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "Segment 2's ACK is the first one asking for segment 3; segments 4, 5 and 6 each cause a duplicate of it, and the third duplicate (from segment 6) triggers fast retransmit. Counting segment 2's original ACK as one of the three gives segment 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m019",
+      "questionText": "A TCP sender has EstimatedRTT = 100 ms and DevRTT = 10 ms when a new SampleRTT of 140 ms is measured. With α = 1/8 and β = 1/4, updating DevRTT first using the old EstimatedRTT (the order RFC 6298 specifies), what is the new RTO = EstimatedRTT + 4 x DevRTT? Ignore any minimum RTO.",
+      "options": [
+        "145 ms",
+        "160 ms",
+        "175 ms",
+        "210 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "DevRTT = 0.75 x 10 + 0.25 x |140 - 100| = 17.5 ms; EstimatedRTT = 0.875 x 100 + 0.125 x 140 = 105 ms; RTO = 105 + 4 x 17.5 = 175 ms. Keeping the old DevRTT gives 145 ms, and the old rule RTO = 2 x EstimatedRTT gives 210 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m020",
+      "questionText": "EstimatedRTT is 80 ms. Two new RTT samples are then measured, first 160 ms and then 120 ms. With α = 0.125, what is EstimatedRTT after both updates?",
+      "options": [
+        "90 ms",
+        "93.75 ms",
+        "123.75 ms",
+        "140 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "After 160 ms: 0.875 x 80 + 0.125 x 160 = 90 ms. After 120 ms: 0.875 x 90 + 0.125 x 120 = 78.75 + 15 = 93.75 ms; 140 ms is the plain average of the samples, and 123.75 ms swaps the two weights.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m021",
+      "questionText": "A segment is sent with RTO = 1 s. The timer expires, the segment is retransmitted, and an ACK covering it arrives 0.3 s after the retransmission. Following Karn's algorithm and exponential backoff, which statement is correct?",
+      "options": [
+        "The sender uses 1.3 s as the RTT sample and recomputes the RTO",
+        "The sender uses 0.3 s as the RTT sample and recomputes the RTO",
+        "No RTT sample is taken, and the RTO goes back to 1 s straight away",
+        "No RTT sample is taken from this segment, and the doubled RTO of 2 s is kept until a segment sent only once gives a valid sample"
+      ],
+      "correctIndex": 3,
+      "explanation": "The ACK could belong to either transmission, so the sample is ambiguous and Karn's rule discards it. The timeout doubled the RTO to 2 s, and that backed-off value stays until an ACK for a segment that was never retransmitted gives a fresh sample.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m022",
+      "questionText": "A host sends a burst at 20 Mbps for 100 ms into a leaky bucket that can hold at most 1 Mbit and drains at a constant 4 Mbps; the bucket is empty at the start. Treating the data as a continuous flow (1 Mbit = 10^6 bits), how much data is discarded?",
+      "options": [
+        "0.4 Mbit",
+        "0.6 Mbit",
+        "1.0 Mbit",
+        "1.6 Mbit"
+      ],
+      "correctIndex": 1,
+      "explanation": "Input = 20 x 0.1 = 2 Mbit and output during the burst = 4 x 0.1 = 0.4 Mbit; the bucket fills after 1 / (20 - 4) = 62.5 ms and then holds 1 Mbit. Discarded = 2 - 0.4 - 1 = 0.6 Mbit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m023",
+      "questionText": "A token bucket has capacity C = 600 KB, tokens arrive at ρ = 10 MB/s, and the host's line can send at M = 40 MB/s (1 MB = 1,000 KB). The bucket is full when a long burst of data arrives. For how long can the host send at the full 40 MB/s, and how much data does it send in that time?",
+      "options": [
+        "20 ms, sending 800 KB",
+        "15 ms, sending 600 KB",
+        "20 ms, sending 600 KB",
+        "60 ms, sending 2,400 KB"
+      ],
+      "correctIndex": 0,
+      "explanation": "Tokens drain at M while ρ keeps refilling, so S = C / (M - ρ) = 600 KB / 30,000 KB/s = 20 ms. Data sent = M x S = 40,000 KB/s x 0.02 s = 800 KB, which equals C + ρS = 600 + 200 KB; C / M = 15 ms forgets the refill.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i43_m024",
+      "questionText": "A flow is policed by a token bucket with bucket size b = 4,000 bytes and token rate r = 1,000 bytes/s, and the bucket is full at t = 0. The line is much faster than r. What is the largest amount of data the flow can send in the first 3 s while staying within the bucket's limit?",
+      "options": [
+        "3,000 bytes",
+        "4,000 bytes",
+        "7,000 bytes",
+        "12,000 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The flow may use the saved tokens at once plus every token that arrives: b + r x t = 4,000 + 1,000 x 3 = 7,000 bytes. 3,000 ignores the full bucket and 4,000 ignores the new tokens.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m025",
+      "questionText": "In a token bucket shaper, what happens when the bucket is already full of tokens and more tokens arrive?",
+      "options": [
+        "The extra tokens are discarded, so an idle host can never save up more than the bucket capacity",
+        "Packets waiting in the queue are discarded",
+        "The token rate is doubled for the next burst",
+        "The bucket grows so that the host can later send a longer burst"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a token bucket it is tokens that overflow, not packets: a full bucket simply stops saving, which caps any burst at the bucket size. In a leaky bucket, by contrast, packets are dropped when the bucket (the queue) is full.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m026",
+      "questionText": "Which statement correctly contrasts the leaky bucket and the token bucket?",
+      "options": [
+        "The leaky bucket lets bursts through unchanged, while the token bucket always sends at a constant rate",
+        "Both allow unlimited bursts as long as the long-term average rate is met",
+        "The token bucket discards packets whenever tokens arrive faster than packets",
+        "The leaky bucket sends at a constant rate however bursty the input is, while the token bucket lets an idle host save tokens and later send a burst of up to the bucket size"
+      ],
+      "correctIndex": 3,
+      "explanation": "A leaky bucket smooths any input into a fixed output rate. A token bucket enforces the same long-term average rate but allows controlled bursts of up to its capacity after idle periods.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i43_m027",
+      "questionText": "Which statement about TCP flow control and congestion control is NOT correct?",
+      "options": [
+        "Flow control protects the receiver's buffer, while congestion control protects the network",
+        "The congestion window is advertised by the receiver in the TCP header's window field",
+        "The sender may have at most min(cwnd, rwnd) bytes unacknowledged",
+        "Congestion control reacts to signs such as timeouts and duplicate ACKs"
+      ],
+      "correctIndex": 1,
+      "explanation": "The window field carries rwnd, the receiver's flow-control window; cwnd is computed privately by the sender and never sent. The other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m028",
+      "questionText": "Why does TCP Reno halve cwnd after three duplicate ACKs but drop it to 1 MSS after a timeout?",
+      "options": [
+        "Duplicate ACKs show that later segments are still reaching the receiver, so congestion is mild; a timeout means nothing is getting through, which suggests heavy congestion",
+        "Duplicate ACKs are sent only by routers, while timeouts are caused by the receiver",
+        "A timeout can happen only during slow start",
+        "Three duplicate ACKs mean that the receiver's buffer is full"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each duplicate ACK is triggered by a segment that did arrive, so the path is still delivering data and a halved window is enough. A timeout means the ACK clock has stopped, so TCP restarts cautiously from 1 MSS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m029",
+      "questionText": "A latency-sensitive client program contains this code. What does the setsockopt() call do?\n\nimport socket\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ns.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)",
+      "options": [
+        "It disables delayed ACKs at the receiver",
+        "It sets the advertised receive window to zero",
+        "It disables TCP's congestion control",
+        "It turns off Nagle's algorithm, so small writes are sent at once instead of waiting for outstanding data to be acknowledged"
+      ],
+      "correctIndex": 3,
+      "explanation": "TCP_NODELAY disables Nagle's algorithm on the sending side, so each small write can leave immediately. Delayed ACKs are a receiver behaviour and congestion control stays active.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i43_m030",
+      "questionText": "An application enlarges its socket's receive buffer (SO_RCVBUF) before connecting. Which TCP quantity can this directly make larger?",
+      "options": [
+        "The advertised receive window, rwnd",
+        "The congestion window, cwnd",
+        "The maximum segment size, MSS",
+        "The retransmission timeout, RTO"
+      ],
+      "correctIndex": 0,
+      "explanation": "rwnd is the free space in the receive buffer, so a bigger buffer lets the receiver advertise a bigger window (window scaling is needed above 65,535 bytes, which is why the buffer is set before the handshake). cwnd comes from congestion control, MSS from the MTU and RTO from RTT measurements.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,1190 @@
+{
+  "parent": {
+    "id": "ch9_p3",
+    "title": "Knowledge Representation"
+  },
+  "subtopics": [
+    {
+      "id": "ch9_t3",
+      "title": "Knowledge Representation: Approaches, Issues, Semantic Nets & Frames",
+      "subtitle": "Facts vs representations, KR properties, approaches, issues, nets, frames, scripts",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Knowledge and Its Representation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Knowledge is information about a domain (objects, their properties, relationships and rules) that an intelligent system can use to solve problems. Knowledge representation (KR) is the study of how to encode that knowledge in a form a program can store and reason with. Rich and Knight distinguish two levels: facts, which are truths in the relevant world, and representations of facts, which are the symbols a program actually manipulates. A representation is useful only if it lets the program derive new facts that correspond to real consequences in the world."
+          },
+          {
+            "type": "bulletList",
+            "text": "Mappings between facts and representations (Rich and Knight):",
+            "items": [
+              "Forward representation mapping: from facts in the world to internal representations (e.g. 'Spot is a dog' becomes dog(Spot)).",
+              "Reasoning operates on the representations only, producing new internal structures (from dog(Spot) and the rule that every dog has a tail, derive hastail(Spot)).",
+              "Backward representation mapping: from the derived representation back to a fact, often into English ('Spot has a tail').",
+              "The mapping is rarely one-to-one: 'All dogs have tails' can mean every dog has at least one tail or every dog has several tails, so the representer must choose the intended meaning."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Property",
+                "Meaning",
+                "Example"
+              ],
+              [
+                "Representational adequacy",
+                "Ability to represent all the kinds of knowledge needed in the domain",
+                "Can express defaults, exceptions and quantified statements"
+              ],
+              [
+                "Inferential adequacy",
+                "Ability to manipulate the structures to derive new knowledge from old",
+                "Supports inheritance and logical deduction"
+              ],
+              [
+                "Inferential efficiency",
+                "Ability to add extra information (such as indexes or control hints) that focuses inference in the most promising direction",
+                "Attaching pointers so the right rule is found quickly"
+              ],
+              [
+                "Acquisitional efficiency",
+                "Ability to acquire new knowledge easily, ideally automatically or with little human effort",
+                "Adding a new frame or rule without restructuring the base"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "No single scheme maximises all four properties at once; for example, full first-order logic is very expressive but inference in it can be slow, while a simple table is efficient but inferentially weak. Practical systems therefore combine several schemes, such as frames for structure plus rules for reasoning. The syllabus wording 'expressive adequacy' means the same as representational adequacy."
+          },
+          {
+            "type": "bulletList",
+            "text": "Four approaches to knowledge representation:",
+            "items": [
+              "Simple relational knowledge: facts stored as rows of a relational table (Player, Height, Weight, Bats); easy to store and query but provides almost no inference by itself.",
+              "Inheritable knowledge: objects organised into class hierarchies with IS-A and instance links so that properties of a class are inherited by its members; implemented with semantic nets and frames.",
+              "Inferential knowledge: facts and rules written in formal logic (propositional or predicate) so that new facts are deduced by inference rules such as modus ponens and resolution.",
+              "Procedural knowledge: knowledge encoded as procedures or production rules (IF condition THEN action) that say how to do something, as in LISP code or expert-system rules."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Issues in knowledge representation:",
+            "items": [
+              "Important attributes: instance and isa occur in almost every domain and support property inheritance, so they deserve special handling.",
+              "Relationships among attributes: inverses (team-of / has-player), existence in an isa hierarchy (height is a specialisation of physical-size), techniques for reasoning about values, and single-valued attributes.",
+              "Choosing the granularity: whether to use high-level facts or break them into primitives (for example, representing 'kicked' via a primitive such as PROPEL).",
+              "Representing sets of objects, both by listing members (extensional) and by giving a rule for membership (intensional).",
+              "Finding the right structure: selecting an appropriate frame or script from a large knowledge base and revising it when it does not fit the situation."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Semantic Networks"
+          },
+          {
+            "type": "paragraph",
+            "text": "A semantic network (Quillian, 1968) is a labelled directed graph in which nodes represent objects, concepts or events and arcs represent binary relations between them. Two arc types are special: instance (instance-of) links an individual to its class, and IS-A links a subclass to its superclass. Other arcs such as HAS-A, colour or owns carry ordinary attributes. Reasoning is done by intersection search (spreading activation from two nodes to see where they meet) and by property inheritance along instance and IS-A chains."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Tweety --instance--> Penguin --isa--> Bird --isa--> Animal\nBird    : can-fly = yes, has-part = wings, covering = feathers\nPenguin : can-fly = no            (exception overrides Bird)\nAnimal  : breathes = yes\nQuery can-fly(Tweety):  look at Tweety -> Penguin (found: no)\nQuery breathes(Tweety): Tweety -> Penguin -> Bird -> Animal (yes)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{instance}(x,A) \\wedge \\text{isa}(A,B) \\rightarrow \\text{instance}(x,B)",
+            "plainText": "instance(x, A) AND isa(A, B) -> instance(x, B)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Inheritance searches upward from the most specific node and stops at the first value found, so a value stored at a lower node overrides the default inherited from above; this is how exceptions like non-flying penguins are handled. Plain semantic nets represent only binary relations, so an n-ary fact such as 'John gave Mary a book' is reified into an event node with agent, recipient and object arcs. Partitioned semantic nets (Hendrix) group nodes into spaces so that quantified statements can be represented."
+          },
+          {
+            "type": "heading",
+            "text": "Frames and Scripts"
+          },
+          {
+            "type": "paragraph",
+            "text": "A frame (Minsky, 1975) is a record-like structure describing a stereotyped object or situation: it has a name and a set of slots, each describing an attribute. Every slot has facets that describe the slot value. Frames are linked by IS-A and instance slots into a hierarchy, so a frame inherits slots and default values from its parent frames, much like objects inheriting from classes in object-oriented programming."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Facet",
+                "Role",
+                "Example for a Hotel-Room frame"
+              ],
+              [
+                "Value",
+                "The actual filler of the slot",
+                "beds: 2"
+              ],
+              [
+                "Default",
+                "Typical value assumed until a specific value is given",
+                "has-telephone: yes"
+              ],
+              [
+                "Range / type",
+                "Constraint on which values are allowed",
+                "floor: integer 1 to 20"
+              ],
+              [
+                "If-needed demon",
+                "Procedure run to compute a value when the slot is read and empty",
+                "rate: compute from season"
+              ],
+              [
+                "If-added demon",
+                "Procedure run when a value is put into the slot",
+                "occupant: update register"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A script (Schank and Abelson, 1977) is a frame-like structure that describes a stereotyped sequence of events in a particular context, the classic example being going to a restaurant. Its components are entry conditions, props, roles, tracks (variations such as fast-food or fine-dining), scenes (entering, ordering, eating, paying, leaving) and results. Scripts let a program predict unstated events and answer questions such as 'Did John pay?' when a story only says he ate and left."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{instance}(x,A) \\wedge \\text{isa}(A,B) \\rightarrow \\text{instance}(x,B)",
+            "plainText": "instance(x, A) AND isa(A, B) -> instance(x, B)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{isa}(A,B) \\wedge \\text{isa}(B,C) \\rightarrow \\text{isa}(A,C)",
+            "plainText": "isa(A, B) AND isa(B, C) -> isa(A, C)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{instance}(x,C) \\wedge \\text{prop}(C,p,v) \\wedge \\neg\\,\\text{override}(x,p) \\rightarrow \\text{prop}(x,p,v)",
+            "plainText": "instance(x, C) AND prop(C, p, v) AND NOT override(x, p) -> prop(x, p, v)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Match each approach to its example: tables are simple relational, IS-A hierarchies (semantic nets, frames) are inheritable, logic formulas are inferential, and IF-THEN rules or code are procedural."
+          },
+          {
+            "type": "note",
+            "text": "instance links an individual to a class (Tweety instance Penguin); IS-A links a class to a superclass (Penguin isa Bird). Both carry inheritance, but only IS-A is transitive between classes."
+          },
+          {
+            "type": "warning",
+            "text": "Inheritance uses the most specific value: if Penguin says can-fly = no, Tweety does not inherit can-fly = yes from Bird. Defaults are defeasible, which is why frame and net reasoning is not purely monotonic logic."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_t3_01",
+          "title": "Instance inheritance",
+          "latex": "\\text{instance}(x,A) \\wedge \\text{isa}(A,B) \\rightarrow \\text{instance}(x,B)",
+          "plainText": "instance(x, A) AND isa(A, B) -> instance(x, B)",
+          "description": "An individual that belongs to a class also belongs to every superclass of that class."
+        },
+        {
+          "id": "f_ch9_t3_02",
+          "title": "IS-A transitivity",
+          "latex": "\\text{isa}(A,B) \\wedge \\text{isa}(B,C) \\rightarrow \\text{isa}(A,C)",
+          "plainText": "isa(A, B) AND isa(B, C) -> isa(A, C)",
+          "description": "Subclass links chain upward, which is what lets properties propagate through a semantic net or frame hierarchy."
+        },
+        {
+          "id": "f_ch9_t3_03",
+          "title": "Default property inheritance",
+          "latex": "\\text{instance}(x,C) \\wedge \\text{prop}(C,p,v) \\wedge \\neg\\,\\text{override}(x,p) \\rightarrow \\text{prop}(x,p,v)",
+          "plainText": "instance(x, C) AND prop(C, p, v) AND NOT override(x, p) -> prop(x, p, v)",
+          "description": "A member takes a class property value unless a more specific value overrides it."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_t3_01",
+          "front": "Name the four properties of a good knowledge representation system.",
+          "back": "Representational adequacy, inferential adequacy, inferential efficiency and acquisitional efficiency.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_t3_02",
+          "front": "What is the difference between an instance link and an IS-A link?",
+          "back": "instance connects an individual object to its class, while IS-A connects a subclass to its superclass; both support property inheritance.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_t3_03",
+          "front": "What are demons in a frame system?",
+          "back": "Attached procedures such as if-needed (run when an empty slot is read) and if-added (run when a value is stored) that fire automatically.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_t3_04",
+          "front": "What does a script represent, and who proposed it?",
+          "back": "A stereotyped sequence of events in a context, such as a restaurant visit, with props, roles, entry conditions, scenes and results; proposed by Schank and Abelson.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_t3_n01",
+          "questionText": "The property of a knowledge representation system that measures how easily new information can be added to the knowledge base, ideally automatically, is called:",
+          "options": [
+            "Inferential adequacy",
+            "Representational adequacy",
+            "Acquisitional efficiency",
+            "Inferential efficiency"
+          ],
+          "correctIndex": 2,
+          "explanation": "Acquisitional efficiency is the ease of acquiring new knowledge; inferential efficiency concerns directing inference well, and the two adequacies concern what can be represented and derived.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t3_n02",
+          "questionText": "A semantic net contains: Tweety instance Penguin; Penguin isa Bird; Bird can-fly yes; Penguin can-fly no; Bird covering feathers. Using standard inheritance, what does the net conclude about Tweety?",
+          "options": [
+            "Tweety can fly and has feathers",
+            "Tweety cannot fly and has feathers",
+            "Tweety cannot fly and its covering is unknown",
+            "The net gives contradictory answers for can-fly"
+          ],
+          "correctIndex": 1,
+          "explanation": "Inheritance takes the most specific value: can-fly = no is found at Penguin before Bird is reached, while covering is found only at Bird, so Tweety inherits feathers.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_t3_n03",
+          "questionText": "Storing facts about cricket players as rows of a table with columns Name, Team, Runs and Wickets, with no class hierarchy or rules, is an example of which knowledge representation approach?",
+          "options": [
+            "Simple relational knowledge",
+            "Inheritable knowledge",
+            "Inferential knowledge",
+            "Procedural knowledge"
+          ],
+          "correctIndex": 0,
+          "explanation": "Relational knowledge stores facts as database-like tuples and offers little inference; inheritable knowledge needs hierarchies, inferential knowledge needs logic, and procedural knowledge is encoded as rules or code.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t3_n04",
+          "questionText": "A story says: 'John went to a restaurant, ordered a pizza and left happily.' A program correctly infers that John paid the bill. Which knowledge structure, built from entry conditions, roles, props, scenes and results, best supports this inference?",
+          "options": [
+            "A partitioned semantic net",
+            "A production rule",
+            "A truth table",
+            "A script"
+          ],
+          "correctIndex": 3,
+          "explanation": "A script describes a stereotyped event sequence (the restaurant script includes a paying scene), so unstated events can be filled in.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i31",
+      "title": "Propositional Logic: Syntax, Semantics, Validity & Resolution",
+      "subtitle": "Connectives, WFFs, truth tables, validity, equivalences, inference, CNF, resolution",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Syntax: Propositions and Well-Formed Formulas"
+          },
+          {
+            "type": "paragraph",
+            "text": "Propositional logic (PL) is the simplest formal logic. Its atoms are propositions: declarative statements that are either true or false, written as symbols P, Q, R. 'Kathmandu is the capital of Nepal' is a proposition; 'Close the door' is not, because it has no truth value. Complex sentences are built from atoms using logical connectives."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Connective",
+                "Symbol",
+                "Read as",
+                "False exactly when"
+              ],
+              [
+                "Negation",
+                "¬P",
+                "not P",
+                "P is true"
+              ],
+              [
+                "Conjunction",
+                "P ∧ Q",
+                "P and Q",
+                "at least one of P, Q is false"
+              ],
+              [
+                "Disjunction",
+                "P ∨ Q",
+                "P or Q",
+                "both P and Q are false"
+              ],
+              [
+                "Implication",
+                "P → Q",
+                "if P then Q",
+                "P is true and Q is false"
+              ],
+              [
+                "Biconditional",
+                "P ↔ Q",
+                "P if and only if Q",
+                "P and Q have different values"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Rules that define a well-formed formula (WFF):",
+            "items": [
+              "Every proposition symbol, and the constants True and False, is a WFF (an atomic sentence).",
+              "If A is a WFF then ¬A is a WFF.",
+              "If A and B are WFFs then (A ∧ B), (A ∨ B), (A → B) and (A ↔ B) are WFFs.",
+              "Nothing else is a WFF; so 'P ∧ ∨ Q' is not well formed.",
+              "Operator precedence, highest first: ¬, ∧, ∨, →, ↔; parentheses override it."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Semantics: Truth Tables and Classification"
+          },
+          {
+            "type": "paragraph",
+            "text": "The semantics of PL assigns a truth value to every sentence under an interpretation (model), which is an assignment of true or false to each proposition symbol. With n symbols there are 2^n interpretations, and a truth table evaluates a sentence under all of them. Implication is true whenever its antecedent is false, which is why P → Q is equivalent to ¬P ∨ Q."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "P  Q | ¬P  P∧Q  P∨Q  P→Q  P↔Q\nT  T |  F   T    T    T    T\nT  F |  F   F    T    F    F\nF  T |  T   F    T    T    F\nF  F |  T   F    F    T    T"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Class",
+                "Definition",
+                "Example"
+              ],
+              [
+                "Tautology (valid)",
+                "True in every interpretation",
+                "P ∨ ¬P"
+              ],
+              [
+                "Contradiction (unsatisfiable)",
+                "False in every interpretation",
+                "P ∧ ¬P"
+              ],
+              [
+                "Contingency",
+                "True in some and false in others",
+                "P → Q"
+              ],
+              [
+                "Satisfiable",
+                "True in at least one interpretation (tautologies and contingencies)",
+                "P ∧ Q"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A sentence is valid if and only if its negation is unsatisfiable, and KB entails α (KB ⊨ α) if and only if KB ∧ ¬α is unsatisfiable. This relationship is the basis of proof by refutation: to show that a goal follows from a knowledge base, add the negated goal and derive a contradiction. An inference procedure is sound if it derives only entailed sentences and complete if it can derive every entailed sentence."
+          },
+          {
+            "type": "bulletList",
+            "text": "Standard logical equivalences used for rewriting:",
+            "items": [
+              "Implication elimination: P → Q ≡ ¬P ∨ Q.",
+              "Biconditional elimination: P ↔ Q ≡ (P → Q) ∧ (Q → P).",
+              "Contrapositive: P → Q ≡ ¬Q → ¬P (the converse Q → P is NOT equivalent).",
+              "De Morgan: ¬(P ∧ Q) ≡ ¬P ∨ ¬Q and ¬(P ∨ Q) ≡ ¬P ∧ ¬Q; double negation ¬¬P ≡ P.",
+              "Distribution: P ∨ (Q ∧ R) ≡ (P ∨ Q) ∧ (P ∨ R), and P ∧ (Q ∨ R) ≡ (P ∧ Q) ∨ (P ∧ R)."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Rule",
+                "From",
+                "Infer"
+              ],
+              [
+                "Modus ponens",
+                "P → Q, P",
+                "Q"
+              ],
+              [
+                "Modus tollens",
+                "P → Q, ¬Q",
+                "¬P"
+              ],
+              [
+                "Hypothetical syllogism",
+                "P → Q, Q → R",
+                "P → R"
+              ],
+              [
+                "Disjunctive syllogism",
+                "P ∨ Q, ¬P",
+                "Q"
+              ],
+              [
+                "And-elimination",
+                "P ∧ Q",
+                "P"
+              ],
+              [
+                "Resolution",
+                "P ∨ Q, ¬Q ∨ R",
+                "P ∨ R"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\dfrac{l_1 \\vee \\dots \\vee l_k \\vee P,\\quad \\neg P \\vee m_1 \\vee \\dots \\vee m_n}{l_1 \\vee \\dots \\vee l_k \\vee m_1 \\vee \\dots \\vee m_n}",
+            "plainText": "From (l1 v ... v lk v P) and (NOT P v m1 v ... v mn) infer (l1 v ... v lk v m1 v ... v mn)"
+          },
+          {
+            "type": "heading",
+            "text": "CNF Conversion and Resolution Refutation"
+          },
+          {
+            "type": "bulletList",
+            "text": "Converting a sentence to conjunctive normal form (a conjunction of clauses, each a disjunction of literals):",
+            "items": [
+              "Eliminate ↔ using (A → B) ∧ (B → A).",
+              "Eliminate → using ¬A ∨ B.",
+              "Move ¬ inwards with De Morgan's laws and cancel double negations.",
+              "Distribute ∨ over ∧ so the result is an AND of ORs; each conjunct is one clause.",
+              "Example: P → (Q ∧ R) becomes ¬P ∨ (Q ∧ R), then (¬P ∨ Q) ∧ (¬P ∨ R)."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "KB: P → Q,  Q → R,  P.   Goal: R\nClauses: 1) ¬P ∨ Q   2) ¬Q ∨ R   3) P   4) ¬R  (negated goal)\n5) resolve 4 and 2  ->  ¬Q\n6) resolve 5 and 1  ->  ¬P\n7) resolve 6 and 3  ->  □ (empty clause)\nContradiction found, so KB ⊨ R"
+          },
+          {
+            "type": "paragraph",
+            "text": "Resolution is sound, and resolution refutation is complete for propositional logic: if KB ∧ ¬α is unsatisfiable, repeated resolution will eventually produce the empty clause □. If no new clauses can be generated and □ has not appeared, the goal is not entailed. Restricting clauses to Horn clauses (at most one positive literal) allows linear-time forward and backward chaining."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P \\rightarrow Q \\equiv \\neg P \\vee Q \\equiv \\neg Q \\rightarrow \\neg P",
+            "plainText": "P -> Q is equivalent to NOT P v Q and to NOT Q -> NOT P"
+          },
+          {
+            "type": "formula",
+            "latex": "\\neg(P \\wedge Q) \\equiv \\neg P \\vee \\neg Q,\\quad \\neg(P \\vee Q) \\equiv \\neg P \\wedge \\neg Q",
+            "plainText": "NOT(P AND Q) = NOT P OR NOT Q; NOT(P OR Q) = NOT P AND NOT Q"
+          },
+          {
+            "type": "formula",
+            "latex": "\\dfrac{P \\vee Q,\\quad \\neg Q \\vee R}{P \\vee R}",
+            "plainText": "From P v Q and NOT Q v R infer P v R"
+          },
+          {
+            "type": "formula",
+            "latex": "KB \\models \\alpha \\iff KB \\wedge \\neg\\alpha \\text{ is unsatisfiable}",
+            "plainText": "KB entails alpha if and only if KB AND NOT alpha is unsatisfiable"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For 'which formula is a tautology' items, rewrite every → as ¬A ∨ B and look for a literal together with its negation in one disjunction; if that fails, test the single row that could make it false."
+          },
+          {
+            "type": "warning",
+            "text": "The converse (Q → P) and the inverse (¬P → ¬Q) are not equivalent to P → Q; only the contrapositive (¬Q → ¬P) is. Affirming the consequent (from P → Q and Q conclude P) is a fallacy."
+          },
+          {
+            "type": "note",
+            "text": "Resolution needs clauses, so always convert to CNF first and add the negated goal before resolving; deriving □ proves the original goal."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i31_01",
+          "title": "Implication equivalence",
+          "latex": "P \\rightarrow Q \\equiv \\neg P \\vee Q \\equiv \\neg Q \\rightarrow \\neg P",
+          "plainText": "P -> Q is equivalent to NOT P v Q and to NOT Q -> NOT P",
+          "description": "Removes implication for CNF conversion and gives the contrapositive form."
+        },
+        {
+          "id": "f_ch9_i31_02",
+          "title": "De Morgan's laws",
+          "latex": "\\neg(P \\wedge Q) \\equiv \\neg P \\vee \\neg Q,\\quad \\neg(P \\vee Q) \\equiv \\neg P \\wedge \\neg Q",
+          "plainText": "NOT(P AND Q) = NOT P OR NOT Q; NOT(P OR Q) = NOT P AND NOT Q",
+          "description": "Moves negation inward across conjunction and disjunction."
+        },
+        {
+          "id": "f_ch9_i31_03",
+          "title": "Resolution rule",
+          "latex": "\\dfrac{P \\vee Q,\\quad \\neg Q \\vee R}{P \\vee R}",
+          "plainText": "From P v Q and NOT Q v R infer P v R",
+          "description": "Two clauses containing complementary literals yield a resolvent with that pair removed."
+        },
+        {
+          "id": "f_ch9_i31_04",
+          "title": "Entailment by refutation",
+          "latex": "KB \\models \\alpha \\iff KB \\wedge \\neg\\alpha \\text{ is unsatisfiable}",
+          "plainText": "KB entails alpha if and only if KB AND NOT alpha is unsatisfiable",
+          "description": "Justifies proving a goal by adding its negation and deriving the empty clause."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i31_01",
+          "front": "When is P → Q false?",
+          "back": "Only when P is true and Q is false; in every other row it is true.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i31_02",
+          "front": "What is the difference between a valid and a satisfiable sentence?",
+          "back": "A valid sentence (tautology) is true in every interpretation; a satisfiable sentence is true in at least one.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i31_03",
+          "front": "List the steps to convert a propositional sentence to CNF.",
+          "back": "Eliminate ↔, eliminate →, move ¬ inwards with De Morgan and double negation, then distribute ∨ over ∧.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i31_04",
+          "front": "What does deriving the empty clause mean in resolution refutation?",
+          "back": "KB plus the negated goal is unsatisfiable, so the goal is entailed by the KB.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i31_n01",
+          "questionText": "What is the resolvent of the clauses (P ∨ Q ∨ ¬R) and (¬Q ∨ S)?",
+          "options": [
+            "P ∨ ¬R ∨ S",
+            "P ∨ Q ∨ ¬R ∨ S",
+            "P ∨ R ∨ S",
+            "¬P ∨ ¬R ∨ S"
+          ],
+          "correctIndex": 0,
+          "explanation": "Q and ¬Q are complementary, so both are removed and the remaining literals are combined: P ∨ ¬R ∨ S.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i31_n02",
+          "questionText": "Which is the conjunctive normal form of P → (Q ∧ R)?",
+          "options": [
+            "(P ∨ Q) ∧ (P ∨ R)",
+            "¬P ∧ Q ∧ R",
+            "(¬P ∨ Q) ∧ (¬P ∨ R)",
+            "(¬P ∧ Q) ∨ (¬P ∧ R)"
+          ],
+          "correctIndex": 2,
+          "explanation": "Eliminate → to get ¬P ∨ (Q ∧ R), then distribute ∨ over ∧ to get (¬P ∨ Q) ∧ (¬P ∨ R); the last option is DNF, not CNF.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i32",
+      "title": "First-Order Predicate Logic: Quantifiers, Inference, Unification & Resolution",
+      "subtitle": "Terms, quantifiers, translation, inference rules, MGU, Skolemisation, refutation",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why First-Order Logic"
+          },
+          {
+            "type": "paragraph",
+            "text": "Propositional logic treats 'Ram is a student' and 'Sita is a student' as unrelated symbols and cannot say 'every student studies' compactly. First-order predicate logic (FOPL) assumes the world contains objects, relations among them and functions, and adds variables and quantifiers so general statements can be written once. It is far more expressive than PL, at the cost that entailment in FOPL is only semi-decidable."
+          },
+          {
+            "type": "bulletList",
+            "text": "Syntax of FOPL:",
+            "items": [
+              "Constants name specific objects: Ram, Kathmandu, 5.",
+              "Variables stand for objects: x, y, z.",
+              "Functions map objects to objects and form terms: Father(Ram), Plus(2, 3). A term is a constant, a variable or a function applied to terms.",
+              "Predicates map objects to truth values and form atomic sentences: Student(Ram), Loves(x, y), Greater(5, 3).",
+              "Connectives ¬, ∧, ∨, →, ↔ as in PL, plus equality (=).",
+              "Quantifiers: universal ∀x ('for all x') and existential ∃x ('there exists an x')."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Semantics is given by a model consisting of a domain of objects and an interpretation that maps each constant to an object, each predicate to a relation and each function to a function on the domain. ∀x P(x) is true if P holds for every object in the domain, and ∃x P(x) is true if P holds for at least one. A variable is bound if it lies inside the scope of a quantifier that names it and free otherwise; a sentence has no free variables."
+          },
+          {
+            "type": "heading",
+            "text": "Quantifiers and Translation"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "English",
+                "FOPL"
+              ],
+              [
+                "All students are clever",
+                "∀x (Student(x) → Clever(x))"
+              ],
+              [
+                "Some student is clever",
+                "∃x (Student(x) ∧ Clever(x))"
+              ],
+              [
+                "No student is lazy",
+                "∀x (Student(x) → ¬Lazy(x))"
+              ],
+              [
+                "Not all birds fly",
+                "¬∀x (Bird(x) → Flies(x))"
+              ],
+              [
+                "Everyone loves someone",
+                "∀x ∃y Loves(x, y)"
+              ],
+              [
+                "There is someone whom everyone loves",
+                "∃y ∀x Loves(x, y)"
+              ],
+              [
+                "Every student likes some subject",
+                "∀x (Student(x) → ∃y (Subject(y) ∧ Likes(x, y)))"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Rules to remember when translating:",
+            "items": [
+              "∀ normally pairs with →: ∀x (Student(x) ∧ Clever(x)) wrongly says everything is a clever student.",
+              "∃ normally pairs with ∧: ∃x (Student(x) → Clever(x)) is true merely if some non-student exists.",
+              "Quantifiers of the same type commute (∀x ∀y ≡ ∀y ∀x), but ∀x ∃y and ∃y ∀x mean different things.",
+              "Negation flips the quantifier: ¬∀x P(x) ≡ ∃x ¬P(x) and ¬∃x P(x) ≡ ∀x ¬P(x)."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\neg\\forall x\\,P(x) \\equiv \\exists x\\,\\neg P(x),\\qquad \\neg\\exists x\\,P(x) \\equiv \\forall x\\,\\neg P(x)",
+            "plainText": "NOT forall x P(x) = exists x NOT P(x); NOT exists x P(x) = forall x NOT P(x)"
+          },
+          {
+            "type": "bulletList",
+            "text": "FOPL adds quantifier rules to the propositional ones:",
+            "items": [
+              "Universal instantiation (UI): from ∀x P(x) infer P(g) for any ground term g, e.g. ∀x (Man(x) → Mortal(x)) gives Man(Socrates) → Mortal(Socrates).",
+              "Existential instantiation (EI): from ∃x P(x) infer P(C) where C is a new constant not used anywhere else (a Skolem constant).",
+              "Existential generalisation: from P(Ram) infer ∃x P(x).",
+              "Generalised modus ponens (GMP): from p1', ..., pn' and (p1 ∧ ... ∧ pn → q), if a substitution θ makes each pi' equal to pi, infer SUBST(θ, q).",
+              "GMP example: King(John), Greedy(John) and ∀x (King(x) ∧ Greedy(x) → Evil(x)) give Evil(John) with θ = {x/John}."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Unification and the Most General Unifier"
+          },
+          {
+            "type": "paragraph",
+            "text": "Unification is the process of finding a substitution θ that makes two atomic sentences identical: UNIFY(p, q) = θ such that SUBST(θ, p) = SUBST(θ, q). Predicate symbols and arities must match, a variable can be replaced by any term that does not contain that variable (the occurs check), and two different constants never unify. Among all unifiers, the most general unifier (MGU) makes the fewest commitments; every other unifier is an instance of it."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "p",
+                "q",
+                "MGU"
+              ],
+              [
+                "Knows(John, x)",
+                "Knows(John, Jane)",
+                "{x/Jane}"
+              ],
+              [
+                "Knows(John, x)",
+                "Knows(y, Mother(y))",
+                "{y/John, x/Mother(John)}"
+              ],
+              [
+                "Knows(John, x)",
+                "Knows(x, Elizabeth)",
+                "fail (x cannot be John and Elizabeth); standardise apart first"
+              ],
+              [
+                "P(x, F(y))",
+                "P(A, z)",
+                "{x/A, z/F(y)}"
+              ],
+              [
+                "P(x)",
+                "P(F(x))",
+                "fail (occurs check)"
+              ],
+              [
+                "Q(x, x)",
+                "Q(A, B)",
+                "fail (A and B are different constants)"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Clausal Form and Resolution Refutation"
+          },
+          {
+            "type": "bulletList",
+            "text": "Converting FOPL to clausal form:",
+            "items": [
+              "Eliminate ↔ and → .",
+              "Move ¬ inwards, flipping quantifiers: ¬∀x P becomes ∃x ¬P.",
+              "Standardise variables apart so each quantifier uses a distinct variable.",
+              "Skolemise: replace each existential variable by a Skolem constant, or by a Skolem function of the universal variables whose scope it lies in; ∀x ∃y Loves(x, y) becomes ∀x Loves(x, F(x)).",
+              "Drop the remaining universal quantifiers (all variables are implicitly universal).",
+              "Distribute ∨ over ∧ and split the conjunction into separate clauses."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Facts: ∀x (Dog(x) → Animal(x)), ∀y (Animal(y) → Mortal(y)), Dog(Fido)\nGoal:  Mortal(Fido)\nClauses: 1) ¬Dog(x) ∨ Animal(x)   2) ¬Animal(y) ∨ Mortal(y)\n         3) Dog(Fido)             4) ¬Mortal(Fido)   (negated goal)\n5) 4 + 2, θ = {y/Fido}  ->  ¬Animal(Fido)\n6) 5 + 1, θ = {x/Fido}  ->  ¬Dog(Fido)\n7) 6 + 3               ->  □   so Mortal(Fido) is proved"
+          },
+          {
+            "type": "paragraph",
+            "text": "First-order resolution combines unification with the propositional rule: two clauses containing literals l and ¬m resolve if l and m unify with MGU θ, and θ is applied to the resolvent. Resolution refutation is sound and refutation-complete for FOPL, but because FOPL is semi-decidable the procedure may run forever when the goal is not entailed. Strategies such as unit preference, set of support and input resolution reduce the search."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\neg\\forall x\\,P(x) \\equiv \\exists x\\,\\neg P(x),\\qquad \\neg\\exists x\\,P(x) \\equiv \\forall x\\,\\neg P(x)",
+            "plainText": "NOT forall x P(x) = exists x NOT P(x); NOT exists x P(x) = forall x NOT P(x)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{UNIFY}(p,q)=\\theta \\;\\text{ where }\\; \\text{SUBST}(\\theta,p)=\\text{SUBST}(\\theta,q)",
+            "plainText": "UNIFY(p, q) = theta where SUBST(theta, p) = SUBST(theta, q)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\frac{p_1', \\ldots, p_n',\\ (p_1 \\wedge \\ldots \\wedge p_n \\Rightarrow q)}{\\text{SUBST}(\\theta, q)}",
+            "plainText": "GMP: from p1'..pn' and (p1 AND .. AND pn -> q) infer SUBST(theta, q) when theta unifies each pi' with pi"
+          },
+          {
+            "type": "formula",
+            "latex": "\\forall x\\,\\exists y\\,P(x,y) \\;\\Rightarrow\\; \\forall x\\,P(x,F(x))",
+            "plainText": "forall x exists y P(x, y) Skolemises to forall x P(x, F(x))"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Skolemisation: an existential with no universal to its left becomes a constant (∃x ∀y P(x, y) gives ∀y P(A, y)); an existential inside ∀x becomes a function of x (∀x ∃y P(x, y) gives ∀x P(x, F(x)))."
+          },
+          {
+            "type": "warning",
+            "text": "Unification fails when the same variable would need two different constants, when two different constants or function symbols clash, or when a variable would be bound to a term containing itself (occurs check)."
+          },
+          {
+            "type": "note",
+            "text": "Always standardise variables apart before resolving two clauses: Knows(John, x) and Knows(x, Elizabeth) fail to unify only because they happen to share the name x."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i32_01",
+          "title": "Quantifier negation",
+          "latex": "\\neg\\forall x\\,P(x) \\equiv \\exists x\\,\\neg P(x),\\qquad \\neg\\exists x\\,P(x) \\equiv \\forall x\\,\\neg P(x)",
+          "plainText": "NOT forall x P(x) = exists x NOT P(x); NOT exists x P(x) = forall x NOT P(x)",
+          "description": "Pushing a negation past a quantifier flips it between universal and existential."
+        },
+        {
+          "id": "f_ch9_i32_02",
+          "title": "Unifier definition",
+          "latex": "\\text{UNIFY}(p,q)=\\theta \\;\\text{ where }\\; \\text{SUBST}(\\theta,p)=\\text{SUBST}(\\theta,q)",
+          "plainText": "UNIFY(p, q) = theta where SUBST(theta, p) = SUBST(theta, q)",
+          "description": "A unifier is a substitution that makes two expressions syntactically identical; the MGU is the least committed one."
+        },
+        {
+          "id": "f_ch9_i32_03",
+          "title": "Generalised modus ponens",
+          "latex": "\\dfrac{p_1',\\dots,p_n',\\;(p_1 \\wedge \\dots \\wedge p_n \\rightarrow q)}{\\text{SUBST}(\\theta,q)}",
+          "plainText": "From p1'..pn' and (p1 AND .. AND pn -> q) infer SUBST(theta, q)",
+          "description": "Lifted modus ponens that applies a rule once θ unifies each premise with the known facts."
+        },
+        {
+          "id": "f_ch9_i32_04",
+          "title": "Skolemisation",
+          "latex": "\\forall x\\,\\exists y\\,P(x,y) \\;\\Rightarrow\\; \\forall x\\,P(x,F(x))",
+          "plainText": "forall x exists y P(x, y) becomes forall x P(x, F(x))",
+          "description": "Removes an existential quantifier by a Skolem function of the enclosing universal variables."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i32_01",
+          "front": "Translate 'Some student is clever' into FOPL.",
+          "back": "∃x (Student(x) ∧ Clever(x)); the existential pairs with ∧, not with →.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i32_02",
+          "front": "What is the MGU of Knows(John, x) and Knows(y, Mother(y))?",
+          "back": "{y/John, x/Mother(John)}.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i32_03",
+          "front": "What restriction applies to existential instantiation?",
+          "back": "The existential variable must be replaced by a brand-new constant (Skolem constant) that appears nowhere else in the KB.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i32_04",
+          "front": "What is the occurs check in unification?",
+          "back": "A variable cannot be bound to a term containing that variable, so P(x) and P(F(x)) do not unify.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i32_n01",
+          "questionText": "Which FOPL sentence correctly represents 'Every student likes some subject'?",
+          "options": [
+            "∀x ∃y (Student(x) ∧ Subject(y) ∧ Likes(x, y))",
+            "∀x (Student(x) → ∃y (Subject(y) ∧ Likes(x, y)))",
+            "∃y ∀x (Student(x) → (Subject(y) ∧ Likes(x, y)))",
+            "∀x (Student(x) → ∃y (Subject(y) → Likes(x, y)))"
+          ],
+          "correctIndex": 1,
+          "explanation": "The universal pairs with → and the existential with ∧; the first option makes everything a student, the third claims one common subject, and the fourth is satisfied by any non-subject y.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i32_n02",
+          "questionText": "What is the most general unifier of Knows(John, x) and Knows(y, Mother(y))?",
+          "options": [
+            "{x/John, y/Mother(John)}",
+            "{y/John, x/Mother(y)}",
+            "The two expressions cannot be unified",
+            "{y/John, x/Mother(John)}"
+          ],
+          "correctIndex": 3,
+          "explanation": "Matching first arguments gives y/John; then x must equal Mother(y) = Mother(John). Leaving x/Mother(y) would not make the two expressions identical after substitution.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i32_n03",
+          "questionText": "During conversion to clausal form, the sentence ∀x ∃y Parent(y, x) is Skolemised to:",
+          "options": [
+            "∀x Parent(F(x), x), where F is a new Skolem function",
+            "∀x Parent(A, x), where A is a new Skolem constant",
+            "Parent(y, x) with both variables universal",
+            "∃y Parent(y, F(y))"
+          ],
+          "correctIndex": 0,
+          "explanation": "y lies in the scope of ∀x, so it depends on x and is replaced by a Skolem function F(x); a single constant would wrongly claim one common parent of everyone.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i32_n04",
+          "questionText": "Where A, B are constants, x, y, z are variables and G is a function, which pair of atomic sentences CANNOT be unified?",
+          "options": [
+            "Q(x, A) and Q(B, y)",
+            "P(x, G(x)) and P(A, G(A))",
+            "S(x, G(y)) and S(G(z), x)",
+            "R(x, x) and R(A, B)"
+          ],
+          "correctIndex": 3,
+          "explanation": "R(x, x) needs x = A and x = B at once, and different constants never unify. The others unify with {x/B, y/A}, {x/A} and {x/G(z), y/z}.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i33",
+      "title": "Bayes' Rule, Bayesian Networks & Reasoning in Belief Networks",
+      "subtitle": "Uncertainty, probability basics, Bayes' rule, DAGs with CPTs, independence, enumeration",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Uncertainty and Probability Basics"
+          },
+          {
+            "type": "paragraph",
+            "text": "Real agents rarely have complete, certain knowledge: sensors are noisy, rules have exceptions and some causes are hidden. Pure logic handles this badly because listing every exception is impractical (laziness), the domain may lack a complete theory (theoretical ignorance) and not every test can be run (practical ignorance). Probability theory summarises this uncertainty as degrees of belief between 0 and 1, and decision theory combines it with utilities."
+          },
+          {
+            "type": "bulletList",
+            "text": "Probability rules used throughout reasoning:",
+            "items": [
+              "Axioms: 0 ≤ P(a) ≤ 1, P(true) = 1, P(false) = 0, and P(a ∨ b) = P(a) + P(b) − P(a ∧ b).",
+              "Prior (unconditional) probability P(a) is belief before evidence; posterior (conditional) probability P(a | b) is belief given evidence b.",
+              "Conditional probability: P(a | b) = P(a ∧ b) / P(b) for P(b) > 0; the product rule is P(a ∧ b) = P(a | b) P(b).",
+              "Total probability (marginalisation): P(b) = P(b | a) P(a) + P(b | ¬a) P(¬a).",
+              "Independence: a and b are independent if P(a ∧ b) = P(a) P(b), equivalently P(a | b) = P(a)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Bayes' Rule"
+          },
+          {
+            "type": "formula",
+            "latex": "P(A \\mid B) = \\dfrac{P(B \\mid A)\\,P(A)}{P(B)}",
+            "plainText": "P(A|B) = P(B|A) P(A) / P(B)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Bayes' rule follows from writing the product rule both ways, P(A ∧ B) = P(A | B) P(B) = P(B | A) P(A). Its practical value is that causal knowledge P(effect | cause) is usually easier to obtain and more stable than diagnostic knowledge P(cause | effect). P(A) is the prior, P(B | A) the likelihood, P(B) the evidence (normalising constant) and P(A | B) the posterior."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Disease D: prevalence P(D) = 0.01\nTest: sensitivity P(+|D) = 0.90, false-positive rate P(+|¬D) = 0.05\nP(+) = 0.90 × 0.01 + 0.05 × 0.99 = 0.009 + 0.0495 = 0.0585\nP(D|+) = 0.009 / 0.0585 ≈ 0.154\nOnly about 15% of positives are truly ill, because the disease is rare."
+          },
+          {
+            "type": "heading",
+            "text": "Bayesian Networks"
+          },
+          {
+            "type": "paragraph",
+            "text": "A Bayesian network (belief network) is a directed acyclic graph (DAG) in which each node is a random variable and each arrow X → Y means X has a direct influence on Y (X is a parent of Y). Each node carries a conditional probability table (CPT) giving P(node | parents) for every combination of parent values; a root node simply has its prior. The network is a compact encoding of the full joint distribution."
+          },
+          {
+            "type": "formula",
+            "latex": "P(x_1,\\dots,x_n) = \\prod_{i=1}^{n} P\\big(x_i \\mid \\text{Parents}(X_i)\\big)",
+            "plainText": "P(x1, ..., xn) = product over i of P(xi | Parents(Xi))"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Node (Boolean)",
+                "Parents",
+                "CPT entries"
+              ],
+              [
+                "Burglary B",
+                "none",
+                "P(b) = 0.001"
+              ],
+              [
+                "Earthquake E",
+                "none",
+                "P(e) = 0.002"
+              ],
+              [
+                "Alarm A",
+                "B, E",
+                "P(a|b,e) = 0.95, P(a|b,¬e) = 0.94, P(a|¬b,e) = 0.29, P(a|¬b,¬e) = 0.001"
+              ],
+              [
+                "JohnCalls J",
+                "A",
+                "P(j|a) = 0.90, P(j|¬a) = 0.05"
+              ],
+              [
+                "MaryCalls M",
+                "A",
+                "P(m|a) = 0.70, P(m|¬a) = 0.01"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Compactness and conditional independence:",
+            "items": [
+              "A Boolean node with k Boolean parents needs 2^k independent numbers, so the alarm network needs 1 + 1 + 4 + 2 + 2 = 10 numbers instead of 2^5 − 1 = 31 for the full joint table.",
+              "Local Markov property: each node is conditionally independent of its non-descendants given its parents (J is independent of B and E given A).",
+              "Chain A → B → C and common cause A ← B → C: A and C become independent once B is observed.",
+              "Common effect A → C ← B: A and B are independent until C (or a descendant of C) is observed; then they become dependent, which is called explaining away.",
+              "Build a network by adding variables in causal order (causes before effects) to keep it sparse."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "P(j,m,a,\\neg b,\\neg e) = 0.90 \\times 0.70 \\times 0.001 \\times 0.999 \\times 0.998 \\approx 0.000628",
+            "plainText": "P(j, m, a, not b, not e) = 0.90 x 0.70 x 0.001 x 0.999 x 0.998 = 0.000628"
+          },
+          {
+            "type": "paragraph",
+            "text": "Inference in a belief network computes the posterior distribution of query variables given observed evidence, summing out the hidden variables: P(X | e) = α Σ_y P(X, e, y), where α normalises the result. Each joint term is a product of CPT entries. Exact enumeration takes time exponential in the number of variables; variable elimination speeds it up by caching repeated sub-products, and approximate methods such as likelihood weighting and Gibbs sampling handle large networks."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Query P(B | j, m) in the alarm network (hidden: E, A)\nP(b,j,m)  = P(b) Σe P(e) Σa P(a|b,e) P(j|a) P(m|a)   ≈ 0.000592\nP(¬b,j,m) = P(¬b) Σe P(e) Σa P(a|¬b,e) P(j|a) P(m|a) ≈ 0.001492\nα = 1 / (0.000592 + 0.001492)\nP(b | j, m) ≈ 0.000592 / 0.002084 ≈ 0.284"
+          },
+          {
+            "type": "bulletList",
+            "text": "Types of reasoning a belief network supports:",
+            "items": [
+              "Diagnostic (effect to cause): P(Burglary | JohnCalls).",
+              "Causal or predictive (cause to effect): P(JohnCalls | Burglary).",
+              "Intercausal (explaining away): P(Burglary | Alarm, Earthquake) is lower than P(Burglary | Alarm).",
+              "Mixed: combinations of the above, such as P(Alarm | JohnCalls, ¬Earthquake)."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P(A \\mid B) = \\dfrac{P(B \\mid A)\\,P(A)}{P(B \\mid A)P(A) + P(B \\mid \\neg A)P(\\neg A)}",
+            "plainText": "P(A|B) = P(B|A)P(A) / [P(B|A)P(A) + P(B|not A)P(not A)]"
+          },
+          {
+            "type": "formula",
+            "latex": "P(x_1,\\dots,x_n) = \\prod_{i=1}^{n} P\\big(x_i \\mid \\text{Parents}(X_i)\\big)",
+            "plainText": "P(x1, ..., xn) = product over i of P(xi | Parents(Xi))"
+          },
+          {
+            "type": "formula",
+            "latex": "P(X \\mid e) = \\alpha \\sum_{y} P(X, e, y)",
+            "plainText": "P(X | e) = alpha x sum over hidden y of P(X, e, y)"
+          },
+          {
+            "type": "formula",
+            "latex": "P(a \\mid b) = \\dfrac{P(a \\wedge b)}{P(b)},\\quad P(b) > 0",
+            "plainText": "P(a|b) = P(a AND b) / P(b), for P(b) > 0"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For Bayes numericals, compute the denominator with total probability first: P(+) = P(+|D)P(D) + P(+|¬D)P(¬D). Then divide the true-positive term by it."
+          },
+          {
+            "type": "warning",
+            "text": "P(A | B) is not P(B | A): a 90% sensitive test does not mean a positive patient is 90% likely to be ill. With a low prior, the posterior can be small."
+          },
+          {
+            "type": "note",
+            "text": "The arcs of a Bayesian network must form a DAG, and a node's CPT conditions only on its parents; the joint distribution is recovered by multiplying one CPT entry per node."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i33_01",
+          "title": "Bayes' rule with total probability",
+          "latex": "P(A \\mid B) = \\dfrac{P(B \\mid A)\\,P(A)}{P(B \\mid A)P(A) + P(B \\mid \\neg A)P(\\neg A)}",
+          "plainText": "P(A|B) = P(B|A)P(A) / [P(B|A)P(A) + P(B|not A)P(not A)]",
+          "description": "Turns a likelihood and a prior into a posterior, with the evidence probability expanded over A and not A."
+        },
+        {
+          "id": "f_ch9_i33_02",
+          "title": "Bayesian network joint distribution",
+          "latex": "P(x_1,\\dots,x_n) = \\prod_{i=1}^{n} P\\big(x_i \\mid \\text{Parents}(X_i)\\big)",
+          "plainText": "P(x1, ..., xn) = product over i of P(xi | Parents(Xi))",
+          "description": "Any full joint entry is the product of each node's CPT value given its parents."
+        },
+        {
+          "id": "f_ch9_i33_03",
+          "title": "Inference by enumeration",
+          "latex": "P(X \\mid e) = \\alpha \\sum_{y} P(X, e, y)",
+          "plainText": "P(X | e) = alpha x sum over hidden y of P(X, e, y)",
+          "description": "The posterior of a query is found by summing joint entries over hidden variables and normalising."
+        },
+        {
+          "id": "f_ch9_i33_04",
+          "title": "Conditional probability",
+          "latex": "P(a \\mid b) = \\dfrac{P(a \\wedge b)}{P(b)},\\quad P(b) > 0",
+          "plainText": "P(a|b) = P(a AND b) / P(b), for P(b) > 0",
+          "description": "Definition of conditional probability, from which the product rule and Bayes' rule follow."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i33_01",
+          "front": "Name the four terms in Bayes' rule.",
+          "back": "P(A) is the prior, P(B|A) the likelihood, P(B) the evidence or normaliser, and P(A|B) the posterior.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i33_02",
+          "front": "How many independent numbers does a Boolean node with 3 Boolean parents need in its CPT?",
+          "back": "2^3 = 8, one probability of true for each combination of parent values.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i33_03",
+          "front": "What is explaining away?",
+          "back": "In a common-effect structure A → C ← B, observing C makes A and B dependent, so confirming one cause lowers belief in the other.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch9_i33_04",
+          "front": "What conditional independence does every Bayesian network node satisfy?",
+          "back": "Each node is conditionally independent of its non-descendants given its parents.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i33_n01",
+          "questionText": "10% of machines in a plant have a fault. A diagnostic check flags 80% of faulty machines and also wrongly flags 20% of healthy ones. If a machine is flagged, what is the probability that it is actually faulty?",
+          "options": [
+            "About 0.08",
+            "About 0.31",
+            "About 0.50",
+            "About 0.80"
+          ],
+          "correctIndex": 1,
+          "explanation": "P(flag) = 0.8 × 0.1 + 0.2 × 0.9 = 0.08 + 0.18 = 0.26, so P(fault | flag) = 0.08 / 0.26 ≈ 0.31.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i33_n02",
+          "questionText": "A Bayesian network has Rain → WetGrass ← Sprinkler with P(R) = 0.2, P(S) = 0.1 (independent roots), P(W | R, S) = 0.99, P(W | R, ¬S) = 0.9, P(W | ¬R, S) = 0.8, P(W | ¬R, ¬S) = 0. Given that the grass is wet, what is P(Rain | WetGrass)?",
+          "options": [
+            "About 0.20",
+            "About 0.18",
+            "About 0.74",
+            "About 0.91"
+          ],
+          "correctIndex": 2,
+          "explanation": "P(R, W) = 0.2 × (0.1 × 0.99 + 0.9 × 0.9) = 0.1818 and P(¬R, W) = 0.8 × (0.1 × 0.8 + 0) = 0.064, so P(R | W) = 0.1818 / 0.2458 ≈ 0.74.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i33_n03",
+          "questionText": "In the belief network Burglary → Alarm ← Earthquake, which statement about Burglary and Earthquake is correct?",
+          "options": [
+            "They are dependent a priori but become independent once Alarm is observed",
+            "They are independent whether or not Alarm is observed",
+            "They are dependent whether or not Alarm is observed",
+            "They are independent a priori but become dependent once Alarm is observed"
+          ],
+          "correctIndex": 3,
+          "explanation": "In a common-effect (v-structure) the two causes are marginally independent, but observing the effect couples them: learning of an earthquake explains away the alarm and lowers belief in a burglary.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

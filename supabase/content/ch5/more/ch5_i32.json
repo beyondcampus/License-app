@@ -1,0 +1,525 @@
+{
+  "topicId": "ch5_i32",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: RIP, OSPF, BGP and Multicast Routing"
+    },
+    {
+      "type": "paragraph",
+      "text": "The three unicast routing protocols in one line each: RIP is a simple distance vector protocol for small networks that counts hops (at most 15) and sends its table every 30 seconds, but it converges slowly. OSPF is a link state protocol with no hop-count limit; it converges fast and scales to large networks, at the price of more configuration, memory and CPU than RIP. BGP is the path vector protocol used between autonomous systems such as ISPs and is the routing protocol of the Internet backbone; it chooses routes by policy, not just by distance. In practice RIP or OSPF runs inside an organisation, and BGP is added where a network connects to several ISPs or is itself an ISP."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "RIP timer (RFC 2453)",
+          "Default",
+          "What happens"
+        ],
+        [
+          "Update (periodic)",
+          "30 s, with a random offset of up to 5 s",
+          "The router sends its whole table to every neighbour"
+        ],
+        [
+          "Timeout (expiration)",
+          "180 s without hearing the route",
+          "The route is marked unreachable: metric set to 16"
+        ],
+        [
+          "Garbage collection",
+          "120 s after the timeout",
+          "The route, still advertised with metric 16 meanwhile, is deleted"
+        ],
+        [
+          "Triggered update",
+          "At once, at most one every 1–5 s",
+          "Changed routes are sent without waiting for the 30 s timer"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: RIP update processing at router R (each hop adds 1)\nR's table before:  Net1 2 via A | Net2 5 via B | Net3 3 via C\nUpdate from B:     Net1 1 | Net2 7 | Net3 1 | Net4 14\nAdd one hop:       Net1 2 | Net2 8 | Net3 2 | Net4 15\nNet1: 2 via B is not better than 2 via A -> keep 2 via A\nNet2: B is the current next hop -> accept 8 via B although it is worse\nNet3: 2 via B is better than 3 via C -> replace with 2 via B\nNet4: new and 15 < 16 -> add 15 via B (one hop more would be unreachable)\nR's table after:   Net1 2 via A | Net2 8 via B | Net3 2 via B | Net4 15 via B"
+    },
+    {
+      "type": "bulletList",
+      "text": "OSPF router roles and the main LSA (link state advertisement) types:",
+      "items": [
+        "Internal router: all interfaces in one area. Backbone router: at least one interface in area 0.",
+        "Area border router (ABR): joins an area to area 0 and summarises routes between them. Autonomous system boundary router (ASBR): brings in routes from outside OSPF, such as BGP or static routes.",
+        "Type 1 router LSA: every router describes its own links; flooded only inside its area.",
+        "Type 2 network LSA: the designated router describes a multi-access network and the routers attached to it.",
+        "Type 3 summary LSA: an ABR advertises one area's networks into another; type 4 tells other areas how to reach an ASBR.",
+        "Type 5 AS-external LSA: an ASBR advertises external routes to the whole OSPF domain except stub areas; type 7 carries them inside a not-so-stubby area (NSSA).",
+        "Hello packets every 10 s (dead interval 40 s) on broadcast links find and keep neighbours; two routers become neighbours only if area ID, hello/dead timers and authentication match."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "On a shared segment with n routers, an adjacency between every pair would need n(n − 1)/2 adjacencies and would flood the same LSAs many times. OSPF therefore elects a designated router (DR) and a backup designated router (BDR): the highest interface priority wins (default 1, and 0 means never eligible), and a tie is broken by the highest router ID. Every other router (a DROther) forms full adjacencies only with the DR and BDR, sends its updates to 224.0.0.6, and the DR floods them to everyone on 224.0.0.5. The election is not pre-emptive, so a higher-priority router that joins later does not take over until the DR fails."
+    },
+    {
+      "type": "formula",
+      "latex": "A_{\\text{mesh}} = \\frac{n(n-1)}{2}, \\qquad A_{\\text{DR/BDR}} = 2(n-2) + 1 = 2n - 3",
+      "plainText": "Adjacencies on a segment of n routers: full mesh n(n − 1)/2; with DR and BDR 2(n − 2) + 1 = 2n − 3 (for n = 6: 15 against 9)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: OSPF cost = reference / bandwidth, fraction dropped, minimum 1\nPath P1: two 1 Gbps links        Path P2: one 100 Mbps link\nReference 10^8 (100 Mbps, the old default):\n  1 Gbps -> 0.1 -> raised to 1;  100 Mbps -> 1\n  P1 = 1 + 1 = 2,  P2 = 1        -> OSPF picks P2, the slower path\nReference 10^10 (10 Gbps):\n  1 Gbps -> 10;  100 Mbps -> 100\n  P1 = 10 + 10 = 20,  P2 = 100   -> OSPF picks P1\nRule: configure the same reference, at least the fastest link speed, on every router"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: BGP routes to 203.0.113.0/24, originated by AS 300\nRouter in AS 100 hears:   via AS 200: AS_PATH 200 300\n                          via AS 400: AS_PATH 400 500 300\nNo local policy: equal LOCAL_PREF, shorter AS_PATH wins -> via AS 200\nImport policy sets LOCAL_PREF 200 on routes from AS 400 (others 100):\n  LOCAL_PREF is compared before AS_PATH length -> via AS 400\nTo its eBGP peers AS 100 advertises AS_PATH 100 400 500 300 (own AS prepended)\nTo its iBGP peers inside AS 100 the AS_PATH stays 400 500 300\nA router in AS 500 that hears 100 400 500 300 finds 500 in it and drops it (loop)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Route source (Cisco default)",
+          "Administrative distance"
+        ],
+        [
+          "Directly connected interface",
+          "0"
+        ],
+        [
+          "Static route",
+          "1"
+        ],
+        [
+          "eBGP (external BGP)",
+          "20"
+        ],
+        [
+          "OSPF",
+          "110"
+        ],
+        [
+          "IS-IS",
+          "115"
+        ],
+        [
+          "RIP",
+          "120"
+        ],
+        [
+          "iBGP (internal BGP)",
+          "200"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Multicast details beyond the basic page:",
+      "items": [
+        "IGMP (IP protocol 2, TTL 1) works only on the local network: the router sends General Queries (every 125 s by default) and hosts answer with Membership Reports; IGMPv2 added Leave Group, and IGMPv3 lets a host name the sources it wants (source-specific multicast).",
+        "Reverse path forwarding grows into reverse path broadcasting (only the parent router of each network forwards onto it) and reverse path multicasting (routers with no members downstream send prune messages, and graft messages rejoin the tree).",
+        "Dense-mode protocols (DVMRP, PIM-DM) flood first and prune later; sparse-mode protocols (PIM-SM, CBT) send nothing until a receiver explicitly joins through the rendezvous point or core.",
+        "PIM-SM starts on a shared tree (*, G) rooted at the rendezvous point and can switch to a source tree (S, G) once traffic flows.",
+        "224.0.0.0/24 is link-local and never forwarded (224.0.0.1 all hosts, 224.0.0.2 all routers); 232.0.0.0/8 is for source-specific multicast and 239.0.0.0/8 is administratively scoped, like private addresses.",
+        "On Ethernet the low 23 bits of the group address are copied into 01-00-5E-00-00-00, so 32 IPv4 groups share each multicast MAC address and hosts must still filter by IP address."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: RIP's 15 hops is a metric limit (16 means unreachable), not the IP TTL. OSPF runs directly over IP as protocol 89, not over TCP or UDP, while BGP needs TCP port 179. Administrative distance only chooses between different sources offering the same prefix: the longest matching prefix always wins first, and metrics of different protocols are never compared. IGMP is not a multicast routing protocol; it only tells the local router which groups have members, and PIM, DVMRP or MOSPF build the trees."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i32_m001",
+      "questionText": "In IPv4 multicasting, which protocol manages group membership between hosts and their local multicast router?",
+      "options": [
+        "IGMP (Internet Group Management Protocol)",
+        "BGP (Border Gateway Protocol)",
+        "RARP (Reverse Address Resolution Protocol)",
+        "ICMP (Internet Control Message Protocol)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hosts use IGMP (IP protocol 2) to report which multicast groups they want, and the local router uses IGMP queries to learn which groups have members on each interface. Routers then build the distribution trees among themselves with a multicast routing protocol such as PIM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m002",
+      "questionText": "Which pair lists only interior gateway protocols (IGPs)?",
+      "options": [
+        "OSPF and BGP",
+        "RIP and BGP",
+        "RIP and OSPF",
+        "BGP and IS-IS"
+      ],
+      "correctIndex": 2,
+      "explanation": "RIP and OSPF route inside one autonomous system. BGP is the exterior gateway protocol used between autonomous systems, so every pair containing BGP is wrong.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m003",
+      "questionText": "What is an autonomous system (AS) in Internet routing?",
+      "options": [
+        "A single LAN segment connected through one switch",
+        "A group of networks and routers under one administrative authority with a common routing policy, identified by an AS number",
+        "A set of routers that all come from the same vendor",
+        "Any network that assigns its own host addresses with DHCP"
+      ],
+      "correctIndex": 1,
+      "explanation": "An AS, such as an ISP or a large organisation, runs its own interior routing and has a registered AS number (16-bit originally, now 32-bit) that BGP uses. It is defined by administration and policy, not by the LAN technology or equipment vendor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m004",
+      "questionText": "In RIP, what does a route with a metric of 16 mean?",
+      "options": [
+        "The destination is 16 hops away and the route is valid",
+        "The route is the default route",
+        "The route has the highest priority in the table",
+        "The destination is unreachable, because 16 is RIP's value for infinity"
+      ],
+      "correctIndex": 3,
+      "explanation": "RIP allows hop counts from 1 to 15; a metric of 16 is infinity and marks the destination unreachable. This small infinity limits count-to-infinity loops but also limits a RIP network's diameter to 15 hops.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m005",
+      "questionText": "A RIP router using the RFC 2453 default timers stops hearing any update for a route at time t = 0. When is the route marked unreachable (metric 16), and when is it deleted from the table?",
+      "options": [
+        "Marked unreachable at 180 s, and deleted at 300 s when the 120 s garbage-collection timer expires",
+        "Marked unreachable at 30 s, and deleted at 60 s",
+        "Marked unreachable at 90 s, and deleted at 180 s",
+        "Marked unreachable at 120 s, and deleted at 300 s when a 180 s timer expires"
+      ],
+      "correctIndex": 0,
+      "explanation": "The timeout is 180 s (six missed 30 s updates); the route is then advertised with metric 16 while the 120 s garbage-collection timer runs, so it is removed at 180 + 120 = 300 s. Swapping the two timers gives the wrong 120 s figure.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m006",
+      "questionText": "Which feature does RIPv2 add over RIPv1?",
+      "options": [
+        "Routes are computed with Dijkstra's algorithm from flooded link states",
+        "The maximum hop count is raised from 15 to 255",
+        "Each route entry carries its subnet mask (supporting VLSM and CIDR), updates go to the multicast address 224.0.0.9, and authentication is possible",
+        "Updates are carried over TCP port 520 for reliable delivery"
+      ],
+      "correctIndex": 2,
+      "explanation": "RIPv1 is classful, broadcasts its updates and has no authentication; RIPv2 is classless, multicasts to 224.0.0.9 and supports authentication. Both remain distance vector protocols over UDP port 520 with the same 15-hop limit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m007",
+      "questionText": "In a multi-area OSPF network, every area must connect to which area, called the backbone?",
+      "options": [
+        "Area 1",
+        "Area 0 (0.0.0.0)",
+        "Area 255",
+        "Whichever area has the most routers"
+      ],
+      "correctIndex": 1,
+      "explanation": "The backbone is area 0, written 0.0.0.0; traffic between two areas always passes through it by way of area border routers, which keeps inter-area routing loop-free. An area without a direct link to area 0 must reach it through a virtual link across another area.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m008",
+      "questionText": "Router R running RIP has the entries N1 = 4 hops via X, N2 = 2 hops via Y and N3 = 6 hops via Z. It receives an update from neighbour Y advertising N1 = 3, N2 = 5, N3 = 5 and N4 = 14. Following the RFC 2453 rules (each hop adds 1), what are R's entries for N2 and N4 afterwards?",
+      "options": [
+        "N2 = 2 hops via Y (unchanged), and N4 = 15 hops via Y",
+        "N2 = 6 hops via Y, and N4 is not added because it is unreachable",
+        "N2 = 5 hops via Y, and N4 = 14 hops via Y",
+        "N2 = 6 hops via Y, and N4 = 15 hops via Y"
+      ],
+      "correctIndex": 3,
+      "explanation": "Y is R's current next hop for N2, so R must accept Y's worse news: 5 + 1 = 6 via Y. N4 is new and 14 + 1 = 15 is still below infinity (16), so it is added via Y; N1 (4 via Y equals 4 via X) and N3 (6 via Y equals 6 via Z) are not better and stay unchanged.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m009",
+      "questionText": "OSPF gives each outgoing interface the cost 10^8 / bandwidth (in bps), dropping any fractional part. A path crosses a 10 Mbps Ethernet link, a 1.544 Mbps T1 link and a 100 Mbps Fast Ethernet link. What is the total OSPF cost of the path?",
+      "options": [
+        "75",
+        "76",
+        "757",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Costs are 10^8/10^7 = 10, 10^8/(1.544 × 10^6) = 64.77, which becomes 64, and 10^8/10^8 = 1, so the path costs 10 + 64 + 1 = 75. Rounding the T1 up gives 76, a 10^9 reference gives 757, and 3 is just the hop count.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m010",
+      "questionText": "Path P1 crosses three 10 Gbps links; path P2 crosses one 1 Gbps link and one 100 Mbps link. OSPF cost per link is reference / bandwidth with the fraction dropped and a minimum of 1. Which path does OSPF prefer with the old default reference of 100 Mbps, and which with the reference raised to 100 Gbps?",
+      "options": [
+        "P1 in both cases, because it uses the fastest links",
+        "P2 with the 100 Mbps reference (cost 2 against 3); P1 with the 100 Gbps reference (cost 30 against 1100)",
+        "P2 in both cases, because it crosses fewer links",
+        "P1 with the 100 Mbps reference (cost 3 against 2); P2 with the 100 Gbps reference (cost 1100 against 30)"
+      ],
+      "correctIndex": 1,
+      "explanation": "With 10^8 every link of 100 Mbps or faster costs 1, so P1 = 3 and P2 = 2 and OSPF wrongly prefers the slower P2. With 10^11 the costs are 10 per 10 Gbps link (P1 = 30) and 100 + 1000 = 1100 for P2, so OSPF correctly prefers P1; OSPF always picks the lower total cost.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m011",
+      "questionText": "Which OSPF router has interfaces in the backbone and in at least one other area, and summarises routes between them?",
+      "options": [
+        "Autonomous system boundary router (ASBR)",
+        "Designated router (DR)",
+        "Area border router (ABR)",
+        "Internal router"
+      ],
+      "correctIndex": 2,
+      "explanation": "An ABR has interfaces in area 0 and in at least one other area and sends type 3 summary LSAs between them. An ASBR instead imports routes from outside OSPF, and a DR serves one multi-access segment.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m012",
+      "questionText": "How is the designated router (DR) elected on an OSPF broadcast network?",
+      "options": [
+        "The lowest priority value wins, and a tie is broken by the lowest router ID",
+        "The router with the fastest interface always wins",
+        "The router with the most neighbours in the area wins",
+        "The highest interface priority wins, a tie is broken by the highest router ID, and a router with priority 0 can never become DR"
+      ],
+      "correctIndex": 3,
+      "explanation": "OSPF priority ranges from 0 to 255 with a default of 1; the highest priority becomes DR, the next highest BDR, and the highest router ID breaks ties. Priority 0 removes a router from the election.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m013",
+      "questionText": "Ten OSPF routers share one Ethernet segment. How many adjacencies would be needed if every pair formed one, and how many are formed when a DR and a BDR are elected?",
+      "options": [
+        "45 without a DR, and 9 with a DR and BDR",
+        "45 without a DR, and 17 with a DR and BDR",
+        "90 without a DR, and 17 with a DR and BDR",
+        "45 without a DR, and 18 with a DR and BDR"
+      ],
+      "correctIndex": 1,
+      "explanation": "A full mesh needs n(n − 1)/2 = 10 × 9/2 = 45 adjacencies. With a DR and BDR each of the 8 DROthers forms two adjacencies (16) and the DR and BDR form one with each other, giving 2n − 3 = 17; 18 counts the DR–BDR adjacency twice.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m014",
+      "questionText": "Which OSPF LSA is originated by the designated router to describe a multi-access network and all the routers attached to it?",
+      "options": [
+        "Type 2, network LSA",
+        "Type 1, router LSA",
+        "Type 3, summary LSA",
+        "Type 5, AS-external LSA"
+      ],
+      "correctIndex": 0,
+      "explanation": "The DR originates the type 2 network LSA listing every router on the segment. Every router originates its own type 1 router LSA, ABRs send type 3 summary LSAs, and ASBRs send type 5 external LSAs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m015",
+      "questionText": "Which OSPF packet type discovers neighbours and keeps adjacencies alive, sent every 10 seconds by default on broadcast links?",
+      "options": [
+        "Database Description",
+        "Link State Request",
+        "Hello",
+        "Link State Acknowledgement"
+      ],
+      "correctIndex": 2,
+      "explanation": "Hello packets find neighbours, check that parameters such as area ID and timers match, and elect the DR; a neighbour silent for the dead interval (40 s by default) is declared down. The other packet types synchronise and acknowledge the link state database.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m016",
+      "questionText": "On an Ethernet segment, an OSPF router that is neither the DR nor the BDR detects a change on one of its links. To which destination address does it send its Link State Update?",
+      "options": [
+        "224.0.0.5, the AllSPFRouters address",
+        "224.0.0.9, the RIPv2 routers address",
+        "255.255.255.255, the limited broadcast address",
+        "224.0.0.6, the AllDRouters address"
+      ],
+      "correctIndex": 3,
+      "explanation": "A DROther sends updates to 224.0.0.6 so that only the DR and BDR receive them; the DR then floods the change to every OSPF router on the segment at 224.0.0.5. 224.0.0.9 belongs to RIPv2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m017",
+      "questionText": "Which statement correctly distinguishes eBGP from iBGP?",
+      "options": [
+        "eBGP sessions run between routers in different autonomous systems; iBGP sessions run between routers of the same AS to share the routes learned from outside",
+        "eBGP is the encrypted version of BGP, while iBGP sends updates in plain text",
+        "eBGP runs over TCP, while iBGP runs over UDP",
+        "iBGP connects an organisation to its ISP, while eBGP is used only inside the organisation"
+      ],
+      "correctIndex": 0,
+      "explanation": "External BGP exchanges routes across an AS boundary, and internal BGP carries those routes to the other BGP routers of the same AS. Both use TCP port 179; the e and i refer to where the peer is, not to encryption.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m018",
+      "questionText": "A BGP router in AS 65010 receives an UPDATE from an eBGP peer for 198.51.100.0/24 with the AS_PATH 65020 65030 65010 65040. What does the router do?",
+      "options": [
+        "It accepts the route, because it is the only one it has for this prefix",
+        "It discards the route, because its own AS number already appears in the AS_PATH, which shows a loop",
+        "It accepts the route after removing 65010 from the AS_PATH",
+        "It passes the route unchanged to its iBGP peers but does not use it itself"
+      ],
+      "correctIndex": 1,
+      "explanation": "Path vector loop prevention: a route whose AS_PATH already contains the receiver's own AS number has passed through that AS before, so accepting it would create a loop. The route is ignored whatever other routes exist.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m019",
+      "questionText": "A BGP router in AS 65001 learns three routes to the same prefix. R1: AS_PATH 65002 65009, LOCAL_PREF 100. R2: AS_PATH 65003 65001 65009, LOCAL_PREF 300. R3: AS_PATH 65004 65007 65008 65009, LOCAL_PREF 200. All other attributes are equal and no vendor-specific weight is set. Which route becomes the best path?",
+      "options": [
+        "R1, because it has the shortest AS_PATH",
+        "R2, because it has the highest LOCAL_PREF",
+        "R3",
+        "None, because one of the paths contains a loop"
+      ],
+      "correctIndex": 2,
+      "explanation": "R2 contains the router's own AS 65001, so it is discarded as a loop before selection. Between R1 and R3, the higher LOCAL_PREF (200) is compared before AS_PATH length, so R3 wins even though its AS_PATH is longer.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m020",
+      "questionText": "Which BGP message is exchanged periodically to confirm that a peer is still alive when there are no routing changes to send?",
+      "options": [
+        "OPEN",
+        "UPDATE",
+        "NOTIFICATION",
+        "KEEPALIVE"
+      ],
+      "correctIndex": 3,
+      "explanation": "KEEPALIVE messages, usually sent every third of the hold time, stop the hold timer from expiring. OPEN starts a session, UPDATE carries route changes and NOTIFICATION reports an error and closes the session.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m021",
+      "questionText": "An AS has 8 routers running iBGP with no route reflectors or confederations. Because a route learned from an iBGP peer is never passed on to another iBGP peer, the routers must be fully meshed. How many iBGP sessions are needed?",
+      "options": [
+        "28",
+        "56",
+        "7",
+        "16"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each pair of routers needs one TCP session: n(n − 1)/2 = 8 × 7/2 = 28. 56 counts every session twice, and 7 is only the sessions of one router; route reflectors exist to avoid this quadratic growth.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m022",
+      "questionText": "Why is BGP called a path vector protocol?",
+      "options": [
+        "It floods link state advertisements and runs Dijkstra's algorithm on them",
+        "It advertises only a hop count for each destination",
+        "Each route it advertises carries the list of autonomous systems (the AS_PATH) that the route passes through",
+        "It sends each packet along every possible path at once"
+      ],
+      "correctIndex": 2,
+      "explanation": "Instead of a single distance, a BGP route carries the full sequence of AS numbers to the destination. This lets routers detect loops and apply policy to whole paths; flooding link states is link state routing and hop counts are RIP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i32_m023",
+      "questionText": "On a Cisco router with the default administrative distances, the prefix 172.20.0.0/16 is learned from RIP with a metric of 3 hops and from OSPF with a cost of 200. Which route is installed in the routing table?",
+      "options": [
+        "The RIP route, because a metric of 3 is lower than 200",
+        "The OSPF route, because OSPF's administrative distance (110) is lower than RIP's (120)",
+        "Both routes, with traffic shared equally between them",
+        "The RIP route, because RIP's administrative distance is lower than OSPF's"
+      ],
+      "correctIndex": 1,
+      "explanation": "Metrics of different protocols are not comparable, so the router picks the source with the lower administrative distance: OSPF 110 beats RIP 120. The metric only chooses between routes learned from the same protocol.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m024",
+      "questionText": "A Cisco router with default administrative distances has three routes: a static route 10.1.0.0/16 via R1, a RIP route 10.1.1.0/24 via R2 and an OSPF route 10.1.0.0/16 via R3. Which next hops are used for packets to 10.1.1.9 and to 10.1.2.9?",
+      "options": [
+        "Both via R1, because the static route has the lowest administrative distance",
+        "10.1.1.9 via R2 and 10.1.2.9 via R3",
+        "10.1.1.9 via R3 and 10.1.2.9 via R1",
+        "10.1.1.9 via R2 and 10.1.2.9 via R1"
+      ],
+      "correctIndex": 3,
+      "explanation": "For the /16 the static route (distance 1) beats OSPF (110), so the table holds 10.1.0.0/16 via R1 and 10.1.1.0/24 via R2. Forwarding then uses the longest matching prefix: 10.1.1.9 matches the /24 (R2), while 10.1.2.9 matches only the /16 (R1).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m025",
+      "questionText": "Router R's unicast route back to multicast source S leaves through interface e1. A multicast packet from S arrives on interface e2. What does R do under reverse path forwarding?",
+      "options": [
+        "It forwards the packet on all interfaces except e2",
+        "It forwards the packet only on e1, back towards S",
+        "It discards the packet, because it did not arrive on the interface R itself uses to reach S",
+        "It sends the packet to the rendezvous point to be forwarded again"
+      ],
+      "correctIndex": 2,
+      "explanation": "The RPF check accepts a multicast packet only if it arrives on the interface of the router's shortest path back to the source; copies arriving elsewhere are duplicates or looping and are dropped. A packet that passes the check is forwarded on the other interfaces of the tree.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m026",
+      "questionText": "A multicast group has a few members scattered across a large network. Which multicast routing protocol suits it best, building trees only through explicit joins towards a rendezvous point?",
+      "options": [
+        "PIM-SM (PIM sparse mode)",
+        "PIM-DM (PIM dense mode)",
+        "DVMRP",
+        "MOSPF"
+      ],
+      "correctIndex": 0,
+      "explanation": "PIM-SM sends traffic only where receivers have joined through the rendezvous point, which avoids flooding a large network. PIM-DM and DVMRP flood and prune, which suits groups with members almost everywhere, and MOSPF floods membership information to every router.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m027",
+      "questionText": "Which multicast routing protocol adds group-membership LSAs to a link state unicast protocol so that every router can compute source-based trees with Dijkstra's algorithm?",
+      "options": [
+        "DVMRP",
+        "PIM-SM",
+        "IGMPv3",
+        "MOSPF (Multicast OSPF)"
+      ],
+      "correctIndex": 3,
+      "explanation": "MOSPF extends OSPF with group-membership LSAs; each router then computes a shortest-path tree rooted at the source for each group. DVMRP is distance vector with flood-and-prune, PIM-SM uses a rendezvous point, and IGMPv3 is a host membership protocol.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m028",
+      "questionText": "Which statement about IGMP is correct?",
+      "options": [
+        "It runs between routers in different autonomous systems to exchange multicast routes",
+        "It runs between hosts and the multicast routers on their own network, with messages sent at TTL 1, and IGMPv2 added an explicit Leave Group message",
+        "It is carried over TCP port 179",
+        "It builds the multicast distribution tree across the whole Internet, so PIM is not needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "IGMP (IP protocol 2) is a local host-to-router membership protocol and never leaves the network, which is why it uses TTL 1. IGMPv2 added Leave Group so routers stop forwarding sooner; multicast routing protocols such as PIM build the trees between routers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i32_m029",
+      "questionText": "Routers R1–R4 have links R1–R2 cost 1, R1–R3 cost 3, R2–R3 cost 1, R2–R4 cost 4 and R3–R4 cost 1 (the same in both directions), and multicast source S is attached to R1. Using reverse path forwarding on the unicast shortest paths, from which neighbour does R3 accept S's packets, and from which does R4 accept them?",
+      "options": [
+        "R3 accepts them from R2, and R4 accepts them from R3",
+        "R3 accepts them from R1, and R4 accepts them from R2",
+        "R3 accepts them from R1, and R4 accepts them from R3",
+        "R3 accepts them from R2, and R4 accepts them from R2"
+      ],
+      "correctIndex": 0,
+      "explanation": "R3's shortest path to R1 is R3–R2–R1 (cost 2, against 3 on the direct link), so R3 accepts only copies from R2 and drops those from R1. R4's shortest path is R4–R3–R2–R1 (cost 3, against 4 via R3–R1 and 5 via R2), so R4 accepts only copies from R3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i32_m030",
+      "questionText": "Which statement about RIP, OSPF and BGP is NOT correct?",
+      "options": [
+        "RIP and OSPF are interior gateway protocols, while BGP is used between autonomous systems",
+        "BGP chooses routes by policy and path attributes, not just by distance",
+        "OSPF, like RIP, cannot be used on paths longer than 15 hops",
+        "RIP suits small networks because it is simple, but it converges slowly"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 15-hop limit belongs to RIP alone; OSPF uses bandwidth-based costs with no hop-count limit, which is one reason it suits large networks. The other three statements are correct.",
+      "difficulty": "medium"
+    }
+  ]
+}

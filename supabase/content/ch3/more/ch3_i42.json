@@ -1,0 +1,706 @@
+{
+  "topicId": "ch3_i42",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Construction Order, Access and Name Hiding"
+    },
+    {
+      "type": "paragraph",
+      "text": "The complete construction rule has four steps, applied recursively to every sub-object. First the virtual base classes are built, depth-first and left to right, and only by the most-derived class; then the direct non-virtual bases in the order of the class header; then the data members in their order of declaration; and finally the constructor body runs. The member-initialiser list only supplies arguments and never changes this order. Destruction walks the same list backwards, so every part is destroyed while the parts it depends on still exist."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{ctor: } V \\to B_1 \\to \\cdots \\to B_n \\to m_1 \\to \\cdots \\to m_k \\to \\text{body}",
+      "plainText": "Constructor order: virtual bases V, direct bases B1..Bn in header order, members m1..mk in declaration order, then the body; destructors run in exactly the reverse order"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct A { A() { cout << \"A \"; } ~A() { cout << \"~A \"; } };\nstruct B { B() { cout << \"B \"; } ~B() { cout << \"~B \"; } };\nstruct M { M() { cout << \"M \"; } ~M() { cout << \"~M \"; } };\nstruct C : B, A {\n    M m;\n    C() : A(), B() { cout << \"C\\n\"; }\n    ~C() { cout << \"~C \"; }\n};\nint main() {\n    C obj;\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nB A M C\n~C ~M ~A ~B\nTrace:\nstruct C : B, A     the header lists B first, so B() runs before A()\nC() : A(), B()      the initialiser-list order is ignored (compilers only warn)\nM m;                members come next, after all bases: M\nbody of C()         runs last: prints C and a newline\nend of main         exact reverse: body of ~C, member ~M, then ~A, then ~B"
+    },
+    {
+      "type": "paragraph",
+      "text": "With virtual base classes the most-derived class is responsible for building the shared base. When a D is created, the initialisers that B and C write for their virtual base A are skipped, and the initialiser list of D decides which A constructor runs; if D names none, the default constructor of A is used. Consequently, a virtual base without a default constructor forces every class further down the hierarchy to call it explicitly."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct A { int id; A(int x) : id(x) { cout << \"A(\" << x << \") \"; } };\nstruct B : virtual A { B() : A(1) { cout << \"B \"; } };\nstruct C : virtual A { C() : A(2) { cout << \"C \"; } };\nstruct D : B, C { D() : A(9) { cout << \"D \"; } };\nint main() {\n    D d;\n    B b;\n    cout << \"\\n\" << d.id << \" \" << b.id << \"\\n\";\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nA(9) B C D A(1) B\n9 1\nTrace:\nD d;   D is most-derived, so its A(9) runs first, and only once\n       B() and C() skip their A(1) and A(2) initialisers\n       then the bodies of B, C and D run\nB b;   now B is most-derived, so its own A(1) is used\nd.id = 9 and b.id = 1"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Where a public base member f() is used",
+          "public inheritance",
+          "protected inheritance",
+          "private inheritance"
+        ],
+        [
+          "Inside member functions of Derived",
+          "Accessible",
+          "Accessible",
+          "Accessible"
+        ],
+        [
+          "Inside a class derived from Derived",
+          "Accessible",
+          "Accessible",
+          "Not accessible"
+        ],
+        [
+          "In main() through a Derived object",
+          "Accessible",
+          "Not accessible",
+          "Not accessible"
+        ],
+        [
+          "Base* p = &derivedObj; in main()",
+          "Allowed",
+          "Error: inaccessible base",
+          "Error: inaccessible base"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Call (Der redefines f, nothing is virtual)",
+          "Function that runs",
+          "Reason"
+        ],
+        [
+          "d.f()",
+          "Der::f",
+          "Name lookup finds f in Der first"
+        ],
+        [
+          "Base* p = &d; p->f()",
+          "Base::f",
+          "A non-virtual call is bound to the pointer type at compile time"
+        ],
+        [
+          "d.f(5) when only Base has f(int)",
+          "Compile error",
+          "Der::f hides every Base::f, whatever the parameters"
+        ],
+        [
+          "d.Base::f(5)",
+          "Base::f(int)",
+          "The qualified name skips the scope of Der"
+        ],
+        [
+          "d.f(5) after using Base::f; in Der",
+          "Base::f(int)",
+          "The base overloads are brought into the scope of Der"
+        ],
+        [
+          "A Base member function calls f()",
+          "Base::f",
+          "Inside Base the call means this->f() through a Base*"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes:",
+      "items": [
+        "Writing virtual in D instead of in B and C: class D : virtual public B, virtual public C still leaves two A sub-objects inside a D.",
+        "Assuming the initialiser list sets the order: bases follow the class header and members follow their declaration order.",
+        "Forgetting that the access mode belongs to each base separately: in class C : public A, B the base B is inherited privately.",
+        "Expecting a redefined non-virtual function to run through a base pointer, or from inside a base member function; that needs virtual, covered in the next subtopic.",
+        "Copying a derived object into a base object slices off the derived part; use a reference or pointer to keep the full object."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any constructor-order question write the list: virtual bases, bases in header order, members in declaration order, body; then read it backwards for the destructors. Count one constructor call per sub-object: a plain diamond builds the top base twice, a virtual diamond builds it once."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i42_m001",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass P { public: P() { cout << \"P\"; } ~P() { cout << \"~P\"; } };\nclass Q : public P { public: Q() { cout << \"Q\"; } ~Q() { cout << \"~Q\"; } };\nint main() {\n    Q q;\n    cout << \"-\";\n    return 0;\n}",
+      "options": [
+        "PQ-~Q~P",
+        "QP-~P~Q",
+        "PQ-~P~Q",
+        "Q-~Q"
+      ],
+      "correctIndex": 0,
+      "explanation": "Creating q runs the base constructor first (P) and then the derived one (Q). The dash is printed while q is alive, and at the end of main the destructors run in reverse: ~Q, then ~P.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m002",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A { ~A() { cout << \"A\"; } };\nstruct B : A { ~B() { cout << \"B\"; } };\nstruct C : B { ~C() { cout << \"C\"; } };\nint main() {\n    { C c; }\n    cout << \"!\";\n    return 0;\n}",
+      "options": [
+        "CBA!",
+        "ABC!",
+        "!CBA",
+        "C!"
+      ],
+      "correctIndex": 0,
+      "explanation": "c is destroyed when its inner block closes, before the ! is printed. In the multilevel chain A -> B -> C the destructors run bottom-up: ~C, ~B, then ~A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m003",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct M { M() { cout << \"M\"; } ~M() { cout << \"m\"; } };\nstruct A { A() { cout << \"A\"; } ~A() { cout << \"a\"; } };\nstruct B : A {\n    M mem;\n    B() { cout << \"B\"; }\n    ~B() { cout << \"b\"; }\n};\nint main() {\n    B obj;\n    return 0;\n}",
+      "options": [
+        "MABbam",
+        "ABMmba",
+        "AMBamb",
+        "AMBbma"
+      ],
+      "correctIndex": 3,
+      "explanation": "The construction order is base class, then member objects, then the constructor body: A, M, B. Destruction is the exact reverse: the body of ~B, then the member (m), then the base (a).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m004",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct X { X(int n) { cout << \"X\" << n; } };\nstruct Y { Y(int n) { cout << \"Y\" << n; } };\nstruct Z : Y, X {\n    Z() : X(1), Y(2) { cout << \"Z\"; }\n};\nint main() {\n    Z z;\n    return 0;\n}",
+      "options": [
+        "X1Y2Z",
+        "ZX1Y2",
+        "ZY2X1",
+        "Y2X1Z"
+      ],
+      "correctIndex": 3,
+      "explanation": "Base classes are constructed in the order they are listed in the class header, struct Z : Y, X, whatever the order of the initialiser list. So Y(2) runs first, then X(1), then the body of Z.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m005",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct X { X() { cout << \"X\"; } ~X() { cout << \"x\"; } };\nstruct Y { Y() { cout << \"Y\"; } ~Y() { cout << \"y\"; } };\nstruct Z : X, Y {\n    Y extra;\n    Z() { cout << \"Z\"; }\n    ~Z() { cout << \"z\"; }\n};\nint main() {\n    Z z;\n    return 0;\n}",
+      "options": [
+        "XYYZzxyy",
+        "YXYZzyxy",
+        "XYYZzyyx",
+        "XYZYyzyx"
+      ],
+      "correctIndex": 2,
+      "explanation": "Construction: the bases in header order X then Y, then the member extra (another Y), then the body Z, giving XYYZ. Destruction reverses it: z, the member y, the base Y (y), and finally x.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m006",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass A { protected: int a; public: A(int x) : a(x) {} };\nclass B : public A { protected: int b; public: B(int x, int y) : A(x), b(y) {} };\nclass C : public B {\n    int c;\npublic:\n    C(int x, int y, int z) : B(x, y), c(z) {}\n    int code() const { return a * 100 + b * 10 + c; }\n};\nint main() {\n    C obj(1, 2, 3);\n    cout << obj.code();\n    return 0;\n}",
+      "options": [
+        "123",
+        "6",
+        "321",
+        "Compile error: C cannot access the protected member a"
+      ],
+      "correctIndex": 0,
+      "explanation": "C passes x and y up to B, and B passes x on to A, so a = 1, b = 2 and c = 3. Protected members stay accessible down a chain of public inheritance, and 1 * 100 + 2 * 10 + 3 = 123.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m007",
+      "questionText": "What happens when this program is compiled?\n\nclass Base {\npublic:\n    Base(int v) {}\n};\nclass Der : public Base {\npublic:\n    Der() {}\n};\nint main() {\n    Der d;\n    return 0;\n}",
+      "options": [
+        "It compiles, and Base(int) is called with the value 0",
+        "It compiles, and the Base part of d is left unconstructed",
+        "It compiles but fails at run time when d is created",
+        "Compile error: Base has no default constructor and Der() does not call Base(int)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every derived constructor must construct its base part; when the initialiser list names no base constructor, the compiler calls Base(), which does not exist here. Writing Der() : Base(0) {} fixes the error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m008",
+      "questionText": "Class B has a protected data member x. Class D is derived privately from B, and class E is derived publicly from D. Which statement is correct?",
+      "options": [
+        "Both D's and E's member functions can use x",
+        "D's member functions can use x, but E's member functions cannot",
+        "Neither D's nor E's member functions can use x",
+        "E's member functions can use x, but D's cannot"
+      ],
+      "correctIndex": 1,
+      "explanation": "Private inheritance turns the protected x into a private member of D, so D can still use it in its own functions. Private members of D are out of reach for E, even though E derives publicly from D.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m009",
+      "questionText": "Which marked line fails to compile?\n\nclass A {\n    int x = 1;\nprotected:\n    int y = 2;\npublic:\n    int z = 3;\n};\nclass B : public A {\npublic:\n    void f() { z = 30; }    // line 1\n    void g() { y = 20; }    // line 2\n    void h() { x = 10; }    // line 3\n};\nint main() { B b; b.z = 5; return 0; }    // line 4",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "A private member of the base is present in every B object but cannot be accessed by name in B, so x = 10 is an error. The protected y is usable inside B, and the public z stays public under public inheritance, so main can assign b.z.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m010",
+      "questionText": "Which marked line(s) fail to compile?\n\nclass A { public: int p; protected: int q; };\nclass B : protected A { };\nclass C : public B {\npublic:\n    void set() { p = 1; q = 2; }   // line 1\n};\nint main() {\n    C c;\n    c.set();                       // line 2\n    c.p = 5;                       // line 3\n    B b;\n    A* ptr = &b;                   // line 4\n    return 0;\n}",
+      "options": [
+        "Line 3 only",
+        "Line 4 only",
+        "Lines 3 and 4",
+        "Lines 1, 3 and 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Protected inheritance makes p and q protected in B, and they stay protected in C, so set() may use them but main may not write c.p. The conversion from B* to A* is also inaccessible in main, because A is a protected base of B, so lines 3 and 4 fail.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m011",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Counter { int n = 0; void add() { n++; } };\nstruct Left : Counter { };\nstruct Right : Counter { };\nint main() {\n    Left l;\n    Right r;\n    l.add(); l.add(); r.add();\n    cout << l.n << r.n;\n    return 0;\n}",
+      "options": [
+        "33",
+        "11",
+        "Compile error: n is ambiguous",
+        "21"
+      ],
+      "correctIndex": 3,
+      "explanation": "In hierarchical inheritance every derived object contains its own Counter sub-object; nothing is shared between l and r. l.n is incremented twice (2) and r.n once (1), so the output is 21.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m012",
+      "questionText": "Which marked line(s) fail to compile?\n\nclass A { public: void fa() {} };\nclass B { public: void fb() {} };\nclass C : public A, B { };\nint main() {\n    C c;\n    c.fa();   // line 1\n    c.fb();   // line 2\n    return 0;\n}",
+      "options": [
+        "Line 1 only",
+        "Line 2 only",
+        "Both lines",
+        "Neither line"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each base in the list takes its own access mode, and a base written without one is inherited privately by a class. So A is a public base but B is a private base, and c.fb() is inaccessible in main.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m013",
+      "questionText": "Class B is derived from A, and class C is derived from B, so B is both a derived class and a base class. What type of inheritance is this?",
+      "options": [
+        "Multilevel",
+        "Multiple",
+        "Hierarchical",
+        "Hybrid"
+      ],
+      "correctIndex": 0,
+      "explanation": "A chain A -> B -> C in which each class has one direct base is multilevel inheritance. Multiple inheritance would need one class with two or more direct bases.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m014",
+      "questionText": "Classes Car, Bus and Truck are each derived only from class Vehicle. What type of inheritance is this?",
+      "options": [
+        "Multiple",
+        "Multilevel",
+        "Multipath",
+        "Hierarchical"
+      ],
+      "correctIndex": 3,
+      "explanation": "One base class with several derived classes is hierarchical inheritance. Multiple inheritance is the opposite shape (several bases, one derived), and multipath needs a class that reaches the same base by two paths.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m015",
+      "questionText": "Class Test is derived from Student, and class Result is derived from both Test and Sports. What type of inheritance does this hierarchy show?",
+      "options": [
+        "Multiple only",
+        "Multilevel only",
+        "Hybrid (multilevel combined with multiple)",
+        "Hierarchical"
+      ],
+      "correctIndex": 2,
+      "explanation": "Student -> Test -> Result is a multilevel chain, and Result also has two direct bases, Test and Sports, which is multiple inheritance. A combination of two or more types in one hierarchy is hybrid inheritance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m016",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Student { Student() { cout << \"St \"; } };\nstruct Test : Student { Test() { cout << \"Te \"; } };\nstruct Sports { Sports() { cout << \"Sp \"; } };\nstruct Result : Test, Sports { Result() { cout << \"Re\"; } };\nint main() {\n    Result r;\n    return 0;\n}",
+      "options": [
+        "Te St Sp Re",
+        "Sp St Te Re",
+        "St Sp Te Re",
+        "St Te Sp Re"
+      ],
+      "correctIndex": 3,
+      "explanation": "The bases of Result are built in header order: first Test, which builds Student before its own body (St Te), then Sports (Sp). The body of Result runs last (Re).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m017",
+      "questionText": "What happens when this program is compiled and run?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    void show(int n) { cout << \"Base \" << n; }\n};\nstruct Der : Base {\n    void show() { cout << \"Der\"; }\n};\nint main() {\n    Der d;\n    d.show(5);\n    return 0;\n}",
+      "options": [
+        "Compile error: Der::show() hides Base::show(int), so no visible show takes an int",
+        "It prints Base 5",
+        "It prints Der",
+        "It prints Der followed by Base 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "Declaring any function named show in Der hides every Base function of that name, whatever its parameters. Name lookup stops in Der, finds only show(), and the call with an argument fails; d.Base::show(5) or using Base::show; would fix it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m018",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    void show(int n)    { cout << \"B\" << n << \" \"; }\n    void show(double x) { cout << \"BD\" << x << \" \"; }\n};\nstruct Der : Base {\n    using Base::show;\n    void show(int n) { cout << \"D\" << n << \" \"; }\n};\nint main() {\n    Der d;\n    d.show(1); d.show(2.5); d.Base::show(3);\n    return 0;\n}",
+      "options": [
+        "B1 BD2.5 B3",
+        "D1 D2 D3",
+        "D1 BD2.5 D3",
+        "D1 BD2.5 B3"
+      ],
+      "correctIndex": 3,
+      "explanation": "using Base::show brings both base overloads into Der, but Der's own show(int) replaces the base one with the same signature. So d.show(1) calls Der's version, d.show(2.5) picks Base::show(double), and the qualified call d.Base::show(3) runs the base int version.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m019",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Animal { public: void speak() { cout << \"...\"; } };\nclass Dog : public Animal { public: void speak() { cout << \"Woof\"; } };\nint main() {\n    Dog d;\n    Animal* p = &d;\n    p->speak();\n    d.speak();\n    return 0;\n}",
+      "options": [
+        "WoofWoof",
+        "......",
+        "...Woof",
+        "Woof..."
+      ],
+      "correctIndex": 2,
+      "explanation": "speak() is not virtual, so p->speak() is bound at compile time from the pointer's type, Animal*, and prints the three dots. Called on the Dog object itself, the derived version runs and prints Woof.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m020",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A {\n    void who() { cout << \"A\"; }\n    void run() { who(); }\n};\nstruct B : A {\n    void who() { cout << \"B\"; }\n};\nint main() {\n    B b;\n    b.run();\n    b.who();\n    return 0;\n}",
+      "options": [
+        "BB",
+        "AB",
+        "BA",
+        "AA"
+      ],
+      "correctIndex": 1,
+      "explanation": "run() is inherited from A, and inside A's code the call who() means this->who() with this of type A*, bound at compile time to A::who. Only the direct call b.who() finds B's version, so the output is AB; with a virtual who() it would be BB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m021",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Shape { void draw() { cout << \"S\"; } };\nstruct Circle : Shape { void draw() { cout << \"C\"; Shape::draw(); } };\nstruct Ring : Circle { void draw() { Circle::draw(); cout << \"R\"; } };\nint main() {\n    Ring r;\n    r.draw();\n    Shape* p = &r;\n    p->draw();\n    return 0;\n}",
+      "options": [
+        "CSRCSR",
+        "SCRS",
+        "CSR",
+        "CSRS"
+      ],
+      "correctIndex": 3,
+      "explanation": "r.draw() runs Ring::draw, which first calls Circle::draw (prints C, then Shape::draw prints S) and then prints R. p->draw() is not virtual and uses the pointer type Shape*, printing S, so the output is CSRS.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m022",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A { A() { cout << \"A\"; } };\nstruct B : A { B() { cout << \"B\"; } };\nstruct C : A { C() { cout << \"C\"; } };\nstruct D : B, C { D() { cout << \"D\"; } };\nint main() {\n    D d;\n    return 0;\n}",
+      "options": [
+        "ABCD",
+        "AABCD",
+        "DCBAA",
+        "ABACD"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without virtual base classes, B and C each contain their own A sub-object. Building D builds B (A then B), then C (A then C), then D's body, so A's constructor runs twice.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m023",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A { int v; A(int x = 0) : v(x) { cout << \"A\" << x << \" \"; } };\nstruct B : virtual A { B() : A(1) { cout << \"B \"; } };\nstruct C : virtual A { C() : A(2) { cout << \"C \"; } };\nstruct D : B, C { D() { cout << \"D \"; } };\nint main() {\n    D d;\n    cout << d.v;\n    return 0;\n}",
+      "options": [
+        "A0 B C D 0",
+        "A1 B C D 1",
+        "A1 B A2 C D 1",
+        "A2 B C D 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "A virtual base is constructed once, by the most-derived class, before any non-virtual base. D's constructor does not name A, so A's default constructor A(0) runs, and the A(1) and A(2) initialisers in B and C are ignored when a D is built.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m024",
+      "questionText": "D inherits A twice, through B and through C, with no virtual base classes. Which marked line(s) fail to compile?\n\nstruct A { int x; };\nstruct B : A {};\nstruct C : A {};\nstruct D : B, C {};\nint main() {\n    D d;\n    d.B::x = 1;    // line 1\n    d.C::x = 2;    // line 2\n    d.x = 3;       // line 3\n    A* pa = &d;    // line 4\n    return 0;\n}",
+      "options": [
+        "Line 3 only",
+        "Lines 3 and 4",
+        "Line 4 only",
+        "None of the lines"
+      ],
+      "correctIndex": 1,
+      "explanation": "A D object contains two A sub-objects, so both the unqualified name x and the conversion from D* to A* are ambiguous. Qualifying with B:: or C:: selects one copy, so only lines 3 and 4 fail.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m025",
+      "questionText": "In the diamond A -> B, A -> C, (B, C) -> D, where must the keyword virtual be written so that a D object contains only one A sub-object?",
+      "options": [
+        "In the base list of D: class D : virtual public B, virtual public C",
+        "In the base lists of B and C: class B : virtual public A and class C : virtual public A",
+        "In front of every member function of A",
+        "In front of A's constructor: virtual A()"
+      ],
+      "correctIndex": 1,
+      "explanation": "The classes that share the base, B and C, must both declare A as a virtual base. Marking the bases of D virtual does not merge the two A copies, virtual member functions are unrelated to this, and a constructor cannot be virtual.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m026",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Account {\nprotected:\n    int bal;\npublic:\n    Account(int b) : bal(b) { cout << \"A\" << b << \" \"; }\n};\nclass Saving : public Account { public: Saving() : Account(100) { cout << \"S \"; } };\nclass Current : public Account { public: Current() : Account(500) { cout << \"C\"; } };\nint main() {\n    Saving s;\n    Current c;\n    return 0;\n}",
+      "options": [
+        "A100 A500 S C",
+        "S A100 C A500",
+        "A100 S C",
+        "A100 S A500 C"
+      ],
+      "correctIndex": 3,
+      "explanation": "In hierarchical inheritance each derived object has its own base part. s builds Account(100) and then Saving, and then c builds Account(500) and then Current.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m027",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct B {\n    char n;\n    B(char c) : n(c) {}\n    ~B() { cout << n; }\n};\nstruct D : B {\n    D(char c) : B(c) {}\n    ~D() { cout << \"d\"; }\n};\nint main() {\n    D x('1'), y('2');\n    return 0;\n}",
+      "options": [
+        "d1d2",
+        "2d1d",
+        "1d2d",
+        "d2d1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Local objects are destroyed in reverse order of creation, so y goes first. For each object ~D prints d before ~B prints the stored character, giving d2 and then d1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m028",
+      "questionText": "Which of the following does a derived class inherit from its public base class and can use directly by name?",
+      "options": [
+        "The constructors of the base (without a using-declaration)",
+        "The public member functions of the base",
+        "The friend functions of the base",
+        "The private data members of the base"
+      ],
+      "correctIndex": 1,
+      "explanation": "Public and protected members are inherited and usable in the derived class. Constructors are not inherited unless imported with using Base::Base, friendship is not inherited, and private members exist in the object but cannot be named.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m029",
+      "questionText": "How does a protected member of a class differ from a private member?",
+      "options": [
+        "A protected member can be accessed from main() through an object, but a private one cannot",
+        "Member functions of a derived class can access a protected member, but not a private one",
+        "A protected member is not inherited, but a private one is",
+        "There is no difference: protected is another name for private"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both are hidden from outside code such as main(). The difference appears only with inheritance: protected members are accessible inside derived classes, while private members are accessible only inside the class itself and its friends.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m030",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A { A(int x) { cout << x; } };\nstruct B : A { B(int x) : A(x + 1) { cout << x; } };\nstruct C : B { C(int x) : B(x * 2) { cout << x; } };\nint main() {\n    C c(3);\n    return 0;\n}",
+      "options": [
+        "763",
+        "367",
+        "463",
+        "736"
+      ],
+      "correctIndex": 0,
+      "explanation": "C(3) passes 3 * 2 = 6 to B, and B(6) passes 6 + 1 = 7 to A. The constructor bodies then run from the top of the chain down: A prints 7, B prints 6 and C prints 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m031",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    int x = 5;\n    void inc() { x++; }\n};\nstruct Der : Base { int y = 10; };\nint main() {\n    Der d;\n    d.inc();\n    d.inc();\n    cout << d.x + d.y;\n    return 0;\n}",
+      "options": [
+        "17",
+        "15",
+        "16",
+        "Compile error: inc() is not a member of Der"
+      ],
+      "correctIndex": 0,
+      "explanation": "Der publicly inherits x and inc() from Base, so d.inc() works on d's own copy of x. Two increments make x = 7, and 7 + 10 = 17.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m032",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Base { protected: int n = 4; };\nclass Der : public Base {\npublic:\n    int twice() { return n * 2; }\n};\nint main() {\n    Der d;\n    cout << d.twice();\n    return 0;\n}",
+      "options": [
+        "4",
+        "8",
+        "0",
+        "Compile error: n is protected in Base"
+      ],
+      "correctIndex": 1,
+      "explanation": "A protected member is accessible inside the member functions of a publicly derived class. twice() reads the inherited n = 4 and returns 4 * 2 = 8; only a direct access such as d.n in main would fail.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m033",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Length { protected: int l; public: Length(int x) : l(x) {} };\nclass Width { protected: int w; public: Width(int x) : w(x) {} };\nclass Rect : public Length, public Width {\npublic:\n    Rect(int a, int b) : Width(b), Length(a) {}\n    int area() const { return l * w; }\n};\nint main() {\n    Rect r(4, 6);\n    cout << r.area();\n    return 0;\n}",
+      "options": [
+        "Compile error: the initialisers must follow the order of the base list",
+        "24",
+        "0",
+        "10"
+      ],
+      "correctIndex": 1,
+      "explanation": "Arguments reach each base constructor through the initialiser list; writing Width before Length is legal (at most a warning), and the bases are still built as Length and then Width. So l = 4, w = 6 and the area is 4 * 6 = 24.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m034",
+      "questionText": "Which marked line(s) fail to compile?\n\n#include <iostream>\nusing namespace std;\nclass Engine { public: int power() { return 150; } };\nclass Car : private Engine {\npublic:\n    int hp() { return power() + 10; }   // line 1\n};\nint main() {\n    Car c;\n    cout << c.hp();                     // line 2\n    cout << c.power();                  // line 3\n    return 0;\n}",
+      "options": [
+        "Line 1 only",
+        "Line 2 only",
+        "Line 3 only",
+        "Lines 1 and 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "Under private inheritance power() becomes private in Car: Car's own member hp() may call it, and main may call the public hp(). Calling c.power() from main is an access error, so only line 3 fails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m035",
+      "questionText": "Under public inheritance, what happens to a private data member of the base class?",
+      "options": [
+        "It is present in every derived object but cannot be accessed by name in the derived class",
+        "It becomes a private member of the derived class that the derived class can access directly",
+        "It becomes a protected member of the derived class",
+        "It is not stored in derived objects at all"
+      ],
+      "correctIndex": 0,
+      "explanation": "Private members are inherited physically, so they occupy space in each derived object, but access to them is limited to the base class and its friends. The derived class must use the base's public or protected functions to reach them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m036",
+      "questionText": "Assume int is 4 bytes and the compiler adds no padding. What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nclass Base { int a, b; };\nclass Der : public Base { int c; };\nint main() {\n    cout << sizeof(Base) << \" \" << sizeof(Der);\n    return 0;\n}",
+      "options": [
+        "8 4",
+        "8 8",
+        "8 12",
+        "4 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "A Der object contains a complete Base sub-object, including the private members a and b (8 bytes), plus its own member c. So sizeof(Der) = 8 + 4 = 12 bytes, even though Der cannot name a or b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m037",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { int v = 1; void show() { cout << \"Base\" << v; } };\nstruct Der : Base { int w = 2; void show() { cout << \"Der\" << v << w; } };\nint main() {\n    Der d;\n    d.v = 7;\n    Base b = d;\n    b.show();\n    return 0;\n}",
+      "options": [
+        "Base7",
+        "Der72",
+        "Base1",
+        "Compile error: a Der object cannot initialise a Base object"
+      ],
+      "correctIndex": 0,
+      "explanation": "A derived object can initialise a base object, but only the Base part is copied (object slicing), so b.v is 7 and w is dropped. b is a genuine Base, so b.show() calls Base::show and prints Base7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m038",
+      "questionText": "Which declaration makes class Car publicly derived from class Vehicle in C++?",
+      "options": [
+        "class Car : public Vehicle { };",
+        "class Car extends Vehicle { };",
+        "class Car :: public Vehicle { };",
+        "class Car inherits public Vehicle { };"
+      ],
+      "correctIndex": 0,
+      "explanation": "C++ writes the base list after a single colon, with each base preceded by its access mode. extends is Java syntax, and :: is the scope resolution operator, not a base-list separator.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m039",
+      "questionText": "Public inheritance is the right design when the relationship between the derived class and the base class is:",
+      "options": [
+        "has-a (a Car has an Engine)",
+        "uses-a (a Printer uses a Document during one call)",
+        "is-a (every Circle is a Shape)",
+        "part-of (a Wheel is part of a Car)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Public inheritance means a derived object can be used wherever a base object is expected, which is the is-a relationship. has-a and part-of are modelled by member objects (composition), and uses-a by a function parameter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i42_m040",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct V { V() { cout << \"V\"; } ~V() { cout << \"v\"; } };\nstruct M { M() { cout << \"M\"; } ~M() { cout << \"m\"; } };\nstruct B1 { B1() { cout << \"1\"; } ~B1() { cout << \"!\"; } };\nstruct D : B1, virtual V {\n    M m;\n    D() { cout << \"D\"; }\n    ~D() { cout << \"d\"; }\n};\nint main() {\n    D d;\n    return 0;\n}",
+      "options": [
+        "1VMDdmv!",
+        "V1MDdm!v",
+        "1MVDdvm!",
+        "V1MDdmv!"
+      ],
+      "correctIndex": 1,
+      "explanation": "Virtual bases are constructed first even when listed later, so V precedes B1; then come the member (M) and the body (D), giving V1MD. Destruction is the exact reverse: d, m, ! (for B1) and finally v.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i42_m041",
+      "questionText": "Which statement about constructors in inheritance is correct?",
+      "options": [
+        "A derived constructor must always call a base constructor explicitly in its initialiser list",
+        "The base constructor runs after the body of the derived constructor",
+        "If the derived constructor names no base constructor, the base's default constructor is called automatically before the derived body",
+        "A derived class inherits the base's constructors automatically, so it never needs its own"
+      ],
+      "correctIndex": 2,
+      "explanation": "The base part is always built first; when the initialiser list names no base constructor, Base() is used, and an explicit call is required only if Base() does not exist. Constructors are not inherited unless they are imported with using Base::Base.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m042",
+      "questionText": "What is the output of this C++ program (C++11 or later)?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    int v;\n    Base(int x) : v(x * 10) {}\n};\nstruct Der : Base {\n    using Base::Base;\n};\nint main() {\n    Der d(4);\n    cout << d.v;\n    return 0;\n}",
+      "options": [
+        "4",
+        "0",
+        "40",
+        "Compile error: Der has no constructor that takes an int"
+      ],
+      "correctIndex": 2,
+      "explanation": "Since C++11, the declaration using Base::Base; makes the base constructors usable as constructors of Der. Der d(4) therefore runs Base(4), which stores 4 * 10 = 40.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m043",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct A { A() { cout << \"A\"; } ~A() { cout << \"a\"; } };\nstruct B : A { B() { cout << \"B\"; } ~B() { cout << \"b\"; } };\nint main() {\n    B* p = new B;\n    cout << \"|\";\n    delete p;\n    cout << \"|\";\n    A obj;\n    return 0;\n}",
+      "options": [
+        "AB|ab|Aa",
+        "AB|ba|Aa",
+        "AB|ba|A",
+        "BA|ab|Aa"
+      ],
+      "correctIndex": 1,
+      "explanation": "new B runs the constructors base first (AB), and delete p, through a B*, runs ~B and then ~A (ba) at that moment. The local obj is then built (A) and destroyed automatically when main returns (a).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i42_m044",
+      "questionText": "Classes A and B both define a public member function void show(), and class C : public A, public B does not redefine it. What happens for the call c.show(), where c is a C object?",
+      "options": [
+        "A::show() runs because A is listed first",
+        "B::show() runs because the last base listed takes priority",
+        "Compile error: the call is ambiguous; write c.A::show() or c.B::show()",
+        "Both run, first A::show() and then B::show()"
+      ],
+      "correctIndex": 2,
+      "explanation": "Name lookup finds show in two different base classes, so the unqualified call is ambiguous at compile time; the order of the base list gives no priority. Qualifying the call, or redefining show() in C, resolves it.",
+      "difficulty": "medium"
+    }
+  ]
+}

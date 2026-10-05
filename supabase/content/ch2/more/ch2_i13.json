@@ -1,0 +1,706 @@
+{
+ "topicId": "ch2_i13",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Canonical Forms"
+  },
+  {
+   "type": "paragraph",
+   "text": "Why is every function equal to the sum of its minterms? Each minterm is 1 on its own row only, so an OR of the minterms for the 1-rows is 1 on exactly those rows and 0 on all others, which is the definition of F. The POS result follows from the SOP one: F' is the sum of the minterms of the 0-rows, and complementing both sides with De Morgan turns that sum of minterms into a product of their complements, which are the maxterms with the same indices."
+  },
+  {
+   "type": "formula",
+   "latex": "\\overline{F} = \\sum_{j \\notin S} m_j \\;\\Rightarrow\\; F = \\prod_{j \\notin S} \\overline{m_j} = \\prod_{j \\notin S} M_j",
+   "plainText": "F' = sum of m_j (j not in S), so F = product of M_j (j not in S)"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: F(A,B,C) = (A + B)(B' + C) in both canonical forms\nA + B  = 0 when A=0,B=0  -> rows 000, 001 = 0, 1\nB' + C = 0 when B=1,C=0  -> rows 010, 110 = 2, 6\nF = PI M(0,1,2,6)        product of the maxterms of the 0-rows\nF = SUM m(3,4,5,7)       the remaining indices\nCheck row 5 (101): A + B = 1, B' + C = 1 + 1 = 1 -> F = 1"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: F = AB' + A'C + D in NAND-NAND form\nLevel 1: G1 = NAND(A, B')      one gate per product term\n         G2 = NAND(A', C)\nLevel 2: F  = NAND(G1, G2, D')  single literal D enters complemented\nProof:   F  = (G1 . G2 . D')' = G1' + G2' + D = AB' + A'C + D\nCost:    3 gates, 2 + 2 + 3 = 7 gate inputs"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Given F = Σm(1,2,6)",
+     "Minterm form",
+     "Maxterm form"
+    ],
+    [
+     "F",
+     "Σm(1,2,6)",
+     "ΠM(0,3,4,5,7)"
+    ],
+    [
+     "F'",
+     "Σm(0,3,4,5,7)",
+     "ΠM(1,2,6)"
+    ],
+    [
+     "How to get it",
+     "Σm of F' = indices missing from F",
+     "ΠM of F' = the minterm indices of F"
+    ]
+   ]
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Property",
+     "Canonical form",
+     "Standard form"
+    ],
+    [
+     "Variables in each term",
+     "All n variables",
+     "Some may be missing"
+    ],
+    [
+     "Uniqueness",
+     "Unique for a given function",
+     "Many possible"
+    ],
+    [
+     "Literal count",
+     "Terms × n (maximum)",
+     "Fewer; minimal form is the goal"
+    ],
+    [
+     "Main use",
+     "Specification, truth-table link",
+     "Implementation after minimisation"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "A product term with k literals in an n-variable function fixes k variables and leaves n − k free, so it covers 2^(n − k) minterms. When a standard SOP is expanded, overlapping terms share minterms and the overlap must be counted once (inclusion–exclusion): AB + C'D in four variables covers 4 + 4 − 1 = 7 minterms. The same rule applied to sum terms counts maxterms in a standard POS."
+  },
+  {
+   "type": "formula",
+   "latex": "N_{covered} = 2^{\\,n-k}",
+   "plainText": "A term with k literals covers 2^(n - k) of the 2^n rows"
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes with minterms and maxterms:",
+   "items": [
+    "Using the minterm literal rule for a maxterm: row 101 gives M5 = A' + B + C', not A + B' + C.",
+    "Reading the index with the wrong most significant bit: A is the MSB of F(A, B, C), so A'BC is m3, not m6.",
+    "Writing F' as ΠM of the same indices as Σm(F); that is F again, not its complement.",
+    "Forgetting that a single literal feeding the output gate of a NAND-NAND or NOR-NOR circuit must be complemented."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For list conversions write out 0 to 2^n − 1 and strike the given indices: what remains is the other list. F and F' never share an index, and F' in Σm form uses exactly the indices of F in ΠM form."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i13_m001",
+   "questionText": "For a three-variable function F(A, B, C), the minterm m6 is:",
+   "options": [
+    "A'B'C",
+    "A' + B' + C",
+    "ABC'",
+    "AB'C"
+   ],
+   "correctIndex": 2,
+   "explanation": "6 = 110 in binary, so A = 1, B = 1, C = 0. In a minterm a 1 bit gives the true variable and a 0 bit the complement: m6 = ABC'. A' + B' + C is the maxterm M6.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m002",
+   "questionText": "How many minterms are possible for a function of five variables?",
+   "options": [
+    "25",
+    "10",
+    "16",
+    "32"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each minterm corresponds to one truth-table row, and n variables give 2^n rows: 2^5 = 32.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m003",
+   "questionText": "A canonical sum-of-products expression is:",
+   "options": [
+    "A sum of product terms in which every term contains each variable exactly once",
+    "Any OR of AND terms, whatever variables they contain",
+    "A product of sum terms each containing every variable",
+    "The sum of products with the fewest possible literals"
+   ],
+   "correctIndex": 0,
+   "explanation": "Canonical SOP is a sum of minterms: every product contains all n variables, true or complemented. An SOP whose terms omit variables is a standard form, and the minimal one is what simplification produces.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m004",
+   "questionText": "Which of the following expressions is in product-of-sums (POS) form?",
+   "options": [
+    "AB + C",
+    "A(B + CD)",
+    "(AB + C)(A + D)",
+    "(A + B)(A' + C)D'"
+   ],
+   "correctIndex": 3,
+   "explanation": "POS is an AND of OR terms whose OR terms contain only literals; a single literal such as D' counts as a one-literal sum. A(B + CD) and (AB + C)(A + D) contain a product inside a sum, and AB + C is SOP.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m005",
+   "questionText": "A minterm of n variables has the value 1 for:",
+   "options": [
+    "All input combinations except one",
+    "Exactly half of the input combinations",
+    "Every combination with at least one input equal to 1",
+    "Exactly one of the 2^n input combinations"
+   ],
+   "correctIndex": 3,
+   "explanation": "A minterm ANDs every variable in true or complemented form, so it is 1 only on the single row that matches it. A maxterm is the opposite: 0 on exactly one row and 1 on all the others.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m006",
+   "questionText": "For a three-variable function F(A, B, C), the maxterm M0 is:",
+   "options": [
+    "A'B'C'",
+    "A' + B' + C'",
+    "A + B + C",
+    "ABC"
+   ],
+   "correctIndex": 2,
+   "explanation": "M0 must be 0 only for ABC = 000. In a maxterm a 0 bit gives the true variable, so M0 = A + B + C. A'B'C' is the minterm m0 and A' + B' + C' is M7.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m007",
+   "questionText": "The canonical SOP expression of F(A, B, C) = Σm(0, 1, 3) is:",
+   "options": [
+    "A'B'C' + A'B'C + A'BC",
+    "A'B'C' + A'B'C + AB'C",
+    "ABC + ABC' + AB'C",
+    "A'B'C' + A'BC' + A'BC"
+   ],
+   "correctIndex": 0,
+   "explanation": "m0 = 000 = A'B'C', m1 = 001 = A'B'C and m3 = 011 = A'BC. The third option complements every literal (it is Σm(5, 6, 7)).",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m008",
+   "questionText": "For a function F(A, B, C), the expression AB + A'BC' is:",
+   "options": [
+    "A canonical SOP",
+    "A canonical POS",
+    "A standard (non-canonical) SOP",
+    "A standard POS"
+   ],
+   "correctIndex": 2,
+   "explanation": "It is an OR of AND terms, so it is SOP. The term AB does not contain C, so the form is standard rather than canonical; only A'BC' is a minterm.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m009",
+   "questionText": "Which statement correctly relates the maxterm M_i to the minterm m_i with the same index?",
+   "options": [
+    "M_i is identical to m_i",
+    "M_i is the dual of m_i",
+    "M_i is the complement of m_i",
+    "M_i equals the minterm m(2^n − 1 − i)"
+   ],
+   "correctIndex": 2,
+   "explanation": "m_i is 1 only on row i and M_i is 0 only on row i, so M_i = (m_i)'. The dual of m_i (keeping literals) gives the maxterm with index 2^n − 1 − i, not M_i.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m010",
+   "questionText": "A two-level NOR-NOR circuit directly implements a Boolean expression written in:",
+   "options": [
+    "Sum-of-products form",
+    "Canonical SOP form only",
+    "Product-of-sums form",
+    "Exclusive-OR form"
+   ],
+   "correctIndex": 2,
+   "explanation": "An OR-AND (POS) circuit becomes NOR-NOR when two inversions are inserted between the levels, because an AND gate with inverted inputs is a NOR gate. SOP maps onto NAND-NAND.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m011",
+   "questionText": "When writing the canonical POS form of a function from its truth table, which rows are used?",
+   "options": [
+    "The rows where F = 1",
+    "The rows where F = 0",
+    "Every row of the table",
+    "Only the rows with an even number of 1 inputs"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each maxterm is 0 on exactly one row, so the product of the maxterms for the 0-rows is 0 exactly there and 1 elsewhere. The canonical SOP uses the rows where F = 1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m012",
+   "questionText": "A four-variable function has 6 minterms in its canonical SOP. How many maxterms does its canonical POS contain?",
+   "options": [
+    "6",
+    "10",
+    "16",
+    "4"
+   ],
+   "correctIndex": 1,
+   "explanation": "Four variables give 2^4 = 16 rows; each row appears either in the minterm list or the maxterm list, so there are 16 − 6 = 10 maxterms.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m013",
+   "questionText": "The function F(A, B, C) = Σm(0, 1, 2, 3, 4, 5, 6, 7) is equal to:",
+   "options": [
+    "0",
+    "1",
+    "ABC",
+    "A + B + C"
+   ],
+   "correctIndex": 1,
+   "explanation": "The sum of all 2^n minterms covers every row of the truth table, so F = 1 for every input.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m014",
+   "questionText": "For a four-variable function F(A, B, C, D), the minterm m9 is:",
+   "options": [
+    "A'BCD'",
+    "A' + B + C + D'",
+    "A'B'C'D",
+    "AB'C'D"
+   ],
+   "correctIndex": 3,
+   "explanation": "9 = 1001, so A = 1, B = 0, C = 0, D = 1 and m9 = AB'C'D. A'BCD' is m6 (complemented literals), A' + B + C + D' is the maxterm M9, and A'B'C'D is m1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m015",
+   "questionText": "For n variables, the product of all 2^n maxterms is equal to:",
+   "options": [
+    "1",
+    "The sum of all minterms",
+    "0",
+    "2^n"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each maxterm is 0 on one row, and together they cover every row, so their product is 0 everywhere. The sum of all minterms is the opposite, 1 everywhere.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i13_m016",
+   "questionText": "F(A, B, C, D) = Σm(0, 1, 4, 5, 10, 15). The product-of-maxterms form of F is:",
+   "options": [
+    "ΠM(0,1,4,5,10,15)",
+    "ΠM(2,3,6,7,8,9,11,12,13)",
+    "Σm(2,3,6,7,8,9,11,12,13,14)",
+    "ΠM(2,3,6,7,8,9,11,12,13,14)"
+   ],
+   "correctIndex": 3,
+   "explanation": "The maxterm list is every index from 0 to 15 that is missing from the minterm list: 16 − 6 = 10 maxterms. The Σm form of those indices would be F', not F.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m017",
+   "questionText": "F(A, B, C) = ΠM(0, 3, 5). The complement F' written as a sum of minterms is:",
+   "options": [
+    "Σm(0,3,5)",
+    "Σm(1,2,4,6,7)",
+    "ΠM(0,3,5)",
+    "Σm(7,4,2)"
+   ],
+   "correctIndex": 0,
+   "explanation": "F is 0 on rows 0, 3 and 5, so F' is 1 on exactly those rows: F' = Σm(0, 3, 5). Σm(1, 2, 4, 6, 7) is F itself.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m018",
+   "questionText": "The expression F(A, B, C) = AB' + C expanded to canonical SOP is:",
+   "options": [
+    "Σm(1,3,5,7)",
+    "Σm(1,3,4,5,6,7)",
+    "Σm(4,5)",
+    "Σm(1,3,4,5,7)"
+   ],
+   "correctIndex": 3,
+   "explanation": "AB' covers A = 1, B = 0: m4 and m5. C covers every row with C = 1: m1, m3, m5, m7. The union (m5 counted once) is Σm(1, 3, 4, 5, 7).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m019",
+   "questionText": "The expression F(A, B, C) = (A + B')(A' + C) in canonical POS form is:",
+   "options": [
+    "ΠM(0,1,5,7)",
+    "ΠM(2,3,4,6)",
+    "ΠM(2,3,5,7)",
+    "Σm(2,3,4,6)"
+   ],
+   "correctIndex": 1,
+   "explanation": "A + B' = 0 when A = 0, B = 1 (rows 2, 3); A' + C = 0 when A = 1, C = 0 (rows 4, 6). So F = ΠM(2, 3, 4, 6), equivalently Σm(0, 1, 5, 7).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m020",
+   "questionText": "In a four-variable function F(A, B, C, D), how many minterms are covered by the product term AB'?",
+   "options": [
+    "2",
+    "4",
+    "8",
+    "12"
+   ],
+   "correctIndex": 1,
+   "explanation": "A term with k literals leaves n − k variables free, so it covers 2^(n − k) minterms: 2^(4 − 2) = 4 (m8, m9, m10, m11).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m021",
+   "questionText": "F(A, B, C) = AB + A'C is to be built as a two-level NAND-NAND circuit, with complemented inputs available. How many NAND gates are needed?",
+   "options": [
+    "2",
+    "4",
+    "3",
+    "5"
+   ],
+   "correctIndex": 2,
+   "explanation": "One first-level NAND per product term (AB and A'C) plus one output NAND: 2 + 1 = 3 gates, the same count and wiring as the AND-OR circuit.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m022",
+   "questionText": "When F = AB + C is implemented in NAND-NAND form, the single-literal term C must be connected to the output NAND gate as:",
+   "options": [
+    "C' (the complement of C)",
+    "C unchanged",
+    "AC",
+    "BC"
+   ],
+   "correctIndex": 0,
+   "explanation": "The output NAND computes (X·Y)' = X' + Y'. For its second input to contribute C, that input must be C'; so F = ((AB)'·C')' = AB + C.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m023",
+   "questionText": "A circuit computes Y = NOR( NOR(A, B'), NOR(B, C) ). Y is equal to:",
+   "options": [
+    "A'B + B'C'",
+    "(A' + B)(B' + C')",
+    "(A + B')(B + C)",
+    "AB' + BC"
+   ],
+   "correctIndex": 2,
+   "explanation": "Y = [(A + B')' + (B + C)']' = (A + B')(B + C) by De Morgan. A NOR-NOR circuit therefore realises a POS expression with the same wiring as OR-AND.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m024",
+   "questionText": "A circuit computes Y = NAND( NAND(A, B'), NAND(A', C) ). Y is equal to:",
+   "options": [
+    "(A + B')(A' + C)",
+    "AB' + A'C",
+    "(A' + B)(A + C')",
+    "A'B + AC'"
+   ],
+   "correctIndex": 1,
+   "explanation": "Y = [(AB')'·(A'C)']' = AB' + A'C by De Morgan, so NAND-NAND realises the SOP whose product terms are the first-level gate inputs.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m025",
+   "questionText": "The canonical POS form of the two-variable function F(A, B) = A ⊕ B is:",
+   "options": [
+    "ΠM(1,2)",
+    "Σm(0,3)",
+    "ΠM(0,3)",
+    "ΠM(0,1,2)"
+   ],
+   "correctIndex": 2,
+   "explanation": "XOR is 0 when A = B, i.e. on rows 00 and 11, so F = ΠM(0, 3) = (A + B)(A' + B'). Σm(0, 3) is the XNOR function.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m026",
+   "questionText": "Which statement about canonical and standard forms is correct?",
+   "options": [
+    "A canonical SOP always has fewer literals than a standard SOP of the same function",
+    "The canonical POS of a function lists the indices where F = 1",
+    "In a standard SOP every product term must contain every variable",
+    "A function has exactly one canonical SOP (apart from term order) but may have many standard SOP forms"
+   ],
+   "correctIndex": 3,
+   "explanation": "The canonical SOP is fixed by the set of 1-rows, so it is unique; standard forms drop variables and are not unique. Canonical forms have the most literals, and the POS lists the 0-rows.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m027",
+   "questionText": "For F(A, B, C) = ΠM(1, 2, 6), which input combination ABC makes F = 0?",
+   "options": [
+    "011",
+    "110",
+    "101",
+    "000"
+   ],
+   "correctIndex": 1,
+   "explanation": "F is 0 exactly on the rows listed in ΠM. ABC = 110 is row 6, so F = 0; rows 3 (011), 5 (101) and 0 (000) are not in the list, so F = 1 there.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m028",
+   "questionText": "The SOP expression F(A, B, C) = AB + A'C can also be written in POS form as:",
+   "options": [
+    "(A + B)(A' + C)",
+    "(A + C)(A' + B)",
+    "(A' + C)(A + B')",
+    "(A + B)(A + C)"
+   ],
+   "correctIndex": 1,
+   "explanation": "Expand (A + C)(A' + B) = AA' + AB + A'C + BC = AB + A'C + BC, and BC is the consensus of AB and A'C, so it equals AB + A'C. (A + B)(A' + C) gives AC + A'B instead.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m029",
+   "questionText": "The canonical SOP expression A'BC + AB'C' + ABC of F(A, B, C) is written in minterm list form as:",
+   "options": [
+    "Σm(3,4,7)",
+    "Σm(6,1,7)",
+    "ΠM(3,4,7)",
+    "Σm(2,4,7)"
+   ],
+   "correctIndex": 0,
+   "explanation": "Read each term as a binary number with A as the most significant bit: A'BC = 011 = 3, AB'C' = 100 = 4, ABC = 111 = 7. Σm(6, 1, 7) results from reading C as the MSB.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m030",
+   "questionText": "F(A, B, C) = Σm(2, 5, 6). The complement F' in product-of-maxterms form is:",
+   "options": [
+    "ΠM(2,5,6)",
+    "ΠM(0,1,3,4,7)",
+    "Σm(2,5,6)",
+    "ΠM(1,2,5)"
+   ],
+   "correctIndex": 0,
+   "explanation": "F' is 0 where F is 1, i.e. on rows 2, 5 and 6, so F' = ΠM(2, 5, 6). ΠM(0, 1, 3, 4, 7) is F itself.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m031",
+   "questionText": "The expression F(A, B, C) = A(B + C) in canonical POS form is:",
+   "options": [
+    "ΠM(5,6,7)",
+    "ΠM(0,1,2,3,4)",
+    "Σm(0,1,2,3,4)",
+    "ΠM(0,1,2,3)"
+   ],
+   "correctIndex": 1,
+   "explanation": "F = 0 whenever A = 0 (rows 0 to 3) or whenever B = C = 0 (rows 0 and 4). The union is ΠM(0, 1, 2, 3, 4); equivalently F = Σm(5, 6, 7).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m032",
+   "questionText": "A three-variable function F is 1 when exactly one of its inputs is 1. Its canonical POS form is:",
+   "options": [
+    "ΠM(0,3,5,6,7)",
+    "ΠM(1,2,4)",
+    "ΠM(0,3,5,6)",
+    "ΠM(3,5,6,7)"
+   ],
+   "correctIndex": 0,
+   "explanation": "F = 1 on rows 001, 010, 100, i.e. F = Σm(1, 2, 4). The maxterms are the remaining indices: ΠM(0, 3, 5, 6, 7).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m033",
+   "questionText": "The three-variable odd-parity function F = A ⊕ B ⊕ C in minterm list form is:",
+   "options": [
+    "Σm(1,2,4,7)",
+    "Σm(0,3,5,6)",
+    "Σm(1,3,5,7)",
+    "Σm(3,5,6,7)"
+   ],
+   "correctIndex": 0,
+   "explanation": "F = 1 when an odd number of inputs are 1: 001, 010, 100, 111, i.e. m1, m2, m4, m7. Σm(0, 3, 5, 6) is the even-parity function and Σm(3, 5, 6, 7) is the majority function.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m034",
+   "questionText": "Why are SOP expressions usually implemented as NAND-NAND rather than AND-OR circuits?",
+   "options": [
+    "NAND-NAND reduces the number of product terms in the expression",
+    "NAND gates are the simplest and fastest gates in common logic families, and one gate type simplifies the design",
+    "NAND-NAND converts a standard SOP into canonical form",
+    "NAND-NAND removes the need to complement any single-literal term"
+   ],
+   "correctIndex": 1,
+   "explanation": "In CMOS and TTL a NAND needs fewer transistors and switches faster than AND or OR, and a single universal gate type simplifies building and stocking circuits. The function and the number of terms are unchanged, and single literals still need complementing.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m035",
+   "questionText": "A four-variable function is 1 on 13 of its 16 truth-table rows. Which canonical form is shorter, and how many terms does it have?",
+   "options": [
+    "Canonical POS, 3 maxterms",
+    "Canonical SOP, 13 minterms",
+    "Canonical POS, 13 maxterms",
+    "Canonical SOP, 3 minterms"
+   ],
+   "correctIndex": 0,
+   "explanation": "The canonical SOP needs one minterm per 1-row (13 terms), while the canonical POS needs one maxterm per 0-row: 16 − 13 = 3 terms.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m036",
+   "questionText": "An AND-OR-INVERT (AOI) gate has its inputs grouped as (A, B) and (C, D). Its output is:",
+   "options": [
+    "AB + CD",
+    "(A + B)(C + D)",
+    "A'B' + C'D'",
+    "(AB + CD)'"
+   ],
+   "correctIndex": 3,
+   "explanation": "An AOI gate ANDs each group, ORs the products and inverts the result, so it gives the complement of an SOP: (AB + CD)', which by De Morgan is (A' + B')(C' + D').",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m037",
+   "questionText": "For a four-variable function F(A, B, C, D), the maxterm M10 is:",
+   "options": [
+    "AB'CD'",
+    "A' + B + C' + D",
+    "A + B' + C + D'",
+    "A' + B' + C' + D"
+   ],
+   "correctIndex": 1,
+   "explanation": "10 = 1010, so A = 1, B = 0, C = 1, D = 0. In a maxterm a 1 bit gives the complemented variable: M10 = A' + B + C' + D. AB'CD' is the minterm m10.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m038",
+   "questionText": "Which of the following is a canonical POS expression for a function F(A, B, C)?",
+   "options": [
+    "(A + B)(A' + B + C)",
+    "ABC + A'BC'",
+    "(A + B + C')(A' + B + C)",
+    "(A + B + C)(B' + C)"
+   ],
+   "correctIndex": 2,
+   "explanation": "Every sum term of a canonical POS must contain all three variables. (A + B)(A' + B + C) and (A + B + C)(B' + C) each have a term missing a variable, and ABC + A'BC' is a canonical SOP.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i13_m039",
+   "questionText": "A four-variable function is 1 on 11 rows of its truth table. Its canonical POS form contains how many maxterms and how many literals in total?",
+   "options": [
+    "11 maxterms, 44 literals",
+    "5 maxterms, 16 literals",
+    "5 maxterms, 20 literals",
+    "11 maxterms, 20 literals"
+   ],
+   "correctIndex": 2,
+   "explanation": "The POS uses the 0-rows: 16 − 11 = 5 maxterms. Every canonical term contains all 4 variables, so the total is 5 × 4 = 20 literals.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m040",
+   "questionText": "F(A, B, C, D) = Σm(0, 2, 5, 7, 8, 10, 13, 15) is minimised and built as a two-level NAND-NAND circuit (complemented inputs available). How many gates and total gate inputs does it need?",
+   "options": [
+    "3 gates, 6 inputs",
+    "2 gates, 4 inputs",
+    "3 gates, 8 inputs",
+    "9 gates, 40 inputs"
+   ],
+   "correctIndex": 0,
+   "explanation": "The minterms with B = D = 0 (0, 2, 8, 10) give B'D' and those with B = D = 1 (5, 7, 13, 15) give BD, so F = B'D' + BD. That needs two 2-input NANDs and one 2-input output NAND: 3 gates and 6 inputs.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m041",
+   "questionText": "The function F(A, B, C) = (A + B'C)(B + C') in canonical POS form is:",
+   "options": [
+    "ΠM(0,1,2,3,5)",
+    "ΠM(4,6,7)",
+    "ΠM(0,2,3,5)",
+    "Σm(0,1,2,3,5)"
+   ],
+   "correctIndex": 0,
+   "explanation": "Evaluate each row: F = 1 only for ABC = 100, 110 and 111 (for 001 the first factor is 1 but B + C' = 0). So F = Σm(4, 6, 7) = ΠM(0, 1, 2, 3, 5).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m042",
+   "questionText": "The standard SOP F(A, B, C, D) = AB + C'D expands to a canonical SOP with how many minterms?",
+   "options": [
+    "8",
+    "7",
+    "6",
+    "9"
+   ],
+   "correctIndex": 1,
+   "explanation": "AB covers 2^(4−2) = 4 minterms and C'D covers 4; the minterm ABC'D belongs to both, so the total is 4 + 4 − 1 = 7.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m043",
+   "questionText": "For three-variable functions, F1 = Σm(1, 3, 5, 7) and F2 = ΠM(0, 1, 2, 3). The product F1·F2 is:",
+   "options": [
+    "Σm(1,3,4,5,6,7)",
+    "Σm(1,3)",
+    "Σm(4,6)",
+    "Σm(5,7)"
+   ],
+   "correctIndex": 3,
+   "explanation": "F2 is 0 on rows 0 to 3, so it is 1 on rows 4 to 7 (F2 = A), while F1 = C. The AND is 1 only where both are 1: rows 5 and 7, i.e. F1·F2 = AC = Σm(5, 7).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m044",
+   "questionText": "A circuit has three first-level NOR gates, NOR(A, B), NOR(A', C) and NOR(B', C'), feeding one 3-input NOR gate. Its output in minterm form is:",
+   "options": [
+    "Σm(2,5)",
+    "Σm(0,1,3,4,6,7)",
+    "Σm(2,3,5)",
+    "ΠM(2,5)"
+   ],
+   "correctIndex": 0,
+   "explanation": "The NOR-NOR circuit realises (A + B)(A' + C)(B' + C'). Checking all rows, every factor is 1 only for ABC = 010 and 101, so the output is Σm(2, 5).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m045",
+   "questionText": "The standard POS F(A, B, C, D) = (A + B)(C' + D) expands to a canonical POS with how many maxterms?",
+   "options": [
+    "8",
+    "6",
+    "4",
+    "7"
+   ],
+   "correctIndex": 3,
+   "explanation": "A + B = 0 on the 4 rows with A = B = 0, and C' + D = 0 on the 4 rows with C = 1, D = 0. The row 0010 is in both sets, so there are 4 + 4 − 1 = 7 maxterms.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i13_m046",
+   "questionText": "F(A, B, C) = Σm(0, 1, 6, 7). A minimal POS expression for F is:",
+   "options": [
+    "(A + B)(A' + B')",
+    "(A + B' + C)(A' + B + C')",
+    "(A + C)(A' + B)",
+    "(A + B')(A' + B)"
+   ],
+   "correctIndex": 3,
+   "explanation": "F = 1 when A = B (rows 00x and 11x), so F = A'B' + AB. Its 0-rows 2, 3, 4, 5 combine into (A + B') and (A' + B), giving F = (A + B')(A' + B); (A + B)(A' + B') is the XOR instead.",
+   "difficulty": "hard"
+  }
+ ]
+}

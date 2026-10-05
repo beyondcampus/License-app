@@ -1,0 +1,355 @@
+{
+  "parent": {"id": "ch7_p2", "title": "Sorting, Searching & Graphs"},
+  "subtopics": [
+    {
+      "id": "ch7_t2",
+      "title": "Sorting: Insertion, Selection & Exchange Sorts",
+      "subtitle": "Internal vs external sorting, stability, insertion, selection, bubble and quick sort",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Sorting Terminology"},
+          {"type": "paragraph", "text": "Sorting arranges records in ascending or descending order of a key so that later searching, merging and reporting become efficient. In internal sorting all the records fit in main memory (RAM) at once, e.g. insertion, selection, bubble, quick and heap sort. In external sorting the file is too large for memory, so the data stays on disk and is processed in chunks; external merge sort is the standard method. For internal sorts the cost is counted in key comparisons and moves; for external sorts it is dominated by the number of disk passes."},
+          {"type": "bulletList", "text": "Properties used to compare sorting algorithms:", "items": [
+            "Stable: records with equal keys keep their original relative order (insertion, bubble, merge, radix are stable; selection, quick, heap, shell are not).",
+            "In-place: needs only O(1) extra memory apart from the array (quick sort also uses an O(log n) recursion stack).",
+            "Adaptive: runs faster when the input is already partly sorted (insertion sort and bubble sort with a swap flag take O(n) on sorted input).",
+            "Comparison-based: orders items only by comparing keys; any such sort needs Ω(n log n) comparisons in the worst case.",
+            "Exchange sorts (bubble sort, quick sort) work by swapping pairs of out-of-order elements."
+          ]},
+          {"type": "heading", "text": "Insertion and Selection Sort"},
+          {"type": "paragraph", "text": "Insertion sort keeps a sorted prefix a[0..i-1] and inserts the next element a[i] into its correct place by shifting larger elements one position right, exactly as one sorts playing cards in hand. It is stable, in-place and adaptive: on sorted input it makes only n - 1 comparisons (O(n)), while reverse-sorted input gives the worst case of n(n-1)/2 comparisons (O(n²))."},
+          {"type": "code", "language": "c", "text": "void insertionSort(int a[], int n) {\n    for (int i = 1; i < n; i++) {\n        int key = a[i], j = i - 1;\n        while (j >= 0 && a[j] > key) {   /* shift larger keys right */\n            a[j + 1] = a[j];\n            j--;\n        }\n        a[j + 1] = key;\n    }\n}"},
+          {"type": "code", "language": "text", "text": "Array: 29 10 14 37 13\nInsertion sort (sorted | unsorted)\n  i=1: 10 29 | 14 37 13\n  i=2: 10 14 29 | 37 13\n  i=3: 10 14 29 37 | 13\n  i=4: 10 13 14 29 37\nSelection sort (minimum swapped to the front)\n  pass 1: 10 | 29 14 37 13   (swap 29, 10)\n  pass 2: 10 13 | 14 37 29   (swap 29, 13)\n  pass 3: 10 13 14 | 37 29   (no swap)\n  pass 4: 10 13 14 29 | 37   (swap 37, 29)"},
+          {"type": "paragraph", "text": "Selection sort finds the minimum of the unsorted part in each pass and swaps it to the front of that part. It always makes n(n-1)/2 comparisons whatever the input, so best, average and worst are all O(n²), but it performs at most n - 1 swaps, which is useful when writes are expensive. The long-distance swap can jump an element past an equal key, so selection sort is not stable."},
+          {"type": "heading", "text": "Exchange Sorts: Bubble Sort and Quick Sort"},
+          {"type": "paragraph", "text": "Bubble sort repeatedly compares adjacent elements and swaps them if they are out of order, so after pass k the k largest keys have bubbled to the end. With a flag that stops the sort when a pass makes no swap, sorted input takes one pass of n - 1 comparisons (O(n)); otherwise it is O(n²). It is stable and in-place but usually the slowest simple sort in practice because of the many swaps."},
+          {"type": "code", "language": "text", "text": "Bubble sort on 29 10 14 37 13 (largest moves to the end each pass)\nPass 1: 29>10 swap, 29>14 swap, 29<37, 37>13 swap -> 10 14 29 13 37\nPass 2: 10<14, 14<29, 29>13 swap            -> 10 14 13 29 37\nPass 3: 10<14, 14>13 swap                   -> 10 13 14 29 37\nPass 4: 10<13, no swaps -> flag stops the sort"},
+          {"type": "paragraph", "text": "Quick sort (Hoare) is a divide-and-conquer exchange sort: partition places a chosen pivot in its final position with smaller keys to its left and larger keys to its right, then each side is sorted recursively. On 29 10 14 37 13 with the last element 13 as pivot, one Lomuto partition gives 10 13 14 37 29; the right part 14 37 29 with pivot 29 becomes 14 29 37, giving 10 13 14 29 37. Balanced partitions give O(n log n); if the pivot is always the smallest or largest key (e.g. first element of already sorted data) the recursion depth becomes n and the time O(n²). Median-of-three or a random pivot makes the worst case very unlikely."},
+          {"type": "code", "language": "c", "text": "int partition(int a[], int lo, int hi) {\n    int pivot = a[hi], i = lo - 1, t;\n    for (int j = lo; j < hi; j++)\n        if (a[j] <= pivot) { i++; t = a[i]; a[i] = a[j]; a[j] = t; }\n    t = a[i + 1]; a[i + 1] = a[hi]; a[hi] = t;\n    return i + 1;                      /* final position of pivot */\n}\nvoid quickSort(int a[], int lo, int hi) {\n    if (lo < hi) {\n        int p = partition(a, lo, hi);\n        quickSort(a, lo, p - 1);\n        quickSort(a, p + 1, hi);\n    }\n}"},
+          {"type": "table", "rows": [
+            ["Algorithm", "Best / Average / Worst", "Stable?", "In-place?"],
+            ["Insertion", "O(n) / O(n²) / O(n²)", "Yes", "Yes"],
+            ["Selection", "O(n²) / O(n²) / O(n²)", "No", "Yes"],
+            ["Bubble (with swap flag)", "O(n) / O(n²) / O(n²)", "Yes", "Yes"],
+            ["Quick", "O(n log n) / O(n log n) / O(n²)", "No", "Yes (O(log n) stack)"]
+          ]},
+          {"type": "formula", "latex": "C_{max} = (n-1) + (n-2) + \\cdots + 1 = \\frac{n(n-1)}{2} = O(n^2)", "plainText": "Cmax = (n-1) + (n-2) + ... + 1 = n(n-1)/2 = O(n²)"},
+          {"type": "bulletList", "text": "Efficiency and when to use which sort:", "items": [
+            "Small n (roughly under 20) or nearly sorted data: insertion sort; library quick sorts switch to it for small partitions.",
+            "Writes are costly (e.g. flash memory): selection sort, at most n - 1 swaps.",
+            "General large in-memory arrays: quick sort, fastest on average thanks to good cache behaviour.",
+            "Bubble sort is mainly of teaching value; its only advantage is detecting a sorted array in one pass."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "C_{max} = \\frac{n(n-1)}{2}", "plainText": "Cmax = n(n-1)/2 comparisons (selection always; insertion and bubble worst case)"},
+          {"type": "formula", "latex": "T_{best}(n) = 2T(n/2) + n = O(n \\log n)", "plainText": "Quick sort best/average: T(n) = 2T(n/2) + n = O(n log n)"},
+          {"type": "formula", "latex": "T_{worst}(n) = T(n-1) + n = O(n^2)", "plainText": "Quick sort worst: T(n) = T(n-1) + n = O(n²)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Memorise the complexity table as pairs: insertion and bubble are the only simple sorts with an O(n) best case, and selection is the one that is O(n²) even on sorted input."},
+          {"type": "warning", "text": "Quick sort is in-place but not stable, and its O(n²) worst case occurs on already sorted input when the first or last element is taken as pivot."},
+          {"type": "note", "text": "Internal vs external depends on memory, not on the algorithm name alone: merge sort is used internally too, but its run-merging form is the classic external sort."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_t2_01", "title": "Comparisons of simple sorts", "latex": "C_{max} = \\frac{n(n-1)}{2}", "plainText": "Cmax = n(n-1)/2", "description": "Selection sort always makes this many comparisons; insertion and bubble sort make it in the worst case."},
+        {"id": "f_ch7_t2_02", "title": "Insertion sort best case", "latex": "C_{min} = n - 1", "plainText": "Cmin = n - 1", "description": "On already sorted input insertion sort (and bubble sort with a flag) needs only n - 1 comparisons."},
+        {"id": "f_ch7_t2_03", "title": "Quick sort recurrences", "latex": "T(n) = 2T(n/2) + n \\Rightarrow O(n\\log n);\\; T(n) = T(n-1) + n \\Rightarrow O(n^2)", "plainText": "Balanced: T(n) = 2T(n/2) + n -> O(n log n); unbalanced: T(n) = T(n-1) + n -> O(n²)", "description": "Balanced partitions give O(n log n) while always-extreme pivots give O(n²)."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_t2_01", "front": "What is the difference between internal and external sorting?", "back": "Internal sorting keeps all records in main memory; external sorting handles files too large for memory by sorting chunks and merging them from disk.", "difficulty": "easy"},
+        {"id": "fc_ch7_t2_02", "front": "Which simple sort makes the fewest swaps, and how many?", "back": "Selection sort, at most n - 1 swaps, though it always makes n(n-1)/2 comparisons.", "difficulty": "medium"},
+        {"id": "fc_ch7_t2_03", "front": "What does the partition step of quick sort guarantee?", "back": "The pivot ends in its final sorted position with all smaller-or-equal keys on its left and larger keys on its right.", "difficulty": "medium"},
+        {"id": "fc_ch7_t2_04", "front": "Which of insertion, selection and bubble sort are stable?", "back": "Insertion and bubble sort are stable; selection sort is not because its long swaps can reorder equal keys.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_t2_n01", "questionText": "How many key comparisons does selection sort make on an array of 10 elements?", "options": ["10", "90", "45", "100"], "correctIndex": 2, "explanation": "Selection sort always makes (n-1) + (n-2) + ... + 1 = n(n-1)/2 comparisons, i.e. 10 x 9 / 2 = 45.", "difficulty": "easy"},
+        {"id": "q_ch7_t2_n02", "questionText": "What is the array [29, 10, 14, 37, 13] after the first pass of bubble sort in ascending order?", "options": ["10 29 14 37 13", "10 14 29 13 37", "10 13 14 29 37", "10 14 13 29 37"], "correctIndex": 1, "explanation": "Adjacent swaps 29/10, 29/14 and 37/13 occur in pass 1, carrying the largest key 37 to the end: 10 14 29 13 37.", "difficulty": "medium"},
+        {"id": "q_ch7_t2_n03", "questionText": "Which sorting algorithm is stable and takes O(n) time on an array that is already sorted?", "options": ["Selection sort", "Quick sort", "Heap sort", "Insertion sort"], "correctIndex": 3, "explanation": "Insertion sort makes one comparison per element on sorted input (n - 1 total) and never reorders equal keys; selection is always O(n²) and quick and heap sort are unstable.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i21",
+      "title": "Merge, Radix, Shell & Heap Sort",
+      "subtitle": "Divide and conquer, digit buckets, gap sequences, heaps as priority queues",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Merge Sort"},
+          {"type": "paragraph", "text": "Merge sort is divide and conquer: split the array into two halves, sort each half recursively, then merge the two sorted halves into one sorted run using a temporary array. The merge step scans both halves with two indices and copies the smaller front element, taking O(n) time. Example: 38 27 43 3 9 82 10 splits to [38 27][43 3][9 82][10], merges to [27 38][3 43][9 82][10], then [3 27 38 43][9 10 82], then 3 9 10 27 38 43 82. It takes O(n log n) in every case, is stable when ties take the left element first, but needs O(n) extra space."},
+          {"type": "code", "language": "c", "text": "void merge(int a[], int l, int m, int r) {\n    int tmp[r - l + 1], i = l, j = m + 1, k = 0;\n    while (i <= m && j <= r)\n        tmp[k++] = (a[i] <= a[j]) ? a[i++] : a[j++];  /* <= keeps it stable */\n    while (i <= m) tmp[k++] = a[i++];   while (j <= r) tmp[k++] = a[j++];\n    for (k = 0; k < r - l + 1; k++) a[l + k] = tmp[k];\n}\nvoid mergeSort(int a[], int l, int r) {\n    if (l < r) {\n        int m = (l + r) / 2;\n        mergeSort(a, l, m); mergeSort(a, m + 1, r);\n        merge(a, l, m, r);\n    }\n}"},
+          {"type": "formula", "latex": "T(n) = 2T(n/2) + cn \\Rightarrow T(n) = \\Theta(n \\log n)", "plainText": "T(n) = 2T(n/2) + cn gives T(n) = Θ(n log n)"},
+          {"type": "heading", "text": "Radix Sort"},
+          {"type": "paragraph", "text": "Radix sort is a non-comparison sort for integer or string keys. The least-significant-digit (LSD) form makes one pass per digit, from units upward: each pass distributes the keys into buckets 0-9 by the current digit and then collects the buckets in order. Because each pass is stable, the order produced by earlier (lower) digits is preserved among keys with equal higher digits. With d digits and radix k it runs in O(d(n + k)) time and needs O(n + k) extra space."},
+          {"type": "code", "language": "text", "text": "Input:              170 45 75 90 802 24 2 66\nPass 1 (units):     170 90 802 2 24 45 75 66\nPass 2 (tens):      802 2 24 45 66 170 75 90\nPass 3 (hundreds):  2 24 45 66 75 90 170 802\nEach pass empties buckets 0..9 in order and keeps the order inside a bucket."},
+          {"type": "heading", "text": "Shell Sort"},
+          {"type": "paragraph", "text": "Shell sort (diminishing increment sort) generalises insertion sort: it insertion-sorts elements that are gap positions apart, then repeats with smaller gaps, finishing with gap 1. Early large-gap passes move keys long distances cheaply, so the final gap-1 pass works on nearly sorted data. The time depends on the gap sequence: Shell's n/2, n/4, ... gives O(n²) worst case, while Knuth's 1, 4, 13, 40, ... (h = 3h + 1) gives about O(n^1.5). It is in-place but not stable."},
+          {"type": "code", "language": "text", "text": "Array (n = 8): 35 33 42 10 14 19 27 44\ngap 4: sort pairs (35,14) (33,19) (42,27) (10,44)\n       -> 14 19 27 10 35 33 42 44\ngap 2: sort (14,27,35,42) and (19,10,33,44)\n       -> 14 10 27 19 35 33 42 44\ngap 1: ordinary insertion sort on a nearly sorted array\n       -> 10 14 19 27 33 35 42 44"},
+          {"type": "heading", "text": "Heap Sort and the Heap as a Priority Queue"},
+          {"type": "paragraph", "text": "A binary max-heap is a complete binary tree stored in an array where every parent is greater than or equal to its children; with 0-based indexing node i has children 2i + 1 and 2i + 2 and parent floor((i - 1)/2). Heapify (sift-down) repairs one violating node in O(log n), and building a heap bottom-up from index n/2 - 1 down to 0 takes only O(n). Heap sort builds a max-heap, then repeatedly swaps the root (maximum) with the last heap element, shrinks the heap by one and heapifies the root: O(n log n) in all cases, in-place, not stable. The same heap is the usual priority queue: insert and delete-max are O(log n) and find-max is O(1)."},
+          {"type": "code", "language": "c", "text": "void heapify(int a[], int n, int i) {\n    int big = i, l = 2 * i + 1, r = 2 * i + 2, t;\n    if (l < n && a[l] > a[big]) big = l;  if (r < n && a[r] > a[big]) big = r;\n    if (big != i) {\n        t = a[i]; a[i] = a[big]; a[big] = t;\n        heapify(a, n, big);\n    }\n}\nvoid heapSort(int a[], int n) {\n    for (int i = n / 2 - 1; i >= 0; i--) heapify(a, n, i);  /* build max-heap */\n    for (int i = n - 1; i > 0; i--) {\n        int t = a[0]; a[0] = a[i]; a[i] = t;                /* max to the end */\n        heapify(a, i, 0);\n    }\n}"},
+          {"type": "code", "language": "text", "text": "Input:           4 10 3 5 1\nBuild max-heap:  heapify(1) no change; heapify(0): 4<->10, then 4<->5\nMax-heap:        10 5 3 4 1\nSwap 10 to end:  1 5 3 4 | 10  -> heapify -> 5 4 3 1 | 10\nSwap 5 to end:   1 4 3 | 5 10  -> heapify -> 4 1 3 | 5 10\nSwap 4 to end:   3 1 | 4 5 10  -> no change\nSwap 3 to end:   1 | 3 4 5 10  -> sorted: 1 3 4 5 10"},
+          {"type": "table", "rows": [
+            ["Algorithm", "Time (best / avg / worst)", "Extra space", "Stable?"],
+            ["Merge", "O(n log n) in all cases", "O(n)", "Yes"],
+            ["Heap", "O(n log n) in all cases", "O(1)", "No"],
+            ["Shell", "Depends on gaps: about O(n^1.5), O(n²) with n/2 gaps", "O(1)", "No"],
+            ["Radix (LSD)", "O(d(n + k)) in all cases", "O(n + k)", "Yes"],
+            ["Counting", "O(n + k), keys in range 0..k", "O(n + k)", "Yes"],
+            ["Quick (for comparison)", "O(n log n) / O(n log n) / O(n²)", "O(log n) stack", "No"]
+          ]},
+          {"type": "paragraph", "text": "External merge sort handles files larger than memory in two phases. First, read memory-sized blocks, sort each internally (for example with quick sort) and write them back as sorted runs. Then merge the runs k at a time (k-way merge, often using a min-heap of the k run heads) in repeated passes until a single sorted file remains; the number of merge passes is about log_k(number of runs), and minimising disk passes is the main goal."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "T(n) = 2T(n/2) + cn = \\Theta(n \\log n)", "plainText": "Merge sort: T(n) = 2T(n/2) + cn = Θ(n log n)"},
+          {"type": "formula", "latex": "\\text{parent}(i) = \\lfloor (i-1)/2 \\rfloor,\\; \\text{left}(i) = 2i+1,\\; \\text{right}(i) = 2i+2", "plainText": "0-based heap: parent(i) = floor((i-1)/2), left(i) = 2i+1, right(i) = 2i+2"},
+          {"type": "formula", "latex": "T_{radix} = O(d(n + k))", "plainText": "Radix sort: O(d(n + k)) for d digits of radix k"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For 1-based heap arrays the formulas change to parent floor(i/2), children 2i and 2i + 1; check which indexing an MCQ uses before answering."},
+          {"type": "warning", "text": "Heap sort and merge sort are both O(n log n) in the worst case, but only merge sort is stable and only heap sort is in-place."},
+          {"type": "note", "text": "Building a heap bottom-up is O(n), not O(n log n), because most nodes are near the leaves and sift down only a short distance; the n log n in heap sort comes from the n delete-max steps."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i21_01", "title": "Merge sort recurrence", "latex": "T(n) = 2T(n/2) + cn = \\Theta(n \\log n)", "plainText": "T(n) = 2T(n/2) + cn = Θ(n log n)", "description": "Two half-size subproblems plus a linear merge give n log n time in every case."},
+        {"id": "f_ch7_i21_02", "title": "Heap index formulas (0-based)", "latex": "\\text{parent}(i) = \\lfloor (i-1)/2 \\rfloor,\\; \\text{children } 2i+1,\\, 2i+2", "plainText": "parent(i) = floor((i-1)/2); children 2i+1 and 2i+2", "description": "Lets a complete binary tree be stored in an array with no pointers."},
+        {"id": "f_ch7_i21_03", "title": "Radix sort time", "latex": "T = O(d(n + k))", "plainText": "T = O(d(n + k))", "description": "d stable bucket passes over n keys with k possible digit values."},
+        {"id": "f_ch7_i21_04", "title": "Shell sort with Knuth gaps", "latex": "h_{i+1} = 3h_i + 1,\\; T \\approx O(n^{1.5})", "plainText": "h(i+1) = 3h(i) + 1 (1, 4, 13, 40 ...), T about O(n^1.5)", "description": "Knuth's gap sequence gives roughly n to the power 1.5 behaviour."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i21_01", "front": "Why does LSD radix sort require each digit pass to be stable?", "back": "So that the ordering already established by lower digits is kept among keys whose current digit is equal.", "difficulty": "medium"},
+        {"id": "fc_ch7_i21_02", "front": "What is the last pass of shell sort always?", "back": "An ordinary insertion sort with gap 1, which is fast because earlier passes left the array nearly sorted.", "difficulty": "easy"},
+        {"id": "fc_ch7_i21_03", "front": "What are the costs of heap priority-queue operations?", "back": "Insert and delete-max O(log n), find-max O(1), build-heap O(n).", "difficulty": "medium"},
+        {"id": "fc_ch7_i21_04", "front": "What are the two phases of external merge sort?", "back": "Create sorted runs that fit in memory, then k-way merge the runs in passes until one sorted file remains.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i21_n01", "questionText": "In a max-heap stored in a 0-based array, at which index is the parent of the node at index 9?", "options": ["4", "3", "5", "8"], "correctIndex": 0, "explanation": "parent(i) = floor((i - 1)/2) = floor(8/2) = 4; its children are 9 and 10.", "difficulty": "easy"},
+        {"id": "q_ch7_i21_n02", "questionText": "What is the time to build a binary heap bottom-up from n unsorted elements?", "options": ["O(log n)", "O(n)", "O(n log n)", "O(n²)"], "correctIndex": 1, "explanation": "Sifting down from index n/2 - 1 to 0 costs a total proportional to the sum of node heights, which is O(n).", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i22",
+      "title": "Searching & Hashing",
+      "subtitle": "Sequential, binary and tree search, hash functions, load factor and collisions",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Sequential and Binary Search"},
+          {"type": "paragraph", "text": "Sequential (linear) search compares the key with each element in turn and works on any list, sorted or not, including linked lists. A successful search needs (n + 1)/2 comparisons on average and n in the worst case, and an unsuccessful search needs n, so it is O(n). Placing the key as a sentinel at the end removes the index test from the loop."},
+          {"type": "paragraph", "text": "Binary search needs a sorted array with random access. It compares the key with the middle element and discards half of the remaining range each time, so it is O(log n). The maximum number of comparisons for n elements is ceil(log2(n + 1)): 7 for n = 100, 10 for n = 1000 and 20 for about a million."},
+          {"type": "code", "language": "c", "text": "int binarySearch(int a[], int n, int key) {\n    int low = 0, high = n - 1;\n    while (low <= high) {\n        int mid = low + (high - low) / 2;   /* avoids overflow */\n        if (a[mid] == key) return mid;\n        else if (a[mid] < key) low = mid + 1;\n        else high = mid - 1;\n    }\n    return -1;                              /* not found */\n}"},
+          {"type": "formula", "latex": "C_{max} = \\lceil \\log_2(n+1) \\rceil", "plainText": "Cmax = ceil(log2(n + 1)) comparisons for binary search"},
+          {"type": "heading", "text": "Tree Search and General Search Trees"},
+          {"type": "paragraph", "text": "Tree search uses a binary search tree: compare the key with the root, go left if smaller and right if larger, until the key or a null link is found. The cost is O(h) for tree height h: O(log n) when balanced (AVL, red-black) but O(n) for a degenerate tree built from sorted input. General (multiway) search trees of order m store up to m - 1 sorted keys and m children per node, so a search chooses among m branches at each level; B-trees and B+ trees are balanced multiway trees used for database and file indexes because their low height means few disk reads."},
+          {"type": "heading", "text": "Hash Functions and Hash Tables"},
+          {"type": "bulletList", "text": "A hash function h maps a key to a table index 0..m-1; common methods:", "items": [
+            "Division: h(k) = k mod m, with m preferably a prime not close to a power of 2 (e.g. 23 mod 7 = 2).",
+            "Mid-square: square the key and take the middle digits, e.g. 3121² = 9740641, middle three digits 406.",
+            "Folding: split the key into equal parts and add them, e.g. 123456789 -> 123 + 456 + 789 = 1368, keep 368 for a 1000-slot table.",
+            "A good hash function is fast and spreads keys uniformly, so the ideal search time is O(1)."
+          ]},
+          {"type": "paragraph", "text": "A hash table is an array of m slots (buckets) addressed by h(k). The load factor α = n/m (n keys stored) measures how full it is and controls performance. A collision occurs when two distinct keys hash to the same index; collisions are unavoidable once the key universe is larger than m, so every table needs a resolution strategy."},
+          {"type": "bulletList", "text": "Collision resolution techniques:", "items": [
+            "Separate chaining: each slot heads a linked list of all keys hashing there; α may exceed 1 and a search costs about 1 + α/2 probes on success.",
+            "Linear probing (open addressing): try (h(k) + i) mod m for i = 0, 1, 2, ...; simple but causes primary clustering.",
+            "Quadratic probing: try (h(k) + i²) mod m; removes primary clustering but keys with the same home slot still share a probe path (secondary clustering).",
+            "Double hashing: try (h1(k) + i·h2(k)) mod m with h2(k) never 0, e.g. h2(k) = R - (k mod R) for a prime R < m; nearly eliminates clustering."
+          ]},
+          {"type": "table", "rows": [
+            ["Key (m = 7)", "h(k) = k mod 7", "Linear probing slot", "Quadratic probing slot"],
+            ["50", "1", "1", "1"],
+            ["700", "0", "0", "0"],
+            ["76", "6", "6", "6"],
+            ["85", "1", "2 (1 taken)", "2 (1 + 1²)"],
+            ["92", "1", "3 (1, 2 taken)", "5 (1 + 2², since 2 taken)"],
+            ["73", "3", "4 (3 taken)", "3"],
+            ["101", "3", "5 (3, 4 taken)", "4 (3 + 1²)"]
+          ]},
+          {"type": "paragraph", "text": "Clustering is the build-up of long runs of occupied slots; with linear probing any key landing in a run extends it, so probe counts grow sharply as α approaches 1 (about 1/(1 - α) probes for an unsuccessful search under uniform hashing). Open addressing therefore keeps α below about 0.7, and deleting a key must leave a deleted marker (tombstone) so later searches do not stop early. When α exceeds the threshold the table is rehashed: a larger table (about double, prime size) is allocated and every key is reinserted with the new hash function, an O(n) step that keeps average operations O(1)."},
+          {"type": "table", "rows": [
+            ["Method", "Requirement", "Average", "Worst"],
+            ["Sequential search", "None (any list)", "O(n)", "O(n)"],
+            ["Binary search", "Sorted array", "O(log n)", "O(log n)"],
+            ["BST search", "Binary search tree", "O(log n)", "O(n) if skewed"],
+            ["AVL / B-tree search", "Balanced search tree", "O(log n)", "O(log n)"],
+            ["Hashing", "Hash function and table", "O(1)", "O(n) if all keys collide"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\alpha = \\frac{n}{m}", "plainText": "Load factor α = n/m (keys stored / table slots)"},
+          {"type": "formula", "latex": "h_i(k) = (h(k) + i) \\bmod m \\quad\\text{vs}\\quad (h(k) + i^2) \\bmod m", "plainText": "Linear probing (h(k) + i) mod m; quadratic probing (h(k) + i²) mod m"},
+          {"type": "formula", "latex": "h_i(k) = (h_1(k) + i \\cdot h_2(k)) \\bmod m", "plainText": "Double hashing: (h1(k) + i·h2(k)) mod m"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For binary-search MCQs use ceil(log2(n + 1)): find the smallest power of 2 that is at least n + 1; for n = 1000 that is 1024 = 2^10, so 10 comparisons."},
+          {"type": "warning", "text": "Binary search needs random access, so it does not give O(log n) on a linked list even if the list is sorted."},
+          {"type": "note", "text": "In hash-table tracing questions, always compute the home slot with k mod m first, then probe in order i = 1, 2, 3 ... and wrap around past slot m - 1 back to 0."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i22_01", "title": "Binary search comparisons", "latex": "C_{max} = \\lceil \\log_2(n+1) \\rceil", "plainText": "Cmax = ceil(log2(n + 1))", "description": "Worst-case number of comparisons for binary search over n sorted elements."},
+        {"id": "f_ch7_i22_02", "title": "Division hash and load factor", "latex": "h(k) = k \\bmod m,\\quad \\alpha = n/m", "plainText": "h(k) = k mod m, α = n/m", "description": "The division method maps a key to a slot; the load factor measures how full the table is."},
+        {"id": "f_ch7_i22_03", "title": "Open-addressing probe sequences", "latex": "(h(k)+i),\\; (h(k)+i^2),\\; (h_1(k)+i\\,h_2(k)) \\bmod m", "plainText": "(h(k)+i), (h(k)+i²), (h1(k)+i·h2(k)) all mod m", "description": "Linear, quadratic and double hashing probe sequences for i = 0, 1, 2, ..."},
+        {"id": "f_ch7_i22_04", "title": "Sequential search average", "latex": "C_{avg} = \\frac{n+1}{2}", "plainText": "Cavg = (n + 1)/2", "description": "Average comparisons for a successful linear search when each key is equally likely."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i22_01", "front": "What is primary clustering and which technique suffers from it?", "back": "Long runs of occupied adjacent slots that grow as keys land in them; it is typical of linear probing.", "difficulty": "medium"},
+        {"id": "fc_ch7_i22_02", "front": "What is rehashing?", "back": "Allocating a larger table when the load factor passes a threshold and reinserting every key with the new hash function.", "difficulty": "easy"},
+        {"id": "fc_ch7_i22_03", "front": "How does the mid-square hash method work?", "back": "Square the key and take the middle digits as the address, e.g. 3121² = 9740641 gives 406.", "difficulty": "medium"},
+        {"id": "fc_ch7_i22_04", "front": "Why must deletion in open addressing use a tombstone?", "back": "Emptying the slot would break the probe chain, so a later search for a key placed further along would stop early and fail.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i22_n01", "questionText": "What is the maximum number of comparisons binary search needs on a sorted array of 1000 elements?", "options": ["9", "10", "500", "1000"], "correctIndex": 1, "explanation": "Cmax = ceil(log2(1000 + 1)) = 10, since 2^10 = 1024 is the first power of 2 that is at least 1001.", "difficulty": "easy"},
+        {"id": "q_ch7_i22_n02", "questionText": "A hash table has 7 slots, h(k) = k mod 7 and linear probing. Keys 50, 85 and 92 are inserted in that order into an empty table. In which slot is 92 stored?", "options": ["1", "2", "4", "3"], "correctIndex": 3, "explanation": "All three keys hash to 1: 50 takes slot 1, 85 probes to 2, and 92 finds 1 and 2 occupied and goes to slot 3.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i23",
+      "title": "Graphs: Representation, Traversal & Transitive Closure",
+      "subtitle": "Graph terms, adjacency matrix vs list, DFS and BFS, Warshall's algorithm",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Graph Terminology"},
+          {"type": "paragraph", "text": "A graph G = (V, E) is a set of vertices V and a set of edges E joining pairs of vertices. In an undirected graph an edge {u, v} can be traversed both ways; in a directed graph (digraph) an edge (u, v) goes only from u to v. A weighted graph attaches a cost to each edge, such as distance or time. Trees, road maps, networks and task dependencies are all modelled as graphs."},
+          {"type": "bulletList", "text": "Key terms:", "items": [
+            "Degree: number of edges at a vertex; in a digraph, in-degree counts incoming and out-degree outgoing edges.",
+            "Path: a sequence of vertices joined by edges; simple if no vertex repeats. A cycle is a path that returns to its start.",
+            "Connected (undirected): a path exists between every pair of vertices; strongly connected (directed): a directed path each way between every pair.",
+            "DAG: directed acyclic graph, a digraph with no directed cycle; used for scheduling and topological sorting.",
+            "Complete graph: every pair of distinct vertices is adjacent; dense graphs have E close to V², sparse graphs have E much smaller.",
+            "A tree is a connected acyclic undirected graph with exactly V - 1 edges."
+          ]},
+          {"type": "formula", "latex": "E_{max} = \\frac{n(n-1)}{2}\\ \\text{(undirected)},\\; n(n-1)\\ \\text{(directed)};\\; \\sum \\deg(v) = 2E", "plainText": "Emax = n(n-1)/2 undirected, n(n-1) directed; sum of degrees = 2E"},
+          {"type": "heading", "text": "Representation of Graphs"},
+          {"type": "table", "rows": [
+            ["Aspect", "Adjacency matrix", "Adjacency list"],
+            ["Space", "O(V²)", "O(V + E)"],
+            ["Is (u, v) an edge?", "O(1)", "O(deg(u))"],
+            ["List neighbours of u", "O(V)", "O(deg(u))"],
+            ["Full traversal (BFS/DFS)", "O(V²)", "O(V + E)"],
+            ["Best suited to", "Dense graphs", "Sparse graphs"]
+          ]},
+          {"type": "paragraph", "text": "In the adjacency matrix A, A[i][j] = 1 (or the edge weight) if there is an edge from i to j and 0 otherwise; the matrix of an undirected graph is symmetric. The adjacency list keeps, for each vertex, a linked list or dynamic array of its neighbours; an undirected edge appears in two lists, so the lists hold 2E entries. For the example graph with edges 0-1, 0-2, 1-3, 1-4, 2-4, 3-5, 4-5 the lists are 0:[1,2], 1:[0,3,4], 2:[0,4], 3:[1,5], 4:[1,2,5], 5:[3,4]."},
+          {"type": "heading", "text": "Depth-First and Breadth-First Traversal"},
+          {"type": "paragraph", "text": "Depth-first search (DFS) goes as deep as possible along one path before backtracking; it uses recursion or an explicit stack. Breadth-first search (BFS) visits all neighbours of a vertex before moving further, level by level, using a FIFO queue. Both mark vertices as visited to avoid loops and take O(V + E) with adjacency lists or O(V²) with a matrix. BFS from s finds the fewest-edge path to every vertex in an unweighted graph."},
+          {"type": "code", "language": "c", "text": "int adj[MAX][MAX], visited[MAX], n;     /* clear visited before each traversal */\nvoid dfs(int u) {\n    visited[u] = 1; visit(u);\n    for (int v = 0; v < n; v++)\n        if (adj[u][v] && !visited[v]) dfs(v);\n}\nvoid bfs(int s) {\n    int q[MAX], front = 0, rear = 0;\n    visited[s] = 1; q[rear++] = s;\n    while (front < rear) {\n        int u = q[front++]; visit(u);\n        for (int v = 0; v < n; v++)\n            if (adj[u][v] && !visited[v]) { visited[v] = 1; q[rear++] = v; }\n    }\n}"},
+          {"type": "code", "language": "text", "text": "Graph: 0-1, 0-2, 1-3, 1-4, 2-4, 3-5, 4-5 (neighbours in ascending order)\nBFS from 0, queue contents:\n  [0] -> [1 2] -> [2 3 4] -> [3 4] -> [4 5] -> [5] -> []\n  order 0 1 2 3 4 5   levels {0} {1,2} {3,4} {5}\nDFS from 0 (recursive):\n  0 -> 1 -> 3 -> 5 -> 4 -> 2, then backtrack to 0\n  order 0 1 3 5 4 2"},
+          {"type": "bulletList", "text": "Applications of the traversals:", "items": [
+            "BFS: shortest path in unweighted graphs, connected components, testing whether a graph is bipartite, web crawling and broadcasting.",
+            "DFS: cycle detection, topological sorting, strongly connected components, articulation points and bridges, maze solving.",
+            "Either: checking connectivity and finding a spanning tree (the tree edges of the traversal)."
+          ]},
+          {"type": "heading", "text": "Transitive Closure and Warshall's Algorithm"},
+          {"type": "paragraph", "text": "The transitive closure of a digraph is the reachability matrix R with R[i][j] = 1 whenever some directed path of length at least 1 leads from i to j. Warshall's algorithm computes it by dynamic programming: R(k) allows only vertices 1..k as intermediates, and R(k)[i][j] = R(k-1)[i][j] OR (R(k-1)[i][k] AND R(k-1)[k][j]). Starting from the adjacency matrix R(0), after n rounds R(n) is the closure. Three nested loops give O(V³) time and O(V²) space; Floyd's all-pairs shortest-path algorithm has the same structure with min and + instead of OR and AND."},
+          {"type": "code", "language": "c", "text": "void warshall(int R[][MAX], int n) {   /* R starts as the adjacency matrix */\n    for (int k = 0; k < n; k++)          /* k = allowed intermediate vertex */\n        for (int i = 0; i < n; i++)\n            for (int j = 0; j < n; j++)\n                R[i][j] = R[i][j] || (R[i][k] && R[k][j]);\n}"},
+          {"type": "code", "language": "text", "text": "Edges: a->b, b->d, d->a, d->c   (row/column order a b c d)\nR0:            a 0100 | b 0001 | c 0000 | d 1010\nR1 (via a):    d reaches b             -> d 1110\nR2 (via b):    a and d reach d         -> a 0101 | d 1111\nR3 (via c):    c has no out-edges      -> no change\nR4 (via d):    a, b, d OR in row d 1111\nClosure R4:    a 1111 | b 1111 | c 0000 | d 1111"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "R^{(k)}_{ij} = R^{(k-1)}_{ij} \\lor (R^{(k-1)}_{ik} \\land R^{(k-1)}_{kj})", "plainText": "R(k)[i][j] = R(k-1)[i][j] OR (R(k-1)[i][k] AND R(k-1)[k][j])"},
+          {"type": "formula", "latex": "E \\le \\frac{n(n-1)}{2},\\quad \\sum_{v} \\deg(v) = 2E", "plainText": "E <= n(n-1)/2 for a simple undirected graph; sum of degrees = 2E"},
+          {"type": "formula", "latex": "T_{BFS} = T_{DFS} = O(V + E)", "plainText": "BFS and DFS take O(V + E) with adjacency lists"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "When an MCQ asks for a BFS or DFS order, take neighbours in the order given (usually alphabetical or ascending) and write the queue or recursion stack down step by step."},
+          {"type": "warning", "text": "An adjacency matrix makes BFS and DFS O(V²) even for a sparse graph, because every row of V entries must be scanned."},
+          {"type": "note", "text": "In the handshaking lemma each undirected edge contributes 2 to the degree sum, so the number of odd-degree vertices is always even."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i23_01", "title": "Maximum edges", "latex": "E_{max} = \\frac{n(n-1)}{2}\\ \\text{undirected},\\; n(n-1)\\ \\text{directed}", "plainText": "Emax = n(n-1)/2 undirected, n(n-1) directed", "description": "Upper bound on edges in a simple graph with n vertices."},
+        {"id": "f_ch7_i23_02", "title": "Handshaking lemma", "latex": "\\sum_{v \\in V} \\deg(v) = 2E", "plainText": "Sum of degrees = 2E", "description": "Every undirected edge adds one to the degree of each of its two endpoints."},
+        {"id": "f_ch7_i23_03", "title": "Warshall recurrence", "latex": "R^{(k)}_{ij} = R^{(k-1)}_{ij} \\lor (R^{(k-1)}_{ik} \\land R^{(k-1)}_{kj})", "plainText": "R(k)[i][j] = R(k-1)[i][j] OR (R(k-1)[i][k] AND R(k-1)[k][j])", "description": "Path i to j exists through vertices 1..k if it existed before or goes i to k to j; O(V³) overall."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i23_01", "front": "When is an adjacency list preferred over an adjacency matrix?", "back": "For sparse graphs: it needs O(V + E) space and lists a vertex's neighbours in O(deg), while the matrix always needs O(V²).", "difficulty": "easy"},
+        {"id": "fc_ch7_i23_02", "front": "Which data structure does DFS use?", "back": "A stack, either explicit or implicit through recursion.", "difficulty": "easy"},
+        {"id": "fc_ch7_i23_03", "front": "What does entry R[i][j] of the transitive closure mean?", "back": "There is a directed path of one or more edges from vertex i to vertex j.", "difficulty": "medium"},
+        {"id": "fc_ch7_i23_04", "front": "What is a DAG?", "back": "A directed acyclic graph: a directed graph with no directed cycle, which always has a topological order.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i23_n01", "questionText": "What is the maximum number of edges in a simple undirected graph with 10 vertices?", "options": ["90", "45", "100", "50"], "correctIndex": 1, "explanation": "Each pair of distinct vertices can have at most one edge: n(n - 1)/2 = 10 x 9 / 2 = 45.", "difficulty": "easy"},
+        {"id": "q_ch7_i23_n02", "questionText": "Which graph representation needs O(V + E) space and lists the neighbours of a vertex u in O(deg(u)) time?", "options": ["Adjacency matrix", "Incidence matrix", "Adjacency list", "Distance matrix"], "correctIndex": 2, "explanation": "An adjacency list stores only the edges that exist, one list per vertex, so it suits sparse graphs; a matrix needs V² entries.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i24",
+      "title": "Topological Sort, Minimum Spanning Trees & Shortest Paths",
+      "subtitle": "DFS and Kahn topological sort, Prim, Kruskal, round-robin MST, Dijkstra",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Topological Sorting"},
+          {"type": "paragraph", "text": "A topological sort of a directed graph lists its vertices so that for every edge u -> v, u comes before v, for example ordering courses by prerequisites or build tasks by dependencies. An order exists if and only if the graph is a DAG, and it is usually not unique. The depth-first method runs DFS and outputs vertices in reverse order of finishing time. The breadth-first method (Kahn's algorithm) repeatedly removes a vertex of in-degree 0 using a queue; if fewer than V vertices come out, the graph has a cycle. Both are O(V + E)."},
+          {"type": "code", "language": "text", "text": "DAG edges: 5->2, 5->0, 4->0, 4->1, 2->3, 3->1\nIn-degree: 0:2 1:2 2:1 3:1 4:0 5:0\nKahn (vertices scanned in ascending order):\n  queue [4 5]: out 4 -> indeg 0:1, 1:1\n  queue [5]:   out 5 -> 0 and 2 reach 0, queue [0 2]\n  out 0; out 2 -> 3 reaches 0; out 3 -> 1 reaches 0; out 1\n  order: 4 5 0 2 3 1\nDFS (start 0,1,..,5), finishing order: 0 1 3 2 4 5\n  reverse finishing order: 5 4 2 3 1 0\nBoth orders respect every edge."},
+          {"type": "code", "language": "c", "text": "void topoSort(int n) {               /* adj[][] and indeg[] already filled */\n    int q[MAX], front = 0, rear = 0, count = 0;\n    for (int v = 0; v < n; v++) if (indeg[v] == 0) q[rear++] = v;\n    while (front < rear) {\n        int u = q[front++]; order[count++] = u;\n        for (int v = 0; v < n; v++)\n            if (adj[u][v] && --indeg[v] == 0) q[rear++] = v;\n    }\n    if (count < n) reportCycle();      /* graph was not a DAG */\n}"},
+          {"type": "heading", "text": "Minimum Spanning Trees"},
+          {"type": "paragraph", "text": "A spanning tree of a connected undirected graph contains all V vertices and exactly V - 1 edges with no cycle; a minimum spanning tree (MST) has the least total edge weight. MST algorithms are greedy: at each step they take the locally cheapest safe edge and never undo a choice, which is correct because of the cut property (the lightest edge crossing any cut belongs to some MST). Example graph: A-B 4, A-C 1, B-C 2, B-D 5, C-D 8, C-E 10, D-E 2."},
+          {"type": "bulletList", "text": "The two classical MST algorithms:", "items": [
+            "Prim: start from any vertex and grow one tree, each time adding the cheapest edge from a tree vertex to a non-tree vertex (vertex-greedy); O(E log V) with a binary heap, O(V²) with a matrix.",
+            "Kruskal: sort all edges by weight and scan them, adding an edge unless it joins two vertices already in the same component (it would form a cycle); a union-find structure does the check; O(E log E).",
+            "Both give total weight 10 on the example graph: edges A-C 1, B-C 2, D-E 2 and B-D 5."
+          ]},
+          {"type": "table", "rows": [
+            ["Edge (weight)", "Kruskal (sorted order)", "Prim from A"],
+            ["A-C (1)", "1st: accept", "Step 1: A-C"],
+            ["B-C (2)", "2nd: accept", "Step 2: C-B"],
+            ["D-E (2)", "3rd: accept", "Step 4: D-E"],
+            ["A-B (4)", "4th: reject, A and B already joined", "Never chosen"],
+            ["B-D (5)", "5th: accept, now V - 1 = 4 edges", "Step 3: B-D"],
+            ["C-D (8)", "Not needed, tree complete", "Never chosen"],
+            ["C-E (10)", "Not needed, tree complete", "Never chosen"]
+          ]},
+          {"type": "paragraph", "text": "The round-robin MST algorithm (Cheriton and Tarjan, described in Tenenbaum) starts with every vertex as its own tree, each holding a priority queue of its incident edges, and keeps the trees in a queue. It repeatedly takes the tree at the front, extracts its cheapest edge leading to a different tree, merges the two trees and their priority queues, and places the merged tree at the rear of the queue, stopping when one tree remains. Serving trees in round-robin order keeps them growing evenly, and with mergeable heaps it runs in O(E log log V)."},
+          {"type": "heading", "text": "Shortest Paths: Dijkstra's Greedy Algorithm"},
+          {"type": "paragraph", "text": "Dijkstra's algorithm finds single-source shortest paths when all edge weights are non-negative. It keeps a tentative distance d[v], repeatedly settles the unsettled vertex with the smallest d (the greedy choice) and relaxes its outgoing edges. Worked example from S with directed edges S->A 10, S->B 3, B->A 4, B->C 8, B->D 2, A->C 2, D->C 7: the final distances are A 7 (S-B-A), B 3, C 9 (S-B-A-C) and D 5 (S-B-D)."},
+          {"type": "formula", "latex": "d[v] \\leftarrow \\min(d[v],\\; d[u] + w(u, v))", "plainText": "Relaxation: d[v] = min(d[v], d[u] + w(u, v))"},
+          {"type": "code", "language": "c", "text": "void dijkstra(int w[][MAX], int n, int s, int d[]) {   /* w = 0 means no edge */\n    int done[MAX] = {0};\n    for (int v = 0; v < n; v++) d[v] = INF;\n    d[s] = 0;\n    for (int it = 0; it < n; it++) {\n        int u = -1;\n        for (int v = 0; v < n; v++)                    /* nearest unsettled */\n            if (!done[v] && (u == -1 || d[v] < d[u])) u = v;\n        done[u] = 1;\n        for (int v = 0; v < n; v++)                    /* relax edges of u */\n            if (w[u][v] && d[u] + w[u][v] < d[v]) d[v] = d[u] + w[u][v];\n    }\n}"},
+          {"type": "table", "rows": [
+            ["Iteration", "Settled (distance)", "Relaxations", "d[A], d[B], d[C], d[D]"],
+            ["1", "S (0)", "A = 10, B = 3", "10, 3, ∞, ∞"],
+            ["2", "B (3)", "A = 7, C = 11, D = 5", "7, 3, 11, 5"],
+            ["3", "D (5)", "C via D = 12, no change", "7, 3, 11, 5"],
+            ["4", "A (7)", "C = 9", "7, 3, 9, 5"],
+            ["5", "C (9)", "No outgoing edges", "7, 3, 9, 5"]
+          ]},
+          {"type": "paragraph", "text": "Dijkstra's greedy choice assumes a settled distance can never shrink later, which fails when a negative edge could lead back to a settled vertex more cheaply. Bellman-Ford handles negative weights by relaxing every edge V - 1 times in O(VE) and also detects negative cycles."},
+          {"type": "table", "rows": [
+            ["Algorithm", "Problem", "Time", "Key idea"],
+            ["DFS / Kahn topological sort", "Linear order of a DAG", "O(V + E)", "Reverse finish order or in-degree queue"],
+            ["Prim", "MST", "O(E log V) heap; O(V²) matrix", "Grow one tree from a vertex"],
+            ["Kruskal", "MST", "O(E log E)", "Sorted edges plus union-find"],
+            ["Round-robin (Cheriton-Tarjan)", "MST", "O(E log log V)", "Merge trees taken from a queue"],
+            ["Dijkstra", "Single-source shortest paths, w >= 0", "O((V + E) log V) heap; O(V²) array", "Greedy: settle the nearest vertex"],
+            ["Bellman-Ford", "Shortest paths with negative edges", "O(VE)", "Relax all edges V - 1 times"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "|E_{MST}| = V - 1", "plainText": "An MST of a connected graph with V vertices has V - 1 edges"},
+          {"type": "formula", "latex": "T_{Prim} = O(E \\log V),\\; T_{Kruskal} = O(E \\log E)", "plainText": "Prim O(E log V) with a heap; Kruskal O(E log E)"},
+          {"type": "formula", "latex": "T_{Dijkstra} = O((V + E) \\log V)", "plainText": "Dijkstra with a binary heap: O((V + E) log V); O(V²) with an array"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For MST weight MCQs, run Kruskal on paper: sort the edges, take each edge that does not close a cycle, and stop after V - 1 edges."},
+          {"type": "warning", "text": "Prim and Kruskal apply to undirected connected graphs; Dijkstra needs non-negative weights, so use Bellman-Ford when negative edges appear."},
+          {"type": "note", "text": "Since E is at most V², log E is at most 2 log V, so Kruskal's O(E log E) is the same order as O(E log V); Kruskal suits sparse graphs and Prim with a matrix suits dense ones."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i24_01", "title": "Edge relaxation", "latex": "d[v] \\leftarrow \\min(d[v],\\; d[u] + w(u, v))", "plainText": "d[v] = min(d[v], d[u] + w(u, v))", "description": "The update used by Dijkstra and Bellman-Ford whenever a shorter path to v through u is found."},
+        {"id": "f_ch7_i24_02", "title": "MST edge count", "latex": "|E_{MST}| = V - 1", "plainText": "MST edges = V - 1", "description": "Any spanning tree of a connected graph with V vertices has exactly V - 1 edges."},
+        {"id": "f_ch7_i24_03", "title": "MST algorithm times", "latex": "T_{Prim} = O(E \\log V),\\; T_{Kruskal} = O(E \\log E)", "plainText": "Prim O(E log V), Kruskal O(E log E)", "description": "Prim with a binary heap and Kruskal dominated by sorting the edges."},
+        {"id": "f_ch7_i24_04", "title": "Dijkstra time", "latex": "T = O((V + E)\\log V)\\ \\text{heap},\\; O(V^2)\\ \\text{array}", "plainText": "O((V + E) log V) with a heap, O(V²) with an array", "description": "Each vertex is extracted once and each edge relaxed once."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i24_01", "front": "How does Kahn's algorithm detect that a graph is not a DAG?", "back": "The queue of in-degree-0 vertices empties before all V vertices have been output, because vertices on a cycle never reach in-degree 0.", "difficulty": "medium"},
+        {"id": "fc_ch7_i24_02", "front": "How is a topological order obtained from DFS?", "back": "List the vertices in reverse order of their DFS finishing times.", "difficulty": "medium"},
+        {"id": "fc_ch7_i24_03", "front": "Prim vs Kruskal in one line each?", "back": "Prim grows a single tree by the cheapest edge leaving it; Kruskal adds globally cheapest edges that join different components.", "difficulty": "easy"},
+        {"id": "fc_ch7_i24_04", "front": "Why is Dijkstra's algorithm called greedy?", "back": "At each step it permanently settles the unsettled vertex with the smallest tentative distance, never revising that choice.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i24_n01", "questionText": "An undirected graph has edges A-B (1), B-C (3), A-C (4), C-D (2) and B-D (5). What is the total weight of its minimum spanning tree?", "options": ["6", "7", "8", "10"], "correctIndex": 0, "explanation": "Kruskal takes A-B (1), C-D (2) and B-C (3), which connects all 4 vertices with 3 edges: 1 + 2 + 3 = 6.", "difficulty": "medium"},
+        {"id": "q_ch7_i24_n02", "questionText": "A DAG has edges A->B, A->C, B->D and C->D. Which of the following is a valid topological order?", "options": ["B A C D", "A D B C", "C A B D", "A C B D"], "correctIndex": 3, "explanation": "A must precede B and C, and both must precede D; only A C B D satisfies every edge.", "difficulty": "easy"},
+        {"id": "q_ch7_i24_n03", "questionText": "Which data structure does Kruskal's algorithm use to check whether adding an edge would form a cycle?", "options": ["A max-heap of vertices", "Disjoint-set (union-find)", "A FIFO queue of vertices", "A stack of visited edges"], "correctIndex": 1, "explanation": "Union-find tells whether both endpoints are already in the same component (find) and joins components when the edge is accepted (union).", "difficulty": "easy"}
+      ]
+    }
+  ]
+}

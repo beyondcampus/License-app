@@ -1,0 +1,738 @@
+{
+  "topicId": "ch4_i62",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: From VHDL Code to Gates and Flip-Flops"
+    },
+    {
+      "type": "paragraph",
+      "text": "Synthesis reads a process by asking, for every signal, when it is assigned. A signal assigned under if rising_edge(clk) becomes a flip-flop, one per bit, and all right-hand sides in that branch use the values from before the edge. In a combinational process, a signal that some path leaves unassigned must keep its value, so a latch is built. Within one run of a process the last assignment to a signal wins, which makes a default assignment at the top a simple way to cover every path."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Code pattern",
+          "Hardware inferred",
+          "Note"
+        ],
+        [
+          "y <= a when s = '1' else b;",
+          "2:1 multiplexer",
+          "Longer when-else chains add priority"
+        ],
+        [
+          "with sel select y <= ...;",
+          "n:1 multiplexer",
+          "Choices are exclusive and must cover every value, usually with others"
+        ],
+        [
+          "case in process (all), every output assigned",
+          "Multiplexer or decoder",
+          "A path without an assignment gives a latch"
+        ],
+        [
+          "if rising_edge(clk) then q <= d;",
+          "D flip-flop",
+          "One flip-flop per assigned bit"
+        ],
+        [
+          "rst tested before rising_edge(clk)",
+          "Flip-flop with asynchronous reset",
+          "rst must be in the sensitivity list"
+        ],
+        [
+          "if en = '1' inside the clock branch",
+          "Flip-flop with clock enable",
+          "Not a latch: the flip-flop holds the value"
+        ],
+        [
+          "sr <= sr(n-2 downto 0) & din;",
+          "Shift register",
+          "Shifts left one place per edge"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "-- Worked example 1: overlapping 101 detector, Moore version\ntype st_t is (S0, S1, S10, S101);   -- S101 means \"101 seen\"\nprocess (clk) begin\n  if rising_edge(clk) then\n    case st is\n      when S0   => if x = '1' then st <= S1;   end if;\n      when S1   => if x = '0' then st <= S10;  end if;\n      when S10  => if x = '1' then st <= S101; else st <= S0;  end if;\n      when S101 => if x = '1' then st <= S1;   else st <= S10; end if;\n    end case;\n  end if;\nend process;\nz_moore <= '1' when st = S101 else '0';\n-- Mealy version: states M0, M1, M10 and z_mealy <= '1' when st = M10 and x = '1'"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Simulated trace (x changes just after each edge; cycle k lies between edges k and k+1)\ncycle        :  1    2    3     4     5     6\nx            :  1    0    1     0     1     1\nMoore state  :  S0   S1   S10   S101  S10   S101\nz_moore      :  0    0    0     1     0     1\nz_mealy      :  0    0    1     0     1     0"
+    },
+    {
+      "type": "paragraph",
+      "text": "The trace shows the defining difference between the two machines. The Mealy detector needs only the states none, 1 and 10, and raises z as soon as the final 1 is on its input, in cycles 3 and 5. The Moore detector needs a fourth state, 101 seen, and its output appears only after the edge that enters that state, one cycle later in cycles 4 and 6. Because the Moore output comes from the state register it is not disturbed by input changes, whereas input glitches pass straight through to a Mealy output."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Aspect",
+          "Moore",
+          "Mealy"
+        ],
+        [
+          "Output depends on",
+          "State only",
+          "State and present inputs"
+        ],
+        [
+          "Output timing",
+          "One clock after the input is sampled",
+          "In the same cycle as the input"
+        ],
+        [
+          "States for an overlapping 101 detector",
+          "4",
+          "3"
+        ],
+        [
+          "Effect of input glitches",
+          "None on the output",
+          "They reach the output"
+        ],
+        [
+          "Typical VHDL",
+          "z <= '1' when st = S101 else '0';",
+          "z <= '1' when st = M10 and x = '1' else '0';"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "f_{tick} = \\frac{f_{clk}}{N}, \\quad n_{bits} = \\lceil \\log_2 N \\rceil",
+      "plainText": "f_tick = f_clk / N; bits = ceil(log2 N) for a counter that counts 0 to N - 1"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 1 kHz tick from a 50 MHz clock\nN       = f_clk / f_tick = 50,000,000 / 1,000 = 50,000 states (count 0 .. 49,999)\nbits    = ceil(log2 50,000) = 16   (2^15 = 32,768 < 50,000 <= 65,536 = 2^16)\ntick    = '1' for one clock when cnt = N - 1 = 49,999\ncheck   : 50 MHz / 50,000 = 1 kHz, pulse width 1 / 50 MHz = 20 ns\nmistake : comparing with N gives N + 1 states -> 50e6 / 50,001 = 999.98 Hz\nsimulated with N = 6 and a 10 ns clock: tick every 60 ns; compare-with-N version every 70 ns"
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "-- cnt : unsigned(15 downto 0); N = 50_000 gives a 1 kHz tick from 50 MHz\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    tick <= '0';                    -- default: low\n    if cnt = N - 1 then\n      cnt  <= (others => '0');\n      tick <= '1';                  -- high for one clock every N clocks\n    else\n      cnt <= cnt + 1;\n    end if;\n  end if;\nend process;"
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that make the hardware differ from what was intended:",
+      "items": [
+        "An output left unassigned on some path of a combinational process: a latch is inferred.",
+        "Reset tested before rising_edge(clk) but missing from the sensitivity list: simulation resets only at the next clock event, while the hardware resets at once.",
+        "A synchronous reset pulse shorter than a clock period can fall between two edges and be missed completely.",
+        "Comparing a counter with N instead of N − 1: the counter has N + 1 states.",
+        "Signals where variables were intended, or the reverse, in a clocked process: the number of register stages changes.",
+        "An else branch after if rising_edge(clk): no flip-flop can implement it, so synthesis rejects it or builds no register."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "To trace a clocked process, read every right-hand side with the values from before the edge, let the last assignment to each signal win, and update all signals together at the end; only variables change immediately."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i62_m001",
+      "questionText": "Which concurrent statement form describes a multiplexer in which each value of the select signal picks exactly one input, with no priority between the choices?",
+      "options": [
+        "A conditional signal assignment: y <= a when c1 else b when c2 else c;",
+        "A for-generate statement",
+        "A component instantiation with a port map",
+        "A selected signal assignment: with sel select y <= ...;"
+      ],
+      "correctIndex": 3,
+      "explanation": "with-select evaluates one expression and picks the matching choice, so the choices are mutually exclusive, like a true multiplexer. when-else tests its conditions in order, which builds a priority chain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m002",
+      "questionText": "d is std_logic_vector(3 downto 0):\n\ny     <= \"11\" when d(3) = '1' else\n         \"10\" when d(2) = '1' else\n         \"01\" when d(1) = '1' else\n         \"00\";\nvalid <= '0' when d = \"0000\" else '1';\n\nWhat are y and valid for d = \"0110\", and then for d = \"0000\"?",
+      "options": [
+        "y = \"01\", valid = '1'; then y = \"00\", valid = '0'",
+        "y = \"10\", valid = '1'; then y = \"00\", valid = '0'",
+        "y = \"11\", valid = '1'; then y = \"00\", valid = '0'",
+        "y = \"10\", valid = '1'; then y = \"00\", valid = '1'"
+      ],
+      "correctIndex": 1,
+      "explanation": "The when-else chain gives priority to the highest set bit, so for 0110 bit 2 wins and y = 10. For 0000 no condition is true and y takes the final 00; valid = '0' tells this apart from d = 0001, which also gives y = 00. 11 would be the OR of the codes for bits 2 and 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m003",
+      "questionText": "Assume VHDL-2008 with ieee.numeric_std. a is std_logic_vector(2 downto 0) = \"101\" and y is std_logic_vector(7 downto 0). What is y?\n\nprocess (all)\nbegin\n  y <= (others => '0');\n  y(to_integer(unsigned(a))) <= '1';\nend process;",
+      "options": [
+        "\"00100000\"",
+        "\"00000101\"",
+        "\"00010000\"",
+        "\"11011111\""
+      ],
+      "correctIndex": 0,
+      "explanation": "The default makes every output 0, and the later assignment to element 5 overrides it for that bit (the last assignment in a process wins), so only y(5) is 1: a 3-to-8 decoder. 00000101 is just a, 00010000 is off by one and 11011111 is an active-low decoder.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m004",
+      "questionText": "Assume VHDL-2008. d is std_logic_vector(3 downto 0) and holds \"0101\". What is y?\n\nprocess (all)\nbegin\n  case? d is\n    when \"1---\" => y <= \"11\";\n    when \"01--\" => y <= \"10\";\n    when \"001-\" => y <= \"01\";\n    when others => y <= \"00\";\n  end case?;\nend process;",
+      "options": [
+        "\"11\"",
+        "\"01\"",
+        "\"00\"",
+        "\"10\""
+      ],
+      "correctIndex": 3,
+      "explanation": "case? is the VHDL-2008 matching case, in which '-' in a choice matches any bit. 0101 matches 01-- (bit 3 = 0, bit 2 = 1), so y = 10; this is a priority encoder written with don't-cares. An ordinary case would compare '-' literally and fall through to others (00).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m005",
+      "questionText": "Assume ieee.numeric_std. a and b are signed(3 downto 0) with a = \"1001\" and b = \"0111\":\n\ngt <= '1' when a > b else '0';\neq <= '1' when a = b else '0';\nlt <= '1' when a < b else '0';\n\nWhat are gt, eq and lt?",
+      "options": [
+        "gt = '1', eq = '0', lt = '0'",
+        "gt = '0', eq = '1', lt = '0'",
+        "gt = '0', eq = '0', lt = '0'",
+        "gt = '0', eq = '0', lt = '1'"
+      ],
+      "correctIndex": 3,
+      "explanation": "As signed numbers a = −7 and b = +7, so only lt is 1. With unsigned operands the same bits would mean 9 > 7 and gt would be 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m006",
+      "questionText": "Which expression gives the carry out of a full adder with inputs a, b and cin?",
+      "options": [
+        "(a and b) or (cin and (a xor b))",
+        "(a xor b) and cin",
+        "a xor b xor cin",
+        "a and b and cin"
+      ],
+      "correctIndex": 0,
+      "explanation": "A carry is generated when a and b are both 1, or propagated when exactly one of them is 1 and cin is 1. a xor b xor cin is the sum bit, and the other two expressions miss some of the input combinations that produce a carry.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m007",
+      "questionText": "The 4-bit ripple-carry adder below has a = \"1011\", b = \"0110\" and cin = '1'. What are s and cout?\n\nc(0) <= cin;\ngen : for i in 0 to 3 generate\n  s(i)   <= a(i) xor b(i) xor c(i);\n  c(i+1) <= (a(i) and b(i)) or (c(i) and (a(i) xor b(i)));\nend generate;\ncout <= c(4);",
+      "options": [
+        "s = \"0001\", cout = '1'",
+        "s = \"0010\", cout = '1'",
+        "s = \"0010\", cout = '0'",
+        "s = \"1101\", cout = '0'"
+      ],
+      "correctIndex": 1,
+      "explanation": "11 + 6 + 1 = 18 = 1 0010, so s = 0010 and cout = 1. 0001 ignores cin, and 1101 is a xor b with every carry ignored.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m008",
+      "questionText": "Binary-to-Gray conversion is written as g <= b xor ('0' & b(3 downto 1)); with b and g of type std_logic_vector(3 downto 0). What is g for b = \"0110\"?",
+      "options": [
+        "\"0101\"",
+        "\"0011\"",
+        "\"1010\"",
+        "\"0110\""
+      ],
+      "correctIndex": 0,
+      "explanation": "'0' & b(3 downto 1) is b shifted right by one place, 0011, and 0110 xor 0011 = 0101, the Gray code of 6. 0011 is only the shifted value, and 0110 is b unchanged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m009",
+      "questionText": "What does the VHDL-2008 form process (all) mean?",
+      "options": [
+        "The process is sensitive to every signal that it reads",
+        "The process is sensitive to every signal declared in the architecture",
+        "The process runs once in every delta cycle, whether or not its inputs change",
+        "The process describes clocked logic triggered by every edge of every signal"
+      ],
+      "correctIndex": 0,
+      "explanation": "process (all) makes the sensitivity list consist of all signals read inside the process. This prevents the simulation/synthesis mismatch caused by forgetting a signal in the list of a combinational process.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m010",
+      "questionText": "What is the usual way to stop a combinational process from inferring latches?",
+      "options": [
+        "Add the clock to the sensitivity list",
+        "Replace the output signals by variables",
+        "Split the process into two architectures",
+        "Assign every output a default value at the start of the process (or on every path through it)"
+      ],
+      "correctIndex": 3,
+      "explanation": "A latch appears when some path leaves an output unassigned, so the output must remember its old value. A default assignment at the top gives it a value on every path; adding a clock would create flip-flops instead, and variables read before being written can also need storage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m011",
+      "questionText": "Assume VHDL-2008; sel is std_logic_vector(1 downto 0) and y is std_logic. Which combinational process makes synthesis infer a latch?",
+      "options": [
+        "process (all) begin y <= '0'; if en = '1' then y <= d; end if; end process;",
+        "process (all) begin case sel is when \"00\" => y <= a; when \"01\" => y <= b; when others => null; end case; end process;",
+        "process (all) begin if en = '1' then y <= d; else y <= '0'; end if; end process;",
+        "process (all) begin case sel is when \"00\" => y <= a; when \"01\" => y <= b; when others => y <= c; end case; end process;"
+      ],
+      "correctIndex": 1,
+      "explanation": "With when others => null, y is not assigned for sel = 10 or 11, so it must hold its old value and a latch is inferred. The other processes give y a value on every path, through a default assignment, an else branch or a complete case.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m012",
+      "questionText": "Which outputs of this combinational process are implemented with latches?\n\nprocess (all)\nbegin\n  if sel = '1' then\n    x <= a;\n    y <= b;\n  else\n    x <= b;\n  end if;\nend process;",
+      "options": [
+        "Only x",
+        "Only y",
+        "Both x and y",
+        "Neither; the process is a pair of multiplexers"
+      ],
+      "correctIndex": 1,
+      "explanation": "x is assigned in both branches, so it is a 2:1 multiplexer. y is not assigned when sel = '0', so it must remember its value and synthesis infers a latch for y alone.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m013",
+      "questionText": "What hardware does synthesis infer for a signal that is assigned only inside if rising_edge(clk) then ... end if;?",
+      "options": [
+        "Transparent latches",
+        "Combinational gates only",
+        "Tri-state buffers",
+        "Edge-triggered flip-flops"
+      ],
+      "correctIndex": 3,
+      "explanation": "An assignment under a clock-edge condition takes effect only at that edge and holds its value otherwise, which is exactly a D flip-flop, one per bit.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m014",
+      "questionText": "A flip-flop is coded as if rising_edge(clk) then q <= d; end if;. d changes several times between two rising edges. What does q do?",
+      "options": [
+        "It follows every change of d immediately",
+        "It follows d while clk is '1' and holds while clk is '0'",
+        "It takes the value of d at the next falling edge",
+        "It keeps its value until the next rising edge and then takes the value d has at that edge"
+      ],
+      "correctIndex": 3,
+      "explanation": "An edge-triggered flip-flop samples d only at the rising edge. Following d while clk = '1' is the behaviour of a level-sensitive latch.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m015",
+      "questionText": "A D flip-flop with an asynchronous active-high reset rst is coded as if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; end if;. Which sensitivity list is correct?",
+      "options": [
+        "process (clk)",
+        "process (clk, rst)",
+        "process (rst)",
+        "process (d, rst)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The process must wake on clock edges and whenever rst changes, so that the reset acts at once. d is sampled only at the clock edge and need not appear; leaving rst out makes the reset wait for the next clock event in simulation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m016",
+      "questionText": "Which statement about synchronous and asynchronous resets is NOT correct?",
+      "options": [
+        "An asynchronous reset must appear in the process sensitivity list",
+        "A synchronous reset has no effect while the clock is stopped",
+        "A synchronous reset takes effect immediately, without waiting for a clock edge",
+        "The release of an asynchronous reset should be synchronised to the clock"
+      ],
+      "correctIndex": 2,
+      "explanation": "A synchronous reset is tested inside the rising_edge branch, so it acts only at the next active clock edge. The other statements are true: an asynchronous reset must wake the process, and releasing it close to an edge can cause metastability unless it is synchronised.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m017",
+      "questionText": "The process below has rst missing from its sensitivity list. The clock has a 10 ns period, with rising edges at 5, 15 and 25 ns and falling edges at 10 and 20 ns. d = '1', q became '1' at the 5 ns edge, and rst goes to '1' at 7 ns and stays there. When does q become '0' in simulation?\n\nprocess (clk)\nbegin\n  if rst = '1' then\n    q <= '0';\n  elsif rising_edge(clk) then\n    q <= d;\n  end if;\nend process;",
+      "options": [
+        "At 7 ns",
+        "At 15 ns",
+        "At 10 ns",
+        "Never, while the clock keeps running"
+      ],
+      "correctIndex": 2,
+      "explanation": "A change of rst does not wake the process, so the reset is noticed only at the next clk event, the falling edge at 10 ns. Synthesis still builds an asynchronous-reset flip-flop that clears at 7 ns, so simulation and hardware disagree.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m018",
+      "questionText": "A 4-bit counter increments at every rising edge (5, 15, 25, … ns). rst is '1' from 0 to 12 ns and again from 41 ns to 43 ns. What is the count at 60 ns with an asynchronous reset, and with a synchronous reset?",
+      "options": [
+        "2 and 2",
+        "2 and 5",
+        "5 and 5",
+        "1 and 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both versions are 0 after the first reset and reach 1, 2 and 3 at 15, 25 and 35 ns. The asynchronous reset clears the count at 41 ns, so it reaches 1 at 45 ns and 2 at 55 ns. The synchronous reset is tested only at edges, and the 2 ns pulse falls between the 35 and 45 ns edges, so it is missed and the count reaches 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m019",
+      "questionText": "Inside a clocked process a 4-bit register is written as if rising_edge(clk) then if en = '1' then r <= d; end if; end if;. What does r do at a rising edge when en = '0'?",
+      "options": [
+        "It becomes a transparent latch that follows d",
+        "It keeps its previous value; synthesis builds flip-flops with a clock enable",
+        "It is cleared to \"0000\"",
+        "It goes to high impedance, \"ZZZZ\""
+      ],
+      "correctIndex": 1,
+      "explanation": "Inside the clock-edge branch an unassigned signal simply keeps its stored value, which is the normal clock-enable behaviour of a register of 4 flip-flops. Latches arise only from incomplete assignments in combinational processes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m020",
+      "questionText": "Which clocked-process body does NOT describe a flip-flop that RTL synthesis can build?",
+      "options": [
+        "if rising_edge(clk) then q <= d; end if;",
+        "if rst = '1' then q <= '0'; elsif rising_edge(clk) then q <= d; end if;",
+        "if rising_edge(clk) then q <= d; else q <= '0'; end if;",
+        "if rising_edge(clk) then if en = '1' then q <= d; end if; end if;"
+      ],
+      "correctIndex": 2,
+      "explanation": "An edge has no duration, so an else branch that acts whenever there is no edge has no flip-flop equivalent; synthesis tools reject it or build no register. The other three are a plain D flip-flop, one with an asynchronous reset and one with a clock enable.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m021",
+      "questionText": "How many flip-flops does synthesis infer for this code, where cnt is unsigned(3 downto 0) and msb_d is std_logic?\n\nprocess (clk) begin\n  if rising_edge(clk) then\n    cnt   <= cnt + 1;\n    msb_d <= cnt(3);\n  end if;\nend process;\ny <= cnt(3) xor msb_d;",
+      "options": [
+        "4",
+        "6",
+        "5",
+        "8"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every signal bit assigned under the clock edge is a flip-flop: 4 for cnt and 1 for msb_d. y is a concurrent assignment outside the process, so it is only an XOR gate; counting it as a register gives 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m022",
+      "questionText": "din changes between two clock edges. Version V of a clocked process uses variables and version S uses signals:\n\n-- V\nif rising_edge(clk) then\n  v1 := din;  v2 := v1;  q <= v2;\nend if;\n-- S\nif rising_edge(clk) then\n  s1 <= din;  s2 <= s1;  q <= s2;\nend if;\n\nHow many rising edges later does q show the new din, and how many flip-flops are inferred?",
+      "options": [
+        "V: 3 edges, 3 flip-flops; S: 1 edge, 1 flip-flop",
+        "V: 1 edge, 1 flip-flop; S: 3 edges, 3 flip-flops",
+        "Both: 1 edge, 1 flip-flop",
+        "Both: 3 edges, 3 flip-flops"
+      ],
+      "correctIndex": 1,
+      "explanation": "Variables update at once, so v1 and v2 are just wires and q takes din at the next edge through a single flip-flop. Each signal assignment under the clock is a register stage, so S is a 3-stage shift register and q follows din at the third edge.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m023",
+      "questionText": "a and b are std_logic signals initialised to '1' and '0'. A clocked process contains if rising_edge(clk) then a <= b; b <= a; end if;. What are a and b after three rising edges?",
+      "options": [
+        "a = '0', b = '1'",
+        "a = '0', b = '0'",
+        "a = '1', b = '1'",
+        "a = '1', b = '0'"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both right-hand sides are read before either signal updates, so every edge swaps the values: (0, 1), (1, 0), (0, 1). a = b = '0' is what sequential, software-style execution would give.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m024",
+      "questionText": "sr is std_logic_vector(3 downto 0), initially \"0000\", and its clocked process contains if rising_edge(clk) then sr <= sr(2 downto 0) & din; end if;. din is 1, 1, 0 and 1 at the first four rising edges. What is sr after the fourth edge?",
+      "options": [
+        "\"1011\"",
+        "\"0110\"",
+        "\"1101\"",
+        "\"1110\""
+      ],
+      "correctIndex": 2,
+      "explanation": "Each edge shifts left and puts din into sr(0): 0001, 0011, 0110, 1101. 1011 would come from shifting in at the MSB, and 0110 is the value after only three edges.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m025",
+      "questionText": "A serial link sends the byte x\"A3\" least-significant bit first, one bit per clock. The receiver's clocked process executes sr <= sr(6 downto 0) & din; with sr of type std_logic_vector(7 downto 0). What does sr hold after 8 edges, and which statement would reassemble x\"A3\"?",
+      "options": [
+        "x\"A3\"; the receiver is already correct",
+        "x\"C5\" (bit-reversed); sr <= din & sr(7 downto 1); would give x\"A3\"",
+        "x\"3A\"; swapping the two nibbles afterwards would give x\"A3\"",
+        "x\"C5\"; sr <= sr(0) & sr(7 downto 1); would give x\"A3\""
+      ],
+      "correctIndex": 1,
+      "explanation": "Shifting left moves the first bit received (bit 0 = 1) up to the MSB, so the bits end up reversed: 1100 0101 = x\"C5\". Shifting right, with din entering at bit 7, pushes the first bit down to bit 0 after 8 edges and rebuilds 1010 0011 = x\"A3\"; sr(0) & sr(7 downto 1) only rotates and ignores din.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m026",
+      "questionText": "A 4-bit ring counter starts at \"1000\" and its clocked process executes q <= q(0) & q(3 downto 1); at each rising edge. How many distinct states does it cycle through?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "The single 1 rotates right: 1000, 0100, 0010, 0001 and back to 1000, so an n-bit ring counter has n states. 8 states would be a 4-bit Johnson (twisted-ring) counter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m027",
+      "questionText": "A 4-bit Johnson (twisted-ring) counter starts at \"0000\" and its clocked process executes q <= not q(0) & q(3 downto 1); at each rising edge. What is q after 5 edges, and how many distinct states does the counter cycle through?",
+      "options": [
+        "\"0111\" and 16",
+        "\"1000\" and 4",
+        "\"0111\" and 8",
+        "\"1111\" and 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "The inverted LSB is fed into the MSB: 1000, 1100, 1110, 1111, 0111, 0011, 0001, 0000, so q = 0111 after 5 edges and an n-bit Johnson counter has 2n = 8 states. 1111 is the value after 4 edges.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m028",
+      "questionText": "A 3-bit LFSR starts at \"001\" and its clocked process executes q <= q(1 downto 0) & (q(2) xor q(1)); at each rising edge. After how many edges does q first return to \"001\", and which value never appears?",
+      "options": [
+        "8 edges; every value appears",
+        "7 edges; \"000\" never appears",
+        "7 edges; \"111\" never appears",
+        "3 edges; \"000\" never appears"
+      ],
+      "correctIndex": 1,
+      "explanation": "The sequence is 001, 010, 101, 011, 111, 110, 100 and back to 001, a maximal-length period of 2^3 − 1 = 7. The all-zero state is excluded because XOR feedback would keep the register at 000 for ever.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m029",
+      "questionText": "A free-running 4-bit binary counter is clocked at 50 MHz. What is the frequency of its most significant bit?",
+      "options": [
+        "12.5 MHz",
+        "3.125 MHz",
+        "6.25 MHz",
+        "25 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "The MSB of an n-bit counter completes one cycle every 2^n clocks: 50 MHz / 16 = 3.125 MHz. 25, 12.5 and 6.25 MHz are the frequencies of bits 0, 1 and 2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m030",
+      "questionText": "cnt is an ieee.numeric_std unsigned(2 downto 0) with initial value 0, and the process below is clocked at 60 MHz. How often does tick pulse high?\n\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    if cnt = 0 then\n      cnt  <= to_unsigned(5, 3);\n      tick <= '1';\n    else\n      cnt  <= cnt - 1;\n      tick <= '0';\n    end if;\n  end if;\nend process;",
+      "options": [
+        "At 12 MHz (every 5 clocks)",
+        "At 7.5 MHz (every 8 clocks)",
+        "At 10 MHz (a one-clock pulse every 6 clocks)",
+        "At 30 MHz (every 2 clocks)"
+      ],
+      "correctIndex": 2,
+      "explanation": "cnt steps through 5, 4, 3, 2, 1, 0 and reloads, which is 6 states, so tick is high for one clock in every 6: 60 MHz / 6 = 10 MHz. Loading 5 is easily misread as divide-by-5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m031",
+      "questionText": "A mod-N counter must produce a 1 Hz tick from a 50 MHz clock by counting 0 to N − 1. What are N and the minimum counter width?",
+      "options": [
+        "N = 50,000,000 and 25 bits",
+        "N = 25,000,000 and 25 bits",
+        "N = 50,000,000 and 26 bits",
+        "N = 50,000,000 and 32 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "One tick per second needs N = 50 MHz / 1 Hz = 50,000,000 states, counting 0 to 49,999,999. 2^25 = 33,554,432 is too small and 2^26 = 67,108,864 is enough, so 26 bits are needed; 25,000,000 is the half-period count for a toggling 1 Hz square wave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m032",
+      "questionText": "cnt is unsigned(3 downto 0) and starts at 0. Which body, placed inside if rising_edge(clk) then ... end if;, makes cnt count 0, 1, …, 9, 0, 1, … (a mod-10 counter)?",
+      "options": [
+        "if cnt = 10 then cnt <= (others => '0'); else cnt <= cnt + 1; end if;",
+        "cnt <= cnt + 1; if cnt + 1 = 9 then cnt <= (others => '0'); end if;",
+        "cnt <= cnt + 1; if cnt = 9 then cnt <= cnt; end if;",
+        "cnt <= cnt + 1; if cnt = 9 then cnt <= (others => '0'); end if;"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the keyed body cnt is read with its old value, and the later assignment wins when cnt = 9, so 9 is followed by 0. Comparing with 10 gives a mod-11 counter (0 to 10), testing cnt + 1 = 9 gives mod-9 (0 to 8), and cnt <= cnt makes it stop at 9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m033",
+      "questionText": "cnt is unsigned(3 downto 0):\n\nif rising_edge(clk) then\n  if load = '1' then\n    cnt <= unsigned(d);\n  elsif up = '1' then\n    cnt <= cnt + 1;\n  else\n    cnt <= cnt - 1;\n  end if;\nend if;\n\nAt six successive edges (load, up, d) are (1, 0, \"1110\"), (0, 1, –), (0, 1, –), (1, 1, \"0011\"), (0, 0, –) and (0, 0, –). What is cnt after the sixth edge?",
+      "options": [
+        "15",
+        "2",
+        "3",
+        "1"
+      ],
+      "correctIndex": 3,
+      "explanation": "cnt goes 14, 15 and 0 (wrapping), then load has priority over up and gives 3, and two down-counts give 2 and 1. 15 results if up is wrongly given priority at the fourth edge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m034",
+      "questionText": "ones and tens are unsigned(3 downto 0), both starting at 0:\n\nif rising_edge(clk) then\n  if ones = 9 then\n    ones <= (others => '0');\n    if tens = 9 then tens <= (others => '0'); else tens <= tens + 1; end if;\n  else\n    ones <= ones + 1;\n  end if;\nend if;\n\nWhat do tens and ones hold after 123 rising edges?",
+      "options": [
+        "2 and 3",
+        "12 and 3",
+        "9 and 9",
+        "2 and 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two BCD digits form a mod-100 counter: ones wraps every 10 edges and then advances tens, which wraps after 99. 123 mod 100 = 23, so tens = 2 and ones = 3; 12 and 3 ignores the wrap of tens at 9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m035",
+      "questionText": "sig comes from a flip-flop on the same clock, so it changes just after rising edges; it goes to '1' and stays '1' for 5 clock periods:\n\nprocess (clk) begin\n  if rising_edge(clk) then sig_d <= sig; end if;\nend process;\npulse <= sig and not sig_d;\n\nFor how long is pulse '1'?",
+      "options": [
+        "One clock period",
+        "Five clock periods",
+        "Half a clock period",
+        "It never becomes '1'"
+      ],
+      "correctIndex": 0,
+      "explanation": "pulse is 1 while sig is already '1' but the delayed copy sig_d is still '0', i.e. from the edge at which sig rises until the next edge, when sig_d catches up. This rising-edge detector therefore gives a one-clock pulse.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m036",
+      "questionText": "In a Moore finite-state machine, the outputs depend on:",
+      "options": [
+        "The current state and the current inputs",
+        "The current inputs only",
+        "The current state only",
+        "The next state and the current inputs"
+      ],
+      "correctIndex": 2,
+      "explanation": "Moore outputs are decoded from the state register alone, so they change only after a clock edge. A Mealy machine's outputs depend on both the state and the present inputs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m037",
+      "questionText": "state is of type state_t, declared as (S0, S1, S2), and x is an input. Which output assignment makes z a Mealy output?",
+      "options": [
+        "z <= '1' when state = S2 and x = '1' else '0';",
+        "z <= '1' when state = S2 else '0';",
+        "z <= '1' when state /= S0 else '0';",
+        "z <= '1' when state = S1 or state = S2 else '0';"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Mealy output depends on the present input as well as the state, so only the first assignment qualifies. The others decode the state alone and are Moore outputs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i62_m038",
+      "questionText": "Which statement about Moore and Mealy machines is NOT correct?",
+      "options": [
+        "A Moore machine usually needs fewer states than the equivalent Mealy machine",
+        "A Mealy output can change between clock edges when an input changes",
+        "A Moore output changes only after a clock edge has changed the state",
+        "For the same input sequence, a Mealy machine can assert its output one clock earlier than the equivalent Moore machine"
+      ],
+      "correctIndex": 0,
+      "explanation": "It is the other way round: a Mealy machine needs the same number of states or fewer, because its outputs can depend on the inputs. The other statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m039",
+      "questionText": "An overlapping sequence detector for the pattern 1011 is designed with the minimum number of states. How many states do the Moore and the Mealy versions need?",
+      "options": [
+        "Moore 4, Mealy 5",
+        "Moore 4, Mealy 4",
+        "Moore 5, Mealy 4",
+        "Moore 5, Mealy 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Mealy machine needs one state per prefix already matched (none, 1, 10, 101) and asserts z together with the final input. The Moore machine needs an extra state meaning '1011 seen', because its output can come only from a state.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m040",
+      "questionText": "Overlapping 101 detectors are built as a Mealy machine and as a Moore machine on the same clock, and both are in their reset (nothing matched) state during cycle 1. x changes just after each rising edge and holds 1, 0, 1, 0, 1, 1 during clock cycles 1 to 6 (cycle k lies between rising edges k and k + 1). In which cycles is each output '1'?",
+      "options": [
+        "Mealy: cycles 4 and 6; Moore: cycles 3 and 5",
+        "Both: cycles 3 and 5",
+        "Mealy: cycles 3 and 5; Moore: cycles 4 and 6",
+        "Mealy: cycles 3 and 5; Moore: cycle 4 only"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Mealy output combines the state '10 seen' with the present x, so it is 1 in the cycle in which the final 1 is on the input: cycles 3 and 5. The Moore machine first has to enter its '101 seen' state at the next edge, so its output appears one cycle later, in cycles 4 and 6 (the overlap lets the last 1 start a new match).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m041",
+      "questionText": "A Mealy detector for 1011 receives one bit per clock: 1011011011. How many times is its output asserted if it detects overlapping sequences, and how many times if it restarts after each detection (non-overlapping)?",
+      "options": [
+        "2 and 2",
+        "3 and 3",
+        "2 and 1",
+        "3 and 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Overlapping detection finds 1011 in bits 1–4, 4–7 and 7–10, because the last 1 of one match begins the next. Non-overlapping detection restarts after bit 4, misses bits 4–7 and finds only bits 7–10 after that, giving 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m042",
+      "questionText": "type state_t is (IDLE, LOAD, RUN, DONE); and the FSM below, inside if rising_edge(clk) then, starts in IDLE:\n\ncase state is\n  when IDLE => if start = '1' then state <= LOAD; end if;\n  when LOAD => state <= RUN;\n  when RUN  => if stop = '1' then state <= DONE; end if;\n  when DONE => state <= IDLE;\nend case;\n\nAt five successive rising edges (start, stop) = (1, 0), (0, 1), (0, 0), (0, 1), (1, 0). What is the state after the fifth edge?",
+      "options": [
+        "LOAD",
+        "IDLE",
+        "DONE",
+        "RUN"
+      ],
+      "correctIndex": 1,
+      "explanation": "IDLE → LOAD on start, LOAD → RUN unconditionally (the stop at edge 2 is ignored), RUN stays for stop = 0, RUN → DONE on stop, and DONE → IDLE unconditionally, so the start at edge 5 is not seen. LOAD would require DONE to test start.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m043",
+      "questionText": "A Moore parity FSM has states EVEN (after reset) and ODD, changes state at a rising edge when x = '1', and outputs p = '1' in ODD. x is 1, 1, 0, 1 at four successive edges. What is p after each edge?",
+      "options": [
+        "1, 1, 0, 1",
+        "0, 1, 1, 0",
+        "1, 0, 0, 0",
+        "1, 0, 0, 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "The state goes ODD, EVEN, EVEN, ODD, so p = 1, 0, 0, 1: p is 1 whenever an odd number of 1s has been received. 1, 1, 0, 1 simply copies x.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m044",
+      "questionText": "A traffic-light FSM starts in GREEN with t = 0, where t is integer range 0 to 3:\n\nif rising_edge(clk) then\n  case state is\n    when GREEN  => if t = 2 then state <= YELLOW; t <= 0; else t <= t + 1; end if;\n    when YELLOW => state <= RED; t <= 0;\n    when RED    => if t = 1 then state <= GREEN; t <= 0; else t <= t + 1; end if;\n  end case;\nend if;\n\nWhat are the state and t after 8 rising edges?",
+      "options": [
+        "GREEN, t = 2",
+        "YELLOW, t = 0",
+        "RED, t = 1",
+        "GREEN, t = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "GREEN lasts 3 clocks (t = 0, 1, 2), YELLOW 1 and RED 2, so the pattern repeats every 6 edges. After 6 edges the FSM is back in GREEN with t = 0, and two more edges give t = 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i62_m045",
+      "questionText": "Why do FPGA synthesis tools often choose one-hot state encoding for small and medium FSMs?",
+      "options": [
+        "One-hot uses the fewest flip-flops of any encoding",
+        "One-hot makes illegal states impossible",
+        "One-hot is required for Mealy machines",
+        "FPGAs have many flip-flops, and one-hot makes the next-state and output logic small and fast"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each state has its own flip-flop, so a state is recognised from a single bit and the next-state equations have few inputs, which suits LUT-based FPGAs rich in flip-flops. Binary encoding needs fewer flip-flops, and one-hot actually leaves many codes unused.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i62_m046",
+      "questionText": "An FSM with 4 states is one-hot encoded. How many codes of its state register are illegal (unused)?",
+      "options": [
+        "12",
+        "4",
+        "0",
+        "11"
+      ],
+      "correctIndex": 0,
+      "explanation": "One-hot uses 4 flip-flops, giving 2^4 = 16 codes, of which only the 4 with a single 1 are legal: 16 − 4 = 12. 11 wrongly treats the all-zero code as legal.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,686 @@
+{
+  "topicId": "ch3_i15",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Array Addressing and String Internals"
+    },
+    {
+      "type": "paragraph",
+      "text": "The row-major formula follows from counting. For an array with M rows and N columns, reaching m[i][j] means skipping i complete rows of N elements each and then j more elements in row i, so the element sits i × N + j places after the first one; multiplying by the element size w gives the byte offset. Column-major order, used by Fortran and MATLAB, stores whole columns one after another, so the count becomes j × M + i. Languages whose indices may start at another lower bound, such as Pascal's A[1..10], subtract the bounds first, while C indices always start at 0. Because the compiler needs N to evaluate the formula, every dimension except the first must appear in a parameter declaration."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Loc}(A[i][j]) = B + w\\,[(i - L_r)\\,N + (j - L_c)]",
+      "plainText": "Row-major: Loc(A[i][j]) = B + w * ((i - Lr) * N + (j - Lc)), where N = number of columns and Lr, Lc = lower bounds (0 in C)"
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Loc}(A[i][j]) = B + w\\,[(j - L_c)\\,M + (i - L_r)]",
+      "plainText": "Column-major: Loc(A[i][j]) = B + w * ((j - Lc) * M + (i - Lr)), where M = number of rows"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity",
+          "Row-major (C, C++)",
+          "Column-major (Fortran, MATLAB)"
+        ],
+        [
+          "Storage order",
+          "Row by row: x[0][0], x[0][1], ...",
+          "Column by column: x[0][0], x[1][0], ..."
+        ],
+        [
+          "Index that changes fastest",
+          "The last (column) index",
+          "The first (row) index"
+        ],
+        [
+          "Elements before x[2][3] in int x[4][5]",
+          "2 × 5 + 3 = 13",
+          "3 × 4 + 2 = 14"
+        ],
+        [
+          "Address of x[2][3], base 2000, 4-byte int",
+          "2000 + 13 × 4 = 2052",
+          "2000 + 14 × 4 = 2056"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int m[3][4];\n    char *base = (char *)m;\n    printf(\"%d \", (int)((char *)&m[1][0] - base));\n    printf(\"%d \", (int)((char *)&m[2][3] - base));\n    printf(\"%zu %zu\", sizeof(m[0]), sizeof(m));\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 16 44 16 48\n\n(with a 4-byte int; the byte offsets come from the row-major formula)\n&m[1][0]: (1 * 4 + 0) * 4 = 16 bytes after m[0][0]\n&m[2][3]: (2 * 4 + 3) * 4 = 44 bytes, the last element\nsizeof(m[0]) = one row of 4 ints = 16\nsizeof(m) = 3 rows * 16 = 48 = 12 elements * 4\nRow 1 starts right after row 0 ends: no gaps between rows."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <string.h>\nint main(void) {\n    char s[20] = \"Kath\";\n    char t[] = \"mandu\";\n    int n = strlen(s), i = 0;\n    while ((s[n + i] = t[i]) != '\\0')\n        i++;\n    printf(\"%s %zu %d\", s, strlen(s), strcmp(s, \"Kathmandu\") == 0);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: Kathmandu 9 1\n\nn = strlen(\"Kath\") = 4, so copying starts at s[4], the old '\\0'\ni = 0: s[4] = 'm'    i = 1: s[5] = 'a'    i = 2: s[6] = 'n'\ni = 3: s[7] = 'd'    i = 4: s[8] = 'u'\ni = 5: s[9] = '\\0'   the test fails, the loop ends with i = 5\nstrlen(s) = 9, and s equals \"Kathmandu\", so strcmp(...) == 0 prints 1\nThis is what strcat(s, t) does; s needed at least 10 bytes."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Property",
+          "char s[] = \"exam\";",
+          "char *p = \"exam\";"
+        ],
+        [
+          "What is created",
+          "An array of 5 chars holding a copy of the text",
+          "A pointer holding the address of the literal"
+        ],
+        [
+          "sizeof",
+          "5 (4 characters + '\\0')",
+          "The size of a pointer (8 on a typical 64-bit system)"
+        ],
+        [
+          "s[0] = 'E' / p[0] = 'E'",
+          "Allowed: the array is writable",
+          "Undefined behaviour: a literal must not be modified"
+        ],
+        [
+          "Give it new text later",
+          "s = \"test\"; is a compile error; use strcpy",
+          "p = \"test\"; is fine: p just points elsewhere"
+        ],
+        [
+          "s++ / p++",
+          "Compile error: an array name cannot be changed",
+          "Allowed: p moves to the next character"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Details of the <string.h> functions that questions like to test:",
+      "items": [
+        "strncpy(d, s, n) copies at most n characters; if s is shorter it pads d with '\\0' up to n, and if s has n or more characters it writes no terminator at all.",
+        "strcat(d, s) starts writing at the '\\0' of d, so d must already hold a terminated string and have room for strlen(d) + strlen(s) + 1 bytes.",
+        "strcmp compares characters as unsigned char values and stops at the first difference or at the end; the standard guarantees only the sign of the result, not a value such as 1 or -1.",
+        "strchr(s, c) and strrchr(s, c) return a pointer into s (subtract s to get the index) or NULL; the terminating '\\0' counts as part of the string, so strchr(s, '\\0') points at the end.",
+        "strstr(s, t) returns a pointer to the first occurrence of t or NULL, and an empty t matches at once, so strstr(s, \"\") returns s.",
+        "strlen walks the whole string on every call, so for (i = 0; i < strlen(s); i++) can cost O(n²) steps; store the length in a variable first.",
+        "fgets keeps the newline the user typed, while scanf(\"%s\") stops at the first space or newline and leaves the rest in the input buffer."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Before an address calculation, settle four things: row-major or column-major order, the lower bounds (always 0 in C), the element size in bytes, and whether the given base is the address of the first element. The answer is then base + (number of elements skipped) × (element size)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i15_m001",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint a[6] = {3, 1, 4};\na[5] = a[0] + a[1];\nprintf(\"%d %d %d\", a[2], a[4], a[5]);",
+      "options": [
+        "4 0 4",
+        "1 0 4",
+        "4 4 4",
+        "Compile error: too few initialisers"
+      ],
+      "correctIndex": 0,
+      "explanation": "A partial initialiser fills a[0..2] with 3, 1, 4 and sets every remaining element to 0, so a[4] = 0. Then a[5] = 3 + 1 = 4.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m002",
+      "questionText": "Which of the following declarations is INVALID in C?",
+      "options": [
+        "int a[] = {1, 2, 3};",
+        "int a[5] = {0};",
+        "int a[2][] = {{1, 2}, {3, 4}};",
+        "int a[][2] = {{1, 2}, {3, 4}};"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only the first dimension may be left for the compiler to count from the initialiser; the column size must be given because it fixes the length of every row. int a[][2] is therefore valid while int a[2][] is not.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m003",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint a[] = {5, 10, 15, 20, 25, 30};\nint n = sizeof(a) / sizeof(a[0]);\nprintf(\"%d %d\", n, a[n / 2]);",
+      "options": [
+        "6 15",
+        "6 25",
+        "5 15",
+        "6 20"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof(a) / sizeof(a[0]) is the element count, 6, whatever the size of int. a[6 / 2] = a[3] is the fourth element, 20.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m004",
+      "questionText": "A global array int g[4]; is declared outside all functions without an initialiser. What are its elements at program start?",
+      "options": [
+        "Garbage values",
+        "All 0",
+        "All 1",
+        "g[0] is 0 and the rest are garbage"
+      ],
+      "correctIndex": 1,
+      "explanation": "Global and static arrays have static storage duration and are zero-initialised before main runs. Only automatic (local) arrays without an initialiser hold indeterminate values.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m005",
+      "questionText": "Given the declarations int a[3] = {1, 2, 3}, b[3]; which statement is correct?",
+      "options": [
+        "b = a; is a compile error, because an array name cannot be assigned",
+        "b = a; copies all three elements of a into b",
+        "a == b compares the two arrays element by element",
+        "b[3] = a[2]; stores 3 in the last element of b"
+      ],
+      "correctIndex": 0,
+      "explanation": "An array name is not a modifiable lvalue, so arrays are copied with a loop or memcpy. a == b compares two addresses, and the last element of b is b[2], so b[3] is out of bounds.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m006",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint a[5] = {1, 2, 3, 4, 5};\nfor (int i = 0; i < 5; i++)\n    a[i] = a[4 - i];\nfor (int i = 0; i < 5; i++)\n    printf(\"%d \", a[i]);",
+      "options": [
+        "5 4 3 2 1",
+        "5 4 3 4 5",
+        "1 2 3 4 5",
+        "5 2 3 4 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Copying in place overwrites values before they are read: a[0] = a[4] = 5, a[1] = a[3] = 4, a[2] = 3, then a[3] = a[1] (now 4) and a[4] = a[0] (now 5). A real reversal swaps pairs up to the middle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m007",
+      "questionText": "What happens when a C program executes a[10] = 5; for an array declared int a[10]; ?",
+      "options": [
+        "The compiler always rejects the statement",
+        "The array automatically grows to 11 elements",
+        "An array-index-out-of-bounds exception is raised at run time",
+        "Nothing checks the index: the write goes outside the array and the behaviour is undefined"
+      ],
+      "correctIndex": 3,
+      "explanation": "The valid indices are 0 to 9 and C performs no bounds checking, so a[10] writes into whatever memory follows the array. The result is undefined behaviour, which may corrupt other variables or crash.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m008",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint m[3][3] = {{1}, {2, 3}, {4, 5, 6}};\nint s = m[0][0] + m[1][2];\nprintf(\"%d %d %d\", m[0][1], m[1][1], s);",
+      "options": [
+        "2 5 7",
+        "2 3 1",
+        "0 3 1",
+        "0 5 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each inner brace initialises one row and zero-fills the rest of it: rows are {1, 0, 0}, {2, 3, 0}, {4, 5, 6}. So m[0][1] = 0, m[1][1] = 3 and s = 1 + 0 = 1; 2 5 7 would be the result without the inner braces.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m009",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint m[3][3] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};\nint s = 0;\nfor (int i = 0; i < 3; i++)\n    s += m[i][i] + m[i][2 - i];\nprintf(\"%d\", s);",
+      "options": [
+        "30",
+        "25",
+        "15",
+        "45"
+      ],
+      "correctIndex": 0,
+      "explanation": "The loop adds the main diagonal 1 + 5 + 9 = 15 and the other diagonal 3 + 5 + 7 = 15. The centre element 5 lies on both and is added twice, so s = 30.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m010",
+      "questionText": "This fragment computes one element of the matrix product C = A x B. What does it print? (Assume it is inside main() and <stdio.h> is included.)\n\nint a[2][3] = {{1, 2, 3}, {4, 5, 6}};\nint b[3][2] = {{1, 0}, {0, 1}, {2, 2}};\nint c = 0;\nfor (int k = 0; k < 3; k++)\n    c += a[1][k] * b[k][1];\nprintf(\"%d\", c);",
+      "options": [
+        "8",
+        "16",
+        "15",
+        "17"
+      ],
+      "correctIndex": 3,
+      "explanation": "Row 1 of A times column 1 of B: 4 * 0 + 5 * 1 + 6 * 2 = 17, which is C[1][1]. C[0][1] would be 8 and C[1][0] would be 16.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m011",
+      "questionText": "What does this fragment print? Assume int is 4 bytes and pointers are 8 bytes. (Inside main(), <stdio.h> included.)\n\nint m[3][5];\nprintf(\"%zu \", sizeof(m));\nprintf(\"%zu \", sizeof(m[0]));\nprintf(\"%zu\", sizeof(m[0][0]));",
+      "options": [
+        "15 5 1",
+        "60 20 4",
+        "60 5 4",
+        "60 8 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "sizeof works in bytes: the whole array is 3 * 5 * 4 = 60, one row m[0] is an array of 5 ints = 20 (it is not converted to a pointer inside sizeof), and one element is 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m012",
+      "questionText": "The array int a[20] starts at address 3000 and an int occupies 4 bytes. What is the address of a[12]?",
+      "options": [
+        "3044",
+        "3012",
+        "3048",
+        "3052"
+      ],
+      "correctIndex": 2,
+      "explanation": "&a[i] = base + i * size = 3000 + 12 * 4 = 3048. Using 11 (counting from 1) would give 3044, and forgetting the element size gives 3012.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m013",
+      "questionText": "The array double m[5][6] is stored in C's row-major order starting at address 1200, and a double occupies 8 bytes. What is the address of m[3][4]?",
+      "options": [
+        "1376",
+        "1384",
+        "1352",
+        "1222"
+      ],
+      "correctIndex": 0,
+      "explanation": "Address = base + (i * cols + j) * size = 1200 + (3 * 6 + 4) * 8 = 1200 + 176 = 1376. Column-major order would give 1200 + (4 * 5 + 3) * 8 = 1384.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m014",
+      "questionText": "A two-dimensional array A[1..10][1..15] (rows 1 to 10, columns 1 to 15) of 2-byte elements is stored row by row, and A[1][1] is at address 500. What is the address of A[6][8]?",
+      "options": [
+        "650",
+        "664",
+        "696",
+        "582"
+      ],
+      "correctIndex": 1,
+      "explanation": "Subtract the lower bounds first: 500 + ((6 - 1) * 15 + (8 - 1)) * 2 = 500 + 82 * 2 = 664. Column-major order would give 500 + (7 * 10 + 5) * 2 = 650, and ignoring the lower bounds gives 696.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m015",
+      "questionText": "The array int x[4][5] starts at address 1000 and an int occupies 4 bytes. Which element is stored at address 1068?",
+      "options": [
+        "x[2][3]",
+        "x[1][4]",
+        "x[4][1]",
+        "x[3][2]"
+      ],
+      "correctIndex": 3,
+      "explanation": "The offset is (1068 - 1000) / 4 = 17 elements. In row-major order 17 = i * 5 + j gives i = 3 and j = 2; x[1][4] would be the column-major reading (17 = 4 * 4 + 1).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m016",
+      "questionText": "The array int c[2][3][4] starts at address 4000 and an int occupies 4 bytes. What is the address of c[1][2][3]?",
+      "options": [
+        "4084",
+        "4076",
+        "4092",
+        "4023"
+      ],
+      "correctIndex": 2,
+      "explanation": "Offset = ((i * d2 + j) * d3 + k) * size = ((1 * 3 + 2) * 4 + 3) * 4 = 23 * 4 = 92 bytes, so the address is 4000 + 92 = 4092.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m017",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid modify(int a[], int n) {\n    for (int i = 0; i < n; i++)\n        a[i] += i;\n    n = 0;\n}\nint main(void) {\n    int x[4] = {10, 20, 30, 40}, n = 4;\n    modify(x, n);\n    printf(\"%d %d %d\", x[1], x[3], n);\n    return 0;\n}",
+      "options": [
+        "21 43 4",
+        "20 40 4",
+        "21 43 0",
+        "20 40 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "The array parameter receives the address of x[0], so the additions change x itself: x becomes 10, 21, 32, 43. n is an ordinary int passed by value, so main's n stays 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m018",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nint a[][3] = {1, 2, 3, 4, 5};\nprintf(\"%zu %d\", sizeof(a) / sizeof(a[0]), a[1][2]);",
+      "options": [
+        "3 0",
+        "2 0",
+        "2 5",
+        "5 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The five values fill the array row by row, three per row, so the compiler makes 2 rows: a[0] = {1, 2, 3} and a[1] = {4, 5, 0}. sizeof(a) / sizeof(a[0]) divides the whole array by the size of one row, giving 2, and a[1][2] is the element left without a value, which is set to 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m019",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint maxIndex(const int a[], int n) {\n    int k = 0;\n    for (int i = 1; i < n; i++)\n        if (a[i] >= a[k])\n            k = i;\n    return k;\n}\nint main(void) {\n    int v[6] = {4, 9, 2, 9, 7, 1};\n    printf(\"%d\", maxIndex(v, 6));\n    return 0;\n}",
+      "options": [
+        "1",
+        "9",
+        "5",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The function returns an index, not a value. Because the test is >=, the later 9 at index 3 replaces the earlier one at index 1; with > the answer would be 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m020",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint sum(const int *p, int n) {\n    int s = 0;\n    for (int i = 0; i < n; i++)\n        s += p[i];\n    return s;\n}\nint main(void) {\n    int m[2][3] = {{1, 2, 3}, {4, 5, 6}};\n    printf(\"%d\", sum(m[1], 3));\n    return 0;\n}",
+      "options": [
+        "6",
+        "21",
+        "15",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "m[1] is the second row, an array of 3 ints that decays to &m[1][0], so sum adds 4 + 5 + 6 = 15.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m021",
+      "questionText": "Which marked line of this function causes a compile error?\n\n#include <stdio.h>\nvoid show(const int a[], int n) {\n    int t = a[0];          /* A */\n    a[1] = t;              /* B */\n    n = n - 1;             /* C */\n    printf(\"%d\", a[n]);    /* D */\n}",
+      "options": [
+        "Line A: int t = a[0];",
+        "Line B: a[1] = t;",
+        "Line C: n = n - 1;",
+        "Line D: printf(\"%d\", a[n]);"
+      ],
+      "correctIndex": 1,
+      "explanation": "const int a[] means the function may read the elements but not assign to them, so a[1] = t is rejected. n is an ordinary copy and may be changed freely.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m022",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[] = \"AB\\0CD\";\nprintf(\"%zu \", sizeof(s));\nprintf(\"%zu\", strlen(s));",
+      "options": [
+        "6 2",
+        "5 2",
+        "6 5",
+        "3 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "The array holds A, B, '\\0', C, D plus the terminating '\\0' the compiler adds, so sizeof is 6. strlen stops at the first '\\0', after 2 characters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m023",
+      "questionText": "In C, which statement about the declaration char a[3] = \"ABC\"; is correct?",
+      "options": [
+        "It is a compile error in C, because the string needs 4 bytes",
+        "The compiler silently enlarges a to 4 elements",
+        "a holds 'A', 'B' and '\\0'; the 'C' is dropped",
+        "It is valid C, but a holds no '\\0', so passing a to strlen or printf(\"%s\") is undefined behaviour"
+      ],
+      "correctIndex": 3,
+      "explanation": "C allows the terminating null to be dropped when the array has exactly as many elements as the literal has characters, so a holds A, B, C only. It is then not a string, and functions that search for '\\0' read past the end; C++ rejects this declaration.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m024",
+      "questionText": "What does this fragment print? Assume pointers are 8 bytes. (Inside main(), <stdio.h> and <string.h> included.)\n\nchar a[] = \"switch\";\nchar *p = \"switch\";\nprintf(\"%zu %zu \", sizeof(a), strlen(a));\nprintf(\"%zu %zu\", sizeof(p), strlen(p));",
+      "options": [
+        "7 6 7 6",
+        "6 6 8 6",
+        "7 6 8 6",
+        "7 6 8 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "a is an array of 7 chars (6 letters + '\\0'), so sizeof(a) = 7, but p is a pointer, so sizeof(p) = 8 regardless of the text. strlen counts 6 characters in both cases.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m025",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[12] = \"hello\";\ns[2] = '\\0';\nprintf(\"%zu %zu %s\", sizeof(s), strlen(s), s + 3);",
+      "options": [
+        "12 2 lo",
+        "12 5 lo",
+        "6 2 lo",
+        "12 2 he"
+      ],
+      "correctIndex": 0,
+      "explanation": "sizeof gives the declared size, 12, whatever the contents. After s[2] = '\\0' the string s is \"he\", so strlen(s) = 2, while s + 3 starts at the 'l' after the new terminator and prints lo.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m026",
+      "questionText": "Given char a[] = \"hi\"; and char *p = \"hi\"; which statement is correct?",
+      "options": [
+        "Both a[0] = 'H' and p[0] = 'H' are allowed",
+        "a[0] = 'H' is allowed, but p[0] = 'H' is undefined behaviour because p points to a string literal",
+        "Neither is allowed, because both are string constants",
+        "p[0] = 'H' is allowed, but a[0] = 'H' is a compile error"
+      ],
+      "correctIndex": 1,
+      "explanation": "a is a writable array initialised with a copy of the text, whereas p holds the address of the literal itself, which the program must not modify (it is often in read-only memory). Declaring const char *p makes the compiler catch such writes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m027",
+      "questionText": "Which statement in this fragment causes a compile error? (Assume it is inside main() and <string.h> is included.)\n\nchar a[10];\nchar *p;\np = \"exam\";\na = \"exam\";\nstrcpy(a, \"exam\");\np = a;",
+      "options": [
+        "p = \"exam\";",
+        "a = \"exam\";",
+        "strcpy(a, \"exam\");",
+        "p = a;"
+      ],
+      "correctIndex": 1,
+      "explanation": "An array name cannot appear on the left of =, so a = \"exam\"; is rejected; the text must be copied with strcpy. A pointer can be pointed at a literal or at the array at any time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m028",
+      "questionText": "What does this fragment print? Assume pointers are 8 bytes. (Inside main(), <stdio.h> included.)\n\nchar *n1[] = {\"C\", \"Java\", \"Python\"};\nchar n2[3][7] = {\"C\", \"Java\", \"Python\"};\nprintf(\"%zu %zu\", sizeof(n1), sizeof(n2));",
+      "options": [
+        "3 21",
+        "14 21",
+        "24 14",
+        "24 21"
+      ],
+      "correctIndex": 3,
+      "explanation": "n1 is an array of 3 pointers, 3 * 8 = 24 bytes (the literals live elsewhere). n2 reserves 3 rows of 7 chars, 21 bytes, even though \"C\" needs only 2 of its 7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m029",
+      "questionText": "Which <string.h> function appends a copy of one string to the end of another?",
+      "options": [
+        "strcpy",
+        "strcmp",
+        "strcat",
+        "strstr"
+      ],
+      "correctIndex": 2,
+      "explanation": "strcat(d, s) writes s starting at the terminating '\\0' of d. strcpy overwrites d from the start, strcmp compares and strstr searches for a substring.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m030",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar a[20] = \"Code\";\nchar b[] = \"Blocks\";\nstrcat(a, b);\nprintf(\"%s %zu %zu\", a, strlen(a), sizeof(a));",
+      "options": [
+        "CodeBlocks 11 20",
+        "CodeBlocks 10 11",
+        "Code Blocks 11 20",
+        "CodeBlocks 10 20"
+      ],
+      "correctIndex": 3,
+      "explanation": "strcat adds no space: a becomes CodeBlocks, 4 + 6 = 10 characters. sizeof(a) is still the declared 20 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m031",
+      "questionText": "What does this fragment print? (Assume the ASCII character set, and that the fragment is inside main() with <stdio.h> and <string.h> included.)\n\nint x = strcmp(\"abc\", \"abc\") == 0;\nint y = strcmp(\"Zoo\", \"apple\") < 0;\nint z = strcmp(\"abc\", \"ab\") > 0;\nprintf(\"%d %d %d\", x, y, z);",
+      "options": [
+        "1 1 1",
+        "1 0 1",
+        "1 1 0",
+        "0 0 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Equal strings give 0, so x = 1. 'Z' (90) is less than 'a' (97), so \"Zoo\" sorts before \"apple\" and y = 1. \"abc\" differs from \"ab\" where 'c' meets '\\0', and 'c' is larger, so z = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m032",
+      "questionText": "Assuming the ASCII character set, which of the following does the C standard guarantee about the value returned by strcmp(\"cat\", \"car\")?",
+      "options": [
+        "It is exactly 1",
+        "It is a negative value",
+        "It is a positive value",
+        "It is exactly 2, the difference 't' - 'r'"
+      ],
+      "correctIndex": 2,
+      "explanation": "The strings first differ at index 2, where 't' (116) is greater than 'r' (114), so the result is positive. The standard fixes only the sign; the actual value (1, 2 or anything else) is up to the library.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m033",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar d[8] = \"*******\";\nstrncpy(d, \"EXAM\", 2);\nprintf(\"%s\", d);",
+      "options": [
+        "EX",
+        "EX*****",
+        "EXAM***",
+        "EXAM"
+      ],
+      "correctIndex": 1,
+      "explanation": "strncpy copies at most n = 2 characters and adds no '\\0' when the source is longer than n, so only d[0] and d[1] change. The original terminator at d[7] is still there, and the string printed is EX followed by five stars.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m034",
+      "questionText": "The array char d[5]; has been declared. Which call writes past the end of d?",
+      "options": [
+        "strcpy(d, \"hell\");",
+        "strncpy(d, \"hello\", 5);",
+        "strncpy(d, \"hi\", 5);",
+        "strcpy(d, \"hello\");"
+      ],
+      "correctIndex": 3,
+      "explanation": "strcpy always copies the terminator, so \"hello\" needs 6 bytes and overflows d. \"hell\" needs exactly 5; strncpy with n = 5 writes exactly 5 bytes (for \"hello\" without any '\\0', for \"hi\" padded with '\\0').",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m035",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[] = \"programming\";\nchar *p = strchr(s, 'g');\nchar *q = strrchr(s, 'g');\nprintf(\"%d %d\", (int)(p - s), (int)(q - s));",
+      "options": [
+        "3 10",
+        "4 11",
+        "3 3",
+        "10 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "strchr returns a pointer to the first 'g' and strrchr to the last one; subtracting s turns each pointer into a 0-based index. In p-r-o-g-r-a-m-m-i-n-g they are at indices 3 and 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m036",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[] = \"database\";\nchar *p = strstr(s, \"ab\");\nchar *q = strstr(s, \"ba\");\nprintf(\"%s %s\", p ? p : \"none\", q ? q : \"none\");",
+      "options": [
+        "ab ba",
+        "abase none",
+        "abase base",
+        "none base"
+      ],
+      "correctIndex": 2,
+      "explanation": "strstr returns a pointer to the first match, and printing it with %s shows the rest of the string from there. \"ab\" first occurs at index 3 (abase) and \"ba\" at index 4 (base).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m037",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nconst char *p = \"abababa\";\nint c = 0;\nwhile ((p = strstr(p, \"aba\")) != NULL) {\n    c++;\n    p++;\n}\nprintf(\"%d\", c);",
+      "options": [
+        "2",
+        "3",
+        "1",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "After each match p moves on by only one character, so overlapping matches are counted: \"aba\" is found at indices 0, 2 and 4, giving 3. Advancing by strlen(\"aba\") = 3 instead would count 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m038",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> is included.)\n\nchar src[] = \"LOOP\", dst[10];\nint i = 0;\nwhile ((dst[i] = src[i]) != '\\0')\n    i++;\nprintf(\"%s %d\", dst, i);",
+      "options": [
+        "LOOP 5",
+        "LOO 4",
+        "LOOP 3",
+        "LOOP 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each character is copied and then tested, so the '\\0' is copied as well before the loop stops. i is incremented only for the 4 letters, leaving i = 4, and dst holds LOOP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m039",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[] = \"Engineering Council\";\nint v = 0;\nfor (int i = 0; s[i] != '\\0'; i++)\n    if (strchr(\"aeiouAEIOU\", s[i]))\n        v++;\nprintf(\"%d\", v);",
+      "options": [
+        "8",
+        "7",
+        "6",
+        "19"
+      ],
+      "correctIndex": 0,
+      "explanation": "strchr returns a non-NULL pointer exactly when s[i] is one of the listed vowels. Engineering has E, i, e, e, i (5) and Council has o, u, i (3), so v = 8; the capital E counts because uppercase vowels are in the list.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i15_m040",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <ctype.h> are included.)\n\nchar s[] = \"Pro C\";\nfor (int i = 0; s[i]; i++)\n    s[i] = isupper(s[i]) ? tolower(s[i]) : toupper(s[i]);\nprintf(\"%s\", s);",
+      "options": [
+        "PRO C",
+        "pro c",
+        "pRO c",
+        "Pro C"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every letter has its case toggled: P becomes p, r and o become R and O, and C becomes c. toupper leaves the space unchanged, giving pRO c.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m041",
+      "questionText": "What does this fragment print? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar s[] = \"ABCDE\";\nint n = strlen(s);\nfor (int i = 0; i < n; i++) {\n    char t = s[i];\n    s[i] = s[n - 1 - i];\n    s[n - 1 - i] = t;\n}\nprintf(\"%s\", s);",
+      "options": [
+        "EDCBA",
+        "ABCDE",
+        "EDCDE",
+        "EBCDA"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loop runs over the whole string instead of stopping at n / 2, so every pair is swapped twice: for i = 0 and i = 4 the pair (0, 4) is exchanged and then exchanged back. The string ends unchanged; the condition should be i < n / 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i15_m042",
+      "questionText": "When the following fragment runs, the user types Kathmandu Valley and presses Enter. What is printed? (Assume it is inside main() and <stdio.h> is included.)\n\nchar city[30];\nscanf(\"%29s\", city);\nprintf(\"%s\", city);",
+      "options": [
+        "Kathmandu Valley",
+        "Valley",
+        "K",
+        "Kathmandu"
+      ],
+      "correctIndex": 3,
+      "explanation": "The %s conversion skips leading white space and stops reading at the next white-space character, so only Kathmandu is stored; Valley stays in the input buffer. fgets would read the whole line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i15_m043",
+      "questionText": "When the following fragment runs, the user types Hi and presses Enter. What is printed? (Assume it is inside main() and <stdio.h> and <string.h> are included.)\n\nchar buf[10];\nfgets(buf, sizeof buf, stdin);\nprintf(\"%zu\", strlen(buf));",
+      "options": [
+        "3",
+        "2",
+        "4",
+        "10"
+      ],
+      "correctIndex": 0,
+      "explanation": "fgets stores the newline typed by the user, so buf holds 'H', 'i', '\\n', '\\0' and strlen(buf) = 3. The usual fix is buf[strcspn(buf, \"\\n\")] = '\\0'.",
+      "difficulty": "medium"
+    }
+  ]
+}

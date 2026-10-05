@@ -1,0 +1,696 @@
+{
+  "topicId": "ch1_i22",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Thevenin's Theorem"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why can a whole network be squeezed into just two numbers? For a linear network the relation between the terminal voltage V and the current I drawn from the terminals is a straight line. A straight line is fixed by two points: its intercept on the voltage axis (I = 0, the open-circuit voltage) and its intercept on the current axis (V = 0, the short-circuit current). A voltage source V_th in series with R_th has exactly the same straight line, so it is indistinguishable from the original network at those terminals."
+    },
+    {
+      "type": "formula",
+      "latex": "V = V_{th} - R_{th}\\,I",
+      "plainText": "V = V_th − R_th × I (terminal line of any linear two-terminal network)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The formal proof uses superposition. Drive the terminals with a test current source I and split the response into two parts: the voltage with all internal sources active and I = 0, which is V_oc, and the voltage due to I alone with the internal independent sources killed, which is −R_th I. Adding the two gives V = V_oc − R_th I. This is also why the theorem needs the network to be linear, while the load attached to the equivalent may be anything, even a diode."
+    },
+    {
+      "type": "bulletList",
+      "text": "Special cases worth recognising at a glance:",
+      "items": [
+        "A resistor connected directly across an ideal voltage source does not affect V_th or R_th and can be deleted.",
+        "A resistor in series with an ideal current source does not affect V_th or R_th either; the source forces its current regardless.",
+        "A network with only resistors and dependent sources has V_th = 0; only R_th exists and it must be found with a test source.",
+        "A balanced Wheatstone bridge gives V_th = 0 across the detector terminals, so no detector current flows whatever its resistance.",
+        "An ideal current source on its own has no Thevenin equivalent (R_th would be infinite), just as an ideal voltage source has no Norton equivalent."
+      ]
+    },
+    {
+      "type": "code",
+      "text": "Example 1: 12 V source with 3 Ω to node A, a 2 A source injecting into A,\n6 Ω from A to B (source negative). Find the current in a 4 Ω load across A-B.\nV_th (nodal at A, load removed): (12 − V)/3 + 2 = V/6\n  4 − V/3 + 2 = V/6  ->  6 = V/2  ->  V_th = 12 V\nR_th: short the 12 V source, open the 2 A source: 3 Ω || 6 Ω = 2 Ω\nI_L = V_th/(R_th + R_L) = 12/(2 + 4) = 2 A",
+      "language": "text"
+    },
+    {
+      "type": "code",
+      "text": "Example 2 (dependent source): 18 V source in series with 6 Ω to node A;\na VCCS draws (1/3)·V_A amperes from A to B. Load R_L = 4 Ω.\nV_oc: (18 − V)/6 = V/3  ->  3 = V/6 + V/3 = V/2  ->  V_oc = 6 V\nI_sc: V_A = 0, so the VCCS carries 0 A; I_sc = 18/6 = 3 A\nR_th = V_oc/I_sc = 6/3 = 2 Ω   (killing the VCCS would wrongly give 6 Ω)\nI_L = 6/(2 + 4) = 1 A",
+      "language": "text"
+    },
+    {
+      "type": "code",
+      "text": "Example 3 (from two load tests): a 3 Ω load draws 2 A, an 8 Ω load draws 1 A.\nV_th = I(R_th + R_L) for both tests:\n  2(R_th + 3) = 1(R_th + 8)  ->  2R_th + 6 = R_th + 8  ->  R_th = 2 Ω\n  V_th = 2 × (2 + 3) = 10 V\nCheck: 10/(2 + 8) = 1 A",
+      "language": "text"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Method for R_th",
+          "How",
+          "Use when"
+        ],
+        [
+          "Dead network",
+          "Kill independent sources, combine resistances",
+          "Only independent sources present"
+        ],
+        [
+          "V_oc / I_sc",
+          "Solve the network twice (open, then shorted)",
+          "Dependent sources, or I_sc is easy"
+        ],
+        [
+          "Test source",
+          "Kill independent sources, apply 1 V or 1 A",
+          "Only dependent sources, or bridges"
+        ],
+        [
+          "Two load tests",
+          "Measure V and I for two different loads",
+          "Real hardware, network unknown"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The theorem carries straight over to sinusoidal steady state: V_th becomes a phasor open-circuit voltage and R_th becomes the complex impedance Z_th seen from the terminals, found with the same rules. The load current is then V_th/(Z_th + Z_L), computed with complex arithmetic; adding impedance magnitudes instead of complex values is a common error."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes:",
+      "items": [
+        "Leaving the load connected while finding V_th or R_th.",
+        "Killing a dependent source; dependent sources always stay in the circuit.",
+        "Shorting a current source (or opening a voltage source) when killing sources.",
+        "Assuming the power lost in R_th equals the power lost inside the original network; the equivalence holds only at the terminals."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For ladder networks, apply Thevenin step by step from the source end: convert the source and first shunt resistor to a Thevenin equivalent, add the next series resistor, repeat. Each step is a one-line divider calculation."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i22_m001",
+      "questionText": "Thevenin's theorem can be used to replace part of a circuit by a voltage source and a series resistance only if that part is:",
+      "options": [
+        "Free of any current sources",
+        "Free of resistors connected in parallel",
+        "Supplied only by DC sources",
+        "Linear (made of linear elements and sources)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The theorem rests on the straight-line V-I relation of a linear network. Current sources, parallel resistors and AC sources are all allowed; nonlinearity is what breaks it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m002",
+      "questionText": "While finding the Thevenin resistance of a network, an ideal independent current source is replaced by:",
+      "options": [
+        "A short circuit",
+        "A 1 Ω resistor",
+        "An open circuit",
+        "An ideal voltage source of equal value"
+      ],
+      "correctIndex": 2,
+      "explanation": "Killing a current source means setting its current to zero, which is an open circuit (infinite internal resistance).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m003",
+      "questionText": "A Thevenin equivalent of 12 V in series with 2 Ω supplies a 4 Ω load. The load current is:",
+      "options": [
+        "2 A",
+        "6 A",
+        "3 A",
+        "0.5 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_L = V_th/(R_th + R_L) = 12/(2 + 4) = 2 A. Using only R_th (6 A) or only R_L (3 A) is a common slip.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m004",
+      "questionText": "A network has V_th = 10 V and R_th = 5 Ω. The voltage across a 20 Ω load connected to its terminals is:",
+      "options": [
+        "2 V",
+        "8 V",
+        "10 V",
+        "0.4 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_L = V_th × R_L/(R_th + R_L) = 10 × 20/25 = 8 V. The remaining 2 V is dropped across R_th.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m005",
+      "questionText": "An ideal voltmeter across terminals A-B of a linear network reads 15 V and an ideal ammeter across the same terminals reads 3 A. When a 5 Ω resistor is connected across A-B, the current in it is:",
+      "options": [
+        "3 A",
+        "1.5 A",
+        "0.5 A",
+        "1 A"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_th = 15 V and R_th = V_oc/I_sc = 15/3 = 5 Ω, so I = 15/(5 + 5) = 1.5 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m006",
+      "questionText": "Which statement about Thevenin's theorem is correct?",
+      "options": [
+        "Both the network being replaced and the load must be linear",
+        "The Thevenin resistance depends on the value of the load resistance",
+        "The load connected to the equivalent may be nonlinear, but the network being replaced must be linear",
+        "The Thevenin voltage is measured with the load connected"
+      ],
+      "correctIndex": 2,
+      "explanation": "The equivalence concerns only the network behind the terminals, so any load, even a diode, can be analysed with it. R_th and V_th are found with the load removed and do not depend on it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m007",
+      "questionText": "Which statement about a Thevenin equivalent is NOT correct?",
+      "options": [
+        "The power dissipated in R_th equals the power dissipated inside the original network",
+        "It gives the same load current as the original network for every load",
+        "It gives the same open-circuit voltage as the original network",
+        "It gives the same short-circuit current as the original network"
+      ],
+      "correctIndex": 0,
+      "explanation": "The equivalence holds only at the terminals. Internal power is generally different; for example, with the terminals open R_th dissipates nothing, while resistors inside the original network may still carry current.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m008",
+      "questionText": "Before calculating the Thevenin voltage across terminals A-B, the load connected between A and B is:",
+      "options": [
+        "Replaced by a short circuit",
+        "Left in place",
+        "Replaced by R_th",
+        "Removed, leaving A-B open"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_th is the open-circuit voltage, so the load is removed and no current leaves the terminals.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m009",
+      "questionText": "An 18 V source is in series with 6 Ω. A 3 Ω resistor connects the far end of the 6 Ω to terminal B (the source's negative terminal), and a 4 Ω resistor runs from the junction of the 6 Ω and 3 Ω to terminal A. The Thevenin equivalent at A-B is:",
+      "options": [
+        "6 V in series with 2 Ω",
+        "6 V in series with 6 Ω",
+        "12 V in series with 6 Ω",
+        "18 V in series with 13 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "No current flows in the 4 Ω with A-B open, so V_th = 18 × 3/(6 + 3) = 6 V. R_th = (6 || 3) + 4 = 2 + 4 = 6 Ω; forgetting the 4 Ω gives 2 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m010",
+      "questionText": "An ideal 5 A current source is in parallel with a 4 Ω resistor. A 6 Ω resistor connects the top of this pair to terminal A; terminal B is the bottom of the pair. The Thevenin equivalent at A-B is:",
+      "options": [
+        "20 V in series with 2.4 Ω",
+        "50 V in series with 10 Ω",
+        "30 V in series with 10 Ω",
+        "20 V in series with 10 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "With A-B open all 5 A flows in the 4 Ω, so V_th = 5 × 4 = 20 V (the 6 Ω carries no current). Opening the current source leaves 4 + 6 = 10 Ω in series; 2.4 Ω is the parallel mix-up.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m011",
+      "questionText": "A 10 V source feeds two parallel arms. Arm 1 is 4 Ω (top) in series with 6 Ω (bottom); arm 2 is 6 Ω (top) in series with 4 Ω (bottom). A 5.2 Ω load is connected between the midpoints of the two arms. Using Thevenin's theorem, the load current is:",
+      "options": [
+        "0.2 A",
+        "0.385 A",
+        "1.15 A",
+        "0.1 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "Midpoint voltages are 10 × 6/10 = 6 V and 10 × 4/10 = 4 V, so V_th = 2 V. With the source shorted, R_th = (4 || 6) + (6 || 4) = 2.4 + 2.4 = 4.8 Ω. I = 2/(4.8 + 5.2) = 0.2 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m012",
+      "questionText": "For a Wheatstone bridge in the balanced condition, the Thevenin voltage across the detector (galvanometer) terminals is:",
+      "options": [
+        "Equal to the supply voltage",
+        "Half the supply voltage",
+        "Zero",
+        "Equal to the supply voltage divided by the Thevenin resistance"
+      ],
+      "correctIndex": 2,
+      "explanation": "At balance both midpoints are at the same potential, so V_th = 0 and no detector current flows whatever its resistance.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m013",
+      "questionText": "A 20 V source in series with 5 Ω is connected to terminal A; terminal B is the source's negative terminal. A voltage-controlled current source connected between A and B draws 0.05·V_AB amperes from A to B (V_AB in volts). The Thevenin equivalent at A-B is:",
+      "options": [
+        "20 V in series with 5 Ω",
+        "16 V in series with 5 Ω",
+        "4 V in series with 4 Ω",
+        "16 V in series with 4 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "Open circuit: (20 − V)/5 = 0.05V gives 4 = 0.25V, V_oc = 16 V. Short circuit: V_AB = 0 so the dependent source carries nothing and I_sc = 20/5 = 4 A. R_th = 16/4 = 4 Ω; killing the dependent source would wrongly give 5 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m014",
+      "questionText": "Starting at terminal B, a 10 V source (positive terminal away from B) is followed by a 2 Ω resistor carrying current I towards terminal A, and then by a current-controlled voltage source whose voltage 4I (volts, I in amperes) drops in the direction of I, ending at A. The Thevenin equivalent at A-B is:",
+      "options": [
+        "10 V in series with 2 Ω",
+        "10 V in series with 6 Ω",
+        "10 V in series with 4 Ω",
+        "1.67 V in series with 6 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_AB = 10 − 2I − 4I = 10 − 6I. Open circuit: I = 0, so V_oc = 10 V. Short circuit: 10 − 6I = 0, I_sc = 1.667 A, so R_th = 10/1.667 = 6 Ω. The dependent source behaves like an extra 4 Ω and must not be shorted.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m015",
+      "questionText": "A two-terminal network contains only resistors and dependent sources, with no independent source. Its Thevenin equivalent is:",
+      "options": [
+        "V_th = 0 with R_th found by applying a test source at the terminals",
+        "V_th equal to the dependent-source value with R_th = 0",
+        "Undefined, because the theorem needs an independent source",
+        "V_th = 0 with R_th found by killing the dependent sources"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without an independent source nothing drives the network, so V_oc = 0. R_th still exists and is found by applying a 1 V or 1 A test source with the dependent sources left active.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m016",
+      "questionText": "A 30 V source is in series with 10 Ω to node X. A 15 Ω resistor connects X to terminal B (the source's negative terminal), a 4 Ω resistor runs from X to terminal A, and a 6 Ω resistor connects A to B. The Thevenin equivalent at A-B is:",
+      "options": [
+        "18 V in series with 10 Ω",
+        "6.75 V in series with 10 Ω",
+        "6.75 V in series with 3.75 Ω",
+        "11.25 V in series with 3.75 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 4 Ω + 6 Ω branch (10 Ω) is in parallel with 15 Ω, giving 6 Ω, so V_X = 30 × 6/16 = 11.25 V and V_th = 11.25 × 6/10 = 6.75 V. R_th = ((10 || 15) + 4) || 6 = 10 || 6 = 3.75 Ω. Ignoring the 6 Ω gives 18 V and 10 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m017",
+      "questionText": "A network has V_th = 24 V and R_th = 4 Ω. The load resistance that will draw 2 A from it is:",
+      "options": [
+        "8 Ω",
+        "12 Ω",
+        "4 Ω",
+        "16 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "2 = 24/(4 + R_L) gives 4 + R_L = 12, so R_L = 8 Ω. Taking 24/2 = 12 Ω forgets R_th.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m018",
+      "questionText": "With a 2 Ω load across terminals A-B of a linear network the load voltage is 8 V; with a 6 Ω load it is 12 V. The Thevenin equivalent of the network is:",
+      "options": [
+        "12 V in series with 2 Ω",
+        "16 V in series with 4 Ω",
+        "20 V in series with 3 Ω",
+        "16 V in series with 2 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "Load currents are 8/2 = 4 A and 12/6 = 2 A. V_th = 8 + 4R_th = 12 + 2R_th gives R_th = 2 Ω and V_th = 16 V. Check: 16 × 6/8 = 12 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m019",
+      "questionText": "The open-circuit voltage of a linear network is 20 V. When a 10 Ω load is connected, the terminal voltage falls to 16 V. The Thevenin resistance is:",
+      "options": [
+        "2 Ω",
+        "12.5 Ω",
+        "2.5 Ω",
+        "4 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "Load current = 16/10 = 1.6 A. The 4 V lost is dropped across R_th, so R_th = 4/1.6 = 2.5 Ω. Using 20/10 = 2 A for the current gives the wrong 2 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m020",
+      "questionText": "The Thevenin resistance of an ideal voltage source is:",
+      "options": [
+        "Infinite",
+        "Zero",
+        "Equal to the load resistance",
+        "1 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "An ideal voltage source keeps its voltage for any current, so its terminal line has zero slope: R_th = 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m021",
+      "questionText": "For which of the following does a Thevenin equivalent NOT exist?",
+      "options": [
+        "An ideal voltage source on its own",
+        "An ideal current source on its own",
+        "A single resistor",
+        "A voltage source in series with a resistor"
+      ],
+      "correctIndex": 1,
+      "explanation": "An ideal current source has infinite internal resistance and no finite open-circuit voltage, so it cannot be written as V_th in series with a finite R_th. A single resistor is simply V_th = 0 with R_th = R.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m022",
+      "questionText": "Two branches are connected in parallel across terminals A-B: branch 1 is 12 V in series with 3 Ω, branch 2 is 6 V in series with 6 Ω, both sources having their positive terminals towards A. The Thevenin equivalent at A-B is:",
+      "options": [
+        "9 V in series with 2 Ω",
+        "18 V in series with 9 Ω",
+        "10 V in series with 9 Ω",
+        "10 V in series with 2 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "Nodal at A: (12 − V)/3 + (6 − V)/6 = 0 gives 4 + 1 = V(1/3 + 1/6), V_th = 5/0.5 = 10 V. R_th = 3 || 6 = 2 Ω. Averaging the sources (9 V) ignores the unequal resistances.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m023",
+      "questionText": "A 10 V source in series with 5 Ω is connected to node A with its positive side towards A; terminal B is its negative terminal. An ideal 2 A current source injects current into A from B. A 5 Ω load is connected across A-B. Using Thevenin's theorem, the load current is:",
+      "options": [
+        "1 A",
+        "4 A",
+        "2 A",
+        "3 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "With A-B open the 2 A must flow back through the 5 Ω into the source, so V_th = 10 + 2 × 5 = 20 V. R_th = 5 Ω (current source opened). I_L = 20/(5 + 5) = 2 A; ignoring the current source gives 1 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m024",
+      "questionText": "The Thevenin resistance of a network containing only resistors and independent sources can be measured with an ohmmeter across A-B provided that:",
+      "options": [
+        "The load is removed and every independent source is replaced by its internal resistance",
+        "The load is left connected and the sources remain active",
+        "Only the voltage sources are removed and current sources are left active",
+        "The terminals A-B are first short-circuited"
+      ],
+      "correctIndex": 0,
+      "explanation": "An ohmmeter measures resistance of a dead network. Voltage sources become shorts (plus any internal resistance), current sources become opens, and the load must be disconnected.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m025",
+      "questionText": "When finding R_th, a practical voltage source of 9 V with internal resistance 0.5 Ω is replaced by:",
+      "options": [
+        "A 0.5 Ω resistor",
+        "A short circuit, ignoring the 0.5 Ω",
+        "An open circuit",
+        "An 18 Ω resistor"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only the ideal part of the source is killed (shorted); its internal resistance of 0.5 Ω remains in the network.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m026",
+      "questionText": "An ideal 3 A current source in series with a 10 Ω resistor drives current into node A; a 5 Ω resistor connects A to terminal B, and the current source returns to B. The Thevenin equivalent at A-B is:",
+      "options": [
+        "15 V in series with 15 Ω",
+        "45 V in series with 15 Ω",
+        "30 V in series with 10 Ω",
+        "15 V in series with 5 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "The ideal source forces 3 A through the 5 Ω whatever the series 10 Ω, so V_th = 3 × 5 = 15 V. Opening the current source leaves its series 10 Ω dangling, so R_th = 5 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m027",
+      "questionText": "An ideal 12 V source has an 8 Ω resistor connected directly across its terminals. From its positive terminal a 4 Ω resistor runs to terminal A, and a 12 Ω resistor connects A to terminal B (the negative terminal). The Thevenin equivalent at A-B is:",
+      "options": [
+        "6 V in series with 6 Ω",
+        "9 V in series with 3 Ω",
+        "12 V in series with 3 Ω",
+        "9 V in series with 16 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8 Ω across the ideal source changes nothing at A-B. V_th = 12 × 12/(4 + 12) = 9 V and R_th = 4 || 12 = 3 Ω. Treating the 8 Ω as if it were in series gives 6 V and 6 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m028",
+      "questionText": "A source of 50∠0° V (rms) is in series with an inductive reactance of j10 Ω, and a 10 Ω resistor is connected across terminals A-B at the far end. The Thevenin equivalent at A-B is:",
+      "options": [
+        "35.36∠45° V in series with (5 − j5) Ω",
+        "25∠0° V in series with 5 Ω",
+        "35.36∠−45° V in series with (5 + j5) Ω",
+        "50∠0° V in series with (10 + j10) Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_th = 50 × 10/(10 + j10) = 50/(1 + j) = 35.36∠−45° V. Z_th = (j10 × 10)/(10 + j10) = j100/(10 + j10) = 5 + j5 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m029",
+      "questionText": "Thevenin's theorem is also known as the:",
+      "options": [
+        "Mayer–Norton theorem",
+        "Tellegen theorem",
+        "Millman theorem",
+        "Helmholtz–Thevenin theorem"
+      ],
+      "correctIndex": 3,
+      "explanation": "Helmholtz stated the result in 1853 and Thevenin published it independently in 1883, hence the name Helmholtz–Thevenin theorem. Mayer–Norton is the current-source dual.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m030",
+      "questionText": "A circuit has a Thevenin equivalent of 10 V in series with 10 kΩ. A voltmeter with an internal resistance of 90 kΩ is connected across its terminals. The voltmeter reads:",
+      "options": [
+        "10 V",
+        "1 V",
+        "9 V",
+        "5 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "The meter is a load: V = 10 × 90/(10 + 90) = 9 V. Only an ideal (infinite-resistance) voltmeter would read the full 10 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m031",
+      "questionText": "A 24 V source, a 2 Ω resistor, a load R_L and a 4 Ω resistor are all connected in one series loop. With R_L removed, the Thevenin equivalent across the gap left by R_L is:",
+      "options": [
+        "24 V in series with 6 Ω",
+        "12 V in series with 6 Ω",
+        "0 V in series with 6 Ω",
+        "8 V in series with 1.33 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the loop open no current flows, so neither resistor drops any voltage and the full 24 V appears across the gap. Killing the source leaves 2 + 4 = 6 Ω in series.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m032",
+      "questionText": "Every independent source in a linear resistive network is doubled in value. The Thevenin equivalent at a given pair of terminals becomes:",
+      "options": [
+        "Both V_th and R_th double",
+        "V_th doubles and R_th is unchanged",
+        "V_th is unchanged and R_th halves",
+        "V_th doubles and R_th halves"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_th is a linear function of the sources, so it doubles. R_th is found with the sources killed and depends only on the resistances, so it does not change.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m033",
+      "questionText": "A network has V_th = 18 V and R_th = 6 Ω. The current that flows if its terminals are short-circuited is:",
+      "options": [
+        "108 A",
+        "0.33 A",
+        "18 A",
+        "3 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_sc = V_th/R_th = 18/6 = 3 A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m034",
+      "questionText": "An ideal voltmeter reads 12 V across terminals A-B of a linear network. An ammeter with an internal resistance of 1 Ω connected across A-B reads 2 A. The Thevenin resistance of the network is:",
+      "options": [
+        "6 Ω",
+        "5 Ω",
+        "7 Ω",
+        "24 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ammeter is a 1 Ω load: 2 = 12/(R_th + 1), so R_th + 1 = 6 and R_th = 5 Ω. Treating the ammeter as ideal gives 6 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m035",
+      "questionText": "As the load resistance connected to a fixed Thevenin equivalent is increased from zero towards infinity, the load voltage:",
+      "options": [
+        "Falls from V_th towards zero",
+        "Stays constant at V_th",
+        "Rises from zero towards V_th",
+        "Rises without limit"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_L = V_th R_L/(R_th + R_L): zero for a short and approaching V_th as R_L becomes very large.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m036",
+      "questionText": "Two identical batteries, each of 12 V emf and 0.5 Ω internal resistance, are connected in parallel (positive to positive). The Thevenin equivalent of the combination is:",
+      "options": [
+        "12 V in series with 0.25 Ω",
+        "24 V in series with 1 Ω",
+        "12 V in series with 1 Ω",
+        "24 V in series with 0.25 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "Equal emfs in parallel give V_th = 12 V; the internal resistances combine in parallel: 0.5 || 0.5 = 0.25 Ω. 24 V and 1 Ω are the series-connection values.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m037",
+      "questionText": "An ideal 4 A current source is connected across terminals A-B together with a 6 Ω and a 3 Ω resistor, all three in parallel. The Thevenin voltage at A-B is:",
+      "options": [
+        "24 V",
+        "12 V",
+        "36 V",
+        "8 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "The resistors in parallel give 6 || 3 = 2 Ω, so V_th = 4 × 2 = 8 V. Multiplying by one resistor alone (24 V or 12 V) or by their sum (36 V) is wrong.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m038",
+      "questionText": "A 40 V source is in series with 10 Ω to node X; a 10 Ω resistor connects X to the source's negative terminal B, and a 5 Ω resistor runs from X to terminal A. A 10 Ω load is connected across A-B. Using Thevenin's theorem step by step, the load current is:",
+      "options": [
+        "1 A",
+        "2 A",
+        "1.33 A",
+        "4 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "At X: V_th1 = 40 × 10/20 = 20 V and R_th1 = 10 || 10 = 5 Ω. Adding the 5 Ω gives 20 V in series with 10 Ω at A-B, so I_L = 20/(10 + 10) = 1 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m039",
+      "questionText": "A network has V_th = 15 V and R_th = 3 Ω. The load resistance for which the load voltage is 12 V is:",
+      "options": [
+        "4 Ω",
+        "12 Ω",
+        "9 Ω",
+        "15 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "12 = 15 R_L/(3 + R_L) gives 36 + 12R_L = 15R_L, so R_L = 12 Ω. Check: current 15/15 = 1 A, V_L = 12 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m040",
+      "questionText": "A Thevenin equivalent of 20 V in series with 4 Ω supplies a 6 Ω load. The power delivered to the load is:",
+      "options": [
+        "16 W",
+        "66.7 W",
+        "24 W",
+        "40 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "I = 20/(4 + 6) = 2 A and P_L = I²R_L = 4 × 6 = 24 W. 16 W is the loss in R_th and 66.7 W wrongly uses V_th²/R_L.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m041",
+      "questionText": "The correct way to find the Thevenin resistance of a network that contains dependent sources is to:",
+      "options": [
+        "Kill all sources, dependent and independent, and combine the resistances",
+        "Replace each dependent source by the resistor that controls it",
+        "Apply a test source at the terminals (or use V_oc/I_sc) with the dependent sources left active",
+        "Declare R_th undefined, since dependent sources make the network nonlinear"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dependent sources are part of the network's own behaviour and must stay active. A network with linear dependent sources is still linear, so R_th exists and is found by a test source or V_oc/I_sc.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m042",
+      "questionText": "An ideal 6 A current source is in parallel with 2 Ω. A 3 Ω resistor connects the top of this pair to node A, a 5 Ω resistor connects A to the bottom of the pair (terminal B), and a 3.5 Ω load is connected across A-B. Using Thevenin's theorem, the load current is:",
+      "options": [
+        "1 A",
+        "1.41 A",
+        "1.71 A",
+        "2 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "6 A || 2 Ω is 12 V in series with 2 Ω; adding 3 Ω gives 12 V with 5 Ω. With the 5 Ω shunt at A: V_th = 12 × 5/10 = 6 V and R_th = 5 || 5 = 2.5 Ω. I_L = 6/(2.5 + 3.5) = 1 A; ignoring the 5 Ω shunt gives 1.41 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i22_m043",
+      "questionText": "Thevenin's theorem saves the most work when:",
+      "options": [
+        "The network contains only one resistor",
+        "The current in one element must be found for several different values of that element",
+        "Every element in the network is nonlinear",
+        "The load is an ideal voltage source"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_th and R_th are found once; each new load value then needs only I_L = V_th/(R_th + R_L).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i22_m044",
+      "questionText": "A Thevenin equivalent of 10∠0° V in series with Z_th = (3 + j4) Ω supplies a purely resistive 5 Ω load. The magnitude of the load current is:",
+      "options": [
+        "1.25 A",
+        "1.0 A",
+        "2.0 A",
+        "1.12 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "Z_total = 3 + j4 + 5 = 8 + j4 Ω with |Z| = √(64 + 16) = 8.94 Ω, so I = 10/8.94 = 1.12 A. Dropping j4 gives 1.25 A; adding magnitudes 5 + 5 gives 1.0 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m045",
+      "questionText": "A Thevenin equivalent of 9 V in series with 3 Ω supplies a 3 Ω load. If the load is changed to 6 Ω, the load current:",
+      "options": [
+        "Halves from 1.5 A to 0.75 A",
+        "Stays at 1.5 A",
+        "Falls from 3 A to 1.5 A",
+        "Falls from 1.5 A to 1 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "I = 9/(3 + 3) = 1.5 A before and 9/(3 + 6) = 1 A after. The current does not halve because R_th stays in the loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i22_m046",
+      "questionText": "In a network with two independent sources, the Thevenin voltage at a pair of terminals can be found by:",
+      "options": [
+        "Adding the open-circuit voltages produced by each source acting alone",
+        "Adding the two source voltages directly",
+        "Taking the larger of the two source voltages",
+        "Multiplying one source's short-circuit current by the load resistance"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_th is the open-circuit voltage of a linear network, so superposition applies: find V_oc with each source alone (the other killed) and add the results algebraically.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,520 @@
+{
+ "topicId": "ch5_i21",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Windows, Link Efficiency and HDLC"
+  },
+  {
+   "type": "paragraph",
+   "text": "The basic problem of flow control is that a fast sender can overwhelm a slow receiver, and the two basic answers are stop-and-wait (send one frame, wait for its ACK, then send the next) and sliding window (send several frames before waiting). Why the sliding window wins is easiest to see by picturing the link as a pipe: it takes t_frame to push a frame in, and another 2 t_prop before the first ACK can come back. Stop-and-wait keeps the pipe busy for only 1 of every 1 + 2a frame times, while a window of 1 + 2a frames fills it completely. That number is the bandwidth × round-trip-delay product divided by the frame length, plus one."
+  },
+  {
+   "type": "formula",
+   "latex": "W_{full} = 1 + 2a = 1 + \\frac{2\\, t_{prop}\\, B}{L},\\quad S = U \\cdot B",
+   "plainText": "Window for 100% use: W_full = 1 + 2a = 1 + 2 t_prop B / L; throughput S = U × B"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Link: 10 Mbps, 2000 km of fibre (2 x 10^8 m/s), 1000-byte frames\nt_frame = 8000 bits / 10^7 bit/s    = 0.8 ms\nt_prop  = 2 x 10^6 m / 2 x 10^8 m/s = 10 ms  (one way)\na = t_prop / t_frame = 12.5,   1 + 2a = 26\nStop-and-wait: U = 1/26 = 3.85%  -> S = 0.0385 x 10 Mbps = 385 kbps\nWindow W = 7 : U = 7/26 = 26.9%  -> S = 2.69 Mbps\nFull use needs W >= 26 frames outstanding:\n  Go-Back-N        2^m - 1 >= 26 -> m = 5 bits (window up to 31)\n  Selective Repeat 2^(m-1) >= 26 -> m = 6 bits (window up to 32)"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Protocol (frame error probability P)",
+     "Link utilisation U"
+    ],
+    [
+     "Stop-and-wait ARQ",
+     "(1 − P) / (1 + 2a)"
+    ],
+    [
+     "Selective Repeat, W ≥ 1 + 2a",
+     "1 − P"
+    ],
+    [
+     "Selective Repeat, W < 1 + 2a",
+     "W(1 − P) / (1 + 2a)"
+    ],
+    [
+     "Go-Back-N, W ≥ 1 + 2a",
+     "(1 − P) / (1 + 2aP)"
+    ],
+    [
+     "Go-Back-N, W < 1 + 2a",
+     "W(1 − P) / [(1 + 2a)(1 − P + WP)]"
+    ]
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "3-bit numbers; S sends frames 0 1 2 3; frame 1 is lost; ACKs are not lost\nGo-Back-N (receiver window 1, cumulative ACK = next frame expected)\n  R: 0 ok -> ACK 1; 2 and 3 out of order -> discarded, ACK 1 repeated\n  S: timer of frame 1 expires (or a NAK arrives) -> resends 1, 2, 3\nSelective Repeat (receiver window 4, frames acknowledged individually)\n  R: 0 ok -> delivered; 2 and 3 buffered and acknowledged; NAK 1 sent\n  S: resends only frame 1; R then delivers 1, 2, 3 in order"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Why the window limits? Take m = 2, so the numbers are 0, 1, 2, 3\nGo-Back-N, W = 4: S sends 0 1 2 3, all arrive, all four ACKs are lost\n  R now expects the NEXT frame 0; S times out and resends the OLD 0\n  R accepts the old frame as new -> duplicate delivered\n  With W = 3, R expects 3 and rejects the old 0: W <= 2^m - 1\nSelective Repeat, W = 3: S sends 0 1 2, all arrive, all ACKs are lost\n  R's window has moved to {3, 0, 1}; the resent old 0 falls inside it\n  and is accepted as new -> duplicate delivered\n  With W = 2, R's window is {2, 3} and the old 0 is rejected: W <= 2^(m-1)"
+  },
+  {
+   "type": "bulletList",
+   "text": "Acknowledgements, timers and piggybacking in practice:",
+   "items": [
+    "ACK n normally means 'every frame before n has arrived; send n next'. Go-Back-N and HDLC's N(R) use this cumulative form, so one ACK can confirm several frames.",
+    "A NAK (HDLC REJ or SREJ) lets the sender resend before its timer runs out. The timeout itself must exceed t_frame + 2 t_prop plus the ACK's transmission and processing time.",
+    "Go-Back-N needs only one timer, for the oldest outstanding frame; Selective Repeat keeps a timer for every outstanding frame.",
+    "Piggybacking puts the ACK in the header of a data frame going the other way. The receiver keeps a short ACK timer, and if no data frame is ready when it expires, it sends a separate ACK.",
+    "Sequence numbers wrap around modulo 2^m: with m = 3 the ninth frame is numbered 0 again."
+   ]
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "HDLC frame",
+     "Control field starts with",
+     "What the control field carries"
+    ],
+    [
+     "I-frame",
+     "0",
+     "N(S) and N(R) (3 bits each) and the P/F bit"
+    ],
+    [
+     "S-frame",
+     "10",
+     "2-bit code (RR, REJ, RNR, SREJ), P/F and N(R); no N(S)"
+    ],
+    [
+     "U-frame",
+     "11",
+     "5 modifier bits (SABM, SNRM, DISC, UA, FRMR, …) and P/F"
+    ],
+    [
+     "Extended mode",
+     "16-bit control field for I- and S-frames (U-frames keep 8 bits)",
+     "7-bit N(S) and N(R), so windows up to 127"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "HDLC supervisory frames, stations and modes:",
+   "items": [
+    "RR (Receive Ready) acknowledges frames up to N(R) − 1 and invites more; RNR (Receive Not Ready) acknowledges them but tells the sender to pause, which is flow control.",
+    "REJ asks for frame N(R) and every frame after it (Go-Back-N); SREJ asks for frame N(R) only (Selective Repeat).",
+    "The P/F bit is Poll in a command (the primary asks for a response) and Final in a response (the last frame of the reply).",
+    "Stations: a primary sends commands, a secondary sends responses and a combined station does both. NRM (unbalanced) lets a secondary send only when polled, ABM (balanced) lets either combined station start, and ARM lets a secondary start without a poll but is rarely used."
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes in flow-control problems:",
+   "items": [
+    "Using the round-trip time in a: a uses the one-way propagation delay, and the 2 in 1 + 2a already covers the return trip.",
+    "Mixing bits and bytes in t_frame = L / B, or treating 1 Mbps as 2^20 bit/s instead of 10^6 bit/s.",
+    "Forgetting the cap: when W ≥ 1 + 2a the utilisation is 100%, not W / (1 + 2a).",
+    "Using 2^m as the window: Go-Back-N allows 2^m − 1 and Selective Repeat 2^(m−1).",
+    "In Go-Back-N the sender resends the lost frame and every frame sent after it, not the frames before it that were already acknowledged."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "Solve every efficiency problem in the same order: t_frame = L / B, t_prop = d / v, a = t_prop / t_frame, then U = W / (1 + 2a) capped at 100% (W = 1 for stop-and-wait), and finally throughput = U × B. Write the units at each step and check whether a question states a one-way delay or a round-trip time."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch5_i21_m001",
+   "questionText": "Which error-control method at the data link layer retransmits corrupted or lost frames?",
+   "options": [
+    "Automatic Repeat reQuest (ARQ)",
+    "Forward Error Correction (FEC)",
+    "Parity check",
+    "Manchester encoding"
+   ],
+   "correctIndex": 0,
+   "explanation": "ARQ detects errors (e.g. with a CRC) and uses ACKs, NAKs and timeouts to get damaged or lost frames sent again; stop-and-wait, Go-Back-N and Selective Repeat are ARQ protocols. FEC repairs errors without retransmission, parity only detects them, and Manchester encoding is a line code.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m002",
+   "questionText": "What problem does flow control solve at the data link layer?",
+   "options": [
+    "Bit errors caused by noise on the link",
+    "Collisions between stations on a shared medium",
+    "A fast sender overwhelming a slow receiver",
+    "Choosing the best route through the network"
+   ],
+   "correctIndex": 2,
+   "explanation": "Flow control limits how much the sender may transmit before hearing from the receiver, so the receiver's buffers are not overrun. Error control handles noise, medium access control handles collisions, and routing is a network-layer job.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m003",
+   "questionText": "Why does stop-and-wait ARQ number its frames 0 and 1 instead of sending them unnumbered?",
+   "options": [
+    "So the sender can have two frames outstanding at once",
+    "So the receiver can recognise a duplicate frame that is resent after a lost ACK",
+    "So the receiver can detect bit errors in the frame",
+    "So frames can be delivered out of order"
+   ],
+   "correctIndex": 1,
+   "explanation": "If an ACK is lost, the sender times out and resends the same frame. The alternating number lets the receiver see that it already has this frame, discard it and acknowledge again. Only one frame is ever outstanding, and bit errors are detected by the CRC.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m004",
+   "questionText": "Stop-and-wait flow control runs on a 10 Mbps link (1 Mbps = 10^6 bit/s) that is 3000 km long, with signal speed 2 × 10^8 m/s. Frames are 1250 bytes; ACK time, processing and queueing delays are negligible. What is the maximum link utilisation?",
+   "options": [
+    "6.3%",
+    "3.2%",
+    "1.6%",
+    "0.41%"
+   ],
+   "correctIndex": 1,
+   "explanation": "t_frame = 10,000 bits / 10^7 bit/s = 1 ms and t_prop = 3 × 10^6 m / 2 × 10^8 m/s = 15 ms, so a = 15 and U = 1 / (1 + 30) = 1/31 ≈ 3.2%. Using 1/(1 + a) gives 6.3%, and reading 1250 as bits gives 0.41%.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m005",
+   "questionText": "A stop-and-wait sender uses 1000-byte frames on a 1 Mbps link (10^6 bit/s) with a one-way propagation delay of 16 ms. ACK transmission and processing times are negligible. What is the effective throughput?",
+   "options": [
+    "333 kbps",
+    "250 kbps",
+    "30.3 kbps",
+    "200 kbps"
+   ],
+   "correctIndex": 3,
+   "explanation": "t_frame = 8000 bits / 10^6 bit/s = 8 ms. Each frame occupies t_frame + 2 t_prop = 8 + 32 = 40 ms, so throughput = 8000 bits / 0.040 s = 200 kbps. Counting only the one-way delay gives 333 kbps.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m006",
+   "questionText": "Frames take 1 ms to transmit and the one-way propagation delay is 12 ms. What is the minimum number of sequence-number bits that lets Go-Back-N keep the link 100% busy (errors, ACK transmission and processing times ignored)?",
+   "options": [
+    "3 bits",
+    "4 bits",
+    "5 bits",
+    "6 bits"
+   ],
+   "correctIndex": 2,
+   "explanation": "Full use needs W ≥ 1 + 2a = 1 + 2 × 12 = 25 frames. Go-Back-N allows 2^m − 1 frames: 2^4 − 1 = 15 is too small and 2^5 − 1 = 31 is enough, so m = 5. Selective Repeat would need 6 bits, and forgetting the factor 2 (W = 13) wrongly gives 4 bits.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i21_m007",
+   "questionText": "A sliding-window protocol has a window of 15 frames, a frame transmission time of 2 ms and a one-way propagation delay of 30 ms. Ignoring errors, ACK transmission and processing times, what is the link utilisation?",
+   "options": [
+    "48.4%",
+    "93.8%",
+    "3.2%",
+    "100%"
+   ],
+   "correctIndex": 0,
+   "explanation": "a = 30 / 2 = 15 and 1 + 2a = 31, which is more than W, so U = W / (1 + 2a) = 15/31 ≈ 48.4%. Using 1 + a gives 93.8%, and stop-and-wait would give only 1/31 ≈ 3.2%.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m008",
+   "questionText": "A 1 Mbps (10^6 bit/s) satellite link has a one-way propagation delay of 270 ms and carries 1000-byte frames. Go-Back-N with 3-bit sequence numbers and its maximum window is used; errors, ACK time and header overhead are ignored. What is the effective throughput?",
+   "options": [
+    "117 kbps",
+    "201 kbps",
+    "102 kbps",
+    "12.9 kbps"
+   ],
+   "correctIndex": 2,
+   "explanation": "t_frame = 8000 / 10^6 = 8 ms, a = 270 / 8 = 33.75 and 1 + 2a = 68.5. The window is 2^3 − 1 = 7 < 68.5, so U = 7 / 68.5 ≈ 10.2% and throughput ≈ 0.102 × 1 Mbps ≈ 102 kbps. A window of 8 would give 117 kbps.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i21_m009",
+   "questionText": "HDLC in extended mode uses a 16-bit control field with 7-bit sequence numbers. What is the largest sender window it can use as a Go-Back-N protocol?",
+   "options": [
+    "127",
+    "128",
+    "64",
+    "7"
+   ],
+   "correctIndex": 0,
+   "explanation": "The Go-Back-N limit is 2^m − 1 = 2^7 − 1 = 127 outstanding frames. A window of 128 would let an old and a new frame carry the same number, and 7 is the limit of the normal 3-bit mode.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m010",
+   "questionText": "Selective Repeat ARQ uses 5-bit sequence numbers. What are the maximum sender window and receiver window sizes?",
+   "options": [
+    "31 and 1",
+    "32 and 32",
+    "16 and 1",
+    "16 and 16"
+   ],
+   "correctIndex": 3,
+   "explanation": "Selective Repeat limits both windows to half the sequence space, 2^(5−1) = 16 each, so an old retransmitted frame can never fall inside the receiver's new window. 31 and 1 are the Go-Back-N limits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m011",
+   "questionText": "A Go-Back-N sender (3-bit sequence numbers, window 7) sends frames numbered 3, 4, 5, 6, 7, 0, 1 and then has no more data. Frame 5 is lost; every other frame and every ACK arrives. When the timer for frame 5 expires, which frames are retransmitted?",
+   "options": [
+    "5 only",
+    "5, 6, 7",
+    "3, 4, 5, 6, 7, 0, 1",
+    "5, 6, 7, 0, 1"
+   ],
+   "correctIndex": 3,
+   "explanation": "The receiver accepts 3 and 4 but discards 6, 7, 0 and 1 because they arrive out of order, so the sender goes back to 5 and resends 5, 6, 7, 0, 1. The numbers wrap around modulo 8 after 7.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m012",
+   "questionText": "A Selective Repeat receiver (3-bit sequence numbers, window 4) expects frames 4, 5, 6 and 7. Frames 4, 6 and 7 arrive, but frame 5 is lost; ACKs are not lost. What does the receiver do with frames 6 and 7, and what does the sender resend?",
+   "options": [
+    "It buffers frames 6 and 7, and the sender resends only frame 5",
+    "It discards frames 6 and 7, and the sender resends frames 5, 6 and 7",
+    "It delivers frames 6 and 7 to the network layer at once, and the sender resends only frame 5",
+    "It buffers frames 6 and 7, and the sender resends frames 5, 6 and 7"
+   ],
+   "correctIndex": 0,
+   "explanation": "Frames 6 and 7 fall inside the receive window, so they are buffered and acknowledged individually while frame 4 is delivered. Only frame 5 is resent; when it arrives, 5, 6 and 7 are handed up in order.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m013",
+   "questionText": "A Go-Back-N sender with window size 4 must deliver 10 packets. Every 6th transmission (counting retransmissions) is lost; ACKs are never lost and arrive in time to slide the window; after a loss the sender keeps sending while its window allows, then its timer for the lost packet expires and it goes back. How many transmissions are needed in total?",
+   "options": [
+    "11",
+    "14",
+    "17",
+    "18"
+   ],
+   "correctIndex": 2,
+   "explanation": "Numbering the packets 0–9, the transmissions are 0 1 2 3 4 5x 6 7 8 | 5 6 7x 8 9 | 7 8 9, which is 17. The 6th (packet 5) and 12th (packet 7) are lost, and each loss forces the packets sent after it to be sent again; 11 would be the count if only lost packets were resent.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i21_m014",
+   "questionText": "What is piggybacking in data link protocols?",
+   "options": [
+    "Sending the same frame over two links at once",
+    "Carrying the acknowledgement for received frames in the header of an outgoing data frame",
+    "Combining several small frames into one large frame",
+    "Retransmitting a frame before its timer expires"
+   ],
+   "correctIndex": 1,
+   "explanation": "When data flows in both directions, the acknowledgement rides in the header of the next data frame going back (e.g. HDLC's N(R) field) instead of using a separate ACK frame, which saves bandwidth and frame overhead.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m015",
+   "questionText": "Which statement about piggybacking is correct?",
+   "options": [
+    "It works only when data flows in one direction",
+    "It removes the need for sequence numbers",
+    "It increases the number of frames on the link",
+    "If no outgoing data frame is ready within a short time, the receiver sends a separate ACK so that the sender does not time out"
+   ],
+   "correctIndex": 3,
+   "explanation": "The receiver waits briefly for a data frame to carry the ACK, and if none is ready before its ACK timer expires it sends a separate ACK. Piggybacking needs traffic in both directions, still needs sequence numbers, and reduces the number of frames.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m016",
+   "questionText": "In HDLC, the first bits of the control field identify the frame type. What is a frame whose control field begins with the bits 10?",
+   "options": [
+    "An I-frame carrying user data with N(S) and N(R)",
+    "A U-frame carrying link-management commands such as SABM or DISC",
+    "An S-frame carrying flow/error control such as RR or REJ, with N(R) but no N(S)",
+    "An S-frame carrying user data with N(S) and N(R)"
+   ],
+   "correctIndex": 2,
+   "explanation": "A control field starting with 0 marks an I-frame, 10 an S-frame and 11 a U-frame. S-frames carry RR, RNR, REJ or SREJ with an N(R) acknowledgement but no N(S), because they carry no data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m017",
+   "questionText": "Which HDLC command sets up a link in asynchronous balanced mode?",
+   "options": [
+    "SNRM",
+    "DISC",
+    "UA",
+    "SABM"
+   ],
+   "correctIndex": 3,
+   "explanation": "SABM (Set Asynchronous Balanced Mode) is an unnumbered command, and the other station accepts it with UA (Unnumbered Acknowledgement). SNRM sets normal response mode and DISC releases the link.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m018",
+   "questionText": "In which HDLC mode may a secondary station transmit only after it has been polled by the primary?",
+   "options": [
+    "Asynchronous balanced mode (ABM)",
+    "Normal response mode (NRM)",
+    "Asynchronous response mode (ARM)",
+    "Point-to-point mode"
+   ],
+   "correctIndex": 1,
+   "explanation": "In normal response mode (an unbalanced configuration) the primary controls the link, and a secondary sends only in response to a poll (P bit set). In ABM either combined station may transmit, and in ARM a secondary may start without a poll.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m019",
+   "questionText": "What is the correct order of the fields in an HDLC frame?",
+   "options": [
+    "Flag, Address, Control, Information, FCS, Flag",
+    "Flag, Control, Address, Information, FCS, Flag",
+    "Address, Flag, Control, FCS, Information, Flag",
+    "Flag, Address, Information, Control, FCS, Flag"
+   ],
+   "correctIndex": 0,
+   "explanation": "An HDLC frame is the opening flag 01111110, address, control, information (data), the frame check sequence (CRC-16 or CRC-32) and the closing flag. The FCS comes last so it can be computed while the bits are sent.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m020",
+   "questionText": "What is the difference between the HDLC supervisory frames REJ and SREJ?",
+   "options": [
+    "REJ stops the sender temporarily and SREJ restarts it",
+    "REJ asks for frame N(R) and every frame after it (Go-Back-N); SREJ asks for frame N(R) only (Selective Repeat)",
+    "REJ asks for frame N(R) only; SREJ asks for frame N(R) and every frame after it",
+    "REJ acknowledges frames and SREJ disconnects the link"
+   ],
+   "correctIndex": 1,
+   "explanation": "REJ (reject) makes the sender go back and resend from frame N(R) onwards, while SREJ (selective reject) asks for just frame N(R). Pausing the sender is done with RNR and resuming with RR.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m021",
+   "questionText": "An HDLC station receives an I-frame with N(S) = 3 and N(R) = 5. What does N(R) = 5 tell it?",
+   "options": [
+    "Frame 5 has been received correctly",
+    "Frame 5 was damaged and must be resent",
+    "Frames up to 4 have been received correctly and frame 5 is expected next",
+    "The frame carrying these fields is frame number 5"
+   ],
+   "correctIndex": 2,
+   "explanation": "N(R) is a piggybacked acknowledgement giving the number of the next frame expected, so all frames up to 4 have arrived correctly. N(S) = 3 is the sequence number of the frame itself.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m022",
+   "questionText": "Stop-and-wait ARQ runs on a link with frame transmission time 1 ms and one-way propagation delay 1.5 ms. Each frame is corrupted with probability 0.1; ACKs are never lost, and every attempt, successful or not, occupies t_frame + 2 t_prop. What is the link utilisation?",
+   "options": [
+    "22.5%",
+    "25%",
+    "36%",
+    "2.5%"
+   ],
+   "correctIndex": 0,
+   "explanation": "a = 1.5, so one attempt takes 1 + 2a = 4 frame times, and on average 1/(1 − P) attempts are needed: U = (1 − P)/(1 + 2a) = 0.9/4 = 22.5%. Ignoring errors gives 25%, and dropping the factor 2 gives 0.9/2.5 = 36%.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i21_m023",
+   "questionText": "Which statement comparing Go-Back-N and Selective Repeat is NOT correct?",
+   "options": [
+    "Selective Repeat needs buffers at the receiver for out-of-order frames",
+    "Go-Back-N allows a larger sender window than Selective Repeat for the same number of sequence bits",
+    "Go-Back-N can use cumulative acknowledgements",
+    "Go-Back-N retransmits fewer frames than Selective Repeat on a noisy link"
+   ],
+   "correctIndex": 3,
+   "explanation": "Selective Repeat resends only the lost or damaged frames, whereas Go-Back-N also resends every frame sent after a lost one, so Go-Back-N retransmits more. The other statements are true: SR buffers out-of-order frames, 2^m − 1 > 2^(m−1), and GBN uses cumulative ACKs.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m024",
+   "questionText": "Selective Repeat with 2-bit sequence numbers (0–3) is given a window of 3 frames instead of the maximum of 2. Frames 0, 1 and 2 all arrive, but all their ACKs are lost. What goes wrong?",
+   "options": [
+    "Frames 0 and 2 would get the same sequence number",
+    "A retransmitted old frame 0 could be accepted as a new frame 0",
+    "The receiver would need a larger window than the sender",
+    "The receiver could no longer detect errors with its CRC"
+   ],
+   "correctIndex": 1,
+   "explanation": "After frames 0–2 the receiver's window moves to {3, 0, 1}. When the sender times out and resends the old frame 0, it falls inside that window and is accepted as a new frame, so a duplicate is delivered. With W = 2^(m−1) = 2 the old and new windows never overlap.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i21_m025",
+   "questionText": "In stop-and-wait ARQ, the sender's retransmission timer should be set slightly longer than which interval?",
+   "options": [
+    "The frame transmission time only",
+    "The one-way propagation delay",
+    "Half the frame transmission time",
+    "The round trip: frame transmission time + 2 × propagation delay, plus ACK and processing time"
+   ],
+   "correctIndex": 3,
+   "explanation": "The timer must not expire before the ACK could possibly return: the frame's transmission time, a round-trip propagation (2 t_prop), and the ACK's transmission and processing time. A shorter timeout causes needless duplicate frames.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m026",
+   "questionText": "In stop-and-wait ARQ, frame 0 arrives correctly but its acknowledgement (ACK 1, meaning 'frame 1 expected next') is lost. The sender times out and resends frame 0. What does the receiver do?",
+   "options": [
+    "It discards the duplicate frame 0 and sends ACK 1 again",
+    "It delivers frame 0 to the network layer a second time and sends ACK 0",
+    "It sends a NAK for frame 1",
+    "It ignores the frame without replying, so the sender keeps retransmitting"
+   ],
+   "correctIndex": 0,
+   "explanation": "The receiver is expecting frame 1, so it recognises the frame numbered 0 as a duplicate, discards it and sends ACK 1 again; the sender then moves on to frame 1. Delivering it again would duplicate data, and staying silent would make the sender retransmit forever.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m027",
+   "questionText": "In Go-Back-N ARQ with m-bit sequence numbers, how many frames can the receiver's window hold?",
+   "options": [
+    "1",
+    "2^m − 1",
+    "2^(m−1)",
+    "Equal to the sender window"
+   ],
+   "correctIndex": 0,
+   "explanation": "The Go-Back-N receiver accepts only the next in-order frame and discards all others, so its window is 1. The sender window can be up to 2^m − 1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m028",
+   "questionText": "All else unchanged, which change increases the link utilisation of stop-and-wait flow control?",
+   "options": [
+    "Increasing the link bandwidth while keeping the frame size",
+    "Increasing the distance between the stations",
+    "Using longer frames",
+    "Adding more bits to the sequence number"
+   ],
+   "correctIndex": 2,
+   "explanation": "Longer frames increase t_frame and so reduce a = t_prop / t_frame, raising U = 1/(1 + 2a). A faster link or a longer distance increases a, and extra sequence bits do not help a window of 1.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i21_m029",
+   "questionText": "In HDLC, what is a station called that can send both commands and responses, as used in asynchronous balanced mode?",
+   "options": [
+    "Primary station",
+    "Secondary station",
+    "Master station",
+    "Combined station"
+   ],
+   "correctIndex": 3,
+   "explanation": "A primary station sends commands, a secondary station sends responses, and a combined station does both. Two combined stations form the balanced configuration used by ABM.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i21_m030",
+   "questionText": "The frame transmission time is 1 ms and the one-way propagation delay is 2.5 ms. Go-Back-N and Selective Repeat each use 3-bit sequence numbers with their maximum windows. Ignoring errors, ACK transmission and processing times, what are their link utilisations (Go-Back-N first)?",
+   "options": [
+    "100% and 100%",
+    "100% and 66.7%",
+    "63.6% and 36.4%",
+    "66.7% and 100%"
+   ],
+   "correctIndex": 1,
+   "explanation": "One round trip lasts 1 + 2a = 1 + 2 × 2.5 = 6 frame times. Go-Back-N's window 2^3 − 1 = 7 ≥ 6 gives U = 100%, and Selective Repeat's window 2^2 = 4 gives U = 4/6 ≈ 66.7%.",
+   "difficulty": "hard"
+  }
+ ]
+}

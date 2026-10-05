@@ -1,0 +1,746 @@
+{
+  "topicId": "ch3_i12",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Flags, %g, scanf Controls and String I/O"
+    },
+    {
+      "type": "paragraph",
+      "text": "printf walks through its format string from left to right. Ordinary characters are copied unchanged, and each conversion consumes the next argument, which must have exactly the type the specifier expects; a mismatch (such as an int passed to %f) or a missing argument is undefined behaviour, while surplus arguments are evaluated and ignored. A conversion first produces its natural text and only then applies the width, so each field contributes max(width, natural length) characters. Adding these lengths and the ordinary characters gives printf's return value."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Flag",
+          "Effect",
+          "Example"
+        ],
+        [
+          "-",
+          "Left-justify inside the field (pad on the right)",
+          "%-5d with 42 gives '42   '"
+        ],
+        [
+          "0",
+          "Pad numbers with leading zeros; ignored with -, and for integers when a precision is given",
+          "%05d with 42 gives '00042'"
+        ],
+        [
+          "+",
+          "Always print a sign for signed conversions",
+          "%+d with 42 gives '+42'"
+        ],
+        [
+          "space",
+          "Print a blank where a + would go; ignored if + is also present",
+          "% d with 42 gives ' 42'"
+        ],
+        [
+          "#",
+          "Alternate form: 0 prefix for %o, 0x or 0X for %x/%X, keep the point for %f/%e and trailing zeros for %g",
+          "%#o with 8 gives '010'; %#x with 255 gives '0xff'"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{len}_i = \\max(w_i, L_i);\\quad \\text{ret} = \\sum \\text{len}_i + \\text{literals}",
+      "plainText": "each field prints max(width, natural length) characters; printf returns the sum of the field lengths plus the literal characters"
+    },
+    {
+      "type": "bulletList",
+      "text": "How %g chooses between fixed and exponential style (P = precision, default 6; X = the exponent the value would have in %e style):",
+      "items": [
+        "If P > X >= -4, %g uses fixed style with P - 1 - X decimals; otherwise it uses e-style with P - 1 decimals.",
+        "Trailing zeros, and a decimal point left at the end, are then removed unless the # flag is given.",
+        "100000.0 has X = 5, so it prints 100000; 1000000.0 has X = 6, so it prints 1e+06.",
+        "0.0001234 has X = -4 and stays fixed (0.0001234); 0.00001234 has X = -5 and prints 1.234e-05.",
+        "%.3g keeps 3 significant digits: 1234.0 prints 1.23e+03 and 3.14159 prints 3.14.",
+        "%e and %g always print at least two exponent digits, as in e+05 or e-12."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int n = printf(\"[%6.2f|%-4d|%+d]\", 3.14159, 7, 5);\n    printf(\" %d\\n\", n);\n    n = printf(\"%#o %#x % d\", 8, 255, 42);\n    printf(\" %d\\n\", n);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n[  3.14|7   |+5] 16\n010 0xff  42 12\n\nTrace:\n%6.2f 3.14159 -> '3.14' (4 chars) padded to 6 -> '  3.14'\n%-4d  7       -> '7' padded on the right     -> '7   '\n%+d   5       -> '+5'\ncount 1 + 6 + 1 + 4 + 1 + 2 + 1 = 16, so n = 16\n%#o 8 -> '010', %#x 255 -> '0xff', % d 42 -> ' 42'\ncount 3 + 1 + 4 + 1 + 3 = 12, so n = 12"
+    },
+    {
+      "type": "bulletList",
+      "text": "scanf controls that go beyond the basic rules:",
+      "items": [
+        "A width limits one conversion: with input 12345, \"%2d%d\" stores 12 and 345.",
+        "An asterisk suppresses assignment: %*d reads a number and discards it, and it is not counted in the return value.",
+        "%i reads integers the way C constants are written (010 is octal 8, 0x10 is hexadecimal 16), whereas %d always reads decimal.",
+        "A scanset reads characters from a set: %[a-z] takes lowercase letters only and %[^,] takes everything up to a comma; always add a width such as %19[^,].",
+        "Whitespace in the format matches any amount of whitespace, including none; any other character must match the input exactly, or scanf stops and returns the count so far.",
+        "%n stores the number of characters consumed so far into an int and is not counted in the return value."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    char buf[40], name[10];\n    int d, m, y;\n    int k = sscanf(\"12-05-2024 Ram\", \"%d-%d-%d %9s\", &d, &m, &y, name);\n    int len = sprintf(buf, \"%s:%02d/%02d/%d\", name, m, d, y % 100);\n    printf(\"%d %s %d\\n\", k, buf, len);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n4 Ram:05/12/24 12\n\nTrace:\nsscanf: %d -> d = 12, '-' matches, %d -> m = 5, '-' matches\n        %d -> y = 2024, the blank skips the space, %9s -> name = Ram\n        4 items stored, so k = 4\nsprintf: Ram + ':' + 05 + '/' + 12 + '/' + 24 = Ram:05/12/24\n        12 characters stored (the '\\0' is not counted), so len = 12"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Function",
+          "Newline handling",
+          "Returns"
+        ],
+        [
+          "fgets(s, n, fp)",
+          "Keeps the '\\n' if it fits within n - 1 characters",
+          "s, or NULL at end of file or on error"
+        ],
+        [
+          "puts(s)",
+          "Writes s and then adds '\\n'",
+          "A non-negative value, or EOF on error"
+        ],
+        [
+          "fputs(s, fp)",
+          "Writes s exactly and adds nothing",
+          "A non-negative value, or EOF on error"
+        ],
+        [
+          "getchar()",
+          "Returns '\\n' like any other character",
+          "The character as an int, or EOF"
+        ],
+        [
+          "putchar(c)",
+          "Writes only the one character c",
+          "The character written, or EOF on error"
+        ],
+        [
+          "sprintf(buf, ...)",
+          "Stores the text plus '\\0' in buf",
+          "Characters stored, not counting '\\0'"
+        ],
+        [
+          "snprintf(buf, n, ...)",
+          "Stores at most n - 1 characters plus '\\0'",
+          "The length the full text would have had"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Keep getchar()'s result in an int. With char c, the loop while ((c = getchar()) != EOF) either never ends (if char is unsigned, c can never equal EOF) or stops early at a 0xFF byte (if char is signed). Also never pass user text as the format itself, as in printf(line): any % inside it is treated as a conversion, so write printf(\"%s\", line)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i12_m001",
+      "questionText": "Assume the ASCII character set. What is the output of the following statement?\nprintf(\"%d %c %x\", 'A', 66, 255);",
+      "options": [
+        "A B ff",
+        "65 B ff",
+        "65 66 ff",
+        "65 B FF"
+      ],
+      "correctIndex": 1,
+      "explanation": "In C a character constant such as 'A' has type int, so %d prints its code 65. %c prints the character whose code is 66 (B), and %x prints 255 in lowercase hexadecimal, ff.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m002",
+      "questionText": "What is the output of the following statement?\nprintf(\"%.3f\", 2.0 / 3);",
+      "options": [
+        "0.667",
+        "0.666",
+        "0.666667",
+        "0.67"
+      ],
+      "correctIndex": 0,
+      "explanation": "2.0 / 3 is a double division giving 0.666666...; %.3f keeps three decimals and rounds using the next digit (6), so 0.667 is printed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m003",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%6s][%-6s]\", \"Kath\", \"Kath\");",
+      "options": [
+        "[Kath  ][  Kath]",
+        "[Kath][Kath]",
+        "[  Kath][Kath  ]",
+        "[  Kath][  Kath]"
+      ],
+      "correctIndex": 2,
+      "explanation": "A width of 6 for a 4-letter string adds 2 spaces: on the left by default (right-justified), and on the right when the - flag is given (left-justified).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m004",
+      "questionText": "What is the output of the following statement?\nprintf(\"%e\", 1234.5678);",
+      "options": [
+        "1234.567800",
+        "1.2345678e+03",
+        "12.345678e+02",
+        "1.234568e+03"
+      ],
+      "correctIndex": 3,
+      "explanation": "%e writes one digit before the point, 6 digits after it (the default precision, rounded) and an exponent of at least two digits: 1234.5678 = 1.2345678 x 10^3, printed as 1.234568e+03.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m005",
+      "questionText": "Assume the ASCII character set. What is the output of the following fragment?\nchar c = 'A' + 2;\nprintf(\"%c %d %c\", c, c, c + 32);",
+      "options": [
+        "C 67 c",
+        "C 67 C",
+        "67 C c",
+        "C 67 99"
+      ],
+      "correctIndex": 0,
+      "explanation": "'A' + 2 is 67, the code of C. %c prints C, %d prints the code 67, and c + 32 = 99 printed with %c is the lowercase letter c, because ASCII lowercase letters are 32 above the uppercase ones.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m006",
+      "questionText": "What does the following fragment display?\nprintf(\"A\");\nputs(\"B\");\nprintf(\"C\");",
+      "options": [
+        "ABC on a single line",
+        "AB on the first line and C on the second line",
+        "A on the first line and BC on the second line",
+        "A, B and C on three separate lines"
+      ],
+      "correctIndex": 1,
+      "explanation": "printf writes exactly its text, while puts writes its string followed by a newline. So A and B share the first line, the newline comes after B, and C starts the second line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m007",
+      "questionText": "The user types Ram Bahadur and presses Enter. What does the following fragment print?\nchar name[20];\nscanf(\"%19s\", name);\nprintf(\"[%s]\", name);",
+      "options": [
+        "[Ram Bahadur]",
+        "[Bahadur]",
+        "[R]",
+        "[Ram]"
+      ],
+      "correctIndex": 3,
+      "explanation": "%s skips leading whitespace and then stops at the first whitespace character, so only Ram is stored and Bahadur stays in the input buffer. A whole line needs fgets or a %[^\\n] scanset.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m008",
+      "questionText": "What is the output of the following statement?\nprintf(\"%%d = %d\", 5);",
+      "options": [
+        "5 = 5",
+        "%5 = 5",
+        "%d = 5",
+        "%%d = 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "%% is the conversion that prints one percent sign, so %%d prints the two characters %d. The following %d is a real conversion and prints the argument 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m009",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%+d|% d|% d]\", 25, 25, -25);",
+      "options": [
+        "[+25|25|-25]",
+        "[+25| 25|-25]",
+        "[25| 25| -25]",
+        "[+25|+25|-25]"
+      ],
+      "correctIndex": 1,
+      "explanation": "The + flag always prints a sign (+25). The space flag puts a blank where the plus sign would go for a non-negative value ( 25), while a negative value simply shows its minus sign (-25).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m010",
+      "questionText": "What is the output of the following statement?\nprintf(\"%#o %#x %#X\", 16, 31, 31);",
+      "options": [
+        "20 1f 1F",
+        "020 0x1F 0x1F",
+        "16 0x1f 0X1F",
+        "020 0x1f 0X1F"
+      ],
+      "correctIndex": 3,
+      "explanation": "The # flag adds the base prefix: a leading 0 for octal (16 is 20 in octal, printed 020) and 0x or 0X for hexadecimal (31 is 1f). %X makes both the digits and the X uppercase.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m011",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%.4d|%6.3d]\", 42, 7);",
+      "options": [
+        "[  42|007   ]",
+        "[42.0000|  7.000]",
+        "[0042|   007]",
+        "[0042|000007]"
+      ],
+      "correctIndex": 2,
+      "explanation": "For integer conversions the precision is the minimum number of digits, filled with leading zeros: %.4d gives 0042. In %6.3d the value first becomes 007 and is then right-justified with spaces in a field of 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m012",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%*.*f]\", 9, 3, 3.14159);",
+      "options": [
+        "[    3.142]",
+        "[3.142    ]",
+        "[    3.141]",
+        "[3.14159]"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each * takes its value from the argument list, so the width is 9 and the precision 3. 3.14159 rounded to 3 decimals is 3.142 (5 characters), right-justified in 9 columns with 4 leading spaces.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m013",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%.2s|%5.3s]\", \"Nepal\", \"Nepal\");",
+      "options": [
+        "[Ne|  Nep]",
+        "[Nepal|Nepal]",
+        "[Ne|Nep  ]",
+        "[Nep|   Ne]"
+      ],
+      "correctIndex": 0,
+      "explanation": "For %s the precision is the maximum number of characters printed: %.2s gives Ne. %5.3s takes the first 3 characters, Nep, and right-justifies them in a width of 5 by adding 2 spaces.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m014",
+      "questionText": "Assume int and unsigned int are 32 bits. What is the output of the following fragment?\nunsigned int u = -1;\nprintf(\"%u %x\", u, u);",
+      "options": [
+        "-1 ffffffff",
+        "4294967295 -1",
+        "4294967295 ffffffff",
+        "65535 ffff"
+      ],
+      "correctIndex": 2,
+      "explanation": "Converting -1 to a 32-bit unsigned int gives 2^32 - 1 = 4294967295, with all 32 bits set. %u prints it in decimal and %x prints the 8 hexadecimal digits ffffffff.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m015",
+      "questionText": "What is the output of the following fragment?\nint n = printf(\"[%5d]\", 42);\nprintf(\" %d\", n);",
+      "options": [
+        "[   42] 4",
+        "[   42] 2",
+        "[42] 4",
+        "[   42] 7"
+      ],
+      "correctIndex": 3,
+      "explanation": "printf returns the number of characters it wrote. The opening bracket, the 5-column field '   42' and the closing bracket make 1 + 5 + 1 = 7 characters, so n = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m016",
+      "questionText": "What happens when the following statement is executed?\nprintf(\"%d\", 10, 20);",
+      "options": [
+        "It prints 10 20",
+        "It prints 10; the extra argument is evaluated but ignored",
+        "It prints 20, the last argument",
+        "Compile error: too many arguments to printf"
+      ],
+      "correctIndex": 1,
+      "explanation": "The C standard says that when the format is used up, any remaining arguments are evaluated but otherwise ignored. A compiler may warn, but the program compiles and prints 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m017",
+      "questionText": "Assume the ASCII character set. What is the output of the following statement?\nprintf(\"%d\", putchar('A') + 1);",
+      "options": [
+        "A66",
+        "B",
+        "A65",
+        "66A"
+      ],
+      "correctIndex": 0,
+      "explanation": "The argument putchar('A') + 1 is evaluated before printf runs: putchar prints A and returns the character written as an int, 65. Adding 1 gives 66, which printf then prints after the A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m018",
+      "questionText": "The user types C is fun and presses Enter. What does the following fragment print?\nint c, n = 0;\nwhile ((c = getchar()) != '\\n')\n    if (c != ' ')\n        n++;\nprintf(\"%d\", n);",
+      "options": [
+        "8",
+        "3",
+        "6",
+        "9"
+      ],
+      "correctIndex": 2,
+      "explanation": "getchar returns one character per call until the newline ends the loop. The 8 characters typed before Enter include 2 spaces, which are not counted, so n = 8 - 2 = 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m019",
+      "questionText": "The user types 7 x9 and presses Enter. What does the following fragment print?\nint a = 1, b = 2;\nint k = scanf(\"%d %d\", &a, &b);\nprintf(\"%d %d %d\", k, a, b);",
+      "options": [
+        "2 7 9",
+        "1 7 2",
+        "1 7 9",
+        "0 1 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first %d stores 7. The blank skips the space, then the second %d meets x, which cannot start a number, so scanf stops, leaves b unchanged (2) and returns 1, the number of items stored.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m020",
+      "questionText": "The user types 10 20 30 and presses Enter. What does the following fragment print?\nint x = 0, y = 0;\nint k = scanf(\"%d %*d %d\", &x, &y);\nprintf(\"%d %d %d\", k, x, y);",
+      "options": [
+        "3 10 30",
+        "2 10 20",
+        "3 10 20",
+        "2 10 30"
+      ],
+      "correctIndex": 3,
+      "explanation": "The * in %*d suppresses assignment, so 20 is read and thrown away. x gets 10 and y gets 30, and scanf returns 2 because a suppressed conversion is not counted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m021",
+      "questionText": "The user types 5 x y and presses Enter. What does the following fragment print?\nint n;\nchar a, b;\nscanf(\"%d%c %c\", &n, &a, &b);\nprintf(\"%d[%c][%c]\", n, a, b);",
+      "options": [
+        "5[x][y]",
+        "5[ ][y]",
+        "5[ ][x]",
+        "5[x][ ]"
+      ],
+      "correctIndex": 2,
+      "explanation": "%d reads 5 and stops at the space. %c does not skip whitespace, so a receives that space. The blank before the second %c skips any whitespace (here none), so b gets x and y is left unread.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m022",
+      "questionText": "What is the output of the following fragment?\nchar buf[20];\nint n = sprintf(buf, \"%d+%d=%d\", 12, 30, 12 + 30);\nprintf(\"%s %d\", buf, n);",
+      "options": [
+        "12+30=42 3",
+        "12+30=42 8",
+        "12+30=42 9",
+        "42 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "sprintf formats into buf instead of the screen and returns the number of characters stored, not counting the terminating '\\0'. The string 12+30=42 has 8 characters, so n = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m023",
+      "questionText": "The user types exam and presses Enter. What does the following fragment print?\nchar s[10];\nfgets(s, sizeof s, stdin);\nprintf(\"%d\", (int)strlen(s));",
+      "options": [
+        "4",
+        "10",
+        "6",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "fgets keeps the newline when it fits in the buffer, so s holds exam followed by '\\n' and '\\0'. strlen counts the 4 letters plus the newline, giving 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m024",
+      "questionText": "What is the output of the following statement?\nprintf(\"[%-06d|%06.2d|%+06d]\", 42, 42, 42);",
+      "options": [
+        "[42    |    42|+00042]",
+        "[420000|000042|+00042]",
+        "[42    |000042|00+042]",
+        "[000042|    42|+00042]"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the - flag the 0 flag is ignored, so %-06d left-justifies with spaces. For integer conversions a precision also cancels the 0 flag, so %06.2d pads 42 with spaces. %+06d prints the sign first and fills zeros after it: +00042.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m025",
+      "questionText": "What is the output of the following statement?\nprintf(\"%g|%g|%g\", 0.00012, 123456.0, 1234567.0);",
+      "options": [
+        "1.2e-04|123456|1234567",
+        "0.000120|123456.000000|1234567.000000",
+        "0.00012|1.23456e+05|1.23457e+06",
+        "0.00012|123456|1.23457e+06"
+      ],
+      "correctIndex": 3,
+      "explanation": "%g keeps 6 significant digits and uses e-style only when the decimal exponent X is below -4 or at least 6. 0.00012 (X = -4) and 123456 (X = 5) are printed in fixed style with trailing zeros removed; 1234567 has X = 6, so it becomes 1.23457e+06.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m026",
+      "questionText": "What is the output of the following statement?\nprintf(\"%d\", printf(\"%d\", printf(\"ABC\")));",
+      "options": [
+        "ABC33",
+        "ABC3",
+        "ABC31",
+        "31ABC"
+      ],
+      "correctIndex": 2,
+      "explanation": "The innermost printf runs first, printing ABC and returning 3. The middle printf prints 3 and returns 1 (it wrote one character). The outer printf prints that 1, so the screen shows ABC31.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m027",
+      "questionText": "The user types 1234567 89 and presses Enter. What does the following fragment print?\nint a = 0, b = 0, c = 0;\nscanf(\"%2d%3d%d\", &a, &b, &c);\nprintf(\"%d %d %d\", a, b, c);",
+      "options": [
+        "1234567 89 0",
+        "12 345 67",
+        "12 345 6789",
+        "12 34 567"
+      ],
+      "correctIndex": 1,
+      "explanation": "A field width in scanf limits how many characters a conversion may read: %2d takes 12 and %3d takes 345. The last %d has no width, so it reads the remaining digits 67 and stops at the space, leaving 89 in the buffer.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m028",
+      "questionText": "The user types 010 0x1A 010 and presses Enter. What does the following fragment print?\nint a, b, c;\nscanf(\"%i %i %d\", &a, &b, &c);\nprintf(\"%d %d %d\", a, b, c);",
+      "options": [
+        "8 26 10",
+        "10 26 10",
+        "8 26 8",
+        "10 0 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "%i reads an integer the way a C constant is written: a leading 0 means octal (010 = 8) and 0x means hexadecimal (0x1A = 26). %d always reads decimal, so the third 010 is stored as 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m029",
+      "questionText": "What is the output of the following fragment?\nchar item[10];\nint qty;\nfloat price;\nint k = sscanf(\"pen,12,7.5\", \"%9[^,],%d,%f\", item, &qty, &price);\nprintf(\"%d %s %.2f\", k, item, qty * price);",
+      "options": [
+        "3 pen 84.00",
+        "3 pen 90.00",
+        "2 pen 90.00",
+        "1 pen 0.00"
+      ],
+      "correctIndex": 1,
+      "explanation": "The scanset %9[^,] reads up to 9 non-comma characters, giving pen, and each literal comma in the format matches a comma in the string. qty = 12 and price = 7.5, so sscanf returns 3 and 12 x 7.5 = 90.00 is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m030",
+      "questionText": "What is the output of the following fragment?\nchar s[6];\nint n = snprintf(s, sizeof s, \"%s-%d\", \"NEC\", 2024);\nprintf(\"%s %d\", s, n);",
+      "options": [
+        "NEC-20 6",
+        "NEC-2 5",
+        "NEC-2 8",
+        "NEC-2024 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "snprintf never writes more than sizeof s = 6 bytes, so s receives 5 characters, NEC-2, plus '\\0'. It returns the length the complete text would have had, NEC-2024 = 8 characters, which lets the caller detect truncation.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m031",
+      "questionText": "The user types Kathmandu and presses Enter. What does the following fragment print?\nchar a[5], b[5];\nfgets(a, sizeof a, stdin);\nfgets(b, sizeof b, stdin);\nprintf(\"%s|%s\", a, b);",
+      "options": [
+        "Kath|mand",
+        "Kathm|andu",
+        "Kath|mandu",
+        "Kathmandu|"
+      ],
+      "correctIndex": 0,
+      "explanation": "fgets(a, 5, stdin) stores at most 5 - 1 = 4 characters, Kath, and leaves the rest of the line in the buffer. The second call continues from there and stores the next 4, mand; the u and the newline are still unread.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i12_m032",
+      "questionText": "Why is the & operator needed in scanf(\"%d\", &n)?",
+      "options": [
+        "& converts the typed characters into an integer",
+        "& tells scanf to skip leading whitespace",
+        "& is needed only when n has not been initialised",
+        "scanf needs the address of n so that it can store the converted value in n"
+      ],
+      "correctIndex": 3,
+      "explanation": "C passes arguments by value, so without & scanf would receive only a copy of n's value. Passing &n gives scanf the location of n, through which it writes the number it read.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m033",
+      "questionText": "Which input function was removed from the C11 standard because it cannot limit the number of characters it stores and so can overflow the array?",
+      "options": [
+        "fgets()",
+        "getchar()",
+        "gets()",
+        "scanf()"
+      ],
+      "correctIndex": 2,
+      "explanation": "gets(s) keeps storing characters until a newline no matter how large s is, which causes buffer overflows. It was deprecated in C99 and removed in C11; fgets(s, n, stdin) is the bounded replacement.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m034",
+      "questionText": "Which printf conversion specifier is intended for printing the value of a pointer (an address)?",
+      "options": [
+        "%x",
+        "%u",
+        "%a",
+        "%p"
+      ],
+      "correctIndex": 3,
+      "explanation": "%p prints a void * value in an implementation-defined form, usually hexadecimal. Passing a pointer to %x or %u is a type mismatch (undefined behaviour) that visibly breaks where pointers are wider than int, and %a is for hexadecimal floating-point numbers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m035",
+      "questionText": "Which format specifier prints an unsigned int in hexadecimal using the uppercase letters A to F?",
+      "options": [
+        "%X",
+        "%x",
+        "%o",
+        "%H"
+      ],
+      "correctIndex": 0,
+      "explanation": "%x and %X both print unsigned hexadecimal: %x uses a-f and %X uses A-F, so 255 prints as ff and FF respectively. %o prints octal, and there is no %H conversion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m036",
+      "questionText": "How does sprintf() differ from printf()?",
+      "options": [
+        "sprintf writes the formatted text to the standard error stream",
+        "sprintf writes the formatted text into a character array instead of to stdout",
+        "sprintf ignores format specifiers and copies the text as it is",
+        "sprintf automatically adds a newline after the text"
+      ],
+      "correctIndex": 1,
+      "explanation": "sprintf(buf, format, ...) follows the same format rules as printf but stores the result, with a terminating '\\0', in buf and returns the number of characters stored. Output to stderr is done with fprintf(stderr, ...).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m037",
+      "questionText": "Which of the following output functions automatically writes a newline after the string it prints?",
+      "options": [
+        "fputs()",
+        "puts()",
+        "printf()",
+        "putchar()"
+      ],
+      "correctIndex": 1,
+      "explanation": "puts(s) writes s followed by '\\n'. fputs(s, stdout) and printf(\"%s\", s) write exactly the string, and putchar writes a single character.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m038",
+      "questionText": "Which call is equivalent to getchar()?",
+      "options": [
+        "getc(stdout)",
+        "fgetc(stderr)",
+        "gets(stdin)",
+        "getc(stdin)"
+      ],
+      "correctIndex": 3,
+      "explanation": "getchar() is defined to behave like getc(stdin): it reads the next character from the standard input stream and returns it as an int, or EOF when no input is left.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i12_m039",
+      "questionText": "Given float f; double d; which statement about reading and printing these variables is correct?",
+      "options": [
+        "Both scanf and printf accept %f for f and d alike, because float is promoted to double in both",
+        "printf needs %lf for d; printing d with %f shows only its float part",
+        "scanf needs %f for f and %lf for d, but printf(\"%f\", ...) prints either one correctly",
+        "scanf needs %lf for f and %f for d"
+      ],
+      "correctIndex": 2,
+      "explanation": "A float passed to printf is promoted to double, so printf's %f always receives a double (%lf is accepted as a synonym). scanf receives pointers, which are not promoted, so it must be told whether it is storing a float (%f) or a double (%lf).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m040",
+      "questionText": "Why should the value returned by getchar() be stored in an int variable rather than a char?",
+      "options": [
+        "getchar must be able to return EOF as well as every possible character value, and a char cannot represent all of these distinct results",
+        "Characters always occupy 4 bytes in C, so a char is too small for any character",
+        "putchar cannot print a value stored in a char variable",
+        "Assigning the result of getchar to a char is a compile error in C"
+      ],
+      "correctIndex": 0,
+      "explanation": "getchar returns an unsigned char value converted to int (0 to 255 with 8-bit chars) or EOF, which is negative. Stored in a char, EOF is either never matched (unsigned char) or confused with the byte 0xFF (signed char), which breaks loops such as while ((c = getchar()) != EOF).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m041",
+      "questionText": "char line[80];\nWhat does scanf(\"%79[^\\n]\", line); do?",
+      "options": [
+        "It reads one word, stopping at the first space or newline",
+        "It reads the whole line and stores the newline at the end of line",
+        "It skips every character up to the newline and stores nothing",
+        "It reads up to 79 characters, including spaces, and stops before the newline, which stays in the input buffer"
+      ],
+      "correctIndex": 3,
+      "explanation": "[^\\n] is a scanset that accepts every character except a newline, so spaces are stored too, and 79 limits the count so line cannot overflow. Unlike fgets, this conversion does not consume the newline; it remains in the buffer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m042",
+      "questionText": "A program shows progress with printf(\"Working...\") (no newline) and reports errors with fprintf(stderr, ...). Why can an error message appear on a terminal before \"Working...\" does?",
+      "options": [
+        "stdout is buffered, so text without a newline can wait in the buffer, while stderr is not buffered and is written at once",
+        "stderr has a higher priority, so the operating system interrupts stdout to print it",
+        "printf output without \\n is discarded and never appears",
+        "fprintf is faster because it does not parse its format string"
+      ],
+      "correctIndex": 0,
+      "explanation": "On a terminal stdout is line-buffered, so \"Working...\" stays in the buffer until a newline, fflush(stdout) or normal program exit. stderr is never fully buffered (in practice it is unbuffered), so an error message is written immediately and can overtake it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m043",
+      "questionText": "long long big = 9000000000LL;\nIn printf(\"%lld\", big), what does the ll in the conversion specification indicate?",
+      "options": [
+        "That the value is left-justified in its field",
+        "That the value is printed with a minimum width of two columns",
+        "That the corresponding argument has type long long int",
+        "That the value is printed in scientific (long) notation"
+      ],
+      "correctIndex": 2,
+      "explanation": "ll is a length modifier: it tells printf, and likewise scanf, that the argument is a long long int (unsigned long long with %llu). Other length modifiers are h for short, l for long and L for long double (%Lf); left-justification is the - flag and width is a plain number.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m044",
+      "questionText": "Which statement about field width and precision in printf is correct?",
+      "options": [
+        "A width smaller than the number of digits truncates the number to that many digits",
+        "A width smaller than the output never truncates it, but a precision on %s can cut a string short",
+        "In %.3d the precision keeps only the last 3 digits of the number",
+        "A field width has no effect on %s conversions"
+      ],
+      "correctIndex": 1,
+      "explanation": "The width is only a minimum, so printf(\"%2d\", 12345) still prints 12345. For %s the precision is a maximum, so %.3s prints at most 3 characters, while for %d it is a minimum digit count filled with zeros.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m045",
+      "questionText": "Which statement about EOF is correct?",
+      "options": [
+        "EOF is the character '\\0' stored at the end of every file",
+        "EOF is defined as 0 so that loops such as while (c) stop at the end of input",
+        "EOF is a negative int constant defined in stdio.h, returned by input functions at end of input or on a read error",
+        "EOF is a special byte written to disk after the last character of every text file"
+      ],
+      "correctIndex": 2,
+      "explanation": "EOF is a macro for a negative integer (commonly -1) that getchar, getc, scanf and similar functions return when no more input is available or an error occurs. It is not a character stored in the file; '\\0' is the string terminator.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i12_m046",
+      "questionText": "Which statement about scanf format strings is NOT correct?",
+      "options": [
+        "A literal character in the format, such as the / in \"%d/%d\", may be missing from the input without affecting the later conversions",
+        "A whitespace character in the format matches any amount of whitespace in the input, including none",
+        "%c does not skip leading whitespace, unlike %d, %f and %s",
+        "%*d reads an integer but neither stores it nor counts it in the return value"
+      ],
+      "correctIndex": 0,
+      "explanation": "Ordinary characters in the format must match the input exactly; if the / is missing, scanf stops there, the remaining conversions are not performed and the return value shows how many succeeded. The other three statements are standard scanf rules.",
+      "difficulty": "hard"
+    }
+  ]
+}

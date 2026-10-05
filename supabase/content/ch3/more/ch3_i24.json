@@ -1,0 +1,715 @@
+{
+  "topicId": "ch3_i24",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: File I/O in Practice"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every FILE stream keeps a buffer, a position indicator and two status flags, end-of-file and error. Output functions first copy data into the buffer, which is written to the file when it fills, when fflush(fp) or fclose(fp) is called, or when main returns or exit() is called; a crash or abort() can lose buffered data. The position indicator counts bytes from the start of the file and advances with every successful read or write, which is why ftell reports data that may still be sitting in the buffer. Input functions set the end-of-file flag only when they try to read beyond the last byte, and set the error flag on a device or logical failure."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Function",
+          "Returns on success",
+          "Returns at end of file or on failure"
+        ],
+        [
+          "fopen",
+          "Pointer to a FILE object",
+          "NULL"
+        ],
+        [
+          "fclose, fflush",
+          "0",
+          "EOF"
+        ],
+        [
+          "fgetc, getc, fputc",
+          "The character, as an int from 0 to 255",
+          "EOF"
+        ],
+        [
+          "fgets / fputs",
+          "buf itself / a non-negative value",
+          "NULL / EOF"
+        ],
+        [
+          "fscanf / fprintf",
+          "Items assigned / characters written",
+          "EOF if input ends before the first conversion, else the smaller count / a negative value"
+        ],
+        [
+          "fread, fwrite",
+          "count, the number of items requested",
+          "A value smaller than count"
+        ],
+        [
+          "fseek / ftell",
+          "0 / current offset as a long",
+          "Nonzero / -1L"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    char buf[5];\n    FILE *fp = fopen(\"demo.txt\", \"w+\");\n    fputs(\"NEPAL\\nKTM\\n\", fp);\n    rewind(fp);\n    while (fgets(buf, sizeof buf, fp) != NULL)\n        printf(\"[%s]\", buf);\n    fclose(fp);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n[NEPA][L\n][KTM\n]\nTrace (each call stores at most sizeof buf - 1 = 4 characters):\ncall 1: reads N E P A, buffer full        -> \"NEPA\"\ncall 2: reads L and the newline, stops    -> \"L\\n\"\ncall 3: reads K T M and the newline       -> \"KTM\\n\"\ncall 4: nothing left, returns NULL        -> loop ends"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int a[4] = {5, 10, 15, 20}, x;\n    FILE *fp = fopen(\"nums.bin\", \"w+b\");\n    fwrite(a, sizeof(int), 4, fp);\n    fseek(fp, -2L * (long)sizeof(int), SEEK_END);\n    fread(&x, sizeof x, 1, fp);\n    fseek(fp, 0L, SEEK_CUR);\n    fwrite(&x, sizeof x, 1, fp);\n    rewind(fp);\n    fread(a, sizeof(int), 4, fp);\n    printf(\"x=%d pos=%ld last=%d\\n\", x, ftell(fp), a[3]);\n    fclose(fp);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (int is 4 bytes): x=15 pos=16 last=15\nfwrite 4 ints            file = 5 10 15 20 (16 bytes), pos = 16\nfseek(-8, SEEK_END)      pos = 16 - 8 = 8, the start of index 2\nfread x                  x = 15, pos = 12\nfseek(0, SEEK_CUR)       no move, but required before switching read -> write\nfwrite x                 bytes 12..15 overwritten: file = 5 10 15 15\nrewind, fread 4 ints     a = 5 10 15 15, pos = 16"
+    },
+    {
+      "type": "bulletList",
+      "text": "Rules that decide whether a positioning or update sequence is valid:",
+      "items": [
+        "In r+, w+ and a+ modes, output may not be followed directly by input without fflush, fseek, fsetpos or rewind in between, and input may not be followed directly by output without a positioning call unless the input reached end of file.",
+        "On a text stream, fseek is guaranteed only with offset 0, or with SEEK_SET and a value returned earlier by ftell; arbitrary byte offsets are portable only on binary streams.",
+        "Write negative offsets as -(long)sizeof(rec) or -1L * (long)sizeof(rec). The expression -sizeof(rec) is a huge unsigned value, and its conversion to long is not guaranteed to give a negative number.",
+        "A successful fseek clears the end-of-file indicator, so reading can resume after a seek even if an earlier read hit the end.",
+        "In a and a+ modes every write goes to the current end of the file whatever the position indicator says; reading in a+ mode can happen anywhere.",
+        "Strictly, the standard does not require binary streams to support SEEK_END meaningfully, but all mainstream systems do, so fseek(fp, 0L, SEEK_END) followed by ftell(fp) is the usual way to find a file's size."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{digits}(n) = \\lfloor \\log_{10} n \\rfloor + 1",
+      "plainText": "A positive integer n written with %d takes floor(log10 n) + 1 bytes of text (one more for a minus sign), while fwrite always stores sizeof(int) bytes: with a 4-byte int, 12345 takes 5 bytes as text and 4 bytes in binary."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in file programs:",
+      "items": [
+        "Not testing fopen for NULL and then passing the NULL pointer to fprintf or fgetc, which is undefined behaviour.",
+        "Storing fgetc's result in a char, or looping on while (!feof(fp)) instead of testing the value that each read returns.",
+        "Forgetting the b on Windows for binary data, so every byte 0x0A written by fwrite gains a 0x0D in front of it and all later record offsets shift.",
+        "Opening a file that must be kept with \"w\", which silently destroys its contents; use \"a\" or \"r+\" instead.",
+        "Calling fflush(stdin) to discard input: fflush is defined only for output streams.",
+        "Mixing up fread's size and count: fread(buf, 1, 40, fp) returns a byte count up to 40, while fread(buf, 40, 1, fp) returns only 0 or 1."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Besides reading and writing, <stdio.h> manages whole files: remove(name) deletes a file and rename(old, new) renames it, both returning 0 on success and nonzero on failure, while tmpfile() creates an anonymous temporary file in \"wb+\" mode that disappears when it is closed. When an operation fails, ferror(fp) tells a real error apart from end of file (feof), clearerr(fp) resets both flags, and perror(\"msg\") prints msg followed by a description of the error recorded in errno. A robust program checks every fopen, compares every read's return value with what it expected, and checks the result of fclose for output files, because a full disk may be reported only when the buffer is flushed."
+    },
+    {
+      "type": "examTip",
+      "text": "For output-prediction questions, track three things line by line: the file's current contents, the position indicator in bytes from 0, and the value each call returns. Remember that fread and fwrite count items, fprintf counts characters, fscanf counts assigned items, and every read moves the position forward by the bytes it consumed."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i24_m001",
+      "questionText": "What does fopen() return when the requested file cannot be opened, for example when a file opened in \"r\" mode does not exist?",
+      "options": [
+        "EOF, which is -1",
+        "A pointer to a newly created empty file",
+        "Nothing; the program stops with a runtime error",
+        "A NULL pointer"
+      ],
+      "correctIndex": 3,
+      "explanation": "fopen returns NULL on failure (missing file in read mode, no permission, bad path), so the result must be tested before the stream is used. EOF is what input functions such as fgetc return, not fopen.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m002",
+      "questionText": "Which fopen() mode opens an existing file for both reading and writing, keeps its contents, and fails (returns NULL) if the file does not exist?",
+      "options": [
+        "\"w+\"",
+        "\"a+\"",
+        "\"r+\"",
+        "\"a\""
+      ],
+      "correctIndex": 2,
+      "explanation": "\"r+\" requires the file to exist and does not truncate it. \"w+\" creates or truncates the file, while \"a+\" creates a missing file and forces every write to the end.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m003",
+      "questionText": "Which of the following is NOT a valid mode string for fopen() in standard C?",
+      "options": [
+        "\"rw\"",
+        "\"r+b\"",
+        "\"ab\"",
+        "\"w+\""
+      ],
+      "correctIndex": 0,
+      "explanation": "The standard modes are r, w and a, each optionally followed by + and/or b (for example \"rb+\" or \"r+b\"). \"rw\" is not one of them; read-and-write access is requested with \"r+\".",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m004",
+      "questionText": "Assume new1.txt does not exist before the following fragment runs inside main() with <stdio.h> included, and that the program may create files in the current directory. What is printed?\n\nFILE *a = fopen(\"new1.txt\", \"r\");\nint x = (a == NULL);\nFILE *b = fopen(\"new1.txt\", \"a\");\nint y = (b == NULL);\nif (b != NULL)\n    fclose(b);\nFILE *c = fopen(\"new1.txt\", \"r\");\nprintf(\"%d %d %d\", x, y, c == NULL);",
+      "options": [
+        "1 0 1",
+        "1 0 0",
+        "0 0 0",
+        "1 1 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "\"r\" fails on a missing file, so a is NULL and x = 1. \"a\" creates the file, so b is a valid stream and y = 0. After b is closed, the third fopen in \"r\" mode finds the new (empty) file, so c is not NULL and the last value is 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m005",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nFILE *fp = fopen(\"m.txt\", \"w\");\nfputs(\"abc\", fp);\nfclose(fp);\nfp = fopen(\"m.txt\", \"a\");\nfputs(\"de\", fp);\nfclose(fp);\nfp = fopen(\"m.txt\", \"r\");\nint ch;\nwhile ((ch = fgetc(fp)) != EOF)\n    putchar(ch);\nfclose(fp);",
+      "options": [
+        "de",
+        "abcde",
+        "dec",
+        "deabc"
+      ],
+      "correctIndex": 1,
+      "explanation": "\"w\" creates m.txt containing abc. Reopening it with \"a\" keeps the contents and writes de at the end, so the file holds abcde, which the fgetc loop prints.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m006",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nchar buf[20];\nFILE *fp = fopen(\"s.txt\", \"w\");\nfputs(\"abcdef\", fp);\nfclose(fp);\nfp = fopen(\"s.txt\", \"r+\");\nfputs(\"XY\", fp);\nfclose(fp);\nfp = fopen(\"s.txt\", \"r\");\nfgets(buf, sizeof buf, fp);\nprintf(\"%s\", buf);\nfclose(fp);",
+      "options": [
+        "XYcdef",
+        "XY",
+        "XYabcdef",
+        "abcdefXY"
+      ],
+      "correctIndex": 0,
+      "explanation": "\"r+\" opens the existing file without truncating it, with the position at byte 0. Writing XY therefore overwrites a and b in place, leaving XYcdef.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m007",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nchar buf[20];\nFILE *fp = fopen(\"t.txt\", \"w\");\nfputs(\"abc\", fp);\nfclose(fp);\nfp = fopen(\"t.txt\", \"a+\");\nfseek(fp, 0L, SEEK_SET);\nfputs(\"Z\", fp);\nrewind(fp);\nfgets(buf, sizeof buf, fp);\nprintf(\"%s\", buf);\nfclose(fp);",
+      "options": [
+        "Zbc",
+        "Zabc",
+        "abcZ",
+        "Z"
+      ],
+      "correctIndex": 2,
+      "explanation": "\"a+\" keeps the existing abc and allows reading anywhere, but every write is forced to the current end of the file, so the fseek to 0 does not change where Z goes. After rewind, fgets reads abcZ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m008",
+      "questionText": "A file-copy program begins with int main(int argc, char *argv[]) and is started from the command line as copy src.txt dst.txt. What is the value of argc, and which expression gives the name of the destination file?",
+      "options": [
+        "argc is 2; argv[1]",
+        "argc is 3; argv[3]",
+        "argc is 2; argv[2]",
+        "argc is 3; argv[2]"
+      ],
+      "correctIndex": 3,
+      "explanation": "argv[0] holds the program name, so the command line fills argv[0] = copy, argv[1] = src.txt and argv[2] = dst.txt, and argc counts all three words: 3. The program would then call fopen(argv[1], \"r\") and fopen(argv[2], \"w\").",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m009",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint i, ch, sum = 0;\nFILE *fp = fopen(\"d.txt\", \"w\");\nfor (i = 1; i <= 4; i++)\n    fputc('0' + i, fp);\nfclose(fp);\nfp = fopen(\"d.txt\", \"r\");\nwhile ((ch = fgetc(fp)) != EOF)\n    sum += ch - '0';\nprintf(\"%d\", sum);\nfclose(fp);",
+      "options": [
+        "202",
+        "10",
+        "1234",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loop writes the characters '1' to '4'. Reading them back, ch - '0' turns each digit character into its value, so sum = 1 + 2 + 3 + 4 = 10; adding ch alone would give the ASCII total 49 + 50 + 51 + 52 = 202.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m010",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint ch, chars = 0, lines = 0;\nFILE *fp = fopen(\"c.txt\", \"w\");\nfputs(\"a\\nbb\\nccc\\n\", fp);\nfclose(fp);\nfp = fopen(\"c.txt\", \"r\");\nwhile ((ch = fgetc(fp)) != EOF) {\n    chars++;\n    if (ch == '\\n')\n        lines++;\n}\nprintf(\"%d %d\", chars, lines);\nfclose(fp);",
+      "options": [
+        "6 3",
+        "9 2",
+        "6 2",
+        "9 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every character is counted, including the three newlines: 1 + 1 + 2 + 1 + 3 + 1 = 9, and lines counts the 3 newlines. In text mode a Windows \\r\\n pair is read back as a single '\\n', so the result is the same on every system.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m011",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint c;\nFILE *fp = fopen(\"u.txt\", \"w+\");\nfputs(\"12\", fp);\nrewind(fp);\nc = fgetc(fp);\nungetc('9', fp);\nputchar(fgetc(fp));\nputchar(fgetc(fp));\nfclose(fp);",
+      "options": [
+        "12",
+        "91",
+        "92",
+        "29"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first fgetc reads '1'. ungetc pushes '9' back onto the stream (not into the file), so the next fgetc returns '9' and the one after it continues with the unread '2'. The pushed-back character need not be the one that was read.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m012",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> and <string.h> included; assume every fopen() succeeds.\n\nchar buf[4];\nint n = 0;\nFILE *fp = fopen(\"p.txt\", \"w\");\nfputs(\"PROGRAM\\n\", fp);\nfclose(fp);\nfp = fopen(\"p.txt\", \"r\");\nwhile (fgets(buf, sizeof buf, fp) != NULL)\n    n++;\nprintf(\"%d %zu\", n, strlen(buf));\nfclose(fp);",
+      "options": [
+        "3 2",
+        "2 4",
+        "3 1",
+        "3 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each fgets call stores at most sizeof buf - 1 = 3 characters: PRO, then GRA, then M and the newline, because a newline ends a call early. So n = 3, and the last string M\\n has length 2 since fgets keeps the newline.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m013",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> and <string.h> included; assume every fopen() succeeds.\n\nchar w[20], line[20];\nFILE *fp = fopen(\"n.txt\", \"w+\");\nfputs(\"Ram Bahadur\\n\", fp);\nrewind(fp);\nfscanf(fp, \"%s\", w);\nrewind(fp);\nfgets(line, sizeof line, fp);\nprintf(\"%zu %zu\", strlen(w), strlen(line));\nfclose(fp);",
+      "options": [
+        "11 11",
+        "3 11",
+        "11 12",
+        "3 12"
+      ],
+      "correctIndex": 3,
+      "explanation": "%s stops at the first white-space character, so w holds Ram (length 3). fgets reads the whole line including its newline: Ram Bahadur\\n has 11 + 1 = 12 characters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m014",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint a, b, c, r1, r2, r3;\nchar s[10];\nFILE *fp = fopen(\"f.txt\", \"w\");\nfputs(\"10 20 abc\", fp);\nfclose(fp);\nfp = fopen(\"f.txt\", \"r\");\nr1 = fscanf(fp, \"%d %d %d\", &a, &b, &c);\nr2 = fscanf(fp, \"%d\", &c);\nr3 = fscanf(fp, \"%s\", s);\nprintf(\"%d %d %d\", r1, r2, r3);\nfclose(fp);",
+      "options": [
+        "3 1 1",
+        "2 0 1",
+        "2 -1 1",
+        "2 0 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first call converts 10 and 20, then fails on the letter a and returns 2. The second %d fails on the same unread a and returns 0 (a matching failure, not EOF), and the third call reads abc with %s and returns 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m015",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint roll, total = 0, count = 0;\nfloat m;\nFILE *fp = fopen(\"m.txt\", \"w+\");\nfprintf(fp, \"1 40.5\\n2 x\\n3 60\\n\");\nrewind(fp);\nwhile (fscanf(fp, \"%d %f\", &roll, &m) == 2) {\n    total += (int)m;\n    count++;\n}\nprintf(\"%d %d\", count, total);\nfclose(fp);",
+      "options": [
+        "1 40",
+        "2 100",
+        "3 100",
+        "2 40"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first call assigns roll = 1 and m = 40.5 and returns 2, so count = 1 and total = (int)40.5 = 40. The second call assigns roll = 2 but %f fails on x, so it returns 1 and the loop stops before the third line is read.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m016",
+      "questionText": "When does feof(fp) return a nonzero value?",
+      "options": [
+        "As soon as the last character of the file has been read successfully",
+        "Whenever any read or write error occurs on fp",
+        "Only after an input operation on fp has tried to read past the end of the file",
+        "Only after fclose(fp) has been called"
+      ],
+      "correctIndex": 2,
+      "explanation": "The end-of-file indicator is set by a read that fails at the end; reading the last byte successfully does not set it. That is why while (!feof(fp)) loops run one extra time, and errors are reported separately by ferror.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m017",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint x = 0, sum = 0;\nFILE *fp = fopen(\"n.txt\", \"w\");\nfprintf(fp, \"1 2 3\\n\");\nfclose(fp);\nfp = fopen(\"n.txt\", \"r\");\nwhile (!feof(fp)) {\n    fscanf(fp, \"%d\", &x);\n    sum += x;\n}\nprintf(\"%d\", sum);\nfclose(fp);",
+      "options": [
+        "6",
+        "9",
+        "3",
+        "12"
+      ],
+      "correctIndex": 1,
+      "explanation": "After 3 is read the newline is still unread, so feof is still 0 and the loop runs once more. That fscanf reaches end of file, returns EOF and leaves x = 3, which is added again: 1 + 2 + 3 + 3 = 9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m018",
+      "questionText": "Assume EOF is -1 and every fopen() succeeds. What does the following fragment print? It runs inside main() with <stdio.h> included.\n\nint e1, c, e2;\nFILE *fp = fopen(\"e.txt\", \"w\");\nfclose(fp);\nfp = fopen(\"e.txt\", \"r\");\ne1 = feof(fp) != 0;\nc = fgetc(fp);\ne2 = feof(fp) != 0;\nprintf(\"%d %d %d\", e1, c, e2);\nfclose(fp);",
+      "options": [
+        "1 -1 1",
+        "0 0 1",
+        "0 -1 1",
+        "0 -1 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Opening an empty file does not set the end-of-file indicator, so e1 = 0. The first fgetc finds no byte, returns EOF (-1) and only then sets the indicator, so e2 = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m019",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nFILE *fp = fopen(\"r.txt\", \"w\");\nint n = fprintf(fp, \"%d-%s\", 42, \"ab\");\nfclose(fp);\nprintf(\"%d\", n);",
+      "options": [
+        "2",
+        "0",
+        "6",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "fprintf returns the number of characters it wrote, and 42-ab is 5 characters (a negative value would signal an error). It returns neither the number of items converted nor a 0/1 status, and no '\\0' is written to the file.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m020",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included.\n\nfputs(\"AB\", stdout);\nfputc('C', stdout);\nfprintf(stdout, \"%d\", 'C' - 'A');",
+      "options": [
+        "ABC2",
+        "ABC3",
+        "ABCC",
+        "AB C 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "stdout is a FILE * opened automatically, so fputs, fputc and fprintf can all write to it. fputs adds no newline or space, and 'C' - 'A' = 67 - 65 = 2 is printed by %d.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m021",
+      "questionText": "Which statement about text and binary files is NOT correct?",
+      "options": [
+        "In a binary file of 4-byte int values, the value with index k starts at byte 4k",
+        "On Windows, writing '\\n' to a text-mode stream stores the two bytes \\r\\n",
+        "fwrite() copies the bytes of a variable to the file exactly as they are stored in memory",
+        "Opening a file in \"wb\" mode makes fprintf(fp, \"%d\", 1000) store 1000 in its 4-byte internal form"
+      ],
+      "correctIndex": 3,
+      "explanation": "fprintf always converts values to characters, so 1000 is still written as the four digit characters 1, 0, 0, 0; the b only switches off newline translation. The internal binary form is written with fwrite.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m022",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nchar w[20];\nint n = 0;\nFILE *fp = fopen(\"w.txt\", \"w+\");\nfputs(\"one two\\n  three\\tfour\\n\", fp);\nrewind(fp);\nwhile (fscanf(fp, \"%19s\", w) == 1)\n    n++;\nprintf(\"%d %s\", n, w);\nfclose(fp);",
+      "options": [
+        "4 four",
+        "3 four",
+        "5 four",
+        "2 two"
+      ],
+      "correctIndex": 0,
+      "explanation": "%s skips any white space (spaces, tabs and newlines) and then reads one word, so the calls return 1 for one, two, three and four and then EOF: n = 4. A failed call assigns nothing, so w still holds the last word read, four.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m023",
+      "questionText": "A program writes the integers 0, 1, 2, ..., 999 to one file with fprintf(fp, \"%d \", i) and to a second file with fwrite(&i, sizeof i, 1, fp2). Both files are opened in binary mode and int is 4 bytes. What are the two file sizes?",
+      "options": [
+        "2890 bytes and 4000 bytes",
+        "4000 bytes and 4000 bytes",
+        "3890 bytes and 4000 bytes",
+        "3890 bytes and 1000 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Text file: 10 one-digit + 90 two-digit + 900 three-digit numbers = 10 + 180 + 2700 = 2890 digits, plus 1000 spaces = 3890 bytes. Binary file: 1000 x 4 = 4000 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m024",
+      "questionText": "Assume int is 4 bytes and every fopen() succeeds. What does the following fragment print? It runs inside main() with <stdio.h> included.\n\nint a[5] = {1, 2, 3, 4, 5}, b[10];\nFILE *fp = fopen(\"a.bin\", \"wb\");\nfwrite(a, sizeof(int), 5, fp);\nfclose(fp);\nfp = fopen(\"a.bin\", \"rb\");\nsize_t n = fread(b, sizeof(int), 10, fp);\nprintf(\"%zu\", n);\nfclose(fp);",
+      "options": [
+        "10",
+        "5",
+        "20",
+        "0"
+      ],
+      "correctIndex": 1,
+      "explanation": "fread returns the number of complete items read, not the number of bytes. The file holds only 5 ints (20 bytes), so the request for 10 stops at end of file and returns 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m025",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nchar buf[12];\nFILE *fp = fopen(\"p.bin\", \"wb\");\nfwrite(\"0123456789\", 1, 10, fp);\nfclose(fp);\nfp = fopen(\"p.bin\", \"rb\");\nsize_t n = fread(buf, 4, 3, fp);\nprintf(\"%zu %ld\", n, ftell(fp));\nfclose(fp);",
+      "options": [
+        "3 12",
+        "2 8",
+        "2 10",
+        "10 10"
+      ],
+      "correctIndex": 2,
+      "explanation": "fread asks for 3 items of 4 bytes (12 bytes) but only 10 exist: two complete items and a partial third. It returns 2, the count of complete items, while the position advances by all 10 bytes actually read, so ftell gives 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m026",
+      "questionText": "What does fwrite(&rec, sizeof rec, 1, fp) return when the record is written successfully?",
+      "options": [
+        "sizeof rec, the number of bytes written",
+        "1, the number of items written",
+        "0, meaning that no error occurred",
+        "The new file position in bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "fwrite, like fread, returns how many items of the given size were transferred, so a successful single-record write returns 1. A value smaller than the requested count signals a write error.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m027",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nFILE *fp = fopen(\"k.bin\", \"w+b\");\nfputs(\"ABCDEFGH\", fp);\nrewind(fp);\nfseek(fp, 2L, SEEK_CUR);\nputchar(fgetc(fp));\nfseek(fp, 2L, SEEK_CUR);\nputchar(fgetc(fp));\nfclose(fp);",
+      "options": [
+        "CF",
+        "CE",
+        "BD",
+        "CD"
+      ],
+      "correctIndex": 0,
+      "explanation": "rewind sets the position to 0, so fseek(fp, 2L, SEEK_CUR) moves to byte 2 and fgetc reads C, leaving the position at 3. The second fseek moves to 3 + 2 = 5, which holds F.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m028",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds and that fseek() supports SEEK_END on binary files, as all mainstream systems do.\n\nFILE *fp = fopen(\"n.bin\", \"wb\");\nfputs(\"NEPAL\\n\", fp);\nfclose(fp);\nfp = fopen(\"n.bin\", \"rb\");\nfseek(fp, 0L, SEEK_END);\nprintf(\"%ld\", ftell(fp));\nfclose(fp);",
+      "options": [
+        "5",
+        "7",
+        "0",
+        "6"
+      ],
+      "correctIndex": 3,
+      "explanation": "The file holds N, E, P, A, L and the newline: 6 bytes, and in binary mode no \\r is added. Seeking to the end and calling ftell gives the size, 6.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m029",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds and that fseek() supports SEEK_END on binary files, as all mainstream systems do.\n\nFILE *fp = fopen(\"s.bin\", \"wb\");\nfputs(\"LALITPUR\", fp);\nfclose(fp);\nfp = fopen(\"s.bin\", \"rb\");\nfseek(fp, -3L, SEEK_END);\nlong p = ftell(fp);\nprintf(\"%ld %c\", p, fgetc(fp));\nfclose(fp);",
+      "options": [
+        "5 P",
+        "4 T",
+        "3 P",
+        "5 U"
+      ],
+      "correctIndex": 0,
+      "explanation": "LALITPUR is 8 bytes, so 3 bytes before the end is offset 8 - 3 = 5. Offsets count from 0 (L0 A1 L2 I3 T4 P5), so the byte read there is P.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m030",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nchar s[20];\nFILE *fp = fopen(\"l.bin\", \"wb\");\nfputs(\"ab\\ncd\\n\", fp);\nfclose(fp);\nfp = fopen(\"l.bin\", \"rb\");\nfgets(s, sizeof s, fp);\nprintf(\"%ld\", ftell(fp));\nfclose(fp);",
+      "options": [
+        "2",
+        "3",
+        "6",
+        "20"
+      ],
+      "correctIndex": 1,
+      "explanation": "fgets stops after storing the first newline, so it consumes a, b and '\\n' (3 bytes) even though the buffer could hold 19 characters. The position indicator is therefore 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m031",
+      "questionText": "Assume int is 4 bytes and every fopen() succeeds. What does the following fragment print? It runs inside main() with <stdio.h> included.\n\nint a[5] = {10, 20, 30, 40, 50}, x, y;\nFILE *fp = fopen(\"r.bin\", \"wb\");\nfwrite(a, sizeof(int), 5, fp);\nfclose(fp);\nfp = fopen(\"r.bin\", \"rb\");\nfseek(fp, 2L * (long)sizeof(int), SEEK_SET);\nfread(&x, sizeof(int), 1, fp);\nfseek(fp, (long)sizeof(int), SEEK_CUR);\nfread(&y, sizeof(int), 1, fp);\nprintf(\"%d %d %ld\", x, y, ftell(fp));\nfclose(fp);",
+      "options": [
+        "30 40 16",
+        "20 40 16",
+        "30 50 16",
+        "30 50 20"
+      ],
+      "correctIndex": 3,
+      "explanation": "fseek to 2 x 4 = 8 reads a[2] = 30 and leaves the position at 12. Skipping 4 more bytes gives 16, so the next read is a[4] = 50 and ftell then returns 20.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m032",
+      "questionText": "Assume int is 4 bytes and every fopen() succeeds. What does the following fragment print? It runs inside main() with <stdio.h> included.\n\nint a[5] = {1, 2, 3, 4, 5}, v = 99;\nFILE *fp = fopen(\"u.bin\", \"wb\");\nfwrite(a, sizeof(int), 5, fp);\nfclose(fp);\nfp = fopen(\"u.bin\", \"r+b\");\nfseek(fp, 3L * (long)sizeof(int), SEEK_SET);\nfwrite(&v, sizeof(int), 1, fp);\nrewind(fp);\nfread(a, sizeof(int), 5, fp);\nprintf(\"%d %d %d\", a[2], a[3], a[4]);\nfclose(fp);",
+      "options": [
+        "99 4 5",
+        "3 4 5",
+        "3 99 5",
+        "3 99 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Offset 3 x 4 = 12 is the start of the element with index 3, and in r+b mode fwrite overwrites those 4 bytes; it never inserts. Reading back gives 1 2 3 99 5, so a[2], a[3], a[4] print as 3 99 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m033",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds and that fseek() supports SEEK_END on binary files, as all mainstream systems do.\n\nstruct R { int id; char grade; };\nstruct R w[3] = {{1, 'A'}, {2, 'B'}, {3, 'C'}}, r;\nFILE *fp = fopen(\"g.bin\", \"wb\");\nfwrite(w, sizeof(struct R), 3, fp);\nfclose(fp);\nfp = fopen(\"g.bin\", \"rb\");\nfseek(fp, -(long)sizeof(struct R), SEEK_END);\nfread(&r, sizeof r, 1, fp);\nprintf(\"%d%c %ld\", r.id, r.grade, ftell(fp) / (long)sizeof r);\nfclose(fp);",
+      "options": [
+        "3C 3",
+        "3C 2",
+        "2B 2",
+        "1A 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "The file holds 3 records, so one record size back from the end is the start of the last record, {3, 'C'}. After reading it the position is at the end, 3 x sizeof(struct R), so the division gives 3 whatever padding the structure has.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m034",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume every fopen() succeeds.\n\nint c1, c2, c3;\nFILE *fp = fopen(\"x.txt\", \"w+\");\nfputs(\"XYZ\", fp);\nrewind(fp);\nc1 = fgetc(fp);\nc2 = fgetc(fp);\nrewind(fp);\nc3 = fgetc(fp);\nprintf(\"%c%c%c\", c1, c2, c3);\nfclose(fp);",
+      "options": [
+        "XYZ",
+        "XYY",
+        "XYX",
+        "XXY"
+      ],
+      "correctIndex": 2,
+      "explanation": "After the write, rewind moves to byte 0 (which also makes it legal to switch from writing to reading), so c1 = X and c2 = Y. The second rewind returns to byte 0, so c3 = X again.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m035",
+      "questionText": "Which statement about rewind(fp) is correct?",
+      "options": [
+        "It is exactly the same as fseek(fp, 0L, SEEK_END)",
+        "It moves the position indicator to the start of the file and also clears the stream's error indicator; it returns no value",
+        "It returns 0 on success and a nonzero value on failure, like fseek()",
+        "It erases the contents of the file so that it can be rewritten from the start"
+      ],
+      "correctIndex": 1,
+      "explanation": "rewind(fp) behaves like (void)fseek(fp, 0L, SEEK_SET) except that it also clears the error indicator; its return type is void, so failure cannot be detected from it. It never changes the file's contents.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m036",
+      "questionText": "A binary file holds 40 fixed-size records of 60 bytes each, and fseek() supports SEEK_END on it, as on all mainstream systems. After fseek(fp, -5L * 60, SEEK_END), which record (counting the first record as record 1) will the next fread(&rec, 60, 1, fp) read?",
+      "options": [
+        "The 35th record, which starts at byte 2100",
+        "The 5th record, which starts at byte 300",
+        "The 37th record, which starts at byte 2160",
+        "The 36th record, which starts at byte 2100"
+      ],
+      "correctIndex": 3,
+      "explanation": "File size = 40 x 60 = 2400 bytes, so the new position is 2400 - 5 x 60 = 2100. That is 2100 / 60 = 35 whole records from the start (index 35), which is record 35 + 1 = 36 when counting from 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i24_m037",
+      "questionText": "A file is opened with \"r+\". After calling fputs() on it, the program wants to call fgets() on the same stream. What does standard C require between the two calls?",
+      "options": [
+        "Nothing; reads and writes may be mixed freely",
+        "A call to fflush() or to a positioning function such as fseek() or rewind()",
+        "Closing the file and reopening it in \"r\" mode",
+        "A call to clearerr()"
+      ],
+      "correctIndex": 1,
+      "explanation": "In update (+) modes, output must not be followed directly by input without an intervening fflush or file-positioning call, and input must not be followed directly by output without a positioning call. Reopening the file also works but is not what the rule requires.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m038",
+      "questionText": "For a stream opened in text mode (\"r\"), which fseek() call does the C standard guarantee to work as intended?",
+      "options": [
+        "fseek(fp, 10L, SEEK_CUR)",
+        "fseek(fp, -5L, SEEK_END)",
+        "fseek(fp, pos, SEEK_SET), where pos is a value returned earlier by ftell(fp)",
+        "fseek(fp, 7L, SEEK_SET), where 7 was found by counting the characters read so far"
+      ],
+      "correctIndex": 2,
+      "explanation": "Because newline translation means byte offsets need not match character counts, the standard guarantees fseek on a text stream only with offset 0, or with SEEK_SET and a value obtained from ftell. Arbitrary offsets are portable only on binary streams.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m039",
+      "questionText": "Which function returns a nonzero value when the error indicator of a stream is set, for example after a failed write?",
+      "options": [
+        "feof(fp)",
+        "perror(\"write\")",
+        "clearerr(fp)",
+        "ferror(fp)"
+      ],
+      "correctIndex": 3,
+      "explanation": "ferror tests the error indicator and feof tests the end-of-file indicator; clearerr resets both. perror prints a message describing the last error but returns nothing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m040",
+      "questionText": "Which statement about the <stdio.h> functions remove() and rename() is correct?",
+      "options": [
+        "remove(\"a.txt\") deletes the file and rename(\"a.txt\", \"b.txt\") gives it a new name; both return 0 on success",
+        "Both work only on files that are currently open with fopen()",
+        "rename() copies the file, so both a.txt and b.txt exist afterwards",
+        "Both return 1 on success and 0 on failure"
+      ],
+      "correctIndex": 0,
+      "explanation": "remove(name) deletes a file and rename(old, new) changes its name; each returns 0 on success and a nonzero value on failure, for example when the file does not exist. Neither needs the file to be open.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m041",
+      "questionText": "What does the following fragment print? It runs inside main() with <stdio.h> included; assume the fopen() succeeds.\n\nFILE *fp = fopen(\"t.txt\", \"w\");\nfclose(fp);\nint a = (remove(\"t.txt\") == 0);\nint b = (remove(\"t.txt\") == 0);\nprintf(\"%d %d\", a, b);",
+      "options": [
+        "0 1",
+        "1 1",
+        "1 0",
+        "0 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first remove deletes the existing file and returns 0, so a = 1. The file no longer exists, so the second remove fails with a nonzero value and b = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m042",
+      "questionText": "Which statement about fflush() is correct?",
+      "options": [
+        "fflush(fp) on an output stream writes any buffered data to the file; fflush(stdin) is undefined in standard C",
+        "fflush(stdin) is the portable way to discard unread keyboard input",
+        "fflush(fp) closes the file after writing its buffer",
+        "Data written with fprintf() reaches the disk immediately, so fflush() is never needed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Output is buffered, and fflush forces the buffer out without closing the stream. The standard defines fflush only for output (or last-written update) streams, so fflush(stdin) is undefined behaviour even if some compilers accept it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m043",
+      "questionText": "Which task benefits most from random (direct) access with fseek() rather than sequential access?",
+      "options": [
+        "Printing every line of a text file in order",
+        "Updating the 500th record of a file of fixed-size binary records",
+        "Counting the words in a text file",
+        "Adding a new line to the end of a log file"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fixed-size records let the program compute the offset 499 x sizeof(record) and jump straight there. The other tasks visit data in order from the start, or only write at the end, which \"a\" mode already does.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i24_m044",
+      "questionText": "What is the difference between getc(fp) and fgetc(fp)?",
+      "options": [
+        "getc reads only from the keyboard, while fgetc reads from a file",
+        "getc returns a char, while fgetc returns an int",
+        "getc reads a whole line, while fgetc reads one character",
+        "They do the same job, but getc may be implemented as a macro, so its argument should not have side effects"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both read the next character from the given stream and return it as an int, or EOF. getc is allowed to be a macro that evaluates its argument more than once, so a call such as getc(files[i++]) is unsafe; fgetc must behave as a true function and evaluates its argument exactly once.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m045",
+      "questionText": "What does the standard library function tmpfile() do?",
+      "options": [
+        "Returns a unique file name as a string without creating any file",
+        "Creates a temporary binary file opened for update (\"wb+\") that is removed automatically when it is closed or the program ends normally",
+        "Opens a file named tmp in the current directory in \"w\" mode",
+        "Copies an existing file into memory and returns a pointer to the copy"
+      ],
+      "correctIndex": 1,
+      "explanation": "tmpfile() returns a FILE * to a new temporary file in \"wb+\" mode, or NULL on failure, and the file is deleted when it is closed. Generating a name only is the job of tmpnam().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i24_m046",
+      "questionText": "Which statement about fclose(fp) is correct?",
+      "options": [
+        "It deletes the file from the disk",
+        "It returns the number of bytes written to the file",
+        "It is needed only for files opened in read mode",
+        "It flushes any buffered output, releases the stream, and returns 0 on success or EOF on failure"
+      ],
+      "correctIndex": 3,
+      "explanation": "fclose writes out any unwritten buffered data, closes the file and frees the FILE object. It returns 0 on success and EOF on error, which is worth checking for output files.",
+      "difficulty": "easy"
+    }
+  ]
+}

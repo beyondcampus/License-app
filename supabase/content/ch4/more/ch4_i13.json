@@ -1,0 +1,696 @@
+{
+  "topicId": "ch4_i13",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: CPI, MIPS and Register Windows"
+    },
+    {
+      "type": "paragraph",
+      "text": "The CPU time equation comes from counting clock cycles: a program needs a certain number of cycles, each lasting T = 1/f, and the number of cycles equals the instructions executed (IC) times the average cycles per instruction (CPI). When instructions fall into classes with different cycle counts, CPI is the average of the class CPIs weighted by the fraction of executed (dynamic) instructions in each class, not by how often they appear in the listing. Roughly, IC depends on the instruction set and the compiler, CPI on the organisation and the instruction set, and the clock period on circuit technology and organisation. RISC and CISC push these factors in opposite directions, so only their product decides which is faster."
+    },
+    {
+      "type": "formula",
+      "latex": "CPI = \\sum_{i} f_i \\, CPI_i, \\qquad T_{CPU} = \\frac{IC \\times CPI}{f}",
+      "plainText": "CPI = Σ f_i × CPI_i (f_i = fraction of instructions in class i); CPU time = IC × CPI / f"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: weighted CPI, time and MIPS\nMix: ALU 50% (1 cycle), load 20% (2), store 10% (2), branch 20% (3)\nCPI  = 0.5x1 + 0.2x2 + 0.1x2 + 0.2x3 = 0.5 + 0.4 + 0.2 + 0.6 = 1.7\nIC   = 2 x 10^6 instructions, f = 400 MHz (T = 2.5 ns)\nTime = 2 x 10^6 x 1.7 x 2.5 ns = 8.5 ms\nMIPS = f / (CPI x 10^6) = 400 / 1.7 = 235.3"
+    },
+    {
+      "type": "paragraph",
+      "text": "MIPS (million instructions per second) equals IC / (T_CPU × 10^6), or f / (CPI × 10^6), and MFLOPS counts only floating-point operations: FP operations / (T_CPU × 10^6). Both are rates of doing something, not measures of getting the job done. A RISC machine executes more, simpler instructions for the same work, so its MIPS figure flatters it; on one machine a code sequence with many cheap instructions can raise MIPS while taking longer; and MFLOPS treats a divide like an add. Execution time for the same program is the only fair comparison."
+    },
+    {
+      "type": "formula",
+      "latex": "MIPS = \\frac{IC}{T_{CPU} \\times 10^{6}} = \\frac{f}{CPI \\times 10^{6}}",
+      "plainText": "MIPS = IC / (CPU time × 10^6) = f / (CPI × 10^6)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: a higher MIPS rating but a slower program\nClasses A, B, C take 1, 2 and 4 cycles; clock 500 MHz\nCode 1: 4M A + 2M B + 1M C -> cycles = 4 + 4 + 4 = 12M, IC = 7M\n        time = 12M / 500 MHz = 24 ms, MIPS = 7 / 0.024 = 291.7\nCode 2: 8M A + 1M B + 1M C -> cycles = 8 + 2 + 4 = 14M, IC = 10M\n        time = 14M / 500 MHz = 28 ms, MIPS = 10 / 0.028 = 357.1\nCode 2 has the higher MIPS rating yet takes 28 / 24 = 1.17 times as long."
+    },
+    {
+      "type": "paragraph",
+      "text": "In the circular-buffer organisation of overlapped windows, a current-window pointer (CWP) selects the running procedure's window; a call advances CWP by one window, so the caller's outgoing registers become the callee's incoming registers, and a return moves CWP back. Because the windows form a ring, the outgoing registers of the newest window would overlap the incoming registers of the oldest one, so an N-window file holds at most N − 1 procedure activations. A call that would go deeper raises a window-overflow trap that saves the oldest window's incoming and local registers to memory, and a return into a saved procedure raises a window-underflow trap that reloads them. Call depth in real programs usually moves within a narrow band, so these traps are rare."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: a SPARC-style file with 8 windows\nEach window: 8 in, 8 local, 8 out; 8 global registers\nMap to the formula: G = 8, L = 8, C = 8 (outs of one window = ins of the next)\nVisible per procedure = G + L + 2C = 8 + 8 + 16 = 32 registers\nTotal in the file     = (L + C) x W + G = 16 x 8 + 8 = 136 registers\nActivations held      = W - 1 = 7 before a window-overflow trap\nSaved per trap        = L + C = 16 registers = 64 bytes (32-bit registers)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Aspect",
+          "Hardwired control",
+          "Microprogrammed control"
+        ],
+        [
+          "Built from",
+          "Gates, flip-flops and decoders forming a sequential circuit",
+          "A control memory of microinstructions plus a sequencer"
+        ],
+        [
+          "Speed",
+          "Faster; no control-memory read per step",
+          "Slower; every step reads a microinstruction"
+        ],
+        [
+          "Changing the instruction set",
+          "Logic must be redesigned",
+          "Microprogram is rewritten"
+        ],
+        [
+          "Complex instructions",
+          "Costly to add",
+          "Easy to add as longer microroutines"
+        ],
+        [
+          "Typical use",
+          "RISC, and the simple instructions of modern x86",
+          "Classic CISC such as the VAX and most IBM System/360 models"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Why the RISC recipe suits a pipeline:",
+      "items": [
+        "Fixed length and alignment: the next instruction's address is known during fetch, and one fetch per cycle never straddles two words.",
+        "Fixed field positions: register numbers sit in the same bits of every format, so the register file can be read while the opcode is still being decoded.",
+        "Load/store only: an arithmetic instruction never waits for memory, and each instruction makes at most one data access, so a single memory stage suffices.",
+        "Uniform simple steps: every instruction flows through the same stages instead of variable-length microroutines that stall a CISC pipeline.",
+        "Compiler help: the compiler reorders code to fill load-delay and branch-delay slots, so the hardware needs fewer interlocks."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: judging machines by instruction count or by MIPS instead of by execution time; taking the plain mean of class CPIs instead of the frequency-weighted mean; mixing up CPI and IPC (IPC = 1 / CPI); mixing MHz with ns or ms without converting; and using (L + 2C)W + G for the total register count, which counts every overlap twice. Remember also that a window-overflow trap saves only the incoming and local registers of one window."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i13_m001",
+      "questionText": "In a load/store architecture such as MIPS or RISC-V, which instructions are allowed to read or write data memory?",
+      "options": [
+        "Every arithmetic and logic instruction, through memory operands",
+        "Only branch and subroutine-call instructions",
+        "Only the LOAD and STORE instructions",
+        "Any instruction that uses indirect addressing"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a load/store (RISC) design, ALU instructions work only on registers and immediates; LOAD brings a word from memory into a register and STORE writes it back.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m002",
+      "questionText": "Three of these instruction-set families are RISC designs. Which one is the CISC design?",
+      "options": [
+        "ARM",
+        "MIPS",
+        "SPARC",
+        "DEC VAX"
+      ],
+      "correctIndex": 3,
+      "explanation": "The VAX, with hundreds of instructions, variable-length encoding and many memory addressing modes, is the classic CISC machine; ARM, MIPS and SPARC are RISC designs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m003",
+      "questionText": "Which type of control unit is typical of a RISC processor?",
+      "options": [
+        "Hardwired control",
+        "Microprogrammed control with a writable control store",
+        "Vertical microprogrammed control",
+        "Two-level (nanoprogrammed) control"
+      ],
+      "correctIndex": 0,
+      "explanation": "Simple, uniform RISC instructions can be decoded by fast combinational logic, so RISC uses hardwired control; microprogramming suits large, complex CISC instruction sets.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m004",
+      "questionText": "Why is a CISC program for a task usually shorter, in number of instructions, than the RISC program for the same task?",
+      "options": [
+        "CISC compilers delete more instructions during optimisation",
+        "A single CISC instruction can do more work, such as fetching memory operands and computing in one step",
+        "CISC processors have more registers, so fewer loads are needed",
+        "Every CISC instruction is shorter in bytes than every RISC instruction"
+      ],
+      "correctIndex": 1,
+      "explanation": "Complex instructions with memory operands combine what RISC does with separate loads, ALU operations and stores, so the instruction count IC is lower even though each instruction takes more cycles.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m005",
+      "questionText": "Which statement about RISC is NOT correct?",
+      "options": [
+        "Most RISC instructions complete at a rate of one per clock cycle in a pipeline",
+        "A RISC program always contains fewer instructions than the equivalent CISC program",
+        "RISC relies on an optimising compiler for register allocation and instruction scheduling",
+        "RISC instructions have a fixed length and few formats"
+      ],
+      "correctIndex": 1,
+      "explanation": "RISC programs usually contain more instructions than CISC programs, because each instruction does less; RISC wins through a lower CPI and a faster clock, not a lower instruction count.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m006",
+      "questionText": "How do fixed-length instructions with fixed field positions make a RISC pipeline simpler?",
+      "options": [
+        "They let each instruction access memory several times without stalling",
+        "They remove the need for a program counter",
+        "The next instruction's address is known during fetch, and register fields sit in the same bits of every format, so registers can be read while the opcode is decoded",
+        "They let the processor skip the decode stage entirely"
+      ],
+      "correctIndex": 2,
+      "explanation": "With every instruction one word long, fetch simply adds the word size to the PC, and fixed register-field positions let register reading overlap decoding, so every instruction passes through the same short stages.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m007",
+      "questionText": "Studies of compiled high-level-language programs that led to the Berkeley RISC design found which fact that motivated overlapped register windows?",
+      "options": [
+        "Floating-point division dominated execution time",
+        "Most instructions used memory-indirect addressing",
+        "Programs rarely used local scalar variables",
+        "Procedure calls and returns were the most time-consuming operations, largely because of saving registers and passing parameters"
+      ],
+      "correctIndex": 3,
+      "explanation": "Weighted by the machine instructions and memory references they cause, calls and returns cost the most, and most operands were local scalars; keeping those in register windows removes most call overhead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m008",
+      "questionText": "With overlapped register windows, where does a calling procedure place the parameters for the procedure it calls?",
+      "options": [
+        "In its outgoing (common) registers, which become the callee's incoming registers when the window pointer moves",
+        "In the global registers only, which every procedure shares",
+        "On the memory stack, because windows cannot share registers",
+        "In the callee's local registers, which the caller writes before the call"
+      ],
+      "correctIndex": 0,
+      "explanation": "Adjacent windows overlap: the caller's outgoing registers are physically the same as the callee's incoming registers, so a call just advances the current-window pointer and no parameter is copied.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m009",
+      "questionText": "In a circular register file of overlapped windows, what happens when a call is made and no free window is left?",
+      "options": [
+        "A window-overflow trap saves the oldest window's registers to memory so that its window can be reused",
+        "The call is refused and the program is aborted",
+        "The newest window is overwritten without being saved",
+        "The processor switches to microprogrammed mode and uses the memory stack"
+      ],
+      "correctIndex": 0,
+      "explanation": "The overflow trap spills the oldest activation's window to memory; a later return into that procedure raises an underflow trap that reloads it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m010",
+      "questionText": "A register file is organised as a circular buffer of 8 overlapped windows (as in Stallings and SPARC, one window is kept free because the newest window's outgoing registers would otherwise overlap the oldest window's incoming registers). At most how many procedure activations can be held in registers at once before a window-overflow trap is needed?",
+      "options": [
+        "8",
+        "7",
+        "9",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ring closes on itself: the outgoing registers of the newest window would overlap the incoming registers of the oldest, so an N-window file holds N − 1 = 7 activations.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m011",
+      "questionText": "A register file of 224 registers consists of 8 global registers plus overlapped windows, each window having 12 local registers and 6 registers common with each adjacent window. How many windows does the file have?",
+      "options": [
+        "9",
+        "18",
+        "12",
+        "13"
+      ],
+      "correctIndex": 2,
+      "explanation": "Total = (L + C)W + G, so W = (224 − 8) / (12 + 6) = 216 / 18 = 12. Dividing by L + 2C = 24 would count each overlap twice and give 9.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m012",
+      "questionText": "With 16 global registers, 8 local registers per window and 8 registers common to each pair of adjacent windows, how many registers can one procedure address at any time?",
+      "options": [
+        "32",
+        "24",
+        "48",
+        "40"
+      ],
+      "correctIndex": 3,
+      "explanation": "Window size = G + L + 2C = 16 + 8 + 2 × 8 = 40: the globals, the locals, the incoming registers shared with the caller and the outgoing registers shared with the callee.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m013",
+      "questionText": "A designer wants each procedure to see 32 registers, 8 of them global, with the number of local registers equal to the number of common registers shared with each neighbour. If the file has 8 windows, how many physical registers are needed?",
+      "options": [
+        "200",
+        "256",
+        "128",
+        "136"
+      ],
+      "correctIndex": 3,
+      "explanation": "32 = G + L + 2C = 8 + 3C gives C = L = 8. Total = (L + C)W + G = 16 × 8 + 8 = 136, the SPARC organisation.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m014",
+      "questionText": "Each window has 10 local registers and 6 registers common with each neighbour, and registers are 32 bits wide. A window-overflow trap stores the local and incoming registers of the oldest window. If a program triggers 25 overflow traps, how many bytes do the traps write to memory?",
+      "options": [
+        "2200 bytes",
+        "3200 bytes",
+        "1600 bytes",
+        "400 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each trap saves L + C = 16 registers × 4 bytes = 64 bytes, so 25 traps write 25 × 64 = 1600 bytes (400 is the count of words, not bytes).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m015",
+      "questionText": "A program executes 2.5 million instructions with an average CPI of 2 on a processor whose clock period is 0.5 ns. What is its CPU time?",
+      "options": [
+        "10 ms",
+        "2.5 ms",
+        "1.25 ms",
+        "2.5 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = IC × CPI × T_clk = 2.5 × 10^6 × 2 × 0.5 × 10^-9 s = 2.5 × 10^-3 s = 2.5 ms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m016",
+      "questionText": "A program's instruction mix is ALU 50% (CPI 1), loads 20% (CPI 4), stores 10% (CPI 3) and branches 20% (CPI 2). What is its average CPI?",
+      "options": [
+        "2.0",
+        "2.5",
+        "1.7",
+        "1.0"
+      ],
+      "correctIndex": 0,
+      "explanation": "CPI = 0.5 × 1 + 0.2 × 4 + 0.1 × 3 + 0.2 × 2 = 0.5 + 0.8 + 0.3 + 0.4 = 2.0. The plain mean of the class CPIs (2.5) ignores how often each class occurs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m017",
+      "questionText": "A processor runs at 800 MHz with an average CPI of 1.6. What is its MIPS rating?",
+      "options": [
+        "1280",
+        "800",
+        "50",
+        "500"
+      ],
+      "correctIndex": 3,
+      "explanation": "MIPS = f / (CPI × 10^6) = 800 × 10^6 / (1.6 × 10^6) = 500.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m018",
+      "questionText": "A benchmark performs 60 million floating-point operations and runs in 0.4 s. What is its MFLOPS rating?",
+      "options": [
+        "24",
+        "1500",
+        "150",
+        "15"
+      ],
+      "correctIndex": 2,
+      "explanation": "MFLOPS = FP operations / (time × 10^6) = 60 × 10^6 / (0.4 × 10^6) = 150.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m019",
+      "questionText": "Instruction classes A, B and C need 1, 2 and 3 cycles on a 1 GHz processor. Code sequence 1 executes 6M A, 1M B and 2M C instructions; sequence 2 executes 3M A, 2M B and 2M C. Which statement is correct?",
+      "options": [
+        "Sequence 1 has the higher MIPS rating, but sequence 2 runs faster",
+        "Sequence 1 has the higher MIPS rating and also runs faster",
+        "Sequence 2 has the higher MIPS rating and runs faster",
+        "Both take the same time because they use the same instruction classes"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sequence 1: 14M cycles = 14 ms for 9M instructions (643 MIPS). Sequence 2: 13M cycles = 13 ms for 7M instructions (538 MIPS). Sequence 2 is faster despite its lower MIPS rating.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m020",
+      "questionText": "A CISC machine runs a program as 20 million instructions with CPI 4 at 400 MHz. A RISC machine runs the same program as 30 million instructions with CPI 1.25 at 250 MHz. Which statement is correct?",
+      "options": [
+        "The RISC machine is about 2.13 times faster",
+        "The RISC machine is about 1.33 times faster",
+        "The CISC machine is 1.5 times faster because it executes fewer instructions",
+        "Both machines take the same time"
+      ],
+      "correctIndex": 1,
+      "explanation": "CISC: 20M × 4 / 400 MHz = 0.2 s. RISC: 30M × 1.25 / 250 MHz = 0.15 s. The ratio 0.2 / 0.15 = 1.33 favours RISC; 2.13 compares cycle counts and ignores the different clock rates.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m021",
+      "questionText": "The RISC version of a program executes 1.4 times as many instructions as the CISC version, whose average CPI is 3.5. Both machines use the same clock. What is the largest average CPI the RISC machine may have and still be at least as fast?",
+      "options": [
+        "4.9",
+        "2.1",
+        "3.5",
+        "2.5"
+      ],
+      "correctIndex": 3,
+      "explanation": "At equal clock the RISC machine needs 1.4 × IC × CPI_R ≤ IC × 3.5, so CPI_R ≤ 3.5 / 1.4 = 2.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m022",
+      "questionText": "A CISC machine executes a program as 10 million instructions with CPI 3 at 600 MHz. A RISC machine needs 15 million instructions with CPI 1.2 for the same program. What is the minimum RISC clock frequency needed to match the CISC execution time?",
+      "options": [
+        "300 MHz",
+        "600 MHz",
+        "360 MHz",
+        "900 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "CISC time = 10M × 3 / 600 MHz = 50 ms. The RISC machine needs 15M × 1.2 = 18M cycles in 50 ms, so f = 18 × 10^6 / 0.05 s = 360 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m023",
+      "questionText": "A microprogrammed CISC processor executes each machine instruction as an average of 6 microinstructions, each taking one 10 ns clock cycle. What is its MIPS rating?",
+      "options": [
+        "16.7",
+        "100",
+        "60",
+        "166.7"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each machine instruction takes 6 × 10 ns = 60 ns, so the rate is 1 / 60 ns = 16.7 × 10^6 instructions per second, i.e. 16.7 MIPS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m024",
+      "questionText": "On a RISC machine, loads are 25% of executed instructions and take 3 cycles; every other instruction takes 1 cycle. A better data cache cuts the load time to 2 cycles. What is the overall speedup, with the same instruction count and clock?",
+      "options": [
+        "1.50",
+        "1.25",
+        "0.83",
+        "1.20"
+      ],
+      "correctIndex": 3,
+      "explanation": "Old CPI = 0.25 × 3 + 0.75 × 1 = 1.5; new CPI = 0.25 × 2 + 0.75 × 1 = 1.25. Speedup = 1.5 / 1.25 = 1.20; 1.5 is only the speedup of the loads themselves.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m025",
+      "questionText": "A program runs 10 million instructions at CPI 1.2 on a 500 MHz processor. Adding a complex instruction cuts the instruction count by 10% but raises the average CPI to 1.4 at the same clock. What is the new CPU time?",
+      "options": [
+        "21.6 ms, faster than before",
+        "25.2 ms, slower than before",
+        "28 ms, slower than before",
+        "24 ms, unchanged"
+      ],
+      "correctIndex": 1,
+      "explanation": "Old: 10M × 1.2 / 500 MHz = 24 ms. New: 9M × 1.4 / 500 MHz = 25.2 ms, about 5% slower, so the complex instruction does not pay off.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m026",
+      "questionText": "A program of 8 million instructions takes 12 ms on a 1.5 GHz processor. What is its average CPI?",
+      "options": [
+        "0.44",
+        "1.5",
+        "2.25",
+        "3.38"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cycles = 12 × 10^-3 s × 1.5 × 10^9 Hz = 18 × 10^6, so CPI = 18M / 8M = 2.25.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m027",
+      "questionText": "A load/store machine with three-register ALU instructions (for example ADD R1, R1, R2) computes X = (A + B) × (C + D), with A, B, C, D and X in memory. What is the minimum number of instructions?",
+      "options": [
+        "3",
+        "8",
+        "6",
+        "7"
+      ],
+      "correctIndex": 1,
+      "explanation": "Four LOADs bring A to D into registers, two ADDs and one MUL work on registers, and one STORE writes X: 4 + 3 + 1 = 8, because only LOAD and STORE may touch memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m028",
+      "questionText": "For X = (A + B) × (C + D), a RISC program has 8 fixed 32-bit instructions. A CISC version uses 3 memory-to-memory three-address instructions (ADD T, A, B; ADD X, C, D; MUL X, T, X), each with a 1-byte opcode and three 2-byte addresses. How many times larger is the RISC code in bytes?",
+      "options": [
+        "About 1.52 times",
+        "About 2.67 times",
+        "About 0.66 times",
+        "About 1.33 times"
+      ],
+      "correctIndex": 0,
+      "explanation": "RISC code = 8 × 4 = 32 bytes; CISC code = 3 × (1 + 3 × 2) = 21 bytes. The ratio 32 / 21 = 1.52; 2.67 compares instruction counts rather than bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m029",
+      "questionText": "A designer's feature list for a new processor contains the four items below. Which one comes from the RISC tradition rather than from classic CISC?",
+      "options": [
+        "Memory-to-memory arithmetic with many addressing modes",
+        "A large register file organised as overlapped register windows",
+        "Variable-length instruction formats",
+        "A microprogrammed control unit"
+      ],
+      "correctIndex": 1,
+      "explanation": "Large windowed register files come from RISC (Berkeley RISC, SPARC). Classic CISC machines have relatively few registers, many addressing modes, variable-length formats and microprogrammed control.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m030",
+      "questionText": "What is the main advantage of microprogrammed control over hardwired control?",
+      "options": [
+        "It is always faster, because microinstructions are fetched in parallel",
+        "It needs no control memory",
+        "It removes the need for any sequencing logic",
+        "The instruction set can be changed or extended by rewriting the control memory instead of redesigning the logic"
+      ],
+      "correctIndex": 3,
+      "explanation": "A microprogrammed unit stores its control signals as microinstructions, so complex instructions are easy to add or correct; the price is speed, because every step reads the control memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m031",
+      "questionText": "Why does a RISC design depend heavily on an optimising compiler?",
+      "options": [
+        "The compiler must translate each instruction into microcode at run time",
+        "The compiler must choose among hundreds of complex instructions for each statement",
+        "The compiler must keep variables in the large register file and reorder instructions to fill delay slots and avoid pipeline stalls",
+        "The compiler must insert memory-to-memory instructions for arithmetic"
+      ],
+      "correctIndex": 2,
+      "explanation": "RISC hardware stays simple by leaving register allocation and instruction scheduling (including load-delay and branch-delay slots) to the compiler.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m032",
+      "questionText": "In a pipelined RISC with delayed branches (no annul option), what happens to the instruction immediately after a branch, in the delay slot?",
+      "options": [
+        "It is always executed, whether or not the branch is taken",
+        "It is executed only if the branch is not taken",
+        "It is discarded and replaced by a bubble",
+        "It is executed twice"
+      ],
+      "correctIndex": 0,
+      "explanation": "A delayed branch takes effect one instruction late, so the delay-slot instruction always executes; the compiler places a useful instruction there, or a NOP if none is available.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m033",
+      "questionText": "A RISC uses delayed branches with one delay slot (no annulling). What value does this code store in X?\nMOV   R1, #5\nBR    L            ; unconditional delayed branch\nADD   R1, R1, #3\nADD   R1, R1, #10\nL: STORE X, R1",
+      "options": [
+        "5",
+        "18",
+        "15",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "MOV sets R1 = 5; the ADD #3 in the delay slot executes before the jump takes effect, giving R1 = 8; ADD #10 is skipped, so X = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m034",
+      "questionText": "Why is the average CPI of a classic CISC processor well above 1?",
+      "options": [
+        "Many instructions access memory several times and run as multi-step microroutines",
+        "Its clock period is shorter than that of a RISC processor",
+        "It has too many registers to read in one cycle",
+        "It cannot use cache memories"
+      ],
+      "correctIndex": 0,
+      "explanation": "A memory-to-memory instruction must fetch several operands and store a result, and a microprogrammed unit spends one cycle per microinstruction, so one instruction takes many cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m035",
+      "questionText": "Which statement about MIPS as a performance measure is NOT correct?",
+      "options": [
+        "MIPS = clock rate / (CPI × 10^6)",
+        "The MIPS rating depends on the instruction mix of the program being run",
+        "A machine with a higher MIPS rating always runs a given program faster",
+        "MIPS cannot fairly compare machines with different instruction sets"
+      ],
+      "correctIndex": 2,
+      "explanation": "MIPS ignores how much work each instruction does: a machine or code sequence can execute more, simpler instructions per second and still take longer, so higher MIPS does not guarantee a shorter time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m036",
+      "questionText": "A scientific program executes 200 million instructions, 50 million of which are floating-point operations, with an average CPI of 1.5 on a 1 GHz processor. What is its MFLOPS rating?",
+      "options": [
+        "666.7",
+        "166.7",
+        "33.3",
+        "250"
+      ],
+      "correctIndex": 1,
+      "explanation": "Time = 200M × 1.5 / 1 GHz = 0.3 s, so MFLOPS = 50 × 10^6 / (0.3 × 10^6) = 166.7. The MIPS rating would be 200 / 0.3 = 666.7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m037",
+      "questionText": "Compared with CISC, which factor of CPU time = IC × CPI × T does a RISC instruction set usually increase?",
+      "options": [
+        "Cycles per instruction (CPI)",
+        "Clock period (T)",
+        "None of them",
+        "Instruction count (IC)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Simpler instructions mean more of them per program, so IC rises; RISC then lowers CPI to about 1 and allows a shorter clock period.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m038",
+      "questionText": "Which pairing of a CPU-time factor with what mainly determines it is correct?",
+      "options": [
+        "Clock cycle time — the compiler and the program's instruction mix",
+        "Instruction count — the instruction set architecture and the compiler",
+        "Instruction count — the transistor technology alone",
+        "Clock cycle time — the number of instructions in the program"
+      ],
+      "correctIndex": 1,
+      "explanation": "The number of instructions executed depends on the instruction set and on how the compiler translates the program; the clock cycle time is set by hardware technology and organisation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m039",
+      "questionText": "How do modern x86 processors achieve RISC-like pipelining while keeping the CISC instruction set?",
+      "options": [
+        "Hardware decoders translate each x86 instruction into simple fixed-length micro-operations that a RISC-style core executes",
+        "They execute every x86 instruction in microcode without pipelining",
+        "They require programs to be recompiled into ARM code",
+        "They restrict x86 programs to instructions that access memory once"
+      ],
+      "correctIndex": 0,
+      "explanation": "Since the Pentium Pro, x86 front ends crack instructions into micro-ops that a pipelined, superscalar core schedules like RISC instructions; only rare complex instructions fall back to microcode.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m040",
+      "questionText": "What is the purpose of compressed 16-bit instruction encodings such as ARM Thumb and the RISC-V C extension?",
+      "options": [
+        "To increase the number of addressable registers",
+        "To add memory-to-memory arithmetic to RISC",
+        "To improve code density, reducing program memory size and instruction-fetch bandwidth",
+        "To replace hardwired control with microcode"
+      ],
+      "correctIndex": 2,
+      "explanation": "Fixed 32-bit RISC instructions waste space; 16-bit encodings of common instructions shrink programs, which matters in embedded systems with small memories and caches.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m041",
+      "questionText": "Which set of addressing modes is typical of a RISC instruction set?",
+      "options": [
+        "Memory indirect, autoincrement deferred and scaled index with displacement",
+        "Direct memory operands for every arithmetic instruction",
+        "Only stack-based zero-address modes",
+        "Register, immediate and register plus displacement"
+      ],
+      "correctIndex": 3,
+      "explanation": "RISC keeps a few simple modes: register operands, small immediates, and base register plus displacement for LOAD and STORE. The richer memory modes belong to CISC machines such as the VAX.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m042",
+      "questionText": "Why do RISC processors provide a large number of general-purpose registers?",
+      "options": [
+        "Because microcode needs one register for each microinstruction",
+        "Because variable-length instructions need extra registers for decoding",
+        "Because a large register file shortens every instruction's opcode",
+        "Because only loads and stores reach memory, keeping operands and local variables in registers cuts memory traffic and speeds procedure calls"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a load/store machine every operand must be in a register before use, so many registers (or register windows) let the compiler keep variables there and avoid loads, stores and register saving at calls.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m043",
+      "questionText": "A program takes 10 s on machine A and 15 s on machine B. How many times faster is A than B?",
+      "options": [
+        "0.67",
+        "5",
+        "1.5",
+        "2.5"
+      ],
+      "correctIndex": 2,
+      "explanation": "Performance is the reciprocal of execution time, so A is 15 / 10 = 1.5 times as fast as B.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i13_m044",
+      "questionText": "A superscalar RISC core running at 2 GHz executes 3.6 billion instructions in 1.5 s. What is its average CPI?",
+      "options": [
+        "0.83",
+        "1.2",
+        "0.6",
+        "2.4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cycles = 1.5 s × 2 × 10^9 Hz = 3 × 10^9, so CPI = 3 × 10^9 / 3.6 × 10^9 = 0.83 (its IPC is 1.2).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i13_m045",
+      "questionText": "A circular register file has 6 overlapped windows and holds at most W − 1 procedure activations. Each overflow trap saves exactly one window and no window is saved in advance. Starting from main with only main's window in use, the program makes 8 nested calls without any return, so 9 activations exist at the deepest point. How many window-overflow traps occur?",
+      "options": [
+        "3",
+        "4",
+        "2",
+        "9"
+      ],
+      "correctIndex": 1,
+      "explanation": "The file holds W − 1 = 5 activations, so activations 6, 7, 8 and 9 each force one trap: 9 − 5 = 4. Assuming all 6 windows usable would wrongly give 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i13_m046",
+      "questionText": "The 'semantic gap' argument used to justify CISC designs refers to:",
+      "options": [
+        "The delay between issuing a load and receiving its data",
+        "The difference in speed between registers and main memory",
+        "The difference between high-level-language operations and machine instructions, which designers tried to close with complex instructions and many addressing modes",
+        "The unused opcode space left in a fixed-length instruction format"
+      ],
+      "correctIndex": 2,
+      "explanation": "CISC designers argued that instructions resembling high-level statements would simplify compilers and shorten programs; RISC studies showed those instructions were rarely used.",
+      "difficulty": "medium"
+    }
+  ]
+}

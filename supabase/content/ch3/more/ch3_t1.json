@@ -1,0 +1,717 @@
+{
+  "topicId": "ch3_t1",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Tokens, Types and Storage"
+    },
+    {
+      "type": "paragraph",
+      "text": "The ranges in the size table follow from counting bit patterns. An n-bit type has 2^n patterns, and an unsigned type uses all of them for 0 to 2^n - 1. A signed type in two's complement gives the top bit a weight of -2^(n-1), so it covers -2^(n-1) to 2^(n-1) - 1. The range is lopsided by one because zero uses up one of the non-negative patterns."
+    },
+    {
+      "type": "formula",
+      "latex": "x_{\\text{stored}} = x \\bmod 2^{n},\\quad (\\text{unsigned char})\\,300 = 300 - 256 = 44",
+      "plainText": "An n-bit unsigned type stores x mod 2^n; e.g. (unsigned char)300 = 300 - 256 = 44"
+    },
+    {
+      "type": "warning",
+      "text": "Only unsigned arithmetic is guaranteed to wrap round: 0u - 1 is UINT_MAX, and an unsigned char holding 255 becomes 0 when 1 is added and the result is stored back. Signed overflow such as INT_MAX + 1 is undefined behaviour, and storing an out-of-range value in a signed type (200 in a signed char) is implementation-defined. Wrap-around questions are only answerable for unsigned types."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Literal",
+          "Type (C99 or later, int and long 4 bytes)",
+          "Reason"
+        ],
+        [
+          "100",
+          "int",
+          "Fits in int, the first candidate"
+        ],
+        [
+          "100u, 100UL",
+          "unsigned int, unsigned long",
+          "U means unsigned, L means long"
+        ],
+        [
+          "3000000000",
+          "long long",
+          "Too big for int and a 4-byte long"
+        ],
+        [
+          "0xFFFFFFFF",
+          "unsigned int",
+          "Hex and octal constants also try the unsigned types"
+        ],
+        [
+          "2.5, 2.5f, 2.5L",
+          "double, float, long double",
+          "Floating literals are double by default"
+        ],
+        [
+          "'A'",
+          "int (value 65 in ASCII)",
+          "Character constants are int in C, char in C++"
+        ],
+        [
+          "\"AB\"",
+          "char[3]",
+          "String literals get a hidden '\\0' terminator"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint calls;                      /* global: zero-initialised */\nvoid visit(void) {\n    static int total = 100;     /* initialised only once */\n    int local = 100;            /* re-created on every call */\n    total += 10;\n    local += 10;\n    calls++;\n    printf(\"%d %d %d\\n\", calls, total, local);\n}\nint main(void) {\n    visit(); visit(); visit();\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n1 110 110\n2 120 110\n3 130 110\n\nTrace:\ncall 1: calls 0 -> 1, total 100 -> 110, local 100 -> 110\ncall 2: calls 1 -> 2, total 110 -> 120, local 100 -> 110\ncall 3: calls 2 -> 3, total 120 -> 130, local 100 -> 110\ncalls started at 0 because it has static storage duration.\ntotal keeps its value between calls; local restarts at 100."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <string.h>\ntypedef unsigned char byte;\nenum dir { NORTH = 1, EAST, SOUTH = 5, WEST };\nint main(void) {\n    byte b = 200;\n    b = b + 100;                  /* 300 does not fit in 8 bits */\n    printf(\"%d %d %d\\n\", b, EAST, WEST);\n    printf(\"%zu %zu\\n\", strlen(\"a\\tb\\x41\"), sizeof(\"a\\tb\\x41\"));\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n44 2 6\n4 5\n\nTrace:\nb + 100 = 300 as an int; stored in 8-bit byte: 300 - 256 = 44\nNORTH = 1, so EAST = 2; SOUTH = 5, so WEST = 6\n\"a\\tb\\x41\" holds a, TAB, b, A (0x41 = 65)  -> strlen = 4\nsizeof also counts the hidden '\\0'          -> 5"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Declaration",
+          "Scope",
+          "Linkage",
+          "Lifetime"
+        ],
+        [
+          "int g; outside functions",
+          "File, from the declaration on",
+          "External: other files can use it",
+          "Whole run, starts at 0"
+        ],
+        [
+          "static int g; outside functions",
+          "File",
+          "Internal: private to this file",
+          "Whole run, starts at 0"
+        ],
+        [
+          "extern int g;",
+          "File or block where it is written",
+          "External: names a definition elsewhere",
+          "No storage of its own"
+        ],
+        [
+          "int x; inside a block",
+          "Block",
+          "None",
+          "Block entry to exit, garbage"
+        ],
+        [
+          "static int x; inside a block",
+          "Block",
+          "None",
+          "Whole run, starts at 0, keeps its value"
+        ],
+        [
+          "register int r; inside a block",
+          "Block",
+          "None",
+          "Like auto; &r is not allowed"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Type qualifiers and typedef in practice:",
+      "items": [
+        "const int *p (also written int const *p): the int is read-only through p, but p itself can be pointed elsewhere.",
+        "int *const p: p is fixed to one address, but the int it points to may change; const int *const p fixes both.",
+        "volatile tells the compiler the value can change behind its back (hardware registers, signal handlers), so every read and write must really happen; const volatile suits a read-only hardware port.",
+        "typedef is a compiler-level alias: after typedef char *STR; the declaration STR a, b; makes two pointers, whereas #define PSTR char * turns PSTR a, b; into char *a, b; and b is a plain char.",
+        "In C a const int variable is not a constant expression, so it cannot be a case label; an enumeration constant or a #define macro can. C++ relaxes this rule."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "08 and 09 are compile errors: a leading 0 means octal, and octal digits stop at 7.",
+        "An octal escape takes at most three digits, so \\1234 is \\123 followed by 4; a hex escape keeps reading hex digits, so \\x41B is one value (0x41B) that does not fit in a char.",
+        "Whether plain char is signed or unsigned is implementation-defined; write signed char or unsigned char when the range matters.",
+        "sizeof(long) is 4 on 64-bit Windows but 8 on 64-bit Linux, so always fix the sizes before working out a sizeof answer.",
+        "A float keeps only about 7 significant digits, so a float and a double both set to 0.1 compare unequal; never test floating values with ==."
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t1_m001",
+      "questionText": "Which of the following is NOT a keyword in C?",
+      "options": [
+        "volatile",
+        "main",
+        "extern",
+        "register"
+      ],
+      "correctIndex": 1,
+      "explanation": "main is an ordinary identifier: the name of the function where execution starts. volatile, extern and register are all among the 32 keywords of ANSI C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m002",
+      "questionText": "Which of the following keywords was added by C99 and is NOT one of the 32 keywords of ANSI C (C89)?",
+      "options": [
+        "volatile",
+        "restrict",
+        "signed",
+        "enum"
+      ],
+      "correctIndex": 1,
+      "explanation": "C99 added inline, restrict, _Bool, _Complex and _Imaginary. volatile, signed and enum were already in the C89 list of 32 keywords.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m003",
+      "questionText": "Which of the following declarations compiles without error in C?",
+      "options": [
+        "int sizeof = 1;",
+        "int goto = 1;",
+        "int typedef = 1;",
+        "int Default = 1;"
+      ],
+      "correctIndex": 3,
+      "explanation": "Keywords are all lowercase and C is case-sensitive, so Default is an ordinary identifier. sizeof, goto and typedef are reserved keywords and cannot be used as variable names.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m004",
+      "questionText": "How many of the following are valid C identifiers?\n\nnet_pay   _count   2ndValue   float   Float   pay-rate   rate2",
+      "options": [
+        "3",
+        "5",
+        "4",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "Valid: net_pay, _count, Float and rate2. 2ndValue starts with a digit, float is a keyword (Float is not, because case matters) and pay-rate contains a hyphen, which is read as pay minus rate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m005",
+      "questionText": "In C, the names total, Total and TOTAL:",
+      "options": [
+        "all refer to the same variable",
+        "are invalid because identifiers must be lowercase",
+        "are the same identifier unless they are declared in different files",
+        "are three different identifiers"
+      ],
+      "correctIndex": 3,
+      "explanation": "C is case-sensitive, so identifiers that differ only in letter case are distinct; declaring all three creates three separate variables.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m006",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d %d\\n\", 017, 0x17, 17);\n    return 0;\n}",
+      "options": [
+        "17 17 17",
+        "15 17 23",
+        "17 23 15",
+        "15 23 17"
+      ],
+      "correctIndex": 3,
+      "explanation": "A leading 0 means octal and 0x means hexadecimal: 017 = 1 × 8 + 7 = 15, 0x17 = 1 × 16 + 7 = 23, and 17 is plain decimal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m007",
+      "questionText": "Which integer constant has the type unsigned long long?",
+      "options": [
+        "25ULL",
+        "25UL",
+        "25LL",
+        "25U"
+      ],
+      "correctIndex": 0,
+      "explanation": "U makes a constant unsigned and LL makes it long long, so 25ULL (also written 25LLU) is unsigned long long. 25UL is unsigned long, 25LL is long long and 25U is unsigned int.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m008",
+      "questionText": "Assume int is 4 bytes, long long is 8 bytes and float is 4 bytes. What does this program print?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu %zu %zu\\n\", sizeof(5LL), sizeof(5.0f), sizeof('5'));\n    return 0;\n}",
+      "options": [
+        "8 4 1",
+        "8 4 4",
+        "4 4 1",
+        "8 8 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "5LL is a long long (8 bytes) and 5.0f is a float (4 bytes). A character constant such as '5' has type int in C, so sizeof('5') is 4 (it would be 1 in C++).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m009",
+      "questionText": "Assume standard C (C99 or later), with int and long both 4 bytes and long long 8 bytes (as with 64-bit Windows compilers). What does this program print?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu %zu\\n\", sizeof(2147483647), sizeof(2147483648));\n    return 0;\n}",
+      "options": [
+        "4 8",
+        "4 4",
+        "8 8",
+        "Compile error: 2147483648 is too large for int"
+      ],
+      "correctIndex": 0,
+      "explanation": "In C99 and later, an unsuffixed decimal constant gets the first of int, long, long long that can hold it. 2147483647 = 2^31 - 1 fits in a 4-byte int; 2147483648 = 2^31 fits neither int nor a 4-byte long, so it becomes long long (8 bytes). (Under the old C89 rules it would have been unsigned long, 4 bytes.)",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m010",
+      "questionText": "Which of the following is a valid floating-point constant in C?",
+      "options": [
+        "1.5e",
+        "1.5e-3",
+        "1,500.0",
+        "e3"
+      ],
+      "correctIndex": 1,
+      "explanation": "1.5e-3 means 1.5 × 10^-3 = 0.0015. An exponent needs digits after the e, commas are not allowed inside a number, and e3 with no digits in front is an identifier, not a constant.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m011",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\n#include <string.h>\nint main(void) {\n    printf(\"%zu\\n\", strlen(\"A\\tB\\\\n\"));\n    return 0;\n}",
+      "options": [
+        "5",
+        "4",
+        "6",
+        "7"
+      ],
+      "correctIndex": 0,
+      "explanation": "The literal holds A, a tab (from \\t), B, one backslash (from \\\\) and the letter n, so strlen gives 5. The \\\\ pair is a single backslash, so the n that follows is an ordinary letter, not part of a newline.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m012",
+      "questionText": "Assume the ASCII character set. What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu %s\\n\", sizeof(\"\\101\\x42\"), \"\\101\\x42\");\n    return 0;\n}",
+      "options": [
+        "2 AB",
+        "3 eB",
+        "3 AB",
+        "9 \\101\\x42"
+      ],
+      "correctIndex": 2,
+      "explanation": "\\101 is octal 101 = 1 × 64 + 0 × 8 + 1 = 65 = 'A' and \\x42 is hex 42 = 66 = 'B'. The array holds 'A', 'B' and the terminating '\\0', so sizeof is 3 while %s prints AB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m013",
+      "questionText": "Which escape sequence moves the output to the next horizontal tab stop?",
+      "options": [
+        "\\b",
+        "\\v",
+        "\\t",
+        "\\r"
+      ],
+      "correctIndex": 2,
+      "explanation": "\\t is the horizontal tab. \\b is backspace, \\v is vertical tab and \\r is carriage return (back to the start of the current line).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m014",
+      "questionText": "Assume the ASCII character set. What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d %d\\n\", '\\n', '\\0', '0');\n    return 0;\n}",
+      "options": [
+        "10 0 48",
+        "10 0 0",
+        "13 0 48",
+        "0 0 48"
+      ],
+      "correctIndex": 0,
+      "explanation": "Character constants are small integers holding ASCII codes: '\\n' (line feed) is 10, '\\0' (the null character) is 0 and the digit character '0' is 48. 13 would be '\\r'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m015",
+      "questionText": "Assume the ASCII character set. What is the output of the following C program?\n\n#include <stdio.h>\n#include <string.h>\nint main(void) {\n    printf(\"%s %zu\\n\", \"\\1234\", strlen(\"\\1234\"));\n    return 0;\n}",
+      "options": [
+        "S 1",
+        "1234 4",
+        "S4 3",
+        "S4 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "An octal escape uses at most three octal digits, so \\123 (1 × 64 + 2 × 8 + 3 = 83 = 'S') is one character and the 4 after it is an ordinary character. The string is S4 and strlen, which does not count the '\\0', is 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m016",
+      "questionText": "Which of the following is a derived data type in C?",
+      "options": [
+        "Pointer",
+        "int",
+        "char",
+        "double"
+      ],
+      "correctIndex": 0,
+      "explanation": "Derived types are built from other types: arrays, pointers and functions. int, char and double are fundamental (primary) data types.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m017",
+      "questionText": "Which statement about void is correct in standard C?",
+      "options": [
+        "sizeof(void) is 1",
+        "A void * pointer can hold the address of any object, but it must be converted to a typed pointer before it is dereferenced",
+        "A variable can be declared with type void so that it can hold a value of any type",
+        "A function declared to return void must end with return 0;"
+      ],
+      "correctIndex": 1,
+      "explanation": "void means no value: it is used as a return type, for an empty parameter list and for generic pointers. No object can have type void, sizeof(void) is not allowed in standard C (1 is only a GCC extension), and a void function returns nothing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m018",
+      "questionText": "An unsigned char occupies 8 bits. What range of values can it hold?",
+      "options": [
+        "-128 to 127",
+        "0 to 256",
+        "-127 to 127",
+        "0 to 255"
+      ],
+      "correctIndex": 3,
+      "explanation": "With n = 8 bits an unsigned type covers 0 to 2^n - 1 = 2^8 - 1 = 255. The range -128 to 127 belongs to a signed char.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m019",
+      "questionText": "Assume short is 16 bits and uses two's complement. What are the minimum value of a signed short and the maximum value of an unsigned short?",
+      "options": [
+        "-32767 and 65535",
+        "-32768 and 65536",
+        "-32768 and 32767",
+        "-32768 and 65535"
+      ],
+      "correctIndex": 3,
+      "explanation": "Signed 16-bit: -2^15 = -32,768 up to 2^15 - 1 = 32,767. Unsigned 16-bit: 0 up to 2^16 - 1 = 65,535.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m020",
+      "questionText": "Assume unsigned char is 8 bits. What does this fragment print (inside main, with <stdio.h> included)?\n\nunsigned char c = 250;\nc = c + 10;\nprintf(\"%d\\n\", c);",
+      "options": [
+        "260",
+        "255",
+        "4",
+        "-6"
+      ],
+      "correctIndex": 2,
+      "explanation": "c + 10 is computed in int as 260; storing it back in an 8-bit unsigned char reduces it modulo 2^8: 260 - 256 = 4. Unsigned values wrap round, they never stop at 255.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m021",
+      "questionText": "Assume unsigned int is 32 bits. What does this fragment print (inside main, with <stdio.h> included)?\n\nunsigned int u = 3;\nu = u - 5;\nprintf(\"%u\\n\", u);",
+      "options": [
+        "4294967294",
+        "-2",
+        "4294967293",
+        "2"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unsigned arithmetic is done modulo 2^32: 3 - 5 = -2, and -2 + 4,294,967,296 = 4,294,967,294. An unsigned result can never be negative.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m022",
+      "questionText": "What do the modifiers signed and unsigned change when applied to int?",
+      "options": [
+        "The number of bytes, but not the range of values",
+        "Both the number of bytes and the range of values",
+        "Only the way printf displays the value",
+        "The range of values, but not the number of bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof(unsigned int) equals sizeof(int); only the range moves. A 4-byte int covers -2^31 to 2^31 - 1 and a 4-byte unsigned int covers 0 to 2^32 - 1. short and long are the modifiers that change the size.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m023",
+      "questionText": "Which declaration is NOT valid in standard C?",
+      "options": [
+        "long float f;",
+        "long double x;",
+        "short int s;",
+        "unsigned long long n;"
+      ],
+      "correctIndex": 0,
+      "explanation": "long may modify int and double, but long float is not a C type (it was an early K&R spelling of double). long double, short int and unsigned long long are all standard types.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m024",
+      "questionText": "Consider the declarations below (inside main).\n\nint a = 1, b = 2;\nconst int *p = &a;\nint *const q = &a;\n\nWhich of the following statements causes a compile error?",
+      "options": [
+        "p = &b;",
+        "*p = 5;",
+        "*q = 5;",
+        "a = 5;"
+      ],
+      "correctIndex": 1,
+      "explanation": "const int *p is a pointer to a read-only int: p may be pointed elsewhere, but *p cannot be changed through p. int *const q is a constant pointer: *q may be changed, but q cannot be re-pointed. a itself is not const.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m025",
+      "questionText": "The volatile qualifier on a variable tells the compiler that:",
+      "options": [
+        "it should be kept in a CPU register for faster access",
+        "it cannot be modified after it is initialised",
+        "it is defined in another source file",
+        "its value may change outside the program's visible code, so every access must really read or write memory"
+      ],
+      "correctIndex": 3,
+      "explanation": "volatile is used for hardware registers, signal handlers and shared memory: the compiler must not cache the value or remove reads and writes that look redundant. register asks for register storage, const forbids modification and extern refers to another file.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m026",
+      "questionText": "What happens when this fragment (inside main, with <stdio.h> included) is compiled?\n\nconst int max = 10;\nmax = 20;\nprintf(\"%d\\n\", max);",
+      "options": [
+        "It prints 20",
+        "Compile error: max is read-only",
+        "It prints 10",
+        "It compiles but crashes at run time"
+      ],
+      "correctIndex": 1,
+      "explanation": "A const variable may be given a value only in its initialisation. The later assignment max = 20 is a constraint violation, so the compiler rejects the program.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m027",
+      "questionText": "In standard C (C11), which of the following may be used as a case label in a switch statement?",
+      "options": [
+        "A const int variable such as K, declared as const int K = 2;",
+        "A floating constant such as 2.0",
+        "An enumeration constant such as RED",
+        "A string literal such as \"RED\""
+      ],
+      "correctIndex": 2,
+      "explanation": "A case label must be an integer constant expression. An enumeration constant is one; a const int variable is not a constant expression in C (it is in C++, and some C compilers accept it only as an extension), and floating constants and strings are not integers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m028",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint next(void) {\n    static int s = 5;\n    int a = 5;\n    s += 2;\n    a += 2;\n    return s * 10 + a;\n}\nint main(void) {\n    next();\n    next();\n    printf(\"%d\\n\", next());\n    return 0;\n}",
+      "options": [
+        "77",
+        "97",
+        "117",
+        "121"
+      ],
+      "correctIndex": 2,
+      "explanation": "s is static, so it is initialised once and grows 5 -> 7 -> 9 -> 11 over the three calls, while the automatic a restarts at 5 each time and ends at 7. The third call returns 11 × 10 + 7 = 117.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m029",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint x = 10;\nint f(void) {\n    static int x = 1;\n    return x *= 2;\n}\nint main(void) {\n    int a = f(), b = f();\n    {\n        int x = 3;\n        a += x;\n    }\n    printf(\"%d %d %d\\n\", a, b, x);\n    return 0;\n}",
+      "options": [
+        "5 2 10",
+        "5 4 10",
+        "5 4 3",
+        "23 40 40"
+      ],
+      "correctIndex": 1,
+      "explanation": "Inside f the static local x hides the global x; it starts at 1 and doubles on each call, so a = 2 and b = 4. The block's own x = 3 gives a = 2 + 3 = 5 and vanishes at the closing brace, so printf sees the global x = 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m030",
+      "questionText": "Which operation is NOT allowed on a variable declared as register int r = 5; in C?",
+      "options": [
+        "Taking its address with &r",
+        "Incrementing it with r++",
+        "Using it in a loop condition",
+        "Assigning it a new value"
+      ],
+      "correctIndex": 0,
+      "explanation": "The address of a register variable may not be taken in C, because the value may live in a CPU register that has no memory address. Ordinary reads, writes and increments are allowed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m031",
+      "questionText": "What does the declaration extern int count; written at file scope do?",
+      "options": [
+        "It defines count and initialises it to 0",
+        "It makes count visible only inside the current file",
+        "It creates a separate copy of count for each function",
+        "It declares count without allocating storage; the definition must be in some file of the program"
+      ],
+      "correctIndex": 3,
+      "explanation": "extern announces a global variable that is defined elsewhere, usually in another .c file, so the linker can connect the uses to that one definition; no storage is reserved by the declaration itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m032",
+      "questionText": "A global variable is declared as static int hits; in file a.c. Which statement about hits is correct?",
+      "options": [
+        "It can be used from b.c after writing extern int hits; there",
+        "It is re-initialised whenever a function in a.c is called",
+        "It can be used only by code in a.c",
+        "It is stored on the stack"
+      ],
+      "correctIndex": 2,
+      "explanation": "static at file scope gives internal linkage: the name is private to a.c, so an extern declaration in b.c cannot reach it. It still lives for the whole run in the data segment and starts at 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m033",
+      "questionText": "What is the default storage class of a variable declared inside a function without any storage-class keyword?",
+      "options": [
+        "static",
+        "auto",
+        "register",
+        "extern"
+      ],
+      "correctIndex": 1,
+      "explanation": "Local variables are auto by default: they are created when the block is entered, destroyed when it is left, and hold garbage until they are assigned.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m034",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint g;\nstatic int h;\nint main(void) {\n    static int s;\n    printf(\"%d %d %d\\n\", g, h, s);\n    return 0;\n}",
+      "options": [
+        "0 0 0",
+        "Garbage values",
+        "0 0 followed by a garbage value",
+        "Compile error: the variables are not initialised"
+      ],
+      "correctIndex": 0,
+      "explanation": "Objects with static storage duration (globals, static globals and static locals) are set to zero before the program starts, so all three print 0. Only automatic locals start with garbage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m035",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    int total = 0;\n    for (int i = 0; i < 4; i++) {\n        static int s = 1;\n        int a = 1;\n        s = s * 2;\n        a = a * 2;\n        total += s + a;\n    }\n    printf(\"%d\\n\", total);\n    return 0;\n}",
+      "options": [
+        "16",
+        "60",
+        "38",
+        "30"
+      ],
+      "correctIndex": 2,
+      "explanation": "s is static, so it is initialised once and doubles on every pass: 2 + 4 + 8 + 16 = 30. a is automatic and restarts at 1 each pass, adding 2 × 4 = 8. total = 30 + 8 = 38.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m036",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nenum level { LOW = 2, MID, HIGH = 10, MAX };\nint main(void) {\n    printf(\"%d %d %d\\n\", MID, MAX, HIGH - LOW);\n    return 0;\n}",
+      "options": [
+        "1 3 8",
+        "3 11 8",
+        "3 4 8",
+        "3 11 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "An enumerator without a value is one more than the previous one: LOW = 2 so MID = 3; HIGH is set to 10 so MAX = 11. HIGH - LOW = 10 - 2 = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m037",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nenum e { A = -2, B, C, D = A + 5, E };\nint main(void) {\n    printf(\"%d %d %d\\n\", C, D, E + B);\n    return 0;\n}",
+      "options": [
+        "2 3 4",
+        "0 3 3",
+        "0 5 5",
+        "0 3 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "Counting on from A = -2 gives B = -1 and C = 0. D = A + 5 = -2 + 5 = 3 and E = 4, so E + B = 4 + (-1) = 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m038",
+      "questionText": "Assume pointers are 8 bytes. What does this program print?\n\n#include <stdio.h>\ntypedef char *STR;\n#define PSTR char *\nint main(void) {\n    STR a, b;\n    PSTR c, d;\n    printf(\"%zu %zu\\n\", sizeof(b), sizeof(d));\n    return 0;\n}",
+      "options": [
+        "8 8",
+        "1 1",
+        "8 1",
+        "1 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "STR is a real type name for char *, so a and b are both pointers (8 bytes). PSTR is plain text replacement: PSTR c, d; becomes char * c, d; so only c is a pointer and d is a char (1 byte).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t1_m039",
+      "questionText": "What does typedef unsigned long ulong; do?",
+      "options": [
+        "It makes ulong another name for the type unsigned long",
+        "It declares a variable named ulong of type unsigned long",
+        "It creates a new type that cannot be mixed with unsigned long",
+        "It tells the preprocessor to replace the text ulong everywhere"
+      ],
+      "correctIndex": 0,
+      "explanation": "typedef gives an existing type an alias and allocates no storage; ulong x; now means unsigned long x;. It is handled by the compiler, not the preprocessor, and the alias is fully compatible with the original type.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t1_m040",
+      "questionText": "Assume int is 4 bytes. What does this program print?\n\n#include <stdio.h>\ntypedef int Row[4];\nint main(void) {\n    Row m[3];\n    printf(\"%zu %zu\\n\", sizeof(Row), sizeof(m));\n    return 0;\n}",
+      "options": [
+        "4 12",
+        "16 12",
+        "16 48",
+        "4 48"
+      ],
+      "correctIndex": 2,
+      "explanation": "Row is an alias for \"array of 4 int\", so sizeof(Row) = 4 × 4 = 16 bytes. m is an array of 3 such rows (the same as int m[3][4]), so sizeof(m) = 3 × 16 = 48 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m041",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    _Bool b = 5;\n    _Bool z = 0.0;\n    int n = b + b;\n    printf(\"%d %d %d\\n\", b, z, n);\n    return 0;\n}",
+      "options": [
+        "5 0 10",
+        "1 0 1",
+        "1 0 2",
+        "5 0 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "Converting any non-zero value to _Bool gives 1 and converting zero gives 0, so b = 1 and z = 0. In b + b both operands are promoted to int, so n = 1 + 1 = 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m042",
+      "questionText": "Assume IEEE 754 float and double. What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    float f = 0.1f;\n    double d = 0.1;\n    if (f == d)\n        printf(\"equal\\n\");\n    else\n        printf(\"not equal\\n\");\n    return 0;\n}",
+      "options": [
+        "equal",
+        "Compile error: a float cannot be compared with a double",
+        "The output changes from run to run",
+        "not equal"
+      ],
+      "correctIndex": 3,
+      "explanation": "0.1 has no exact binary form. The float keeps about 7 significant digits and the double about 16, so when f is converted to double for the comparison it is 0.100000001490116..., which differs from the double 0.1000000000000000055...",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t1_m043",
+      "questionText": "Assume the ASCII character set. What does this fragment print (inside main, with <stdio.h> included)?\n\nchar c = 'A' + 2;\nchar d = c + 1;\nprintf(\"%c %d %c\\n\", c, c, d);",
+      "options": [
+        "C 67 D",
+        "C 65 D",
+        "A 67 B",
+        "67 C 68"
+      ],
+      "correctIndex": 0,
+      "explanation": "'A' is 65, so c = 67, which is the code of 'C', and d = 68 = 'D'. %c prints the character and %d prints its numeric code.",
+      "difficulty": "easy"
+    }
+  ]
+}

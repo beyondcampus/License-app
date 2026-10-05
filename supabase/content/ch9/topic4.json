@@ -1,0 +1,293 @@
+{
+  "parent": {"id": "ch9_p4", "title": "Expert Systems & Natural Language Processing"},
+  "subtopics": [
+    {
+      "id": "ch9_t4",
+      "title": "Expert Systems: Architecture, Knowledge Acquisition & Development",
+      "subtitle": "Components, knowledge acquisition, chaining, life cycle, shells and MYCIN/DENDRAL/XCON",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "What an Expert System Is"},
+          {"type": "paragraph", "text": "An expert system is a knowledge-based computer program that emulates the decision-making ability of a human expert in a narrow, well-defined problem domain such as medical diagnosis or equipment configuration. Its power comes from a large body of domain-specific knowledge (facts and heuristic rules of thumb) rather than from a general problem-solving method, which Feigenbaum summarised as \"knowledge is power\". The defining design principle is the separation of the knowledge base (what the system knows) from the inference engine (how it reasons), so the same engine can be reused with different knowledge."},
+          {"type": "bulletList", "text": "Characteristics of a good expert system:", "items": [
+            "High performance: gives answers at or near the level of a human specialist, but only within its narrow domain.",
+            "Symbolic and heuristic reasoning: manipulates symbols and rules of thumb rather than only numeric algorithms.",
+            "Explanation: can say WHY it is asking a question and HOW it reached a conclusion.",
+            "Handles uncertainty and incomplete data, e.g. through certainty factors (MYCIN) or probabilities (PROSPECTOR).",
+            "Modifiable and extensible: rules can be added or changed without rewriting the program.",
+            "Adequate response time, reliability and consistency: it does not get tired and gives the same answer to the same case."
+          ]},
+          {"type": "heading", "text": "Architecture of an Expert System"},
+          {"type": "table", "rows": [
+            ["Component", "Role", "Typical contents"],
+            ["Knowledge base", "Long-term store of domain expertise", "Facts and IF-THEN production rules, frames, semantic nets"],
+            ["Inference engine", "Applies the knowledge to the case and derives conclusions", "Match-select-act cycle, conflict resolution, forward or backward chaining"],
+            ["Working memory (blackboard)", "Short-term store for the current consultation", "Facts entered by the user and intermediate conclusions"],
+            ["Explanation facility", "Justifies the reasoning to the user", "Answers to WHY (a question is asked) and HOW (a conclusion was reached)"],
+            ["Knowledge-acquisition subsystem", "Lets knowledge be added, edited and checked", "Rule editors, consistency checkers, induction tools"],
+            ["User interface", "Dialogue between the user and the system", "Menus, forms, questions, natural-language or graphical screens"]
+          ]},
+          {"type": "paragraph", "text": "The inference engine works in a recognise-act cycle: it matches rule conditions against working memory, collects all rules whose conditions are satisfied into the conflict set, selects one by a conflict-resolution strategy, and fires it, which adds or changes facts. Common conflict-resolution strategies are rule order (first rule wins), specificity (the rule with more conditions wins), recency (rules using the newest facts win) and refraction (a rule does not fire twice on the same facts). The cycle repeats until the goal is reached or no rule can fire."},
+          {"type": "heading", "text": "Knowledge Acquisition and the Knowledge Engineer"},
+          {"type": "paragraph", "text": "Knowledge acquisition is the transfer of problem-solving expertise from a source (usually a domain expert, also books and case records) into the knowledge base. It is done by a knowledge engineer, who interviews the expert, observes the expert solving real cases, uses protocol analysis (the expert thinks aloud), case studies and repertory grids, then encodes the result as rules or frames and tests them with the expert. It is the main bottleneck of expert-system development because expert knowledge is often tacit, heuristic and hard to articulate, experts are busy and costly, and different experts may disagree. Automated acquisition by machine learning, such as inducing rules from examples with ID3, reduces the bottleneck."},
+          {"type": "table", "rows": [
+            ["Aspect", "Declarative knowledge", "Procedural knowledge"],
+            ["Meaning", "Knowing WHAT: facts and relationships", "Knowing HOW: methods and steps for doing something"],
+            ["Form", "Facts, assertions, logic statements, semantic nets, frames", "Rules, procedures, algorithms, programs"],
+            ["Example", "Kathmandu is the capital of Nepal; aspirin is an analgesic", "The steps for changing a car tyre; how to compute a drug dose"],
+            ["Modification", "Easy: facts are independent of the order of use", "Harder: control information is embedded in the procedure"],
+            ["Use", "Needs a separate inference procedure to be applied", "Executes directly and efficiently"]
+          ]},
+          {"type": "heading", "text": "Forward and Backward Chaining"},
+          {"type": "table", "rows": [
+            ["Aspect", "Forward chaining", "Backward chaining"],
+            ["Direction", "Facts to conclusions (data-driven, bottom-up)", "Goal to supporting facts (goal-driven, top-down)"],
+            ["How it works", "Fire every rule whose IF part is satisfied, add its THEN part, repeat", "Pick a goal, find rules that conclude it, make their conditions sub-goals"],
+            ["Best suited to", "Monitoring, control, planning, configuration, prediction", "Diagnosis and verifying a hypothesis"],
+            ["Classic system", "XCON (R1), OPS5-based systems", "MYCIN, Prolog programs"],
+            ["Drawback", "May derive many facts irrelevant to the goal", "Wasted effort if the chosen goal is false; needs a known goal"]
+          ]},
+          {"type": "code", "language": "text", "text": "Rules: R1: A AND B -> C    R2: C -> D    R3: D AND E -> G\nFacts: A, B, E            Goal: G\n\nForward chaining (data-driven):\n  cycle 1: R1 fires -> add C\n  cycle 2: R2 fires -> add D\n  cycle 3: R3 fires -> add G   (goal reached)\n\nBackward chaining (goal-driven):\n  G? by R3 needs D and E; E is a fact\n  D? by R2 needs C\n  C? by R1 needs A and B; both facts -> C, D, G proved"},
+          {"type": "bulletList", "text": "Development life cycle of an expert system (iterative, usually by rapid prototyping):", "items": [
+            "Identification: define the problem, its scope, the experts, resources and a feasibility and cost-benefit study.",
+            "Conceptualisation: identify the key concepts, relations and reasoning strategies the expert uses.",
+            "Formalisation: choose the knowledge representation (rules, frames), inference method and tool or shell.",
+            "Implementation: encode the knowledge and build a prototype, then expand it.",
+            "Testing and validation: run real and historical cases, compare with the expert's answers and refine the rules.",
+            "Deployment and maintenance: integrate with the user environment and keep the knowledge base up to date."
+          ]},
+          {"type": "paragraph", "text": "An expert system shell is an expert system with its domain knowledge removed: it supplies the inference engine, working memory, explanation facility, user interface and a knowledge-base editor, and the developer only has to add the domain rules. Shells greatly shorten development time. EMYCIN (\"empty MYCIN\") was built by removing MYCIN's medical rules; CLIPS (NASA), JESS and commercial tools such as Exsys are other shells, and Prolog is often used as a language for building rule-based systems."},
+          {"type": "table", "rows": [
+            ["System", "Origin", "Task", "Notable feature"],
+            ["DENDRAL", "Stanford, 1965 (Feigenbaum, Buchanan, Lederberg)", "Infers molecular structure of organic compounds from mass-spectrometry data", "Often called the first expert system"],
+            ["MYCIN", "Stanford, 1970s (Shortliffe)", "Diagnoses bacterial blood infections and meningitis and recommends antibiotics", "Backward chaining, about 450 to 600 rules, certainty factors"],
+            ["XCON (R1)", "Carnegie Mellon / DEC, about 1980 (McDermott)", "Configures VAX computer systems from customer orders", "Forward chaining in OPS5; saved DEC millions per year"],
+            ["PROSPECTOR", "SRI, late 1970s (Duda, Hart)", "Evaluates sites for mineral exploration", "Bayesian-style inference; helped locate a molybdenum deposit"]
+          ]},
+          {"type": "table", "rows": [
+            ["Advantages", "Limitations"],
+            ["Preserves scarce expertise and makes it widely available", "Knowledge acquisition is slow and expensive"],
+            ["Consistent, tireless and fast; works round the clock", "Brittle: fails abruptly outside its narrow domain"],
+            ["Explains its reasoning, useful for training", "No common sense and cannot learn from experience on its own"],
+            ["Reduces cost of repeated expert consultations", "Large rule bases are hard to maintain and verify"],
+            ["Can combine knowledge of several experts", "Legal and ethical questions of responsibility for wrong advice"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "CF(H,E) = MB(H,E) - MD(H,E),\\quad -1 \\le CF \\le 1", "plainText": "CF(H,E) = MB(H,E) - MD(H,E), with CF between -1 and +1"},
+          {"type": "formula", "latex": "CF_{comb} = CF_1 + CF_2\\,(1 - CF_1)\\quad (CF_1, CF_2 > 0)", "plainText": "CF_comb = CF1 + CF2 (1 - CF1) when both CFs are positive"},
+          {"type": "formula", "latex": "CF(H) = CF_{rule} \\times \\min_i CF(E_i)", "plainText": "CF(H) = CF(rule) x min of the CFs of the ANDed premises"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Map the keywords: data-driven, bottom-up, facts first = forward chaining (XCON); goal-driven, top-down, hypothesis first = backward chaining (MYCIN). The component that answers WHY and HOW is the explanation facility; the one holding facts of the current case is working memory."},
+          {"type": "warning", "text": "Some notes loosely say forward chaining is \"used for diagnosis\" because it starts from symptoms. In standard textbooks diagnostic systems such as MYCIN are goal-driven (backward chaining), while forward chaining suits monitoring, planning and configuration. Read the wording of the option carefully."},
+          {"type": "note", "text": "Knowledge acquisition is called the bottleneck of expert-system development; the person who performs it is the knowledge engineer, who sits between the domain expert and the knowledge base."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch9_t4_01", "title": "MYCIN certainty factor", "latex": "CF(H,E) = MB(H,E) - MD(H,E)", "plainText": "CF(H,E) = MB(H,E) - MD(H,E)", "description": "Certainty factor as measure of belief minus measure of disbelief, ranging from -1 (definitely false) to +1 (definitely true)."},
+        {"id": "f_ch9_t4_02", "title": "Combining two positive CFs", "latex": "CF_{comb} = CF_1 + CF_2\\,(1 - CF_1)", "plainText": "CF_comb = CF1 + CF2 (1 - CF1)", "description": "Combines two rules that independently support the same hypothesis with positive certainty; the result never exceeds 1."},
+        {"id": "f_ch9_t4_03", "title": "CF propagation through a rule", "latex": "CF(H) = CF_{rule} \\times \\min_i CF(E_i)", "plainText": "CF(H) = CF(rule) x min CF(E_i)", "description": "The certainty of a rule's conclusion is the rule's own CF times the weakest of its ANDed premises (max is used for ORed premises)."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch9_t4_01", "front": "What is the role of working memory in an expert system?", "back": "It holds the facts of the current case: data entered by the user and the intermediate conclusions derived by the inference engine during the consultation.", "difficulty": "easy"},
+        {"id": "fc_ch9_t4_02", "front": "What is an expert system shell? Give an example.", "back": "An expert system with its domain knowledge removed, providing the inference engine, interface and explanation facility so only rules need to be added; EMYCIN and CLIPS are examples.", "difficulty": "medium"},
+        {"id": "fc_ch9_t4_03", "front": "Distinguish declarative and procedural knowledge.", "back": "Declarative knowledge is knowing what (facts and relations, e.g. Kathmandu is the capital of Nepal); procedural knowledge is knowing how (steps and methods, e.g. how to change a tyre).", "difficulty": "easy"},
+        {"id": "fc_ch9_t4_04", "front": "Why is knowledge acquisition called the bottleneck of expert-system development?", "back": "Expert knowledge is tacit and heuristic, hard for experts to articulate and slow for the knowledge engineer to elicit, encode and validate.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch9_t4_n01", "questionText": "In a MYCIN-style expert system, two independent rules both support the hypothesis H, one with certainty factor 0.6 and the other with 0.5. What is the combined certainty factor of H?", "options": ["0.30", "0.55", "0.80", "1.10"], "correctIndex": 2, "explanation": "For two positive CFs, CF = CF1 + CF2(1 − CF1) = 0.6 + 0.5 × 0.4 = 0.8; multiplying (0.30) or averaging (0.55) is wrong, and a CF can never exceed 1.", "difficulty": "medium"},
+        {"id": "q_ch9_t4_n02", "questionText": "EMYCIN was created by removing MYCIN's medical rules. As an expert system shell, what does it provide to a developer building a new system?", "options": ["An inference engine, explanation facility and user interface, to which the developer adds domain knowledge", "A complete knowledge base of medical facts that can be reused in any domain", "A machine-learning algorithm that builds rules automatically without any expert", "A database management system for storing patient records"], "correctIndex": 0, "explanation": "A shell is an expert system minus its domain knowledge: the reasoning and interface machinery is reused and only the knowledge base has to be built for the new domain.", "difficulty": "medium"},
+        {"id": "q_ch9_t4_n03", "questionText": "A knowledge engineer records four items for a pharmacy expert system. Which one is procedural knowledge?", "options": ["Aspirin is an analgesic", "Penicillin belongs to the beta-lactam class of antibiotics", "All mammals are warm-blooded", "To compute a dose, weigh the patient, multiply the weight by 5 mg/kg, then round down to the nearest tablet size"], "correctIndex": 3, "explanation": "Procedural knowledge describes how to do something as a sequence of steps; the other three are declarative facts stating what is true.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch9_i41",
+      "title": "Natural Language Processing: Understanding, Generation, Steps & Challenges",
+      "subtitle": "NLP terms, NLU vs NLG, the five analysis steps, ambiguity, applications and challenges",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "What Natural Language Processing Is"},
+          {"type": "paragraph", "text": "Natural language processing (NLP) is the branch of AI that enables computers to analyse, understand and produce human (natural) languages such as English or Nepali, in text or speech. It combines computational linguistics (rules about language structure) with statistical and machine-learning models trained on large corpora. NLP has two complementary halves: natural language understanding (NLU), which maps language to meaning, and natural language generation (NLG), which maps meaning to language; speech recognition and speech synthesis sit at the input and output ends."},
+          {"type": "table", "rows": [
+            ["Term", "Meaning", "Example"],
+            ["Phoneme", "Smallest unit of sound that distinguishes meaning", "/b/ and /p/ in bat vs pat"],
+            ["Morpheme", "Smallest meaningful unit of a word; free (stands alone) or bound (affix)", "un + happy + ness"],
+            ["Lexicon", "Dictionary of the words of a language with their parts of speech and meanings", "book: noun (a volume), verb (to reserve)"],
+            ["Corpus", "Large structured collection of texts used for training and statistics", "Brown Corpus, Penn Treebank"],
+            ["Grammar", "Formal rules describing how words combine into sentences", "S → NP VP, NP → Det N"],
+            ["Parsing", "Assigning a syntactic structure (parse tree) to a sentence using a grammar", "Tree for \"The boy ate an apple\""],
+            ["Token", "A unit (word, number, punctuation) produced by splitting text", "\"I can't\" → I, ca, n't"]
+          ]},
+          {"type": "bulletList", "text": "Levels of linguistic knowledge an NLP system uses:", "items": [
+            "Phonology: how sounds form words (needed for speech).",
+            "Morphology: how words are built from morphemes (walk, walks, walked).",
+            "Syntax: how words are arranged into grammatical sentences.",
+            "Semantics: the literal meaning of words and sentences.",
+            "Pragmatics: how context and speaker intention change meaning.",
+            "Discourse and world knowledge: links between sentences and general facts about the world."
+          ]},
+          {"type": "heading", "text": "Understanding versus Generation"},
+          {"type": "table", "rows": [
+            ["Aspect", "NLU (understanding)", "NLG (generation)"],
+            ["Direction", "Text or speech → internal meaning representation", "Internal data or meaning → text or speech"],
+            ["Main difficulty", "Resolving ambiguity: many readings for one sentence", "Choosing: one meaning can be said many ways"],
+            ["Typical tasks", "Parsing, intent detection, information extraction, question understanding", "Report writing, summaries, chatbot replies, weather forecasts from data"],
+            ["Relative difficulty", "Generally considered harder", "Generally considered easier because the system controls the input meaning"]
+          ]},
+          {"type": "paragraph", "text": "NLG is usually organised in stages. Content determination decides what information to say; document (text) planning orders and structures it; sentence planning aggregates facts into sentences, chooses words (lexicalisation) and referring expressions such as pronouns; and surface realisation produces grammatically correct final text with proper morphology and punctuation."},
+          {"type": "heading", "text": "Steps of NLP"},
+          {"type": "bulletList", "text": "The classic five-step analysis pipeline (Rich and Knight):", "items": [
+            "Morphological and lexical analysis: split text into sentences and tokens (tokenisation), identify morphemes, stems and lemmas, and look up parts of speech in the lexicon.",
+            "Syntactic analysis (parsing): check word order against the grammar and build a parse tree; \"Boy the school to goes\" is rejected here.",
+            "Semantic analysis: assign literal meaning by mapping the structure to objects and relations; a meaningless sentence such as \"hot ice cream\" or \"colourless green ideas sleep furiously\" is flagged here.",
+            "Discourse integration: interpret a sentence using the sentences before it, e.g. resolving what \"it\" or \"he\" refers to.",
+            "Pragmatic analysis: reinterpret what was said as what was meant from context and intention; \"Can you pass the salt?\" is a request, not a question about ability."
+          ]},
+          {"type": "code", "language": "text", "text": "Grammar: S -> NP VP   NP -> Det N   VP -> V NP\nLexicon: Det: the, an   N: boy, apple   V: ate\n\nParse of \"The boy ate an apple\":\n S\n +-- NP\n |    +-- Det: The\n |    +-- N:   boy\n +-- VP\n      +-- V:   ate\n      +-- NP\n           +-- Det: an\n           +-- N:   apple"},
+          {"type": "heading", "text": "Ambiguity"},
+          {"type": "table", "rows": [
+            ["Type", "Source of ambiguity", "Example"],
+            ["Lexical", "A word has several meanings or parts of speech", "bank (river side or financial institution); book (noun or verb)"],
+            ["Syntactic (structural)", "A sentence has more than one valid parse tree", "\"Old men and women\" (are the women old?); \"Visiting relatives can be boring\""],
+            ["Semantic", "The parse is clear but the meaning or scope is not", "\"Every student read a book\" (one book or different books?)"],
+            ["Referential (anaphoric)", "It is unclear what a pronoun or phrase refers to", "\"The trophy did not fit in the case because it was too big\""],
+            ["Pragmatic", "The intended use depends on context", "\"Do you know the time?\" (yes/no or a request for the time)"]
+          ]},
+          {"type": "bulletList", "text": "Applications of NLP:", "items": [
+            "Machine translation (English to Nepali, Google Translate) and speech recognition or voice assistants.",
+            "Chatbots, question answering and customer-support agents.",
+            "Sentiment analysis of reviews and social media; spam and email filtering.",
+            "Information extraction and named-entity recognition (people, places, dates); text summarisation.",
+            "Spelling and grammar checking, autocomplete and search engines."
+          ]},
+          {"type": "bulletList", "text": "Why NLP is hard (challenges):", "items": [
+            "Ambiguity at every level: lexical, syntactic, semantic, referential and pragmatic.",
+            "Context dependence and the need for common-sense world knowledge.",
+            "Idioms, metaphor, sarcasm and humour whose meaning is not literal.",
+            "Variation: informal text, spelling errors, dialects, code-mixing (Nepali written in Roman script mixed with English).",
+            "Low-resource and morphologically rich languages such as Nepali, with few annotated corpora.",
+            "Language keeps changing: new words, slang and names appear constantly."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "P(w_i \\mid w_{i-1}) = \\dfrac{C(w_{i-1}\\,w_i)}{C(w_{i-1})}", "plainText": "P(w_i | w_(i-1)) = C(w_(i-1) w_i) / C(w_(i-1))"},
+          {"type": "formula", "latex": "P(w_1 \\ldots w_n) \\approx \\prod_{i=1}^{n} P(w_i \\mid w_{i-1})", "plainText": "P(w1...wn) ≈ product over i of P(w_i | w_(i-1))"},
+          {"type": "formula", "latex": "F_1 = \\dfrac{2PR}{P + R},\\quad P = \\dfrac{TP}{TP+FP},\\ R = \\dfrac{TP}{TP+FN}", "plainText": "F1 = 2PR/(P+R), P = TP/(TP+FP), R = TP/(TP+FN)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Memorise the pipeline order as Morphological/Lexical → Syntactic → Semantic → Discourse → Pragmatic. Pronoun resolution across sentences belongs to discourse integration; working out the speaker's intention (a question used as a request) belongs to pragmatic analysis."},
+          {"type": "note", "text": "NLU goes from language to meaning and must resolve ambiguity; NLG goes from meaning to language and must choose among many ways of saying the same thing. Both together make up NLP."},
+          {"type": "warning", "text": "Do not confuse syntactic and semantic ambiguity: if the sentence has two different parse trees (\"I saw the man with the telescope\") it is syntactic; if a single word has two meanings (\"bank\") it is lexical."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch9_i41_01", "title": "Bigram probability (MLE)", "latex": "P(w_i \\mid w_{i-1}) = \\dfrac{C(w_{i-1}\\,w_i)}{C(w_{i-1})}", "plainText": "P(w_i | w_(i-1)) = C(w_(i-1) w_i) / C(w_(i-1))", "description": "Estimates the chance of a word given the previous word from counts in a corpus."},
+        {"id": "f_ch9_i41_02", "title": "Bigram sentence probability", "latex": "P(w_1 \\ldots w_n) \\approx \\prod_{i=1}^{n} P(w_i \\mid w_{i-1})", "plainText": "P(w1...wn) ≈ product of P(w_i | w_(i-1))", "description": "The chain rule with the Markov assumption scores how likely a whole sentence is under a bigram language model."},
+        {"id": "f_ch9_i41_03", "title": "F1 score", "latex": "F_1 = \\dfrac{2PR}{P + R}", "plainText": "F1 = 2PR / (P + R)", "description": "Harmonic mean of precision and recall, used to evaluate NLP tasks such as named-entity recognition and classification."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch9_i41_01", "front": "What is the difference between NLU and NLG?", "back": "NLU maps text or speech to an internal meaning representation; NLG maps an internal meaning or data to natural-language text or speech.", "difficulty": "easy"},
+        {"id": "fc_ch9_i41_02", "front": "Which NLP step interprets \"Can you pass the salt?\" as a request?", "back": "Pragmatic analysis, which reinterprets the literal meaning according to context and the speaker's intention.", "difficulty": "medium"},
+        {"id": "fc_ch9_i41_03", "front": "What is a morpheme? Give free and bound examples.", "back": "The smallest meaningful unit of language; \"happy\" is a free morpheme and the affixes \"un-\" and \"-ness\" are bound morphemes.", "difficulty": "easy"},
+        {"id": "fc_ch9_i41_04", "front": "What is a corpus in NLP?", "back": "A large structured collection of written or spoken texts, such as the Brown Corpus or Penn Treebank, used to train and evaluate language models.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch9_i41_n01", "questionText": "The sentence \"I saw the man with the telescope\" can mean that I used a telescope or that the man had one. This is an example of:", "options": ["Lexical ambiguity", "Syntactic (structural) ambiguity", "Referential ambiguity", "Phonological ambiguity"], "correctIndex": 1, "explanation": "The phrase \"with the telescope\" can attach to the verb \"saw\" or to the noun \"man\", giving two different parse trees; no single word has two meanings, so it is not lexical ambiguity.", "difficulty": "medium"},
+        {"id": "q_ch9_i41_n02", "questionText": "In a training corpus the word \"the\" occurs 50 times and the bigram \"the cat\" occurs 10 times. What is the maximum-likelihood bigram estimate P(cat | the)?", "options": ["0.02", "0.10", "5.0", "0.20"], "correctIndex": 3, "explanation": "P(cat | the) = C(the cat) / C(the) = 10 / 50 = 0.20; a probability cannot exceed 1, so 5.0 is the inverted ratio.", "difficulty": "medium"},
+        {"id": "q_ch9_i41_n03", "questionText": "An NLP system reads \"Ram bought a new bike. It is red.\" and determines that \"It\" refers to the bike. Which step of NLP performs this?", "options": ["Morphological analysis", "Syntactic analysis", "Discourse integration", "Surface realisation"], "correctIndex": 2, "explanation": "Discourse integration interprets a sentence using the sentences that precede it, including resolving pronoun references; surface realisation is an NLG stage.", "difficulty": "medium"},
+        {"id": "q_ch9_i41_n04", "questionText": "How many morphemes does the word \"unhappiness\" contain?", "options": ["3", "2", "4", "1"], "correctIndex": 0, "explanation": "It is built from the bound prefix \"un-\", the free root \"happy\" and the bound suffix \"-ness\", giving three morphemes.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch9_i42",
+      "title": "Machine Vision & Robotics",
+      "subtitle": "Vision stages from acquisition to interpretation; robot parts, DOF, types and Asimov's laws",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Machine Vision"},
+          {"type": "paragraph", "text": "Machine (computer) vision is the field of AI that enables a computer to acquire, process and interpret images or video so as to recognise objects and understand a scene. It is often described as the inverse of computer graphics: graphics turns a model into an image, vision recovers a description of the world from an image. The task is hard because projecting a 3D scene onto a 2D image loses depth, and lighting, viewpoint, occlusion and noise all change how the same object looks. In industry the term machine vision usually means camera-based inspection and guidance systems."},
+          {"type": "table", "rows": [
+            ["Stage", "What happens", "Typical techniques"],
+            ["1. Image acquisition", "A sensor captures the scene; sampling and quantisation give a digital image", "CCD or CMOS camera, frame grabber, lighting"],
+            ["2. Preprocessing", "Improve the image: remove noise, enhance contrast, correct geometry", "Median or Gaussian filters, histogram equalisation"],
+            ["3. Segmentation", "Partition the image into regions or objects of interest", "Thresholding, edge detection (Sobel, Canny), region growing"],
+            ["4. Feature extraction", "Compute measurable descriptors of each region", "Area, perimeter, corners, texture, shape moments, colour histograms"],
+            ["5. Recognition / classification", "Assign a label to each object from its features", "Template matching, nearest neighbour, neural networks and CNNs"],
+            ["6. Interpretation", "Assign meaning to the recognised objects and their relations", "Knowledge-based scene analysis, reasoning about context"]
+          ]},
+          {"type": "paragraph", "text": "The stages are often grouped into levels. Low-level vision (acquisition and preprocessing) works on pixels and produces a cleaner image. Mid-level vision (segmentation and feature extraction) turns pixels into regions and descriptors. High-level vision (recognition and interpretation) turns descriptors into labels and a description of the scene, and uses AI reasoning and domain knowledge."},
+          {"type": "formula", "latex": "G = \\sqrt{G_x^2 + G_y^2},\\quad \\theta = \\tan^{-1}(G_y / G_x)", "plainText": "Edge strength G = sqrt(Gx^2 + Gy^2), direction theta = arctan(Gy/Gx)"},
+          {"type": "bulletList", "text": "Applications of machine vision:", "items": [
+            "Industrial inspection: detecting defects, measuring parts, reading labels and barcodes on production lines.",
+            "Optical character recognition and automatic number-plate recognition.",
+            "Face recognition and biometric access control; video surveillance.",
+            "Medical image analysis (X-ray, CT, MRI) and remote sensing from satellites.",
+            "Autonomous vehicles and robot guidance, e.g. bin picking and navigation."
+          ]},
+          {"type": "heading", "text": "Robotics"},
+          {"type": "paragraph", "text": "A robot is a machine that senses its environment, decides what to do and acts on the world, working in a sense-think-act loop. The Robot Institute of America defines an industrial robot as a reprogrammable, multifunctional manipulator designed to move material, parts, tools or specialised devices through variable programmed motions for the performance of a variety of tasks. The word robot comes from Karel Čapek's 1920 play R.U.R. (Czech robota, forced labour), and Isaac Asimov coined the word robotics. Robotics is embodied AI: it combines perception (vision, sensors), planning and reasoning, and control of motors and power supplies."},
+          {"type": "table", "rows": [
+            ["Component", "Function", "Examples"],
+            ["Manipulator (arm)", "Chain of rigid links connected by joints that positions the tool", "Revolute (rotary) and prismatic (sliding) joints"],
+            ["End effector", "Device at the wrist that interacts with the work", "Gripper, suction cup, welding torch, spray gun"],
+            ["Actuators", "Convert energy into motion at the joints", "Electric DC, servo and stepper motors; hydraulic and pneumatic cylinders"],
+            ["Internal sensors", "Measure the robot's own state", "Encoders and potentiometers (position), tachometers (velocity)"],
+            ["External sensors", "Measure the environment", "Camera, touch, force-torque, proximity, ultrasonic, LIDAR"],
+            ["Controller", "The brain: runs the program and closes the feedback loop", "Microcontroller or computer with control software"],
+            ["Power supply and drive", "Provide and transmit energy", "Batteries, mains supply, gears, belts, lead screws"]
+          ]},
+          {"type": "paragraph", "text": "Degrees of freedom (DOF) is the number of independent motions a robot can make; each revolute or prismatic joint normally adds one. To place an object at any position (x, y, z) with any orientation (roll, pitch, yaw) in 3D space a manipulator needs at least six DOF, three for position and three for orientation. A robot with more than six DOF is redundant, which lets it avoid obstacles; the human arm has about seven."},
+          {"type": "table", "rows": [
+            ["Configuration", "Joints (P = prismatic, R = revolute)", "Workspace", "Typical use"],
+            ["Cartesian (gantry)", "PPP", "Rectangular box", "Pick and place, CNC, 3D printers"],
+            ["Cylindrical", "RPP", "Hollow cylinder", "Assembly, machine loading"],
+            ["Spherical (polar)", "RRP", "Part of a sphere", "Spot welding, die casting"],
+            ["Articulated (anthropomorphic)", "RRR (plus wrist)", "Irregular, near-spherical", "Welding, painting, general industrial work"],
+            ["SCARA", "RRP (two parallel rotary joints)", "Cylindrical, fast in horizontal plane", "Electronic assembly, pick and place"]
+          ]},
+          {"type": "bulletList", "text": "Other ways of classifying robots and their applications:", "items": [
+            "Fixed (industrial arms bolted to the floor) versus mobile (wheeled, tracked, legged robots, drones, underwater vehicles).",
+            "Autonomous versus teleoperated (remote-controlled, e.g. bomb disposal) versus collaborative robots (cobots) that work beside people.",
+            "Industrial robots: welding, painting, assembly, material handling and packaging.",
+            "Service and field robots: surgery (da Vinci system), space exploration (Mars rovers), agriculture, warehouses, domestic cleaning, humanoid robots."
+          ]},
+          {"type": "bulletList", "text": "Asimov's Three Laws of Robotics (science fiction, but often quoted in AI ethics):", "items": [
+            "First Law: a robot may not injure a human being or, through inaction, allow a human being to come to harm.",
+            "Second Law: a robot must obey orders given by human beings, except where such orders conflict with the First Law.",
+            "Third Law: a robot must protect its own existence as long as this does not conflict with the First or Second Law.",
+            "A later Zeroth Law places humanity as a whole above the individual: a robot may not harm humanity."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{Size (bits)} = M \\times N \\times k", "plainText": "Image size in bits = M x N x k (rows x columns x bits per pixel)"},
+          {"type": "formula", "latex": "x = l_1\\cos\\theta_1 + l_2\\cos(\\theta_1+\\theta_2),\\ y = l_1\\sin\\theta_1 + l_2\\sin(\\theta_1+\\theta_2)", "plainText": "x = l1 cos t1 + l2 cos(t1+t2), y = l1 sin t1 + l2 sin(t1+t2)"},
+          {"type": "formula", "latex": "M = 3(n - 1) - 2j_1 - j_2", "plainText": "Planar mobility (Gruebler): M = 3(n - 1) - 2 j1 - j2"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Vision stage order: acquisition → preprocessing → segmentation → feature extraction → recognition → interpretation. Thresholding and edge detection belong to segmentation; noise filtering and histogram equalisation belong to preprocessing."},
+          {"type": "note", "text": "Six degrees of freedom (three position plus three orientation) are the minimum for arbitrary positioning and orientation of an end effector in 3D; anything above six is called redundant."},
+          {"type": "warning", "text": "The end effector is the gripper or tool at the end of the arm, not the actuator. Actuators are the motors or cylinders that move the joints; sensors only measure, they do not produce motion."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch9_i42_01", "title": "Digital image storage", "latex": "\\text{Size (bits)} = M \\times N \\times k", "plainText": "Size (bits) = M x N x k", "description": "Storage for an uncompressed image of M rows and N columns with k bits per pixel; divide by 8 for bytes."},
+        {"id": "f_ch9_i42_02", "title": "Gradient magnitude for edges", "latex": "G = \\sqrt{G_x^2 + G_y^2}", "plainText": "G = sqrt(Gx^2 + Gy^2)", "description": "Edge strength at a pixel from the horizontal and vertical Sobel gradients, used in segmentation."},
+        {"id": "f_ch9_i42_03", "title": "Two-link arm forward kinematics", "latex": "x = l_1\\cos\\theta_1 + l_2\\cos(\\theta_1+\\theta_2),\\ y = l_1\\sin\\theta_1 + l_2\\sin(\\theta_1+\\theta_2)", "plainText": "x = l1 cos t1 + l2 cos(t1+t2), y = l1 sin t1 + l2 sin(t1+t2)", "description": "Gives the end-effector position of a planar two-link arm from its link lengths and joint angles."},
+        {"id": "f_ch9_i42_04", "title": "Gruebler mobility (planar)", "latex": "M = 3(n - 1) - 2j_1 - j_2", "plainText": "M = 3(n - 1) - 2 j1 - j2", "description": "Degrees of freedom of a planar mechanism with n links (including the ground), j1 one-DOF joints and j2 two-DOF joints."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch9_i42_01", "front": "What is an end effector? Give two examples.", "back": "The device at the end of a robot arm that interacts with the work, such as a gripper or a welding torch.", "difficulty": "easy"},
+        {"id": "fc_ch9_i42_02", "front": "Why does a general-purpose manipulator need six degrees of freedom?", "back": "Three DOF fix the position (x, y, z) and three fix the orientation (roll, pitch, yaw) of the end effector in 3D space.", "difficulty": "medium"},
+        {"id": "fc_ch9_i42_03", "front": "What happens in the preprocessing stage of machine vision?", "back": "The raw image is improved by removing noise, enhancing contrast and correcting distortion, e.g. with median filters or histogram equalisation.", "difficulty": "easy"},
+        {"id": "fc_ch9_i42_04", "front": "State Asimov's First Law of Robotics.", "back": "A robot may not injure a human being or, through inaction, allow a human being to come to harm.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch9_i42_n01", "questionText": "A machine-vision camera captures an uncompressed 1024 × 768 grayscale image with 8 bits per pixel. How much memory does one frame need (1 KB = 1024 bytes)?", "options": ["96 KB", "768 KB", "6144 KB", "2304 KB"], "correctIndex": 1, "explanation": "1024 × 768 × 8 bits = 786,432 bytes = 786,432 / 1024 = 768 KB; 2304 KB would be a 24-bit colour image and 6144 KB is the bit count divided by 1024.", "difficulty": "medium"},
+        {"id": "q_ch9_i42_n02", "questionText": "In a machine-vision system for inspecting bottles, thresholding and Canny edge detection are applied to separate each bottle from the background. Which stage of the vision pipeline is this?", "options": ["Image acquisition", "Scene interpretation", "Recognition", "Segmentation"], "correctIndex": 3, "explanation": "Segmentation partitions the image into objects or regions, and thresholding and edge detection are its standard techniques; recognition labels the segmented objects afterwards.", "difficulty": "easy"},
+        {"id": "q_ch9_i42_n03", "questionText": "What is the minimum number of degrees of freedom a robot manipulator needs to place its end effector at any position with any orientation within its 3D workspace?", "options": ["3", "4", "6", "7"], "correctIndex": 2, "explanation": "Three DOF are needed for position (x, y, z) and three for orientation (roll, pitch, yaw), giving six; seven or more makes the arm redundant.", "difficulty": "medium"},
+        {"id": "q_ch9_i42_n04", "questionText": "A planar two-link robot arm has link lengths l1 = 0.5 m and l2 = 0.3 m. With joint angles θ1 = 90° and θ2 = −90°, where is the end effector (x, y)?", "options": ["(0.3, 0.5)", "(0.8, 0)", "(0.5, 0.3)", "(0, 0.8)"], "correctIndex": 0, "explanation": "x = 0.5 cos 90° + 0.3 cos 0° = 0 + 0.3 = 0.3 and y = 0.5 sin 90° + 0.3 sin 0° = 0.5 + 0 = 0.5, so the end effector is at (0.3, 0.5).", "difficulty": "hard"}
+      ]
+    }
+  ]
+}

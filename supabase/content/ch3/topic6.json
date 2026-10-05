@@ -1,0 +1,2863 @@
+{
+  "parent": {
+    "id": "ch3_p6",
+    "title": "Generic Programming & Exception Handling"
+  },
+  "subtopics": [
+    {
+      "id": "ch3_t6",
+      "title": "Function & Class Templates",
+      "subtitle": "Writing one definition for many types: function templates, overloading and class templates",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Generic Programming"
+          },
+          {
+            "type": "paragraph",
+            "text": "Generic programming means writing an algorithm or a data structure once, in terms of a type that is filled in later, instead of copying the same code for int, double, string and so on. In C++ this is done with templates: a template is a blueprint from which the compiler generates (instantiates) a concrete function or class for each type actually used. The generated code is type-checked and as fast as hand-written code, unlike C macros (no type checking) or void* tricks (no safety). The Standard Template Library is built entirely on this idea."
+          },
+          {
+            "type": "heading",
+            "text": "Function Templates"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\ntemplate <typename T>              // T is a type parameter (class T also works)\nT maxOf(T a, T b) { return (a > b) ? a : b; }\nint main() {\n    cout << maxOf(3, 7) << endl;         // T deduced as int    -> 7\n    cout << maxOf(2.5, 1.5) << endl;     // T deduced as double -> 2.5\n    cout << maxOf<double>(4, 6.5);       // explicit T: 4 converted to double -> 6.5\n    // maxOf(3, 4.5);   error: T cannot be deduced as both int and double\n}"
+          },
+          {
+            "type": "bulletList",
+            "text": "Rules of function templates:",
+            "items": [
+              "Syntax: template <typename T> (or template <class T>) immediately before the function; typename and class mean exactly the same thing here.",
+              "Template argument deduction: the compiler works out T from the argument types at the call; every use of T must deduce to the same type, otherwise the call is an error.",
+              "Explicit arguments: maxOf<double>(4, 6.5) forces T; required when T appears only in the return type or cannot be deduced.",
+              "Multiple parameters: template <typename T, typename U> lets each argument have its own type; parameters given explicitly are matched left to right, the rest are deduced.",
+              "Each distinct set of template arguments produces a separate copy of the function (an instantiation) at compile time; the template itself generates no code until used."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "template <typename T, typename U>\nvoid show(T a, U b) { cout << a << \" \" << b << endl; }\ntemplate <typename R, typename T>\nR convert(T x) { return static_cast<R>(x); }   // R is not deducible: must be given\nint main() {\n    show(1, \"one\");             // T = int, U = const char*\n    show<double>(2, 3);         // T = double (explicit), U = int (deduced) -> 2 3\n    cout << convert<int>(3.9);  // R = int explicit, T = double deduced -> 3\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Overloading Function Templates"
+          },
+          {
+            "type": "paragraph",
+            "text": "A function template can be overloaded with other templates and with ordinary (non-template) functions of the same name. Overload resolution then follows a fixed preference: an ordinary function that matches the arguments exactly is chosen over any template; otherwise the template that fits with no conversion is chosen; if two templates both fit, the more specialised one (for example T* over T) wins; a non-template that needs a conversion loses to a template that matches exactly, because deduction can always produce an exact match."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "template <typename T> void print(T x)   { cout << \"template: \" << x << endl; }\nvoid print(int x)                       { cout << \"int: \" << x << endl; }\ntemplate <typename T> void print(T* p)  { cout << \"pointer: \" << *p << endl; }\nint main() {\n    int n = 5;\n    print(5);     // int: 5        exact non-template match wins\n    print(2.5);   // template: 2.5  only the template fits without conversion\n    print(&n);    // pointer: 5    more specialised template (T*) preferred\n    print('a');   // template: a   char->int would need a promotion; T = char is exact\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Class Templates"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "template <class T, int N = 10>     // type parameter T, non-type parameter N with default\nclass Stack {\n    T data[N]; int top;\npublic:\n    Stack() : top(-1) {}\n    void push(T x);                // declared here, defined outside the class\n    T pop() { return data[top--]; }\n    bool empty() const { return top == -1; }\n};\ntemplate <class T, int N>          // the template header is repeated for every outside definition\nvoid Stack<T, N>::push(T x) { if (top < N - 1) data[++top] = x; }\nint main() {\n    Stack<int> s;  Stack<double, 5> d;   // two distinct classes are generated\n    s.push(1); s.push(2); cout << s.pop();  // 2\n}"
+          },
+          {
+            "type": "bulletList",
+            "text": "Points about class templates:",
+            "items": [
+              "Syntax: template <class T> class Name { ... };  T can be used for data members, member function parameters and return types.",
+              "Instantiation is always explicit for classes: Stack<int> s; the compiler cannot deduce T from a constructor call in C++11 (that arrived only in C++17).",
+              "Member functions defined outside the class need the full header again: template <class T> void Stack<T>::push(T x) { ... }. The class name is Stack<T>, not Stack.",
+              "Because the compiler must see the template to instantiate it, template definitions normally live in the header file, not in a separate .cpp.",
+              "Non-type parameters (template <class T, int N>) accept constant expressions such as array sizes; default template arguments (int N = 10) work like default function arguments.",
+              "Stack<int> and Stack<double> are unrelated classes: they share no static members and cannot be assigned to each other."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Specialisation in outline: a template can be given a special version for one particular type when the general code would be wrong or slow for it, written as template <> class Stack<bool> { ... } (explicit specialisation) or template <class T> class Stack<T*> { ... } (partial specialisation, classes only). Function templates allow full specialisation only; in practice an ordinary overload is preferred. Specialisation is what lets STL containers store bool or pointers efficiently."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "Macro (#define)",
+                "Function overloading",
+                "Template"
+              ],
+              [
+                "Type checking",
+                "None: pure text substitution",
+                "Full",
+                "Full, per instantiation"
+              ],
+              [
+                "Code written",
+                "Once",
+                "Once per type by hand",
+                "Once; compiler generates per type"
+              ],
+              [
+                "Works for new types",
+                "Yes, unsafely",
+                "No, needs a new overload",
+                "Yes, automatically"
+              ],
+              [
+                "Side-effect bugs",
+                "MAX(i++, j) evaluates i++ twice",
+                "None",
+                "None"
+              ],
+              [
+                "Binding time",
+                "Preprocessing",
+                "Compile time",
+                "Compile time (instantiation)"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "MCQs often test the exact spelling of template headers (template <typename T>, template <class T> Stack<T>::push), what T is deduced as for a given call, and which overload is picked when a template and a non-template both apply. Trace the argument types carefully: an int literal is int, 2.5 is double, 'a' is char and \"text\" is const char*."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: Deduction, Specialisation and Instantiation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Template argument deduction compares each function parameter type P with the type A of the matching argument and solves for the template parameters. For a by-value parameter T the argument first decays: an array becomes a pointer to its first element, a function becomes a function pointer, and top-level const is dropped, because the function works on a copy. For a reference parameter T& or const T& nothing decays, so T can become an array type such as int[5]. Deduction does not apply the ordinary implicit conversions such as int to double (only small adjustments such as adding const are allowed) and never looks at the return type, which is why maxOf(3, 4.5) fails and why a parameter used only in the return type must be written explicitly."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Parameter",
+                "Argument",
+                "T deduced as"
+              ],
+              [
+                "T x",
+                "const int c",
+                "int (top-level const dropped)"
+              ],
+              [
+                "T x",
+                "int a[5]",
+                "int* (the array decays)"
+              ],
+              [
+                "T &x",
+                "int a[5]",
+                "int[5] (no decay)"
+              ],
+              [
+                "T x",
+                "\"hi\"",
+                "const char*"
+              ],
+              [
+                "const T &x",
+                "\"hi\"",
+                "char[3]"
+              ],
+              [
+                "T *p",
+                "&c, where const int c",
+                "const int"
+              ],
+              [
+                "T a, T b",
+                "3 and 4.5",
+                "Deduction fails: int versus double"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\ntemplate <typename T> size_t byValue(T x)      { return sizeof(x); }\ntemplate <typename T> size_t byRef(const T &x) { return sizeof(x); }\ntemplate <typename R, typename T> R as(T x)    { return static_cast<R>(x); }\nint main() {\n    double d[4] = {1.5, 2.5, 3.5, 4.5};\n    cout << byValue(d) << \" \" << byRef(d) << endl;\n    cout << as<int>(d[3]) << \" \" << as<char>(65) << \" \" << as<double>(7) / 2 << endl;\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output (8-byte double and pointer, ASCII):\n8 32\n4 A 3.5\n\nbyValue(d)       T = double*, the array decayed: sizeof = 8\nbyRef(d)         T = double[4], no decay: 4 x 8 = 32\nas<int>(d[3])    R = int given, T = double deduced: 4.5 -> 4\nas<char>(65)     R = char: 65 is 'A', printed as a character\nas<double>(7)/2  R = double: 7.0 / 2 = 3.5, not integer division"
+          },
+          {
+            "type": "paragraph",
+            "text": "An explicit specialisation such as template <> void f<char>(char) is not a new overload: it only supplies a different body for one instantiation of an existing primary template. Overload resolution therefore works in two steps. First the compiler compares the ordinary functions and the primary templates, with their deduced arguments, and picks the best; an ordinary function wins a tie with a template, and between two templates the more specialised one wins. Only if the winner is a primary template does the compiler check whether that particular instantiation has an explicit specialisation, and use its body if it has."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\ntemplate <typename T> void f(T)  { cout << \"primary \"; }\ntemplate <> void f<char>(char)   { cout << \"spec-char \"; }\nvoid f(int)                      { cout << \"ordinary \"; }\nint main() {\n    f('x');\n    f(7);\n    f(7L);\n    f<>(7);\n    f<int>('x');\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: spec-char ordinary primary primary primary\n\nf('x')       f(int) needs a char -> int promotion; the template gives\n             T = char exactly, so the template wins, and f<char>\n             has an explicit specialisation: spec-char\nf(7)         f(int) and f<int> are both exact: the ordinary one wins\nf(7L)        only the template is exact (T = long): primary\nf<>(7)       empty <> allows templates only: f<int>, not specialised\nf<int>('x')  T fixed as int, 'x' converted to 120: primary"
+          },
+          {
+            "type": "paragraph",
+            "text": "Each distinct, complete list of template arguments names a different specialisation: default arguments are filled in first, so Row<> and Row<int, 3> are the same class while Row<int, 4> is another one with its own static members. Only what is used gets instantiated: a member function of Stack<int> is compiled only if it is called, so a class template can hold a type that lacks an operator needed by an uncalled member. The declaration template class Stack<int>; (an explicit instantiation) forces every member to be generated in that file, which lets template code stay in a .cpp file for a fixed set of types. Because non-type arguments are compile-time constants, a class template can even recurse on them, with an explicit specialisation as the base case."
+          },
+          {
+            "type": "formula",
+            "latex": "F\\langle N\\rangle = N \\cdot F\\langle N-1\\rangle,\\quad F\\langle 0\\rangle = 1",
+            "plainText": "F<N>::value = N x F<N-1>::value, with the explicit specialisation F<0>::value = 1 as the base case; e.g. F<4> = 4 x 3 x 2 x 1 x 1 = 24, computed entirely by the compiler"
+          },
+          {
+            "type": "bulletList",
+            "text": "Common mistakes with templates:",
+            "items": [
+              "Naming a dependent type without typename: inside template <class C>, C::const_iterator it; does not compile; write typename C::const_iterator it;.",
+              "Giving a class template parameter a default and a later parameter none: template <class T = int, class U> class P; is ill-formed.",
+              "Using a run-time variable as a non-type argument: int n = 8; Buf<n> b; fails, while const int k = 8; Buf<k> b; is fine.",
+              "An out-of-class member definition must match its declaration exactly, including const: template <class T> T Box<T>::get() const { return v; }.",
+              "An explicit specialisation must be declared before the first use that would implicitly instantiate the same template arguments; place it right after the primary template.",
+              "Expecting a function template specialisation to beat an ordinary overload: specialisations never take part in overload resolution, so an ordinary overload is usually the clearer choice."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "To predict which function a call runs: (1) deduce T for every candidate template from the argument types, allowing no conversions; (2) rank the ordinary functions and templates, letting an ordinary function win a tie and the more specialised template win between templates; (3) only then swap in an explicit specialisation if the winning template has one. For class templates, fill in default arguments before deciding whether two names are the same type. Under C++17, Box b(2.5); deduces Box<double> from the constructor argument."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{instantiations} = \\text{number of distinct } \\langle T \\rangle \\text{ actually used}",
+            "plainText": "instantiations = number of distinct <T> argument sets actually used (zero if never called)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Stack}\\langle T, N\\rangle : \\text{data storage} = N \\times \\text{sizeof}(T)",
+            "plainText": "Stack<T, N> data storage = N × sizeof(T) bytes (plus the int top)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{non-template exact} \\succ \\text{template exact} \\succ \\text{conversion}",
+            "plainText": "Overload preference: non-template exact match > template exact match > non-template needing conversion"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "When an ordinary function and a function template both match a call exactly, the ordinary function is chosen. The template only wins when the ordinary function would need a conversion (e.g. print('a') with print(int) and template print(T) calls the template with T = char)."
+          },
+          {
+            "type": "warning",
+            "text": "maxOf(3, 4.5) with template <typename T> T maxOf(T, T) is a compile error, not a promotion: deduction gives T = int from the first argument and T = double from the second. Fix it with maxOf<double>(3, 4.5) or two type parameters."
+          },
+          {
+            "type": "note",
+            "text": "Outside the class, a member of a class template is defined as template <class T> ReturnType ClassName<T>::member(...) { ... }. Forgetting the <T> after the class name, or the template <class T> header, is the classic syntax slip."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_t6_01",
+          "title": "Template instantiation",
+          "latex": "\\text{instantiations} = \\text{number of distinct } \\langle T \\rangle \\text{ used}",
+          "plainText": "instantiations = number of distinct <T> argument sets used",
+          "description": "The compiler generates one concrete function or class per distinct set of template arguments; an unused template produces no code at all."
+        },
+        {
+          "id": "f_ch3_t6_02",
+          "title": "Stack<T, N> storage",
+          "latex": "\\text{storage} = N \\times \\text{sizeof}(T)",
+          "plainText": "storage of T data[N] = N × sizeof(T) bytes",
+          "description": "A class template with a non-type parameter N holding T data[N] needs N × sizeof(T) bytes for its array, e.g. Stack<double, 5> needs 40 bytes plus the top index."
+        },
+        {
+          "id": "f_ch3_t6_03",
+          "title": "Overload preference",
+          "latex": "\\text{non-template exact} \\succ \\text{template exact} \\succ \\text{conversion}",
+          "plainText": "non-template exact match > template exact match > match needing a conversion",
+          "description": "The order in which overload resolution ranks candidates when a call could go to an ordinary function or to a function template."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_t6_01",
+          "front": "Is there any difference between template <typename T> and template <class T>?",
+          "back": "No. Both declare a type parameter T; typename and class are interchangeable in a template parameter list.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_t6_02",
+          "front": "How is a member function of class template Stack<T> defined outside the class body?",
+          "back": "Repeat the header and qualify with the template name: template <class T> void Stack<T>::push(T x) { ... }.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_t6_03",
+          "front": "Given void f(int) and template <typename T> void f(T), which is called by f(10) and by f(2.5)?",
+          "back": "f(10) calls the non-template f(int) because it matches exactly; f(2.5) calls the template with T = double because f(int) would need a conversion.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_t6_04",
+          "front": "What is a non-type template parameter?",
+          "back": "A template parameter that is a constant value rather than a type, e.g. template <class T, int N> class Array; N must be a compile-time constant such as an array size.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_t6_n01",
+          "questionText": "What is the output of the following C++ code?\ntemplate <typename T>\nT half(T x) { return x / 2; }\nint main() {\n    cout << half(7) << \" \" << half<double>(7);\n    return 0;\n}",
+          "options": [
+            "3 3",
+            "3.5 3.5",
+            "3 3.5",
+            "3.5 3"
+          ],
+          "correctIndex": 2,
+          "explanation": "half(7) deduces T = int so 7 / 2 is integer division giving 3; half<double>(7) forces T = double, 7 is converted to 7.0 and 7.0 / 2 gives 3.5.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_n02",
+          "questionText": "Class template Stack declares a member void push(T x); inside template <class T> class Stack { ... };. Which is the correct way to define push outside the class?",
+          "options": [
+            "void Stack::push(T x) { ... }",
+            "template <class T> void Stack<T>::push(T x) { ... }",
+            "template <class T> void Stack::push(T x) { ... }",
+            "void Stack<T>::push(T x) { ... }"
+          ],
+          "correctIndex": 1,
+          "explanation": "An out-of-class member definition of a class template must repeat the template header and qualify the member with the template-id Stack<T>; without the header T is undeclared, and without <T> the compiler does not know which class is meant.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m001",
+          "questionText": "A program defines template <typename T> T cube(T x) { return x * x * x; } but never calls cube or uses it in any other way. What code does the compiler generate from this template?",
+          "options": [
+            "One version for every built-in arithmetic type, ready for later calls",
+            "None: code is generated only for the template arguments the program actually uses",
+            "One generic version working on void* that is reused for all types",
+            "A single copy that is linked into the program and specialised at run time"
+          ],
+          "correctIndex": 1,
+          "explanation": "A template is only a blueprint. The compiler instantiates a concrete function for a type only when the program uses the template with that type, so an unused template produces no code (it is merely checked for syntax).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m002",
+          "questionText": "For the function template template <class T> T sq(T x) { return x * x; }, which types can be used as T?",
+          "options": [
+            "Only class types, because the keyword class is used",
+            "Only built-in types such as int and double",
+            "Any type for which the operations used in the body (copying and *) are valid, such as int, double or a class that overloads *",
+            "Only pointer types"
+          ],
+          "correctIndex": 2,
+          "explanation": "In a template parameter list, class means the same as typename: T may be any type, built-in or user-defined. The only requirement is that the body compiles for that type, here that T can be copied and multiplied.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m003",
+          "questionText": "What does this program print? Assume <iostream> and <string> are included and using namespace std; is in effect.\n\ntemplate <typename T>\nT twice(T x) { return x + x; }\nint main() {\n    cout << twice(4) << \" \" << twice(1.5) << \" \" << twice(string(\"ab\"));\n    return 0;\n}",
+          "options": [
+            "8 3 abab",
+            "8 3.0 abab",
+            "8 2 abab",
+            "Compile error: + cannot be applied when T is string"
+          ],
+          "correctIndex": 0,
+          "explanation": "Three instantiations are made: T = int gives 4 + 4 = 8; T = double gives 3.0, which cout prints as 3; T = string uses the string + operator (concatenation), so ab followed by ab gives abab.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m004",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nvoid swapT(T &a, T &b) { T t = a; a = b; b = t; }\nint main() {\n    int x = 1, y = 2;\n    char p = 'p', q = 'q';\n    swapT(x, y);\n    swapT(p, q);\n    cout << x << y << p << q;\n    return 0;\n}",
+          "options": [
+            "12pq",
+            "21pq",
+            "12qp",
+            "21qp"
+          ],
+          "correctIndex": 3,
+          "explanation": "swapT takes its parameters by reference, so the originals are exchanged. swapT(x, y) uses T = int and swapT(p, q) uses T = char, giving x = 2, y = 1, p = 'q', q = 'p', printed as 21qp.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m005",
+          "questionText": "Assume the ASCII character set. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nT succ(T x) { return x + 1; }\nint main() {\n    cout << succ('A') << \" \" << succ(65);\n    return 0;\n}",
+          "options": [
+            "66 66",
+            "B 66",
+            "B B",
+            "66 B"
+          ],
+          "correctIndex": 1,
+          "explanation": "succ('A') deduces T = char: 'A' + 1 is computed as the int 66 but is converted back to char on return, so cout prints the character B. succ(65) deduces T = int and prints 66.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m006",
+          "questionText": "Given template <typename T> void f(T a, T b) { }, which of these calls compiles?",
+          "options": [
+            "f(1, 2L)",
+            "f('a', 98)",
+            "f(2.0f, 3.0)",
+            "f<double>(1, 2.5f)"
+          ],
+          "correctIndex": 3,
+          "explanation": "In the first three calls deduction gets two different types for T (int and long, char and int, float and double) and fails, because deduction does not convert one argument to the type of the other. With T given explicitly as double nothing is deduced, and 1 and 2.5f are simply converted to double.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m007",
+          "questionText": "Assume int is 4 bytes and pointers are 8 bytes. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nsize_t byVal(T x) { return sizeof(x); }\ntemplate <typename T>\nsize_t byRef(T &x) { return sizeof(x); }\nint main() {\n    int a[10] = {0};\n    cout << byVal(a) << \" \" << byRef(a);\n    return 0;\n}",
+          "options": [
+            "8 40",
+            "40 40",
+            "8 8",
+            "40 8"
+          ],
+          "correctIndex": 0,
+          "explanation": "For the by-value parameter the array decays, so T = int* and sizeof(x) = 8. For the reference parameter there is no decay, T = int[10] and sizeof(x) = 10 x 4 = 40 bytes.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m008",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T, typename U>\nT add(T a, U b) { return a + b; }\nint main() {\n    cout << add(5, 2.7) << \" \" << add(2.7, 5);\n    return 0;\n}",
+          "options": [
+            "7.7 7.7",
+            "7 7",
+            "7 7.7",
+            "7.7 7"
+          ],
+          "correctIndex": 2,
+          "explanation": "In add(5, 2.7), T = int and U = double; 5 + 2.7 = 7.7 is converted to the return type int, giving 7. In add(2.7, 5), T = double, so 7.7 is returned unchanged.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m009",
+          "questionText": "Given template <typename T> T zero() { return T(); }, which statement compiles?",
+          "options": [
+            "int a = zero();",
+            "int b = zero(int);",
+            "int c = zero<int>();",
+            "int d = <int>zero();"
+          ],
+          "correctIndex": 2,
+          "explanation": "T appears only in the return type, and the type of the variable being initialised is not used for deduction, so T must be given explicitly: zero<int>() returns int(), which is 0. The other forms either leave T undeduced or are not valid syntax.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m010",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename R, typename T, typename U>\nR mul(T a, U b) { return a * b; }\nint main() {\n    cout << mul<int>(2.5, 3) << \" \";\n    cout << mul<double, int>(2.5, 3) << \" \";\n    cout << mul<double>(2.5, 3);\n    return 0;\n}",
+          "options": [
+            "7.5 7.5 7.5",
+            "7 6 7.5",
+            "7 7.5 7.5",
+            "7 6 7"
+          ],
+          "correctIndex": 1,
+          "explanation": "Explicit arguments fill R, T, U from the left and the rest are deduced. mul<int>(2.5, 3): 2.5 x 3 = 7.5 returned as int, 7. mul<double, int>(2.5, 3): T = int converts 2.5 to 2, so 2 x 3 = 6. mul<double>(2.5, 3): T = double, giving 7.5.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m011",
+          "questionText": "Which line correctly begins an explicit (full) specialisation of template <typename T> void show(T x) for T = const char*?",
+          "options": [
+            "template <> void show<const char*>(const char* x)",
+            "template <typename T> void show<const char*>(T x)",
+            "void show<const char*>(const char* x)",
+            "specialize <const char*> void show(const char* x)"
+          ],
+          "correctIndex": 0,
+          "explanation": "An explicit specialisation starts with an empty parameter list, template <>, followed by the function with the template argument written after its name. Function templates cannot be partially specialised, template <> may not be omitted, and C++ has no specialize keyword.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m012",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nvoid kind(T) { cout << \"G\"; }\ntemplate <>\nvoid kind<double>(double) { cout << \"D\"; }\nint main() {\n    kind(1); kind(1.0); kind(1.0f); kind('1');\n    return 0;\n}",
+          "options": [
+            "GDDG",
+            "GGGG",
+            "DDGG",
+            "GDGG"
+          ],
+          "correctIndex": 3,
+          "explanation": "Deduction gives T = int, double, float and char for the four calls. Only kind(1.0) produces the specialised instantiation kind<double>; 1.0f makes T = float, which uses the general version, so the output is GDGG.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m013",
+          "questionText": "A program defines template <class T> class Box { ... }; and after it template <> class Box<bool> { ... };. Which statement is correct?",
+          "options": [
+            "Box<bool> automatically inherits every member of the primary template and may only add new ones",
+            "The specialisation is used for bool and also for every type that converts to bool, such as int",
+            "Box<bool> is a completely separate class definition used whenever Box<bool> is named; its members need not match the primary template",
+            "The specialisation must appear before the primary template in the source"
+          ],
+          "correctIndex": 2,
+          "explanation": "A full specialisation replaces the whole class for exactly that argument list; nothing is inherited from the primary template, so Box<bool> may have entirely different members. It applies only to Box<bool>, and it must come after the primary template has been declared.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m014",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nstruct Printer { void print(T x) { cout << \"[\" << x << \"]\"; } };\ntemplate <>\nstruct Printer<bool> {\n    void print(bool b) { cout << \"[\" << (b ? \"yes\" : \"no\") << \"]\"; }\n};\nint main() {\n    Printer<int> pi;\n    Printer<bool> pb;\n    pi.print(true); pb.print(true); pb.print(0);\n    return 0;\n}",
+          "options": [
+            "[1][yes][no]",
+            "[yes][yes][no]",
+            "[1][1][0]",
+            "[true][yes][no]"
+          ],
+          "correctIndex": 0,
+          "explanation": "pi is a Printer<int>, so print(true) converts true to the int 1 and prints [1]. pb uses the specialisation Printer<bool>: true prints [yes], and 0 is converted to false and prints [no].",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m015",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void f(T)  { cout << \"1\"; }\ntemplate <typename T> void f(T*) { cout << \"2\"; }\ntemplate <> void f<int*>(int*)   { cout << \"3\"; }\nint main() {\n    int x = 0;\n    f(&x);\n    return 0;\n}",
+          "options": [
+            "1",
+            "2",
+            "3",
+            "Compile error: the call is ambiguous"
+          ],
+          "correctIndex": 1,
+          "explanation": "f<int*>(int*) is a specialisation of the first template (T = int* turns f(T) into f(int*)). Overload resolution compares only the primary templates: f(T) with T = int* and f(T*) with T = int are both exact, and the more specialised f(T*) wins, so 2 is printed; the specialisation of the losing template is never used.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m016",
+          "questionText": "A call matches an ordinary (non-template) function and a function template equally well, with no conversion needed for either. Which one does the compiler call?",
+          "options": [
+            "The function template, because a template is more general",
+            "Neither: the call is ambiguous and does not compile",
+            "Whichever of the two is declared first in the file",
+            "The ordinary function"
+          ],
+          "correctIndex": 3,
+          "explanation": "When the conversion sequences are equally good, the tie-breaker rule prefers a non-template function over a function generated from a template. For example, with void f(int) and template <class T> void f(T), the call f(10) runs f(int).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m017",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void show(T) { cout << \"T\"; }\nvoid show(double) { cout << \"d\"; }\nint main() {\n    show(2.0); show(2); show(2.0f); show<>(2.0);\n    return 0;\n}",
+          "options": [
+            "dTTT",
+            "dddd",
+            "dTdd",
+            "dTdT"
+          ],
+          "correctIndex": 0,
+          "explanation": "show(2.0): show(double) and show<double> are both exact, so the ordinary function wins (d). show(2) and show(2.0f): the template gives T = int or float exactly, which beats the conversion to double (T, T). show<>(2.0): the empty <> restricts the call to templates, so T is printed.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m018",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void g(T)        { cout << \"A\"; }\ntemplate <typename T> void g(T*)       { cout << \"B\"; }\ntemplate <typename T> void g(const T*) { cout << \"C\"; }\nint main() {\n    int n = 1;\n    const int c = 2;\n    g(n); g(&n); g(&c);\n    return 0;\n}",
+          "options": [
+            "ABB",
+            "AAA",
+            "ABC",
+            "ACC"
+          ],
+          "correctIndex": 2,
+          "explanation": "g(n): only g(T) fits (A). g(&n): g(T*) with T = int matches int* exactly, while g(const T*) needs an int* to const int* conversion, and g(T*) is more specialised than g(T) (B). g(&c): all three match const int* exactly and g(const T*) is the most specialised (C).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m019",
+          "questionText": "Which description of a class template is correct?",
+          "options": [
+            "A class that has only pure virtual functions and cannot be instantiated",
+            "A pattern with parameters from which the compiler generates a separate class for each set of template arguments used",
+            "A class from which every other class in the program must be derived",
+            "A class whose objects can be created only with new"
+          ],
+          "correctIndex": 1,
+          "explanation": "A class template such as template <class T> class Stack is a blueprint; Stack<int> and Stack<double> are two distinct classes generated from it. The first option describes an abstract class, not a template.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m020",
+          "questionText": "Given template <class T> class Pair { T first, second; };, which statement correctly creates an object of Pair holding int values?",
+          "options": [
+            "Pair p<int>;",
+            "template Pair<int> p;",
+            "Pair(int) p;",
+            "Pair<int> p;"
+          ],
+          "correctIndex": 3,
+          "explanation": "The template arguments are written in angle brackets directly after the template name: Pair<int> p;. Pair<int> is then used exactly like an ordinary class name.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m021",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nclass Duo {\n    T a, b;\npublic:\n    Duo(T x, T y) : a(x), b(y) {}\n    T sum() const { return a + b; }\n};\nint main() {\n    Duo<int> p(3, 4);\n    Duo<double> q(1.5, 2.25);\n    cout << p.sum() << \" \" << q.sum();\n    return 0;\n}",
+          "options": [
+            "7 3.75",
+            "7 3",
+            "7.0 3.75",
+            "7 4"
+          ],
+          "correctIndex": 0,
+          "explanation": "Duo<int> stores ints, so sum() returns 3 + 4 = 7. Duo<double> stores doubles, so sum() returns 1.5 + 2.25 = 3.75; cout prints 7 without a decimal point.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m022",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nclass Counter {\npublic:\n    static int count;\n    Counter() { ++count; }\n};\ntemplate <class T> int Counter<T>::count = 0;\nint main() {\n    Counter<int> a, b;\n    Counter<double> c;\n    Counter<int> d;\n    cout << Counter<int>::count << \" \" << Counter<double>::count;\n    return 0;\n}",
+          "options": [
+            "4 4",
+            "3 1",
+            "3 3",
+            "4 1"
+          ],
+          "correctIndex": 1,
+          "explanation": "Each instantiation is a separate class with its own static member. Counter<int>::count is increased by a, b and d (3) and Counter<double>::count only by c (1).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m023",
+          "questionText": "Which numbered line causes a compile error?\n\ntemplate <class T>\nclass Box {\n    T v;\npublic:\n    Box(T x);\n    T get() const;\n    void set(T x);\n};\ntemplate <class T> Box<T>::Box(T x) : v(x) {}         // line 1\ntemplate <class T> T Box<T>::get() { return v; }      // line 2\ntemplate <class T> void Box<T>::set(T x) { v = x; }   // line 3\nint main() { Box<int> b(5); b.set(7); return 0; }     // line 4",
+          "options": [
+            "Line 1",
+            "Line 2",
+            "Line 3",
+            "Line 4"
+          ],
+          "correctIndex": 1,
+          "explanation": "get is declared as a const member function, so its out-of-class definition must also say const: template <class T> T Box<T>::get() const { return v; }. Without const the definition matches no member declared in Box<T>.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m024",
+          "questionText": "Why are the member function definitions of a class template normally written in the header file along with the class, instead of in a separately compiled .cpp file?",
+          "options": [
+            "The compiler must see the full definitions wherever a new specialisation such as Stack<int> is used, so that it can generate the code there",
+            "C++ does not allow the keyword template to appear in a .cpp file",
+            "Class template members are processed by the preprocessor, which reads only header files",
+            "Placing them in the header makes every member function virtual"
+          ],
+          "correctIndex": 0,
+          "explanation": "Code for Stack<int>::push is generated only where the compiler sees both the use and the template definition. If the definitions sit in another .cpp file, the calls compile but linking fails with undefined references, unless that file explicitly instantiates the needed types.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m025",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T, int N>\nclass Ring {\n    T d[N]; int pos = 0;\npublic:\n    void put(T x);\n    T get(int i) const { return d[i]; }\n};\ntemplate <class T, int N>\nvoid Ring<T, N>::put(T x) { d[pos] = x; pos = (pos + 1) % N; }\nint main() {\n    Ring<int, 3> r;\n    for (int i = 1; i <= 5; i++) r.put(i * 10);\n    cout << r.get(0) << \" \" << r.get(1) << \" \" << r.get(2);\n    return 0;\n}",
+          "options": [
+            "10 20 30",
+            "30 40 50",
+            "50 40 30",
+            "40 50 30"
+          ],
+          "correctIndex": 3,
+          "explanation": "With N = 3, pos cycles 0, 1, 2, 0, 1. The puts store 10 in d[0], 20 in d[1], 30 in d[2], then 40 overwrites d[0] and 50 overwrites d[1], so the array holds 40 50 30.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m026",
+          "questionText": "Under C++17, what is the type of b after the declaration Box b(2.5); given template <class T> struct Box { T v; Box(T x) : v(x) {} };?",
+          "options": [
+            "Box<float>",
+            "Box<int>",
+            "Box<double>",
+            "It does not compile: the template argument must be written, as in Box<double> b(2.5);"
+          ],
+          "correctIndex": 2,
+          "explanation": "C++17 added class template argument deduction: the constructor argument 2.5 is a double, so T = double and b is a Box<double>. Before C++17 the template argument had to be written explicitly.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m027",
+          "questionText": "Which keyword must replace ____ for this function template to compile when it is called with a std::vector<int>?\n\ntemplate <class C>\nint firstOf(const C &c) {\n    ____ C::const_iterator it = c.begin();\n    return *it;\n}",
+          "options": [
+            "typename",
+            "template",
+            "const",
+            "static"
+          ],
+          "correctIndex": 0,
+          "explanation": "C::const_iterator depends on the template parameter C, and the compiler assumes such a qualified name is not a type unless it is preceded by typename. Writing typename C::const_iterator it declares it as an iterator variable.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m028",
+          "questionText": "In template <class T, int N> class Array { T a[N]; };, what kind of template parameter is N?",
+          "options": [
+            "A type parameter, so Array<int, double> is valid",
+            "A default argument that the constructor receives at run time",
+            "A run-time variable that can change after an object is created",
+            "A non-type parameter: its argument must be a compile-time constant of type int, as in Array<char, 16>"
+          ],
+          "correctIndex": 3,
+          "explanation": "N is a non-type (value) template parameter. Its argument must be a constant expression, because it becomes part of the type: Array<char, 16> and Array<char, 32> are different classes.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m029",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <int N>\nint power(int x) {\n    int r = 1;\n    for (int i = 0; i < N; i++) r *= x;\n    return r;\n}\nint main() {\n    cout << power<3>(2) << \" \" << power<0>(5);\n    return 0;\n}",
+          "options": [
+            "9 1",
+            "8 1",
+            "8 0",
+            "6 0"
+          ],
+          "correctIndex": 1,
+          "explanation": "power<3>(2) multiplies 2 three times: 2 x 2 x 2 = 8. In power<0>(5) the loop runs zero times, so r keeps its starting value 1.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m030",
+          "questionText": "Which numbered line causes a compile error?\n\ntemplate <int N>\nstruct Buf { char b[N]; };\nint main() {\n    const int k = 8;\n    int n = 8;\n    Buf<8> a;              // line 1\n    Buf<k * 2> b;          // line 2\n    Buf<n> c;              // line 3\n    Buf<sizeof(int)> d;    // line 4\n    return 0;\n}",
+          "options": [
+            "Line 1",
+            "Line 2",
+            "Line 3",
+            "Line 4"
+          ],
+          "correctIndex": 2,
+          "explanation": "A non-type template argument must be a constant expression. k is a const int initialised with a constant and sizeof(int) is known at compile time, but n is an ordinary variable, so Buf<n> is rejected.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m031",
+          "questionText": "Assume double is 8 bytes. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T, int N>\nclass Array {\n    T a[N];\npublic:\n    int size() const { return N; }\n    int bytes() const { return sizeof(a); }\n};\nint main() {\n    Array<double, 5> x;\n    Array<char, 5> y;\n    cout << x.size() << \" \" << x.bytes() << \" \" << y.bytes();\n    return 0;\n}",
+          "options": [
+            "5 40 5",
+            "5 5 5",
+            "40 40 5",
+            "5 40 40"
+          ],
+          "correctIndex": 0,
+          "explanation": "size() returns the non-type argument N = 5. The member array T a[N] occupies N x sizeof(T) bytes: 5 x 8 = 40 for double and 5 x 1 = 5 for char.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m032",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <int N>\nstruct Fact { static const int value = N * Fact<N - 1>::value; };\ntemplate <>\nstruct Fact<0> { static const int value = 1; };\nint main() {\n    cout << Fact<5>::value << \" \" << Fact<0>::value;\n    return 0;\n}",
+          "options": [
+            "0 1",
+            "120 0",
+            "Compile error: the recursion in Fact never ends",
+            "120 1"
+          ],
+          "correctIndex": 3,
+          "explanation": "Fact<5> needs Fact<4>, down to Fact<0>, which is the explicit specialisation with value 1 and stops the recursion. The compiler computes 5 x 4 x 3 x 2 x 1 x 1 = 120, and Fact<0>::value is 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m033",
+          "questionText": "Assume int is 4 bytes, double is 8 bytes and the compiler adds no padding to the structs. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T = int, int N = 3>\nstruct Row { T cell[N]; };\nint main() {\n    cout << sizeof(Row<>) << \" \" << sizeof(Row<char>);\n    cout << \" \" << sizeof(Row<double, 2>);\n    return 0;\n}",
+          "options": [
+            "12 12 16",
+            "3 3 2",
+            "12 3 16",
+            "12 3 24"
+          ],
+          "correctIndex": 2,
+          "explanation": "Missing arguments take their defaults. Row<> is Row<int, 3>: 3 x 4 = 12 bytes. Row<char> is Row<char, 3>: 3 x 1 = 3 bytes. Row<double, 2> overrides both: 2 x 8 = 16 bytes.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m034",
+          "questionText": "Which class template declaration does NOT compile?",
+          "options": [
+            "template <class T, class U = T> class P;",
+            "template <class T = int, class U> class P;",
+            "template <class T, int N = 10> class P;",
+            "template <class T = char, int N = 5> class P;"
+          ],
+          "correctIndex": 1,
+          "explanation": "As with default function arguments, once a class template parameter has a default, every parameter after it must have one too, so T = int followed by a plain U is ill-formed. A default may refer to an earlier parameter, as in U = T.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m035",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename R = int, typename T>\nR avg(T a, T b) { return (a + b) / 2; }\nint main() {\n    cout << avg(3.0, 4.0) << \" \";\n    cout << avg<double>(3.0, 4.0) << \" \";\n    cout << avg<double>(3, 4);\n    return 0;\n}",
+          "options": [
+            "3 3.5 3",
+            "3.5 3.5 3.5",
+            "3 3.5 3.5",
+            "3.5 3.5 3"
+          ],
+          "correctIndex": 0,
+          "explanation": "avg(3.0, 4.0): R takes its default int, so 3.5 is returned as 3. avg<double>(3.0, 4.0): R = double, giving 3.5. avg<double>(3, 4): T is deduced as int, so (3 + 4) / 2 is integer division = 3, returned as 3.0 and printed as 3.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m036",
+          "questionText": "Which template header does NOT compile when it is followed by struct X { };?",
+          "options": [
+            "template <class T>",
+            "template <typename T, class U>",
+            "template <typename T, int N>",
+            "template <class T, class T>"
+          ],
+          "correctIndex": 3,
+          "explanation": "Each template parameter must have a distinct name, so declaring T twice is an error. Mixing typename and class, or type and non-type parameters, is allowed.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m037",
+          "questionText": "Compared with the function-like macro #define MAX(a, b) ((a) > (b) ? (a) : (b)), what is an advantage of the function template template <class T> T maxOf(T a, T b)?",
+          "options": [
+            "The template is expanded by the preprocessor, so it never adds a function call",
+            "The template can also be used in C programs",
+            "The template's arguments are type-checked and each argument expression is evaluated exactly once",
+            "The template accepts two arguments of different types, such as maxOf(3, 4.5), without any extra code"
+          ],
+          "correctIndex": 2,
+          "explanation": "A template is compiled like a real function: arguments are type-checked and evaluated once, so maxOf(i++, j) increments i only once. Templates are handled by the compiler, not the preprocessor, do not exist in C, and maxOf(3, 4.5) fails deduction.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m038",
+          "questionText": "Which statement comparing function templates with function-like macros is NOT correct?",
+          "options": [
+            "A template obeys scope and namespace rules, while a macro name is replaced everywhere after its #define",
+            "Both are expanded by the preprocessor before the compiler proper sees the code",
+            "A template can be given a specialised version for one particular type",
+            "An argument such as i++ passed to a template is evaluated only once"
+          ],
+          "correctIndex": 1,
+          "explanation": "Only macros are handled by the preprocessor, as plain text substitution; templates are instantiated by the compiler, with full type checking. The other three statements are true.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m039",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\n#define MAXM(a, b) ((a) > (b) ? (a) : (b))\ntemplate <typename T>\nT maxT(T a, T b) { return a > b ? a : b; }\nint main() {\n    cout << MAXM(9, 2.5) / 2 << \" \" << maxT<int>(9, 2.5) / 2;\n    return 0;\n}",
+          "options": [
+            "4 4",
+            "4.5 4.5",
+            "4 4.5",
+            "4.5 4"
+          ],
+          "correctIndex": 3,
+          "explanation": "The macro becomes ((9) > (2.5) ? (9) : (2.5)) / 2; a conditional with int and double operands has type double, so 9.0 / 2 = 4.5. maxT<int> converts 2.5 to 2 and returns the int 9, so 9 / 2 is integer division = 4.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m040",
+          "questionText": "When is a function template instantiated for a particular type such as int?",
+          "options": [
+            "At compile time, when the compiler meets a use (such as a call) that needs that type",
+            "During preprocessing, like a macro",
+            "At link time, when the object files are combined",
+            "At run time, the first time the function is called"
+          ],
+          "correctIndex": 0,
+          "explanation": "Instantiation is done by the compiler: a use such as maxOf(3, 7) makes it generate and type-check maxOf<int>. Nothing about templates happens at run time.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t6_m041",
+          "questionText": "How many distinct specialisations (instantiations) of neg does the compiler generate for this program?\n\ntemplate <typename T>\nT neg(T x) { return -x; }\nint main() {\n    neg(2); neg(3); neg(2.0); neg(2.0f); neg('a'); neg(5);\n    return 0;\n}",
+          "options": [
+            "1",
+            "3",
+            "4",
+            "6"
+          ],
+          "correctIndex": 2,
+          "explanation": "One function is generated per distinct deduced type, not per call: neg<int> (for 2, 3 and 5), neg<double>, neg<float> and neg<char>, which makes 4. 2.0f is a float and 'a' is a char, so neither reuses another instantiation.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m042",
+          "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nint counter(T) { static int n = 0; return ++n; }\nint main() {\n    counter(1); counter(2); counter(3.0);\n    cout << counter(4) << \" \" << counter(5.0) << \" \" << counter('x');\n    return 0;\n}",
+          "options": [
+            "4 5 6",
+            "3 2 1",
+            "3 2 4",
+            "1 1 1"
+          ],
+          "correctIndex": 1,
+          "explanation": "Each instantiation has its own static n. counter<int> is called with 1, 2 and then 4, so it returns 3; counter<double> is called with 3.0 and then 5.0, so it returns 2; counter<char> is new and returns 1.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m043",
+          "questionText": "S has no ++ operator and no << operator. What happens when this program is compiled and run? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nstruct W {\n    T v;\n    void inc() { v++; }\n    void show() { cout << v; }\n};\nstruct S { };\nint main() {\n    W<S> w;\n    cout << \"ok\";\n    return 0;\n}",
+          "options": [
+            "It compiles and prints ok",
+            "Compile error in inc(), because S has no ++ operator",
+            "Compile error in show(), because S cannot be printed with <<",
+            "It compiles, but the program crashes when w is created"
+          ],
+          "correctIndex": 0,
+          "explanation": "A member function of a class template is instantiated only if it is used. W<S> creates the class with its data member, but inc() and show() are never called, so their bodies are never compiled for S.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m044",
+          "questionText": "This program does not compile. Which call is responsible for the error?\n\ntemplate <typename T>\nT big(T a, T b) { return a > b ? a : b; }\nstruct P { int x; };\nint main() {\n    int i = big(1, 2);\n    double d = big(1.5, 0.5);\n    char c = big('a', 'z');\n    P p = big(P{1}, P{2});\n    return 0;\n}",
+          "options": [
+            "big(1, 2)",
+            "big(1.5, 0.5)",
+            "big('a', 'z')",
+            "big(P{1}, P{2})"
+          ],
+          "correctIndex": 3,
+          "explanation": "The template body is checked for a type only when it is instantiated with it. big<int>, big<double> and big<char> are fine, but instantiating big<P> fails because a > b has no meaning for struct P, which defines no > operator.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t6_m045",
+          "questionText": "How many distinct class types are generated from the template V by these declarations?\n\ntemplate <class T, int N = 4>\nstruct V { T a[N]; };\nV<int> a;\nV<int, 4> b;\nV<int, 8> c;\nV<double> d;\nV<double, 4> e;",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "correctIndex": 1,
+          "explanation": "Default arguments are filled in first: V<int> is V<int, 4>, the same type as b, and V<double> is V<double, 4>, the same type as e. The distinct classes are V<int, 4>, V<int, 8> and V<double, 4>, which makes 3.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t6_m046",
+          "questionText": "Stack is a class template. What does the statement template class Stack<int>; do?",
+          "options": [
+            "It declares a new, empty class named Stack<int> that replaces the template's members",
+            "It creates a global object of type Stack<int>",
+            "It explicitly instantiates Stack<int>: the definitions of all its member functions are generated in this file even if none is called",
+            "It forbids Stack from being used with any type other than int"
+          ],
+          "correctIndex": 2,
+          "explanation": "template class Stack<int>; is an explicit instantiation definition. It makes the compiler generate every member of Stack<int> in that translation unit, which is how template definitions can be kept in a .cpp file for a known set of types.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch3_i61",
+      "title": "Standard Template Library (STL)",
+      "subtitle": "Containers, iterators and algorithms: the ready-made generic toolkit of C++",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What the STL Is"
+          },
+          {
+            "type": "paragraph",
+            "text": "The Standard Template Library is the part of the C++ standard library that provides generic data structures and algorithms as templates. It has three main components: containers (objects that store collections of elements), algorithms (functions such as sort or find that operate on ranges of elements) and iterators (pointer-like objects that connect the two by pointing at elements inside a container). Two supporting pieces complete the picture: function objects (functors, e.g. greater<int>) that customise what an algorithm does, and allocators that manage container memory behind the scenes. Because algorithms talk to containers only through iterators, any algorithm works with any container that offers the right kind of iterator."
+          },
+          {
+            "type": "heading",
+            "text": "Containers"
+          },
+          {
+            "type": "bulletList",
+            "text": "Sequence containers keep elements in the order you insert them:",
+            "items": [
+              "vector (<vector>): dynamic array in contiguous memory; O(1) index access and push_back at the end (amortised); insertion in the middle shifts elements; grows automatically.",
+              "deque (<deque>): double-ended queue; O(1) push/pop at both ends and indexed access; elements in several chunks, not one contiguous block.",
+              "list (<list>): doubly linked list; O(1) insert/erase anywhere given an iterator; no indexing with [] and no random access.",
+              "array (<array>, C++11): fixed-size array wrapper, size is a template argument (array<int, 5>); knows its size, supports iterators.",
+              "forward_list (<forward_list>, C++11): singly linked list; forward traversal only, smallest overhead."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Associative and unordered containers are keyed and searched, not indexed by position:",
+            "items": [
+              "set / multiset (<set>): sorted unique keys / sorted keys with duplicates allowed; implemented as balanced binary search trees (red-black), so insert, erase and find are O(log n).",
+              "map / multimap (<map>): sorted key-value pairs; map keys unique, multimap allows repeated keys; map supports m[key] which inserts a default value if the key is absent.",
+              "unordered_set, unordered_multiset, unordered_map, unordered_multimap (C++11): hash tables; average O(1) lookup, no ordering of elements.",
+              "Iterating a set or map visits elements in ascending key order (by operator< or a supplied comparator); iterating an unordered container gives no guaranteed order."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Container adapters wrap another container to give a restricted interface (no iterators):",
+            "items": [
+              "stack (<stack>): LIFO; push, pop, top, empty, size; built on deque by default.",
+              "queue (<queue>): FIFO; push at back, pop from front, front, back; built on deque by default.",
+              "priority_queue (<queue>): always pops the largest element (max-heap by default, a comparator such as greater<int> gives a min-heap); built on vector by default."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Container",
+                "Random access ([ ])?",
+                "Insert / erase cost",
+                "Ordered?"
+              ],
+              [
+                "vector",
+                "Yes, O(1)",
+                "O(1) amortised at end; O(n) in the middle",
+                "Insertion order"
+              ],
+              [
+                "deque",
+                "Yes, O(1)",
+                "O(1) at both ends; O(n) in the middle",
+                "Insertion order"
+              ],
+              [
+                "list",
+                "No",
+                "O(1) anywhere with an iterator",
+                "Insertion order"
+              ],
+              [
+                "set / map",
+                "No (map has m[key])",
+                "O(log n)",
+                "Sorted by key"
+              ],
+              [
+                "unordered_set / unordered_map",
+                "No (map has m[key])",
+                "O(1) average, O(n) worst",
+                "No order"
+              ],
+              [
+                "stack / queue / priority_queue",
+                "No, only top / front",
+                "O(1) (O(log n) for priority_queue)",
+                "LIFO / FIFO / by priority"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Iterators"
+          },
+          {
+            "type": "bulletList",
+            "text": "An iterator behaves like a pointer to an element: *it reads the element, ++it moves on, and it != end() tests for the end. Five categories, each adding capability to the previous:",
+            "items": [
+              "Input iterator: read forward once, single pass (e.g. istream_iterator).",
+              "Output iterator: write forward once, single pass (e.g. ostream_iterator, back_inserter).",
+              "Forward iterator: read/write, multi-pass, ++ only (forward_list, unordered containers).",
+              "Bidirectional iterator: adds -- (list, set, map, multiset, multimap).",
+              "Random-access iterator: adds it + n, it - n, it[n], comparison with < (vector, deque, array, plain pointers).",
+              "Every container provides begin() and end(); end() points one past the last element, so [begin, end) is a half-open range. Constant versions are cbegin()/cend(); reverse iterators rbegin()/rend() traverse backwards."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <vector>\n#include <list>\nvector<int> v = {10, 20, 30};\nfor (vector<int>::iterator it = v.begin(); it != v.end(); ++it)\n    cout << *it << \" \";                 // 10 20 30   (dereference like a pointer)\nlist<int> l = {1, 2, 3};\nlist<int>::iterator li = l.begin();\n++li; --li;                             // ok: list iterators are bidirectional\n// li += 2;   error: no random access on a list iterator\ncout << *(v.begin() + 2);               // 30: vector iterators are random-access\nfor (int x : l) cout << x;              // range-for uses begin()/end() implicitly: 123"
+          },
+          {
+            "type": "heading",
+            "text": "Algorithms"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Algorithm",
+                "Header",
+                "What it does"
+              ],
+              [
+                "sort(first, last [, comp])",
+                "<algorithm>",
+                "Sorts a random-access range in O(n log n); comp such as greater<int>() sorts descending"
+              ],
+              [
+                "find(first, last, value) / count(first, last, value)",
+                "<algorithm>",
+                "find returns an iterator to the first match or last if absent; count returns how many equal value"
+              ],
+              [
+                "reverse(first, last)",
+                "<algorithm>",
+                "Reverses the elements in place; needs bidirectional iterators"
+              ],
+              [
+                "accumulate(first, last, init)",
+                "<numeric>",
+                "Returns init + sum of the range; the type of init decides the result type"
+              ],
+              [
+                "binary_search(first, last, value)",
+                "<algorithm>",
+                "Returns true/false; the range must already be sorted"
+              ],
+              [
+                "for_each(first, last, f)",
+                "<algorithm>",
+                "Calls function or functor f on every element"
+              ],
+              [
+                "min_element / max_element(first, last)",
+                "<algorithm>",
+                "Return an iterator to the smallest / largest element (dereference to get the value)"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <vector>\n#include <algorithm>\n#include <numeric>\nvector<int> v = {5, 1, 4, 2};\nv.push_back(3);                                           // size 5, grows automatically\nsort(v.begin(), v.end());                                 // 1 2 3 4 5\nreverse(v.begin(), v.end());                              // 5 4 3 2 1\ncout << v[0] << \" \" << v.size() << endl;                  // 5 5\ncout << accumulate(v.begin(), v.end(), 0) << endl;        // 15\ncout << (find(v.begin(), v.end(), 4) != v.end()) << endl; // 1 (found)\ncout << *min_element(v.begin(), v.end()) << endl;         // 1\nsort(v.begin(), v.end(), greater<int>());                 // descending: 5 4 3 2 1"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <map>\n#include <string>\nmap<string, int> marks;\nmarks[\"Sita\"] = 80;  marks[\"Ram\"] = 65;  marks[\"Hari\"] = 72;\nmarks[\"Ram\"] += 5;                       // existing key: value updated to 70\nfor (auto &p : marks)                    // keys visited in sorted order\n    cout << p.first << \":\" << p.second << \" \";\n// Hari:72 Ram:70 Sita:80\ncout << marks.count(\"Gita\") << endl;     // 0 (absent, nothing inserted)\ncout << marks[\"Gita\"] << endl;           // 0, but operator[] has now INSERTED Gita\ncout << marks.size();                    // 4"
+          },
+          {
+            "type": "paragraph",
+            "text": "Common STL facts worth memorising: vector::size() is the number of elements while capacity() is the allocated space; v.at(i) throws out_of_range but v[i] does not check; erasing from a vector invalidates iterators at and after the erased position; algorithms never change the size of a container (remove only moves elements, so it is paired with erase). MCQs usually ask which container fits a description (dynamic array, LIFO, sorted unique keys, key-value pairs), which header an algorithm needs, and the output of short vector, map or sort programs."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: Using STL Containers Correctly"
+          },
+          {
+            "type": "paragraph",
+            "text": "A vector keeps its size() elements inside one block that has room for capacity() elements. When push_back finds size() equal to capacity(), it allocates a larger block, moves every existing element across, constructs the new element there and frees the old block, which is why every iterator into the vector becomes invalid at that moment. Implementations grow the capacity geometrically (typically by a factor of 1.5 or 2) rather than by a fixed amount, so reallocations become rarer as the vector grows. reserve(n) allocates room for at least n elements without changing size(), and shrink_to_fit() asks the vector to give back unused space."
+          },
+          {
+            "type": "formula",
+            "latex": "\\sum_{i=0}^{k} 2^{i} = 2^{k+1} - 1 < 2n \\quad (2^{k} < n)",
+            "plainText": "With doubling capacity, n push_backs copy at most 1 + 2 + 4 + ... + 2^k = 2^(k+1) - 1 < 2n elements in total (where 2^k < n), so the average cost per push_back is constant (amortised O(1))."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\n#include <map>\n#include <string>\nusing namespace std;\nint main() {\n    map<string, int> stock = {{\"pen\", 5}};\n    auto r = stock.insert({\"pen\", 9});\n    cout << r.second << \" \" << stock[\"pen\"] << \"\\n\";\n    if (stock.find(\"ink\") == stock.end()) cout << \"no ink\\n\";\n    int n = stock[\"ink\"];\n    cout << n << \" \" << stock.size() << \"\\n\";\n    stock[\"cap\"] = 2;\n    for (auto &p : stock) cout << p.first << \"=\" << p.second << \" \";\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output:\n0 5\nno ink\n0 2\ncap=2 ink=0 pen=5\n\nline 7   insert finds \"pen\" already present: returns {iterator, false}, value stays 5\nline 8   prints r.second (0) and stock[\"pen\"] (5)\nline 9   find returns end() for a missing key and inserts nothing: no ink\nline 10  operator[] inserts {\"ink\", 0} and returns 0\nline 11  prints 0 and the new size 2\nline 12  operator[] inserts \"cap\" and assigns 2\nline 13  keys are visited in sorted order: cap, ink, pen"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\nint main() {\n    vector<int> v = {4, 7, 4, 1, 4, 9};\n    auto newEnd = remove(v.begin(), v.end(), 4);\n    cout << v.size() << \" \" << (newEnd - v.begin()) << \"\\n\";\n    v.erase(newEnd, v.end());\n    for (auto it = v.begin(); it != v.end(); )\n        if (*it == 1) it = v.erase(it); else ++it;\n    for (int x : v) cout << x << \" \";\n    cout << \"| size \" << v.size() << \"\\n\";\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output:\n6 3\n7 9 | size 2\n\nline 7   remove shifts the kept values 7 1 9 to the front and returns\n         an iterator to index 3; the size is still 6\nline 8   prints 6 and the logical length 3\nline 9   erase(newEnd, end()) deletes the 3 leftover slots, leaving 7 1 9\nline 10  the loop advances only when it did not erase\nline 11  erasing 1 returns an iterator to 9, which is then tested\nline 12  prints the remaining elements 7 9\nline 13  prints | size 2"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Container and operation",
+                "Iterators invalidated",
+                "Still valid"
+              ],
+              [
+                "vector push_back or insert that reallocates",
+                "All iterators, pointers and references",
+                "None"
+              ],
+              [
+                "vector insert or erase without reallocation",
+                "Those at or after the position, and end()",
+                "Those before the position"
+              ],
+              [
+                "deque push_front or push_back",
+                "All iterators",
+                "Pointers and references to elements"
+              ],
+              [
+                "deque insert or erase in the middle",
+                "All iterators, pointers and references",
+                "None"
+              ],
+              [
+                "list insert or erase",
+                "Only those to the erased elements",
+                "All others"
+              ],
+              [
+                "set or map insert or erase",
+                "Only those to the erased elements (insert invalidates none)",
+                "All others"
+              ],
+              [
+                "unordered_map insert that causes a rehash",
+                "All iterators",
+                "Pointers and references to elements"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Every algorithm states the weakest iterator category it needs, and it can be used with a container only if the container's iterators are at least that strong. find, count and accumulate need only input iterators, so they work on every container and even on an input stream. binary_search and max_element need forward iterators, reverse needs bidirectional ones, and sort needs random-access iterators, which is why sort accepts vector, deque, array and plain pointers but not list or set. A set or map is already sorted, so its member find() runs in O(log n), much faster than the generic linear find()."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Need",
+                "Container",
+                "Reason"
+              ],
+              [
+                "Fast access by index, adding at the end",
+                "vector",
+                "Contiguous storage: O(1) v[i], amortised O(1) push_back"
+              ],
+              [
+                "Adding and removing at both ends",
+                "deque",
+                "O(1) push_front and push_back, still indexable"
+              ],
+              [
+                "Frequent insertion or removal in the middle",
+                "list",
+                "O(1) insert or erase at a known position, no shifting"
+              ],
+              [
+                "Unique values kept in sorted order",
+                "set",
+                "Balanced tree that rejects duplicates, O(log n)"
+              ],
+              [
+                "Look up a value by key, keys sorted",
+                "map",
+                "Key-value tree, O(log n) find and insert"
+              ],
+              [
+                "Look up by key when order does not matter",
+                "unordered_map",
+                "Hash table, O(1) average"
+              ],
+              [
+                "Always take the largest (or smallest) next",
+                "priority_queue",
+                "Binary heap: O(1) top, O(log n) push and pop"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Mistakes that give wrong output or undefined behaviour:",
+            "items": [
+              "Keeping an iterator, pointer or reference into a vector across push_back or insert: a reallocation leaves it dangling.",
+              "Erasing inside a loop with v.erase(it); ++it; instead of it = v.erase(it); the old iterator is invalid after erase.",
+              "Calling remove() and expecting the size to shrink: remove only shifts the kept elements and must be followed by erase.",
+              "Using m[key] just to test whether a key exists: it inserts a default value; use find() or count() instead.",
+              "Calling binary_search on an unsorted range, or std::sort on a list (use l.sort()).",
+              "Expecting an unordered_map or unordered_set to print in insertion or sorted order: its order is unspecified.",
+              "Reading v[i] with i >= v.size(): no check is made; use at() when a bounds check is wanted."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "Output shortcuts: set and map print in ascending key order; set and map silently drop a repeated key while multiset and multimap keep it; stack pops in the reverse order of pushing, queue in the same order; priority_queue always pops the largest element first (the smallest with greater<T>). For vector questions track size() and the element list after every call; capacity() is only guaranteed to be at least size(), or at least n after reserve(n)."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{vector: } v[i] \\to O(1),\\quad \\text{push\\_back} \\to O(1)\\ \\text{amortised}",
+            "plainText": "vector: v[i] is O(1); push_back is O(1) amortised (occasional reallocation)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{set/map find} \\to O(\\log n),\\quad \\text{unordered find} \\to O(1)\\ \\text{avg}",
+            "plainText": "set/map find, insert, erase are O(log n); unordered_set/map are O(1) on average"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{sort}(n) \\to O(n \\log n),\\quad \\text{binary\\_search} \\to O(\\log n)",
+            "plainText": "sort is O(n log n); binary_search on a sorted range is O(log n); find is O(n)"
+          },
+          {
+            "type": "formula",
+            "latex": "[\\,\\text{begin},\\ \\text{end}\\,) : \\ \\text{size} = \\text{end} - \\text{begin}",
+            "plainText": "A range is half-open [begin, end): end points one past the last element, size = end - begin"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Match container to description: dynamic array = vector; double-ended = deque; linked list = list; unique sorted keys = set; key-value pairs = map; LIFO = stack; FIFO = queue; largest first = priority_queue. stack, queue and priority_queue are adapters and have no iterators."
+          },
+          {
+            "type": "warning",
+            "text": "map::operator[] inserts a default-valued element when the key is missing, so a lookup written as m[\"x\"] silently grows the map. Use find() or count() to test for presence. Similarly v[i] never checks bounds; only v.at(i) throws out_of_range."
+          },
+          {
+            "type": "note",
+            "text": "sort() needs random-access iterators, so it works on vector, deque and array but not on list (use list::sort()). accumulate lives in <numeric>, not <algorithm>, and accumulate(v.begin(), v.end(), 0) truncates a double sum because the initial value 0 is an int."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_i61_01",
+          "title": "vector access cost",
+          "latex": "v[i] \\to O(1),\\quad \\text{push\\_back} \\to O(1)\\ \\text{amortised}",
+          "plainText": "v[i] is O(1); push_back is O(1) amortised",
+          "description": "A vector is a contiguous dynamic array, so indexing is constant time and appending is constant on average because capacity doubles when it runs out."
+        },
+        {
+          "id": "f_ch3_i61_02",
+          "title": "Associative container cost",
+          "latex": "\\text{set/map} \\to O(\\log n),\\quad \\text{unordered} \\to O(1)\\ \\text{avg}",
+          "plainText": "set/map operations O(log n); unordered_set/map O(1) average",
+          "description": "Ordered associative containers are balanced binary search trees; unordered ones are hash tables with no element ordering."
+        },
+        {
+          "id": "f_ch3_i61_03",
+          "title": "Algorithm complexity",
+          "latex": "\\text{sort}: O(n \\log n),\\ \\text{find}: O(n),\\ \\text{binary\\_search}: O(\\log n)",
+          "plainText": "sort O(n log n); find O(n); binary_search O(log n) on a sorted range",
+          "description": "The three algorithm costs most often asked; binary_search is only valid when the range is already sorted."
+        },
+        {
+          "id": "f_ch3_i61_04",
+          "title": "Half-open range",
+          "latex": "[\\,\\text{begin},\\ \\text{end}\\,),\\quad \\text{size} = \\text{end} - \\text{begin}",
+          "plainText": "range [begin, end), size = end - begin",
+          "description": "Every STL range excludes end(), which points one past the last element; an empty container has begin() == end()."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_i61_01",
+          "front": "Name the three main components of the STL and how they relate.",
+          "back": "Containers store elements, algorithms process ranges of elements, and iterators connect them by pointing at elements so any algorithm can work on any suitable container.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_i61_02",
+          "front": "Which STL containers are adapters, and what is special about them?",
+          "back": "stack, queue and priority_queue. They wrap another container (deque or vector) to expose only push/pop/top or front operations and provide no iterators.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i61_03",
+          "front": "List the five iterator categories from weakest to strongest.",
+          "back": "Input, output, forward, bidirectional, random-access. list/set/map give bidirectional iterators; vector/deque/array give random-access ones.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i61_04",
+          "front": "What does find(v.begin(), v.end(), x) return when x is not present?",
+          "back": "It returns v.end(); the standard test is if (find(...) != v.end()) for found.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_i61_m001",
+          "questionText": "The Standard Template Library is built from three main components that work together. Which set names them?",
+          "options": [
+            "Classes, objects and methods",
+            "Templates, macros and namespaces",
+            "Streams, buffers and files",
+            "Containers, algorithms and iterators"
+          ],
+          "correctIndex": 3,
+          "explanation": "Containers store the data, algorithms such as sort and find process it, and iterators connect the two by giving every algorithm a uniform way to walk through any container. Function objects and allocators are supporting pieces.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m002",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v;\nv.push_back(4);\nv.push_back(7);\nv.push_back(9);\ncout << v.size() << \" \" << v.front() << \" \" << v.back();",
+          "options": [
+            "3 4 9",
+            "3 9 4",
+            "2 4 9",
+            "3 4 7"
+          ],
+          "correctIndex": 0,
+          "explanation": "push_back appends at the end, so the vector holds 4 7 9: size() is 3, front() is the first element 4 and back() is the last element 9.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m003",
+          "questionText": "Which STL container adapter gives last-in, first-out (LIFO) access through push(), pop() and top()?",
+          "options": [
+            "queue",
+            "stack",
+            "deque",
+            "priority_queue"
+          ],
+          "correctIndex": 1,
+          "explanation": "stack exposes only its top element, so the element pushed last is removed first. queue is FIFO, priority_queue removes the largest element first, and deque is a full sequence container rather than an adapter.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m004",
+          "questionText": "What does this fragment print? Assume <iostream> and <stack> are included and using namespace std; is in effect.\n\nstack<int> s;\ns.push(1);\ns.push(2);\ns.push(3);\ns.pop();\ncout << s.top() << \" \" << s.size();",
+          "options": [
+            "3 2",
+            "1 2",
+            "2 2",
+            "2 3"
+          ],
+          "correctIndex": 2,
+          "explanation": "After the three pushes 3 is on top; pop() removes it, so top() now returns 2 and two elements remain.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m005",
+          "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\nqueue<int> q;\nq.push(10);\nq.push(20);\nq.push(30);\nq.pop();\ncout << q.front() << \" \" << q.back();",
+          "options": [
+            "10 30",
+            "10 20",
+            "20 30",
+            "30 20"
+          ],
+          "correctIndex": 2,
+          "explanation": "queue is FIFO: pop() removes the oldest element 10, leaving 20 at the front and 30 at the back.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m006",
+          "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s = {5, 3, 5, 1, 3};\ncout << s.size() << \" \";\nfor (int x : s) cout << x;",
+          "options": [
+            "5 11335",
+            "3 135",
+            "3 531",
+            "5 53513"
+          ],
+          "correctIndex": 1,
+          "explanation": "A set stores each key only once and keeps its keys in ascending order, so the repeated 5 and 3 are ignored: s is {1, 3, 5} with size 3.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m007",
+          "questionText": "Which header must be included to use std::accumulate?",
+          "options": [
+            "<numeric>",
+            "<algorithm>",
+            "<functional>",
+            "<iterator>"
+          ],
+          "correctIndex": 0,
+          "explanation": "accumulate, like inner_product and partial_sum, is a numeric algorithm declared in <numeric>; sort, find, count and reverse are declared in <algorithm>.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m008",
+          "questionText": "Which STL container is implemented as a doubly linked list, allowing constant-time insertion and removal anywhere once you hold an iterator to the position?",
+          "options": [
+            "vector",
+            "deque",
+            "forward_list",
+            "list"
+          ],
+          "correctIndex": 3,
+          "explanation": "std::list nodes are linked to both neighbours, so it can be traversed in both directions and nodes can be inserted or unlinked in O(1). forward_list is singly linked, while vector and deque shift elements for a middle insertion.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m009",
+          "questionText": "For a container c, what does c.end() return?",
+          "options": [
+            "An iterator to the last element",
+            "A copy of the last element's value",
+            "An iterator positioned one past the last element, which must not be dereferenced",
+            "A null pointer that marks the end of the data"
+          ],
+          "correctIndex": 2,
+          "explanation": "STL ranges are half-open, [begin, end): end() is a past-the-end position used only for comparison, which is why an empty container has begin() == end().",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m010",
+          "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\npriority_queue<int> pq;\npq.push(3);\npq.push(8);\npq.push(5);\ncout << pq.top() << \" \" << pq.size();",
+          "options": [
+            "3 3",
+            "8 3",
+            "5 3",
+            "8 2"
+          ],
+          "correctIndex": 1,
+          "explanation": "A default priority_queue is a max-heap, so top() returns the largest element, 8. top() only reads the element; it does not remove it, so all three elements remain.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m011",
+          "questionText": "Which container stores key-value pairs in a hash table, giving average O(1) lookup by key but no guaranteed order when it is iterated?",
+          "options": [
+            "unordered_map",
+            "map",
+            "multimap",
+            "set"
+          ],
+          "correctIndex": 0,
+          "explanation": "unordered_map hashes each key into a bucket, so find and insert take constant time on average and the iteration order is unspecified. map and multimap are sorted trees with O(log n) operations, and set stores keys only.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m012",
+          "questionText": "For a std::vector v, what does v.capacity() report?",
+          "options": [
+            "The number of elements currently stored in v",
+            "The largest number of elements any vector could ever hold on the system",
+            "The number of bytes occupied by the stored elements",
+            "How many elements v can hold in its current allocation before it has to reallocate"
+          ],
+          "correctIndex": 3,
+          "explanation": "capacity() is always at least size(). size() counts the stored elements, max_size() is the theoretical upper limit, and none of these functions reports bytes.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m013",
+          "questionText": "Which container keeps its elements sorted automatically and also allows the same value to be stored more than once?",
+          "options": [
+            "set",
+            "unordered_set",
+            "vector",
+            "multiset"
+          ],
+          "correctIndex": 3,
+          "explanation": "multiset is an ordered tree like set but does not reject duplicates. set rejects repeated keys, unordered_set is unordered and unique, and vector keeps insertion order without sorting.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m014",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {9, 2, 7, 4};\nsort(v.begin(), v.end());\ncout << binary_search(v.begin(), v.end(), 7);\ncout << binary_search(v.begin(), v.end(), 5);",
+          "options": [
+            "11",
+            "10",
+            "01",
+            "00"
+          ],
+          "correctIndex": 1,
+          "explanation": "After sorting, v is 2 4 7 9. binary_search returns the bool true for 7 and false for 5, and cout prints bool values as 1 and 0 by default.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i61_m015",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {2, 7, 2, 5, 2};\ncout << count(v.begin(), v.end(), 2) << \" \";\ncout << find(v.begin(), v.end(), 5) - v.begin();",
+          "options": [
+            "3 3",
+            "3 4",
+            "1 3",
+            "2 3"
+          ],
+          "correctIndex": 0,
+          "explanation": "count returns how many elements equal 2, which is 3. find returns an iterator to the first 5, and subtracting v.begin() gives its zero-based index, 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m016",
+          "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmap<char, int> m;\nm['c'] = 3;\nm['a'] = 1;\nm['b'] = 2;\nm['a'] += 10;\nfor (auto &p : m) cout << p.first << p.second;",
+          "options": [
+            "c3a11b2",
+            "a1b2c3",
+            "a11b2c3",
+            "c3b2a11"
+          ],
+          "correctIndex": 2,
+          "explanation": "A map keeps its keys sorted, so iteration visits a, b, c whatever the insertion order. m['a'] += 10 finds the existing key and changes its value from 1 to 11.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m017",
+          "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmap<int, int> m = {{1, 10}, {2, 20}};\nint a = m.count(3);\nint b = m[3];\nint c = m.count(3);\ncout << a << b << c << m.size();",
+          "options": [
+            "0013",
+            "0002",
+            "0012",
+            "0003"
+          ],
+          "correctIndex": 0,
+          "explanation": "count(3) returns 0 and inserts nothing. m[3] finds no key 3, so it inserts the pair {3, 0} and returns 0; afterwards count(3) is 1 and the size has grown from 2 to 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m018",
+          "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s;\nauto r1 = s.insert(4);\nauto r2 = s.insert(4);\ncout << r1.second << r2.second << s.size();",
+          "options": [
+            "112",
+            "102",
+            "011",
+            "101"
+          ],
+          "correctIndex": 3,
+          "explanation": "set::insert returns a pair<iterator, bool> whose bool is true only when a new element was added. The second insert of 4 is rejected, so the flags print as 1 and 0 and the size stays 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m019",
+          "questionText": "What does this fragment print? Assume <iostream> and <map> are included and using namespace std; is in effect.\n\nmultimap<int, char> mm;\nmm.insert({2, 'b'});\nmm.insert({1, 'a'});\nmm.insert({2, 'c'});\ncout << mm.size() << mm.count(2) << mm.begin()->second;",
+          "options": [
+            "21a",
+            "32a",
+            "32b",
+            "31a"
+          ],
+          "correctIndex": 1,
+          "explanation": "multimap allows repeated keys, so all three pairs are stored and count(2) is 2. Elements are kept in key order, so begin() is the pair with key 1, whose value is 'a'.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m020",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4, 5};\nv.erase(v.begin() + 1);\nv.insert(v.begin(), 9);\nfor (int x : v) cout << x;",
+          "options": [
+            "92345",
+            "19345",
+            "91345",
+            "91245"
+          ],
+          "correctIndex": 2,
+          "explanation": "v.begin() + 1 refers to the element 2, so erase leaves 1 3 4 5. insert puts 9 before the given position, which is the front, giving 9 1 3 4 5.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m021",
+          "questionText": "What happens when this fragment is compiled and run? Assume <iostream>, <list> and <algorithm> are included and using namespace std; is in effect.\n\nlist<int> l = {3, 1, 2};\nsort(l.begin(), l.end());\ncout << l.front();",
+          "options": [
+            "It compiles and prints 1",
+            "It compiles and prints 3, because sort works on a copy of the list",
+            "It does not compile: std::sort needs random-access iterators, and list iterators are only bidirectional",
+            "It compiles, but throws an exception at run time because a list cannot be indexed"
+          ],
+          "correctIndex": 2,
+          "explanation": "std::sort jumps through the range with it + n and subtracts iterators, which list iterators cannot do, so the template fails to instantiate. A list is sorted with its member function l.sort().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m022",
+          "questionText": "What must be true before std::binary_search(first, last, value) can give a meaningful result?",
+          "options": [
+            "The range must already be sorted in the order used by the comparison (operator< by default)",
+            "The container must be a set or a map",
+            "The range must not contain duplicate values",
+            "The range must be a vector or a plain array, because binary_search accepts only random-access iterators"
+          ],
+          "correctIndex": 0,
+          "explanation": "binary_search repeatedly halves the range, so it relies on the elements being sorted. Duplicates are allowed, and forward iterators are enough (random-access ones only make it faster).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m023",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {3, 6, 9};\nauto it = find(v.begin(), v.end(), 5);\ncout << (it == v.end()) << \" \" << (it - v.begin());",
+          "options": [
+            "0 -1",
+            "1 -1",
+            "0 3",
+            "1 3"
+          ],
+          "correctIndex": 3,
+          "explanation": "find returns the end iterator, not -1, when the value is absent. end() is one past the last element, so it - v.begin() equals the size, 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m024",
+          "questionText": "What does this fragment print? Assume <iostream> and <deque> are included and using namespace std; is in effect.\n\ndeque<int> d;\nd.push_back(1);\nd.push_front(2);\nd.push_back(3);\nd.push_front(4);\nfor (int x : d) cout << x;",
+          "options": [
+            "1234",
+            "4213",
+            "2413",
+            "3124"
+          ],
+          "correctIndex": 1,
+          "explanation": "Each push_front places the element before all existing ones and each push_back after them: [1] then [2 1] then [2 1 3] then [4 2 1 3].",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m025",
+          "questionText": "A program stores it = v.begin() for a std::vector v and then calls v.push_back(x), which makes size() exceed the old capacity(). What is true about it afterwards?",
+          "options": [
+            "it stays valid, because push_back adds only at the end and never moves existing elements",
+            "it is invalidated, because the elements were moved to a new block of memory; using it is undefined behaviour",
+            "it now refers to the newly added element x",
+            "it stays valid, but pointers and references to the elements are invalidated"
+          ],
+          "correctIndex": 1,
+          "explanation": "When the capacity is exceeded, vector allocates a larger block, moves the elements into it and frees the old block, so every iterator, pointer and reference to its elements is invalidated. Without a reallocation only end() would be invalidated.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m026",
+          "questionText": "Erasing one element from the middle of which container invalidates only the iterators to the erased element, leaving all other iterators valid?",
+          "options": [
+            "vector",
+            "deque",
+            "string",
+            "list"
+          ],
+          "correctIndex": 3,
+          "explanation": "list nodes are separate allocations, so unlinking one node leaves the others in place. vector and string shift the later elements, invalidating iterators at and after the erase point, and a deque erase in the middle invalidates all iterators.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m027",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v;\nv.reserve(10);\nv.push_back(1);\nv.push_back(2);\ncout << v.size() << \" \" << (v.capacity() >= 10);",
+          "options": [
+            "10 1",
+            "12 1",
+            "2 1",
+            "2 0"
+          ],
+          "correctIndex": 2,
+          "explanation": "reserve(10) only allocates room, so capacity() becomes at least 10 while size() stays 0. The two push_backs make the size 2 and fit without any reallocation, so capacity() >= 10 is still true (1).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m028",
+          "questionText": "What does this fragment print? Assume <iostream>, <queue>, <vector> and <functional> are included and using namespace std; is in effect.\n\npriority_queue<int, vector<int>, greater<int>> pq;\nfor (int x : {5, 1, 8, 3}) pq.push(x);\npq.pop();\ncout << pq.top() << \" \" << pq.size();",
+          "options": [
+            "3 3",
+            "5 3",
+            "1 3",
+            "3 4"
+          ],
+          "correctIndex": 0,
+          "explanation": "With greater<int> as the comparator the priority_queue is a min-heap, so the smallest element is on top. pop() removes 1, leaving {3, 5, 8}: top() is 3 and size() is 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m029",
+          "questionText": "For containers holding n elements, which of these operations takes time proportional to n?",
+          "options": [
+            "d.push_front(x) on a deque",
+            "l.insert(it, x) on a list, given an iterator it",
+            "v.insert(v.begin(), x) on a vector",
+            "s.find(x) on a set"
+          ],
+          "correctIndex": 2,
+          "explanation": "Inserting at the front of a vector shifts all n elements one place, so it is O(n). deque::push_front and list::insert at a known position are O(1), and set::find is O(log n) in a balanced tree.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m030",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {10, 20, 30, 40, 50};\nauto it = v.begin() + 1;\nit += 2;\ncout << *it << \" \" << it[-1] << \" \" << (v.end() - it);",
+          "options": [
+            "40 30 1",
+            "30 20 2",
+            "40 50 2",
+            "40 30 2"
+          ],
+          "correctIndex": 3,
+          "explanation": "it starts at index 1 and moves to index 3, so *it is 40 and it[-1], the element before it, is 30. end() is at position 5, so v.end() - it = 5 - 3 = 2. Random-access iterators support all of these operations.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m031",
+          "questionText": "What category of iterator do std::set and std::map provide?",
+          "options": [
+            "Random-access, like the iterators of vector",
+            "Bidirectional: ++ and -- are allowed, but not it + n or it[n]",
+            "Forward only: ++ is allowed but -- is not",
+            "Output only: elements can be written through them but not read"
+          ],
+          "correctIndex": 1,
+          "explanation": "Tree-based containers can step to the next or previous node in key order, which makes their iterators bidirectional. They cannot jump n positions in one step, so it + 3 does not compile (std::next(it, 3) walks one step at a time).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m032",
+          "questionText": "Which numbered line causes a compile error? Assume <iostream> and <stack> are included and using namespace std; is in effect.\n\nstack<int> s;                  // line 1\ns.push(5);                     // line 2\ncout << s.top();               // line 3\nfor (int x : s) cout << x;     // line 4",
+          "options": [
+            "Line 1",
+            "Line 2",
+            "Line 3",
+            "Line 4"
+          ],
+          "correctIndex": 3,
+          "explanation": "stack is a container adapter with no begin() or end(), so a range-based for loop over it cannot compile. push, pop, top, empty and size are its whole interface.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m033",
+          "questionText": "What does this fragment print? Assume <iostream>, <map>, <string> and <stdexcept> are included and using namespace std; is in effect.\n\nmap<string, int> m = {{\"a\", 1}};\ntry {\n    cout << m.at(\"a\") << \" \";\n    cout << m.at(\"b\") << \" \";\n} catch (const out_of_range &) {\n    cout << \"missing \" << m.size();\n}",
+          "options": [
+            "1 missing 1",
+            "1 missing 2",
+            "1 0",
+            "missing 1"
+          ],
+          "correctIndex": 0,
+          "explanation": "at() checks the key: m.at(\"a\") prints 1, but m.at(\"b\") throws out_of_range instead of inserting, so control jumps to the handler. Output already printed stays on the screen, and the map still has one element.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m034",
+          "questionText": "What does this fragment print? Assume <iostream>, <string> and <unordered_map> are included and using namespace std; is in effect.\n\nunordered_map<string, int> freq;\nstring w[] = {\"to\", \"be\", \"or\", \"not\", \"to\", \"be\"};\nfor (const string &s : w) freq[s]++;\ncout << freq.size() << \" \" << freq[\"to\"] << \" \";\ncout << freq.count(\"is\") << \" \" << freq.size();",
+          "options": [
+            "6 2 0 6",
+            "4 2 0 4",
+            "4 1 0 4",
+            "4 2 1 5"
+          ],
+          "correctIndex": 1,
+          "explanation": "freq[s]++ creates a counter the first time a word appears, so there are 4 distinct keys and \"to\" was counted twice. count(\"is\") returns 0 without inserting anything, so the size is still 4.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m035",
+          "questionText": "An iterator it refers to an element of a std::map. Several new keys are then inserted into the map. What happens to it?",
+          "options": [
+            "It is invalidated, because inserting may rebalance the tree",
+            "It remains valid but may now refer to a different key",
+            "It remains valid and still refers to the same element",
+            "It becomes equal to end()"
+          ],
+          "correctIndex": 2,
+          "explanation": "Tree nodes are never moved when the tree is rebalanced; only their links change. So insertion into a map or set invalidates no iterators, and erase invalidates only iterators to the erased element.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m036",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> a = {1, 2, 3};\nvector<int> b = a;\nvector<int> &c = a;\nb[0] = 7;\nc[1] = 8;\ncout << a[0] << a[1] << \" \" << b[0] << b[1];",
+          "options": [
+            "18 72",
+            "78 78",
+            "12 72",
+            "18 78"
+          ],
+          "correctIndex": 0,
+          "explanation": "Copying a vector copies all of its elements (a deep copy), so changing b does not affect a. c is a reference, just another name for a, so c[1] = 8 changes a. Result: a is 1 8 3 and b is 7 2 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m037",
+          "questionText": "Which statement about std::vector is NOT correct?",
+          "options": [
+            "Its elements are stored contiguously, so for a non-empty vector<int> v, &v[0] can be passed where an int* array is expected",
+            "v.at(i) checks the index and throws std::out_of_range when it is invalid",
+            "v[i] throws std::out_of_range when i >= v.size()",
+            "A push_back can invalidate every iterator into the vector"
+          ],
+          "correctIndex": 2,
+          "explanation": "operator[] performs no bounds check; using an out-of-range index is undefined behaviour. Only at() checks and throws out_of_range. The other three statements are true.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i61_m038",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector>, <algorithm> and <numeric> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4};\nreverse(v.begin(), v.begin() + 3);\ncout << v[0] << v[3] << \" \";\ncout << accumulate(v.begin(), v.end(), 10);",
+          "options": [
+            "41 20",
+            "34 20",
+            "24 20",
+            "34 10"
+          ],
+          "correctIndex": 1,
+          "explanation": "The range [begin, begin + 3) covers only indices 0 to 2, so v becomes 3 2 1 4 and v[0], v[3] print 3 and 4. accumulate adds every element to the initial value: 10 + 3 + 2 + 1 + 4 = 20.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m039",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <numeric> are included and using namespace std; is in effect.\n\nvector<double> v = {1.5, 2.5, 3.5};\ncout << accumulate(v.begin(), v.end(), 0) << \" \";\ncout << accumulate(v.begin(), v.end(), 0.0);",
+          "options": [
+            "7.5 7.5",
+            "7 7.5",
+            "6 7",
+            "6 7.5"
+          ],
+          "correctIndex": 3,
+          "explanation": "The running total has the type of the initial value. With the int 0 every partial sum is truncated: 0 + 1.5 gives 1, 1 + 2.5 gives 3, 3 + 3.5 gives 6. With 0.0 the total stays a double: 1.5 + 2.5 + 3.5 = 7.5.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m040",
+          "questionText": "What does this fragment print? Assume <iostream> and <vector> are included and using namespace std; is in effect.\n\nvector<int> v = {1, 2, 3, 4, 5, 6};\nfor (auto it = v.begin(); it != v.end(); ) {\n    if (*it % 2 == 0)\n        it = v.erase(it);\n    else\n        ++it;\n}\ncout << v.size() << \" \" << v[1];",
+          "options": [
+            "3 3",
+            "3 5",
+            "6 2",
+            "3 2"
+          ],
+          "correctIndex": 0,
+          "explanation": "erase removes the element, shifts the rest left and returns an iterator to the element now at that position, so the loop increments only when nothing was erased. The even numbers are removed, leaving 1 3 5: size 3 and v[1] = 3.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m041",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {3, 1, 3, 2, 3};\nauto e = remove(v.begin(), v.end(), 3);\ncout << v.size() << \" \";\nv.erase(e, v.end());\ncout << v.size() << \" \" << v[0] << v[1];",
+          "options": [
+            "2 2 12",
+            "5 2 12",
+            "5 5 12",
+            "5 2 13"
+          ],
+          "correctIndex": 1,
+          "explanation": "remove cannot change a container's size: it shifts the kept elements 1 and 2 to the front and returns the new logical end, so size() is still 5. erase(e, v.end()) then deletes the leftover tail, leaving size 2 with elements 1 2.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m042",
+          "questionText": "What does this fragment print? Assume <iostream> and <queue> are included and using namespace std; is in effect.\n\npriority_queue<int> pq;\nfor (int x : {10, 4, 3, 1}) pq.push(x);\nwhile (pq.size() > 1) {\n    int a = pq.top(); pq.pop();\n    int b = pq.top(); pq.pop();\n    pq.push(a - b);\n}\ncout << pq.top();",
+          "options": [
+            "2",
+            "4",
+            "-16",
+            "6"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each round removes the two largest values and pushes their difference: {10, 4, 3, 1} gives 10 - 4 = 6, then {6, 3, 1} gives 6 - 3 = 3, then {3, 1} gives 3 - 1 = 2. One element is left, so the loop stops and 2 is printed.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m043",
+          "questionText": "What does this fragment print? Assume <iostream> and <list> are included and using namespace std; is in effect.\n\nlist<int> l = {1, 2, 3};\nauto it = l.begin();\n++it;\nl.insert(it, 9);\nl.erase(l.begin());\ncout << *it << \" \";\nfor (int x : l) cout << x;",
+          "options": [
+            "9 923",
+            "2 1923",
+            "2 923",
+            "3 923"
+          ],
+          "correctIndex": 2,
+          "explanation": "it refers to 2. insert puts 9 before 2 and returns an iterator to the new node, but it itself still refers to 2 because list insertion invalidates nothing. Erasing the first node (1) leaves 9 2 3, and it is unaffected.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m044",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <algorithm> are included and using namespace std; is in effect.\n\nvector<int> v = {15, 22, 7, 30, 11};\nsort(v.begin(), v.end(), [](int a, int b) {\n    return a % 10 < b % 10;\n});\ncout << v[0] << \" \" << v[2] << \" \" << v[4];",
+          "options": [
+            "7 15 30",
+            "0 2 7",
+            "7 22 30",
+            "30 22 7"
+          ],
+          "correctIndex": 3,
+          "explanation": "The comparator orders by last digit: 30 (0), 11 (1), 22 (2), 15 (5), 7 (7). All the last digits differ, so the order is fully determined, and v[0], v[2], v[4] are 30, 22 and 7.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m045",
+          "questionText": "Assume a vector's capacity becomes 1 at the first push_back and doubles every time an insertion finds the vector full (1, 2, 4, 8, 16, ...). Starting from an empty vector, 16 push_back calls are made. In total, how many already-stored elements are copied (or moved) into new storage by the reallocations?",
+          "options": [
+            "16",
+            "31",
+            "8",
+            "15"
+          ],
+          "correctIndex": 3,
+          "explanation": "Reallocations happen when the 2nd, 3rd, 5th and 9th elements are added, copying 1 + 2 + 4 + 8 = 15 existing elements; the 16th element still fits in capacity 16. The total stays below 2n, which is why push_back is O(1) amortised.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i61_m046",
+          "questionText": "What does this fragment print? Assume <iostream> and <set> are included and using namespace std; is in effect.\n\nset<int> s;\nmultiset<int> ms;\nfor (int i = 0; i < 10; i++) {\n    s.insert(i % 4);\n    ms.insert(i % 4);\n}\ncout << s.size() << \" \" << ms.size() << \" \" << ms.count(1);",
+          "options": [
+            "4 10 3",
+            "4 10 2",
+            "10 10 3",
+            "4 4 1"
+          ],
+          "correctIndex": 0,
+          "explanation": "i % 4 produces 0 1 2 3 0 1 2 3 0 1. The set keeps each distinct value once (4 elements), the multiset keeps all 10, and the value 1 occurs for i = 1, 5 and 9, so ms.count(1) is 3.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch3_i62",
+      "title": "Exception Handling",
+      "subtitle": "try, throw and catch: reporting and recovering from run-time errors without error codes",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Exceptions"
+          },
+          {
+            "type": "paragraph",
+            "text": "In C, a function reports failure through a return value (-1, NULL, an errno code) that the caller must remember to test, and the test is easily forgotten or awkward when the function already returns a value (what does divide() return when b is 0?). Exception handling separates error detection from error handling: the function that detects the problem throws an exception object, execution leaves that function immediately, and control is transferred to the nearest enclosing handler that can deal with it, possibly many calls up the stack. Errors cannot be silently ignored, the normal code path stays clean, and constructors, which return nothing, get a way to report failure."
+          },
+          {
+            "type": "heading",
+            "text": "try, throw and catch"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <stdexcept>\ndouble divide(int a, int b) {\n    if (b == 0) throw runtime_error(\"division by zero\");   // throw an object\n    return (double)a / b;\n}\nint main() {\n    try {\n        cout << divide(10, 2) << endl;   // 5\n        cout << divide(1, 0) << endl;    // throws: nothing from this line prints\n        cout << \"not reached\";\n    } catch (const runtime_error &e) {   // catch by reference\n        cout << \"Error: \" << e.what();   // Error: division by zero\n    }\n    cout << \" done\";                     // execution resumes after the try-catch\n}"
+          },
+          {
+            "type": "bulletList",
+            "text": "Mechanics of the three keywords:",
+            "items": [
+              "try { ... } encloses the code that may fail; one or more catch blocks must follow it immediately.",
+              "throw expression; creates a copy of the value (any type: int, const char*, a class object) and starts the search for a handler; the rest of the try block is skipped.",
+              "catch (Type name) { ... } handles an exception whose type matches; after the handler finishes, execution continues after the last catch block, not back at the throw point.",
+              "Stack unwinding: as control leaves each function between the throw and the handler, local objects are destroyed (their destructors run) exactly as on a normal return; heap memory freed only in skipped code leaks.",
+              "If the try block completes without throwing, all its catch blocks are skipped."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Multiple Handlers, Matching Order, Rethrow"
+          },
+          {
+            "type": "bulletList",
+            "text": "Several catch blocks may follow one try; they are tested in the order written and the first match wins:",
+            "items": [
+              "Matching is by type: an int handler does not catch a double (no arithmetic conversions), but a handler for a base class catches a derived-class object, and a pointer/reference to base catches derived.",
+              "Therefore write derived-class handlers before base-class handlers; a catch (exception&) placed first would swallow every std exception and the later specific handlers would be unreachable (compilers warn).",
+              "Catch by reference (catch (const T &e)) to avoid copying and to keep the dynamic type; catching a derived object by base value slices it.",
+              "catch (...) catches every type; it must be last and it cannot access the exception object.",
+              "throw; (empty throw) inside a handler rethrows the current exception object unchanged to an outer try; throw e; would throw a copy of the static type instead.",
+              "A try block can be nested inside another try or inside a handler; an exception not handled by the inner block propagates to the outer one."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "void inner() {\n    try { throw 42; }                                          // int thrown\n    catch (int e) { cout << \"inner \" << e << \", \"; throw; }   // rethrow the same object\n}\nint main() {\n    try { inner(); }\n    catch (const char *s) { cout << \"string\"; }\n    catch (int e)         { cout << \"outer \" << e; }   // inner 42, outer 42\n    catch (...)           { cout << \"anything\"; }      // catch-all must be last\n    try { throw 3.5; }\n    catch (int)    { cout << \" int\"; }                 // not chosen: no double->int conversion\n    catch (double) { cout << \" double\"; }              //  double\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Exceptions with Arguments and Nested try"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "class RangeError {                    // user-defined exception class carrying data\n    int value;\npublic:\n    RangeError(int v) : value(v) {}   // the argument travels with the exception\n    int get() const { return value; }\n};\nvoid setAge(int a) { if (a < 0 || a > 150) throw RangeError(a); }\nint main() {\n    try { setAge(200); }\n    catch (const RangeError &e) { cout << \"Bad age \" << e.get() << endl; }  // Bad age 200\n    try { throw out_of_range(\"index 7\"); }\n    catch (const exception &e) { cout << e.what(); }   // base handler catches derived: index 7\n}"
+          },
+          {
+            "type": "paragraph",
+            "text": "Throwing a class object is the normal style because the object can carry arguments describing the error (the bad value, a message, a code) through its constructor, and because a hierarchy of exception classes lets callers choose how specific to be. Nested try blocks let an inner handler do local clean-up and then rethrow to an outer handler that reports to the user; an inner try without a matching handler simply passes the exception outward, and a throw inside a catch block is itself handled by the enclosing try, never by a sibling catch of the same try."
+          },
+          {
+            "type": "heading",
+            "text": "Exception Specifications, Uncaught and Unexpected"
+          },
+          {
+            "type": "bulletList",
+            "text": "How a function advertises what it may throw, and what happens when nothing catches an exception:",
+            "items": [
+              "Dynamic exception specification (pre-C++11): void f() throw(int, char); promised only those types, and void f() throw(); promised none. Violating it called std::unexpected(), which by default called std::terminate(); set_unexpected() could install another handler. Deprecated in C++11, removed in C++17.",
+              "noexcept (C++11): void f() noexcept; declares that f does not throw; if it does anyway, std::terminate() is called at once with no unwinding. noexcept(expr) is also a compile-time operator that yields true if expr cannot throw.",
+              "Uncaught exception: if the handler search reaches main() without a match, std::terminate() is called, which by default calls abort(); no destructors of main's locals are guaranteed to run. set_terminate(handler) installs a custom terminate handler that must not return.",
+              "Exceptions thrown by destructors during unwinding (a second active exception) also lead to terminate(), so destructors should not throw."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <exception>\nvoid f() noexcept { }             // promises never to throw\nvoid g() throw();                 // old-style specification: deprecated in C++11\nvoid h() { throw 1; }\nint main() {\n    set_terminate([] { cout << \"terminate called\"; abort(); });\n    cout << noexcept(f()) << noexcept(h()) << endl;   // 10 (compile-time check)\n    h();                          // no enclosing try anywhere -> std::terminate()\n    cout << \"never printed\";\n}"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Standard class (<stdexcept>)",
+                "Derived from",
+                "Typical cause"
+              ],
+              [
+                "std::exception",
+                "root of the hierarchy",
+                "virtual what() returns a C-string message; catch (const exception &) catches all of the below"
+              ],
+              [
+                "std::logic_error",
+                "exception",
+                "Errors detectable before running: invalid_argument, domain_error, length_error, out_of_range"
+              ],
+              [
+                "std::runtime_error",
+                "exception",
+                "Errors only detectable at run time: range_error, overflow_error, underflow_error"
+              ],
+              [
+                "std::out_of_range",
+                "logic_error",
+                "vector::at(i), string::at(i) or map::at(key) with a bad index or key"
+              ],
+              [
+                "std::bad_alloc",
+                "exception (<new>)",
+                "new fails to obtain memory (new never returns NULL in C++; use new(nothrow) for that)"
+              ],
+              [
+                "std::bad_cast / bad_typeid",
+                "exception (<typeinfo>)",
+                "Failed dynamic_cast to a reference; typeid on a null pointer"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "RAII (Resource Acquisition Is Initialisation) is the idiom that makes exceptions safe: a resource such as heap memory, a file or a lock is owned by a local object whose constructor acquires it and whose destructor releases it. Because stack unwinding runs destructors of every local object between the throw and the handler, the resource is released automatically whether the function ends normally or by exception. This is why smart pointers, fstream and lock_guard are preferred to raw new/delete and fopen/fclose in C++ code that may throw."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: What Happens After throw"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a throw expression runs, its operand is copied (or moved) into a special exception object whose type is the static type of the expression, so throwing a Base& that refers to a Derived object throws a Base. The run-time system then searches outward for a handler: first the catch clauses of the innermost enclosing try block, then those of the try blocks in each calling function in turn. Before the chosen handler runs, every automatic object created since that try block was entered is destroyed in reverse order of construction, innermost function first; this is stack unwinding. The exception object itself lives until the last handler dealing with it exits without rethrowing."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\nstruct Log {\n    char n;\n    Log(char c) : n(c) { cout << \"+\" << n << \" \"; }\n    ~Log() { cout << \"-\" << n << \" \"; }\n};\nvoid inner() { Log c('c'); throw 42; }\nvoid middle() { Log b('b'); inner(); cout << \"never \"; }\nint main() {\n    Log a('a');\n    try { middle(); }\n    catch (int e) { cout << \"caught \" << e << \" \"; }\n    cout << \"end \";\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: +a +b +c -c -b caught 42 end -a\n\nline 11  a is constructed in main: +a\nline 12  main calls middle(); on line 9 it constructs b: +b and calls inner()\nline 8   inner() constructs c: +c, then throws 42\nunwind   inner() is left early, c is destroyed: -c\nunwind   middle() is left early, \"never\" is skipped, b is destroyed: -b\nline 13  catch (int e) in main receives 42: caught 42\nline 14  execution resumes after the handler: end\nexit     main returns and a is destroyed last: -a"
+          },
+          {
+            "type": "paragraph",
+            "text": "An object counts as constructed only when its constructor finishes. If a constructor throws, the destructor of that object is not called, but every base-class subobject and data member that was already fully constructed is destroyed in reverse order, and memory obtained by new for the object is freed automatically. Raw resources acquired inside the constructor body are not released, which is another reason to hold them in members such as vector or unique_ptr. Destructors are implicitly noexcept since C++11, so a throw that escapes a destructor calls std::terminate(), and when no handler exists at all it is implementation-defined whether any unwinding happens before terminate()."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Handler form",
+                "Copies the object?",
+                "Keeps dynamic type?",
+                "Remarks"
+              ],
+              [
+                "catch (T e)",
+                "Yes",
+                "No, a derived object is sliced",
+                "Changes to e are lost on throw;"
+              ],
+              [
+                "catch (T &e)",
+                "No",
+                "Yes",
+                "Changes to e survive a throw; rethrow"
+              ],
+              [
+                "catch (const T &e)",
+                "No",
+                "Yes",
+                "Usual choice for class types"
+              ],
+              [
+                "catch (T *p)",
+                "Only the pointer",
+                "Yes, through virtual calls",
+                "Needs throw new T (or the address of a static object, never a local); the handler must delete a new object"
+              ],
+              [
+                "catch (...)",
+                "No",
+                "Object cannot be accessed",
+                "Must be last; use throw; to pass it on"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\n#include <stdexcept>\n#include <string>\nusing namespace std;\nstruct FileError : runtime_error { FileError(const string &m) : runtime_error(m) {} };\nvoid load(int how) {\n    try { throw FileError(\"missing\"); }\n    catch (runtime_error &e) { if (how == 0) throw; else throw e; }\n}\nint main() {\n    for (int how = 0; how < 2; how++)\n        try { load(how); }\n        catch (FileError &e) { cout << \"FileError: \" << e.what() << \"\\n\"; }\n        catch (runtime_error &e) { cout << \"runtime_error: \" << e.what() << \"\\n\"; }\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output:\nFileError: missing\nruntime_error: missing\n\nhow = 0  throw; rethrows the original FileError object\n         the first handler, catch (FileError &), matches\nhow = 1  throw e; copies e, whose static type is runtime_error\n         the copy is a plain runtime_error: the FileError part is sliced off\n         catch (FileError &) is skipped, catch (runtime_error &) matches\nwhat()   still returns \"missing\", stored in the runtime_error part"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{catch}(B\\&) \\text{ takes throw } D \\iff D = B \\text{ or } B \\text{ public base of } D",
+            "plainText": "A handler for B (by value or reference) accepts a thrown D only when D is B itself or B is an unambiguous public base class of D; no int/char/double conversions and no user-defined conversions are applied (pointer handlers also accept derived-to-base pointer conversions)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Mistakes that change the output or break the program:",
+            "items": [
+              "Writing catch (Base &) before catch (Derived &): the derived handler can never run.",
+              "Catching class exceptions by value: the copy is sliced and a virtual what() reports the base version.",
+              "Rethrowing with throw e; instead of throw;: it throws a copy of the static type, not the original object.",
+              "Expecting catch (int) to take a char, a short or a double: exception matching applies no arithmetic conversions.",
+              "Expecting the statements after the throw, or later in the try block, to run once the handler finishes.",
+              "Releasing resources with delete or fclose after code that may throw: unwinding skips them, so use RAII objects.",
+              "Letting an exception escape a destructor or a noexcept function: std::terminate() is called."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Library code describes its behaviour under exceptions with three levels of guarantee. The basic guarantee promises no leaks and objects left in a valid but unspecified state; the strong guarantee promises that an operation either succeeds completely or has no effect at all, as vector::push_back does; the no-throw guarantee promises that the operation never throws, which is exactly what noexcept declares. This is why noexcept matters in practice: when a vector reallocates, it moves its elements only if the element type's move constructor is noexcept (or the type cannot be copied), otherwise it copies them so that push_back can keep its strong guarantee."
+          },
+          {
+            "type": "examTip",
+            "text": "To trace an exception question: (1) print everything up to the throw; (2) skip the rest of the try block and of every function being left; (3) run the destructors of their local objects, newest first and innermost function first; (4) pick the first handler, in written order, whose type matches; (5) continue after that try-catch, or keep unwinding if the handler rethrows."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{throw} \\to \\text{unwind stack} \\to \\text{first matching catch (in written order)}",
+            "plainText": "throw → stack unwinding (destructors run) → first catch whose type matches, tested in written order"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{no handler} \\to \\text{std::terminate()} \\to \\text{abort()}",
+            "plainText": "uncaught exception → std::terminate() → abort() (program ends abnormally)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{throw()} \\to \\text{noexcept (C++11)};\\ \\text{violation} \\to \\text{terminate()}",
+            "plainText": "throw() of C++03 is replaced by noexcept in C++11; throwing from a noexcept function calls terminate()"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Order of handlers: most specific (derived) first, base class later, catch (...) last. Type matching is exact apart from derived-to-base and pointer conversions: throw 3.5 is not caught by catch (int), and throw 'a' is not caught by catch (int) either."
+          },
+          {
+            "type": "warning",
+            "text": "After a handler runs, execution continues after the whole try-catch construct, never at the statement following the throw. Any cout in the try block after the throwing call is skipped, which is the basis of most output-prediction questions on this topic."
+          },
+          {
+            "type": "note",
+            "text": "throw; (empty) rethrows the current exception and is legal only inside a catch block; anywhere else it calls terminate(). throw e; from a handler throws a copy, which slices a derived object caught by base value."
+          },
+          {
+            "type": "examTip",
+            "text": "Three ways a program reaches std::terminate(): an exception with no matching handler, an exception escaping a noexcept function, and a second exception thrown while unwinding (e.g. from a destructor). std::unexpected() belongs to the old throw(...) specifications and is legacy."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_i62_01",
+          "title": "Handler search",
+          "latex": "\\text{throw} \\to \\text{unwind} \\to \\text{first matching catch}",
+          "plainText": "throw → stack unwinding → first matching catch in written order",
+          "description": "Handlers of a try block are tested top to bottom and the first whose type matches (exactly or by derived-to-base conversion) runs; the rest are skipped."
+        },
+        {
+          "id": "f_ch3_i62_02",
+          "title": "Uncaught exception",
+          "latex": "\\text{no handler} \\to \\text{std::terminate()} \\to \\text{abort()}",
+          "plainText": "uncaught exception → std::terminate() → abort()",
+          "description": "When the search leaves main() without a match, terminate() is called; set_terminate() can replace the default handler but the program still cannot resume."
+        },
+        {
+          "id": "f_ch3_i62_03",
+          "title": "Exception specifications",
+          "latex": "\\text{throw()} \\ (\\text{C++03}) \\to \\text{noexcept} \\ (\\text{C++11})",
+          "plainText": "throw() specification (C++03) replaced by noexcept (C++11)",
+          "description": "Both declare a non-throwing function; the old dynamic specifications throw(T1, T2) that called unexpected() on violation were deprecated in C++11 and removed in C++17."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_i62_01",
+          "front": "Why should a catch block for a derived exception class come before one for its base class?",
+          "back": "Handlers are tried in written order and a base-class handler also matches derived objects, so a base handler placed first would catch everything and make the derived handler unreachable.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i62_02",
+          "front": "What is stack unwinding?",
+          "back": "The process, between a throw and its handler, of leaving each intermediate function and destroying its local objects (running their destructors) as if those functions had returned.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i62_03",
+          "front": "What happens if an exception is thrown and no matching catch exists anywhere in the call chain?",
+          "back": "std::terminate() is called, which by default calls abort() and ends the program abnormally; a custom handler can be installed with set_terminate().",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_i62_04",
+          "front": "How does an exception carry arguments (data) to its handler?",
+          "back": "Throw an object of a class whose constructor stores the data (e.g. throw RangeError(value)); the handler catches it by reference and reads the data through member functions such as what() or get().",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_i62_m001",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    cout << \"A\";\n    try {\n        cout << \"B\";\n        throw 5;\n        cout << \"C\";\n    } catch (int e) {\n        cout << e;\n    }\n    cout << \"D\";\n}",
+          "options": [
+            "ABC5D",
+            "AB5D",
+            "AB5",
+            "ABCD"
+          ],
+          "correctIndex": 1,
+          "explanation": "throw 5 leaves the try block at once, so \"C\" is skipped. The int handler prints 5, and execution then continues after the handler, printing D.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m002",
+          "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    cout << \"T\";\n} catch (...) {\n    cout << \"C\";\n}\ncout << \"E\";",
+          "options": [
+            "TE",
+            "TCE",
+            "CE",
+            "T"
+          ],
+          "correctIndex": 0,
+          "explanation": "The try block finishes without throwing, so its handlers, even the catch-all, are skipped and execution continues with the statement after them.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m003",
+          "questionText": "When a catch block finishes normally (without throwing again), where does execution continue?",
+          "options": [
+            "At the statement immediately after the throw that raised the exception",
+            "At the beginning of the try block, which is executed again",
+            "At the first statement after the last catch block of that try-catch construct",
+            "Nowhere: the program always ends once an exception has been handled"
+          ],
+          "correctIndex": 2,
+          "explanation": "C++ uses the termination model: the code after the throw point is abandoned, and once a handler completes, control passes to the statement following the whole try-catch sequence.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m004",
+          "questionText": "Which header declares std::runtime_error, std::logic_error and std::out_of_range?",
+          "options": [
+            "<exception>",
+            "<except>",
+            "<error>",
+            "<stdexcept>"
+          ],
+          "correctIndex": 3,
+          "explanation": "<stdexcept> holds the standard error classes derived from logic_error and runtime_error. <exception> declares the base class std::exception and functions such as terminate() and set_terminate(), but not these derived error classes.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m005",
+          "questionText": "What does the virtual member function what() of std::exception return?",
+          "options": [
+            "An int error code identifying the exception",
+            "The line number at which the exception was thrown",
+            "A C-style string (const char*) describing the exception",
+            "A bool telling whether the exception has already been handled"
+          ],
+          "correctIndex": 2,
+          "explanation": "what() is declared as virtual const char* what() const noexcept; derived classes such as runtime_error return the message that was passed to their constructor.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m006",
+          "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    throw 'x';\n} catch (int n) {\n    cout << \"int \" << n;\n} catch (char c) {\n    cout << \"char \" << c;\n}",
+          "options": [
+            "int 120",
+            "char 120",
+            "int x",
+            "char x"
+          ],
+          "correctIndex": 3,
+          "explanation": "Handler matching does not apply the usual arithmetic promotions, so the char 'x' is not caught by catch (int). The char handler matches exactly and prints the character itself.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m007",
+          "questionText": "In standard C++, what does an ordinary new expression such as new int[n] do when it cannot obtain the requested memory?",
+          "options": [
+            "It returns nullptr, which the program must test",
+            "It throws std::bad_alloc",
+            "It throws std::out_of_range",
+            "It returns a pointer to a zero-sized block"
+          ],
+          "correctIndex": 1,
+          "explanation": "Ordinary new reports failure by throwing std::bad_alloc (declared in <new>). Only the nothrow form, new (nothrow) T, returns nullptr instead.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m008",
+          "questionText": "Which class is the common base of all the exception classes thrown by the C++ standard library?",
+          "options": [
+            "std::exception",
+            "std::runtime_error",
+            "std::logic_error",
+            "std::error"
+          ],
+          "correctIndex": 0,
+          "explanation": "std::exception is the root of the hierarchy: logic_error, runtime_error, bad_alloc, bad_cast and the others all derive from it, so catch (const exception &e) catches any of them.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m009",
+          "questionText": "Where must a catch (...) handler be placed among the handlers of a try block?",
+          "options": [
+            "Before all the other handlers",
+            "After all the other handlers, as the last one",
+            "Anywhere, because the order of handlers does not matter",
+            "Only in main(), never inside other functions"
+          ],
+          "correctIndex": 1,
+          "explanation": "Handlers are tried in the order written and catch (...) matches every exception, so a handler after it could never run; the language therefore requires catch (...) to be the last handler.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m010",
+          "questionText": "What happens when this program runs?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    cout << \"start\" << endl;\n    throw 1;\n    cout << \"end\" << endl;\n}",
+          "options": [
+            "start is printed, then std::terminate() ends the program abnormally because no handler catches the int",
+            "start and end are both printed, because an exception thrown outside a try block is ignored",
+            "Nothing is printed: the program does not compile because throw appears outside a try block",
+            "start is printed and the program ends normally, returning 1 from main"
+          ],
+          "correctIndex": 0,
+          "explanation": "throw is legal anywhere, but the search for a handler leaves main without finding one, so std::terminate() is called, which by default calls abort(). endl has already flushed start to the screen.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m011",
+          "questionText": "Which statement about the type of the object thrown by a throw expression is correct?",
+          "options": [
+            "It must be an object of a class derived from std::exception",
+            "It must be an int error code",
+            "It can be of almost any type: a built-in type such as int, a pointer such as const char*, or a class object",
+            "It must be a string literal describing the error"
+          ],
+          "correctIndex": 2,
+          "explanation": "throw 5, throw \"text\" and throw MyError() are all legal. Deriving exception classes from std::exception is only a good convention, because it lets callers catch everything through one base class.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m012",
+          "questionText": "What must immediately follow a try block in C++?",
+          "options": [
+            "A finally block",
+            "An else block",
+            "Nothing, because catch handlers are optional",
+            "One or more catch handlers"
+          ],
+          "correctIndex": 3,
+          "explanation": "A try block is always followed directly by at least one catch clause. C++ has no finally keyword; clean-up is done by destructors (RAII) instead.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m013",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nvoid check(int x) {\n    if (x < 0) throw x;\n    cout << \"ok\" << x << \" \";\n}\nint main() {\n    try {\n        check(2);\n        check(-3);\n        check(4);\n    } catch (int v) {\n        cout << \"neg\" << v;\n    }\n}",
+          "options": [
+            "ok2 neg-3 ok4",
+            "ok2 neg-3",
+            "ok2 ok4 neg-3",
+            "neg-3"
+          ],
+          "correctIndex": 1,
+          "explanation": "check(2) prints ok2. check(-3) throws before printing, so the rest of the try block, including check(4), is skipped and the handler prints neg-3.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i62_m014",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\nusing namespace std;\nint main() {\n    try {\n        throw out_of_range(\"bad index\");\n    } catch (const logic_error &e) {\n        cout << \"logic \";\n    } catch (const out_of_range &e) {\n        cout << \"range \";\n    } catch (...) {\n        cout << \"all \";\n    }\n    cout << \"end\";\n}",
+          "options": [
+            "logic end",
+            "range end",
+            "logic range all end",
+            "all end"
+          ],
+          "correctIndex": 0,
+          "explanation": "out_of_range derives from logic_error, and handlers are tested in the order written, so the first handler already matches and only it runs. The out_of_range handler is unreachable; it should have been written first.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m015",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { virtual const char *name() const { return \"Base\"; } };\nstruct Derived : Base { const char *name() const override { return \"Derived\"; } };\nint main() {\n    try { throw Derived(); }\n    catch (Base b) { cout << b.name() << \" \"; }\n    try { throw Derived(); }\n    catch (Base &b) { cout << b.name(); }\n}",
+          "options": [
+            "Derived Derived",
+            "Base Base",
+            "Base Derived",
+            "Derived Base"
+          ],
+          "correctIndex": 2,
+          "explanation": "catch (Base b) copies only the Base part of the Derived object into b (slicing), so the virtual call gives Base. catch (Base &b) binds to the exception object itself, whose dynamic type is Derived.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m016",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct T {\n    char c;\n    T(char x) : c(x) { cout << \"+\" << c; }\n    ~T() { cout << \"-\" << c; }\n};\nvoid f() { T a('a'); throw 1; }\nint main() {\n    try { T b('b'); f(); }\n    catch (int) { cout << \" caught\"; }\n}",
+          "options": [
+            "+b+a caught-a-b",
+            "+b+a-b-a caught",
+            "+b+a caught",
+            "+b+a-a-b caught"
+          ],
+          "correctIndex": 3,
+          "explanation": "b and then a are constructed. The throw unwinds f, destroying a, and then leaves the try block, destroying b; the handler runs only after all these locals have been destroyed.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m017",
+          "questionText": "Why is catch (const MyError &e) usually preferred to catch (MyError e)?",
+          "options": [
+            "Catching a class type by value is a compile error",
+            "A reference handler skips stack unwinding and is therefore faster",
+            "Only a reference handler can catch an object of a class derived from MyError",
+            "It avoids copying the exception object and avoids slicing, so virtual functions such as what() use the thrown object's real type"
+          ],
+          "correctIndex": 3,
+          "explanation": "A by-value handler copy-initialises a new MyError from the exception, slicing off any derived part. A reference binds to the exception object itself. Catching by value is legal and does match derived classes, only in sliced form.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m018",
+          "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    throw 2.5;\n} catch (int i) {\n    cout << \"int\";\n} catch (float f) {\n    cout << \"float\";\n} catch (...) {\n    cout << \"other\";\n}",
+          "options": [
+            "float",
+            "int",
+            "other",
+            "Nothing is printed; the program terminates"
+          ],
+          "correctIndex": 2,
+          "explanation": "The literal 2.5 has type double. Handlers do not apply standard conversions such as double to float or double to int, so neither typed handler matches and catch (...) takes the exception.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m019",
+          "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    try {\n        throw \"oops\";\n    } catch (int) {\n        cout << \"inner \";\n    }\n    cout << \"after \";\n} catch (const char *m) {\n    cout << \"outer \" << m;\n}",
+          "options": [
+            "outer oops",
+            "after outer oops",
+            "inner outer oops",
+            "inner after"
+          ],
+          "correctIndex": 0,
+          "explanation": "The string literal is thrown as a const char*, which the inner catch (int) cannot take, so the exception leaves the inner try-catch and \"after \" is skipped as well. The outer handler receives the pointer and prints outer oops.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m020",
+          "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    try {\n        throw 1;\n    } catch (int) {\n        cout << \"A\";\n        throw 2.0;\n    } catch (double) {\n        cout << \"B\";\n    }\n} catch (double) {\n    cout << \"C\";\n}",
+          "options": [
+            "AB",
+            "AC",
+            "ABC",
+            "A"
+          ],
+          "correctIndex": 1,
+          "explanation": "An exception thrown inside a handler is not caught by the other handlers of the same try block; the search starts from the enclosing try. So the inner int handler prints A and the outer double handler prints C.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m021",
+          "questionText": "What happens if the statement throw; (with no operand) is executed when no exception is currently being handled?",
+          "options": [
+            "The code fails to compile, because throw; is allowed only inside a catch block",
+            "std::terminate() is called",
+            "Nothing: the statement is ignored",
+            "The most recently handled exception is thrown again"
+          ],
+          "correctIndex": 1,
+          "explanation": "throw; rethrows the exception currently being handled. It is syntactically legal anywhere, but if no exception is being handled when it runs, the program calls std::terminate().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m022",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <exception>\nusing namespace std;\nclass MyErr : public exception {\npublic:\n    const char *what() const noexcept override { return \"MyErr!\"; }\n};\nint main() {\n    try {\n        throw MyErr();\n    } catch (const exception &e) {\n        cout << e.what();\n    }\n}",
+          "options": [
+            "std::exception",
+            "Nothing is printed, because catch (const exception &) does not match a MyErr",
+            "The program does not compile, because what() cannot be overridden",
+            "MyErr!"
+          ],
+          "correctIndex": 3,
+          "explanation": "MyErr derives publicly from std::exception, so the base-class reference handler catches it, and because what() is virtual the call reaches MyErr::what().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m023",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nvoid a() noexcept {}\nvoid b() {}\nvoid c() noexcept(false) {}\nint main() {\n    cout << noexcept(a()) << noexcept(b()) << noexcept(c());\n}",
+          "options": [
+            "100",
+            "111",
+            "110",
+            "000"
+          ],
+          "correctIndex": 0,
+          "explanation": "The noexcept operator is evaluated at compile time from the declarations only: a() is declared noexcept (true, 1), b() has no specification and so may throw (false, 0), and noexcept(false) states explicitly that c() may throw (0).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m024",
+          "questionText": "What happens when this program runs?\n\n#include <iostream>\nusing namespace std;\nvoid f() noexcept { throw 1; }\nint main() {\n    try {\n        f();\n    } catch (int) {\n        cout << \"caught\" << endl;\n    }\n    cout << \"end\" << endl;\n}",
+          "options": [
+            "caught and end are printed",
+            "Only end is printed",
+            "std::terminate() is called, so neither caught nor end is printed",
+            "It does not compile, because a noexcept function cannot contain a throw"
+          ],
+          "correctIndex": 2,
+          "explanation": "An exception that tries to leave a noexcept function makes the program call std::terminate() at once; it never reaches the caller's handler. The code compiles (a compiler may only warn).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m025",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint f(int x) {\n    try {\n        if (x > 5) throw x;\n        return x;\n    } catch (int v) {\n        return -v;\n    }\n}\nint main() {\n    cout << f(3) << \" \" << f(8);\n}",
+          "options": [
+            "3 8",
+            "-3 -8",
+            "3 -8",
+            "3 0"
+          ],
+          "correctIndex": 2,
+          "explanation": "f(3) does not throw and returns 3. In f(8), throw 8 passes the value to the handler parameter v, and the handler's return statement returns -8 to main.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m026",
+          "questionText": "Which of these situations does NOT lead to std::terminate() being called?",
+          "options": [
+            "An exception that escapes from a function declared noexcept",
+            "An exception that propagates out of main() with no matching handler",
+            "A destructor that throws while the stack is being unwound for another exception",
+            "An exception that is caught by a catch (...) handler in main()"
+          ],
+          "correctIndex": 3,
+          "explanation": "catch (...) matches every exception, so the program simply continues after that handler. The other three are the classic causes of terminate(): an exception leaving a noexcept function, no handler at all, and a second exception during unwinding.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m027",
+          "questionText": "std::out_of_range, which vector::at() throws for a bad index, is derived directly from which class?",
+          "options": [
+            "std::runtime_error",
+            "std::logic_error",
+            "std::range_error",
+            "std::bad_alloc"
+          ],
+          "correctIndex": 1,
+          "explanation": "out_of_range is a logic_error (the mistake could in principle be detected before running the program), alongside invalid_argument, domain_error and length_error. range_error is a runtime_error meant for arithmetic results out of range.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m028",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\nusing namespace std;\nint main() {\n    try {\n        throw runtime_error(\"disk full\");\n    } catch (const logic_error &e) {\n        cout << \"L:\" << e.what();\n    } catch (const exception &e) {\n        cout << \"E:\" << e.what();\n    }\n}",
+          "options": [
+            "E:disk full",
+            "L:disk full",
+            "E:std::exception",
+            "E:runtime_error"
+          ],
+          "correctIndex": 0,
+          "explanation": "runtime_error is not derived from logic_error, so the first handler is skipped. The second binds a reference to the runtime_error object, and the virtual what() returns the message passed to its constructor.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m029",
+          "questionText": "What does this fragment print? Assume <iostream>, <vector> and <stdexcept> are included and using namespace std; is in effect.\n\nvector<int> v(3);\nint n = 0;\nfor (int i = 0; i <= 3; i++) {\n    try {\n        v.at(i) = i;\n        n++;\n    } catch (const out_of_range &) {\n        n += 10;\n    }\n}\ncout << n << \" \" << v[2];",
+          "options": [
+            "4 2",
+            "3 2",
+            "14 2",
+            "13 2"
+          ],
+          "correctIndex": 3,
+          "explanation": "v has valid indices 0 to 2, so three assignments succeed and n becomes 3. For i = 3, at() throws before n++ runs, and the handler adds 10, giving 13; v[2] was set to 2.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m030",
+          "questionText": "Under C++17, what happens to a declaration such as void f() throw(int); ?",
+          "options": [
+            "It compiles, and any exception thrown by f is converted to int",
+            "It is ill-formed: dynamic exception specifications were removed in C++17, and noexcept is used instead",
+            "It compiles, and throwing any type other than int calls std::unexpected()",
+            "It compiles, and the compiler checks the body of f to make sure it throws only int"
+          ],
+          "correctIndex": 1,
+          "explanation": "throw(type-list) specifications were deprecated in C++11 and removed in C++17, so a C++17 compiler rejects them. In C++03 a violation called std::unexpected(); today a function states only whether it can throw, using noexcept.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m031",
+          "questionText": "Under the C++03 standard, a function declared as void g() throw(int) threw a double. What did the run-time system do?",
+          "options": [
+            "It converted the double to int so that the caller could catch it",
+            "It let the double propagate to the caller, because the specification was only documentation",
+            "It called std::unexpected(), whose default behaviour is to call std::terminate()",
+            "Nothing: such code was rejected at compile time"
+          ],
+          "correctIndex": 2,
+          "explanation": "A dynamic exception specification was enforced at run time: throwing an unlisted type called unexpected(), whose default handler calls terminate(). set_unexpected() could install a replacement handler, for example one that throws an allowed type.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m032",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <exception>\n#include <cstdlib>\nusing namespace std;\nvoid myHandler() {\n    cout << \"custom\";\n    exit(0);\n}\nint main() {\n    set_terminate(myHandler);\n    cout << \"go \";\n    throw 3.0;\n}",
+          "options": [
+            "go custom",
+            "go",
+            "custom",
+            "go terminate called"
+          ],
+          "correctIndex": 0,
+          "explanation": "No handler matches the double, so std::terminate() calls the handler installed with set_terminate(). It prints custom and ends the program with exit(0), which flushes the output; a terminate handler must end the program rather than return.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m033",
+          "questionText": "Inside a catch (...) handler, how can the program make use of the exception that was caught?",
+          "options": [
+            "Through an implicit variable named e",
+            "By calling what() directly, since every exception has it",
+            "Through the this pointer of the handler",
+            "It cannot name the object, but it can rethrow it unchanged with throw;"
+          ],
+          "correctIndex": 3,
+          "explanation": "catch (...) has no parameter, so the object is not accessible by name (and it may not even be a class type with what()). The usual pattern is local clean-up followed by throw; to pass the same exception on to an outer handler.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m034",
+          "questionText": "Consider this fragment:\n\nvoid step();                 // may throw\nvoid process() {\n    int *buf = new int[100];\n    step();\n    delete[] buf;\n}\n\nWhat goes wrong if step() throws an exception?",
+          "options": [
+            "The delete[] is skipped, so the array leaks; holding it in a vector<int> or unique_ptr<int[]> fixes this",
+            "Stack unwinding calls delete[] on buf automatically",
+            "The program always terminates, because process() has no try block",
+            "Nothing, because the memory is released as soon as process() is left"
+          ],
+          "correctIndex": 0,
+          "explanation": "Unwinding destroys local objects, but buf is a raw pointer and destroying a pointer does not free what it points to. RAII types such as vector or unique_ptr free the memory in their destructors, which do run during unwinding.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m035",
+          "questionText": "What does this fragment print? Assume <iostream> and <string> are included and using namespace std; is in effect.\n\ntry {\n    throw \"abc\";\n} catch (const string &s) {\n    cout << \"string\";\n} catch (const char *p) {\n    cout << \"pointer \" << p;\n}",
+          "options": [
+            "string",
+            "Nothing is printed; the program terminates",
+            "pointer abc",
+            "pointer a"
+          ],
+          "correctIndex": 2,
+          "explanation": "A thrown string literal decays to const char*. Handlers never apply user-defined conversions such as the string constructor, so catch (const string &) is skipped and the pointer handler prints abc.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m036",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nclass DivError {\npublic:\n    int num, den;\n    DivError(int n, int d) : num(n), den(d) {}\n};\nint divide(int a, int b) {\n    if (b == 0) throw DivError(a, b);\n    return a / b;\n}\nint main() {\n    try { cout << divide(7, 2) << \" \"; cout << divide(9, 0); }\n    catch (const DivError &e) { cout << e.num << \"/\" << e.den; }\n}",
+          "options": [
+            "3.5 9/0",
+            "3 9/0",
+            "9/0",
+            "3 0"
+          ],
+          "correctIndex": 1,
+          "explanation": "divide(7, 2) uses integer division and returns 3. divide(9, 0) throws a DivError built from its arguments, nothing more is printed from the try block, and the handler reads the stored values back, printing 9/0.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i62_m037",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct B { virtual void who() const { cout << \"B\"; } };\nstruct D : B { void who() const override { cout << \"D\"; } };\nvoid f(int mode) {\n    try { throw D(); }\n    catch (B &e) { if (mode) throw; else throw e; }\n}\nint main() {\n    for (int m = 0; m < 2; m++) {\n        try { f(m); }\n        catch (B &e) { e.who(); }\n    }\n}",
+          "options": [
+            "DD",
+            "BB",
+            "DB",
+            "BD"
+          ],
+          "correctIndex": 3,
+          "explanation": "For m = 0, throw e creates a new exception by copying e, and the copy has e's static type B (the D part is sliced off). For m = 1, throw; rethrows the original D object, so the virtual call prints D.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m038",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Err { int code; Err(int c) : code(c) {} };\nint main() {\n    int sum = 0;\n    for (int i = 1; i <= 5; i++) {\n        try {\n            if (i % 2 == 0) throw Err(i * 10);\n            sum += i;\n        } catch (const Err &e) {\n            sum += e.code;\n        }\n    }\n    cout << sum;\n}",
+          "options": [
+            "69",
+            "9",
+            "60",
+            "15"
+          ],
+          "correctIndex": 0,
+          "explanation": "Odd i are added normally: 1 + 3 + 5 = 9. Even i throw an Err carrying i × 10, and the handler adds 20 + 40 = 60 instead; the try is inside the loop, so the loop continues. Total 9 + 60 = 69.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m039",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct M {\n    M() { cout << \"M+\"; }\n    ~M() { cout << \"M-\"; }\n};\nstruct X {\n    M m;\n    X() { cout << \"X+\"; throw 1; }\n    ~X() { cout << \"X-\"; }\n};\nint main() {\n    try { X x; }\n    catch (int) { cout << \"caught\"; }\n}",
+          "options": [
+            "M+X+X-M-caught",
+            "M+X+caught",
+            "M+X+M-caught",
+            "M+X+M-X-caught"
+          ],
+          "correctIndex": 2,
+          "explanation": "Member m is constructed before the body of X's constructor runs. The body throws, so x is never fully constructed and ~X() is not called, but the already constructed member m is destroyed before the handler runs.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m040",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct G {\n    const char *n;\n    G(const char *s) : n(s) {}\n    ~G() { cout << n; }\n};\nvoid c() { G g(\"c\"); throw 'x'; }\nvoid b() { G g(\"b\"); c(); cout << \"B\"; }\nvoid a() {\n    G g(\"a\");\n    try { b(); } catch (char) { cout << \"h\"; }\n    cout << \"A\";\n}\nint main() { a(); cout << \"M\"; }",
+          "options": [
+            "bchAaM",
+            "cbhAaM",
+            "hcbAaM",
+            "cBbhAaM"
+          ],
+          "correctIndex": 1,
+          "explanation": "The throw in c() unwinds c and b, destroying their locals (printing c, then b) and skipping \"B\". The handler in a() prints h, a() continues with A, its local g prints a when a() returns, and finally main prints M.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m041",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A {};\nstruct B : A {};\nstruct C : B {};\nvoid t(int k) { if (k == 0) throw A(); if (k == 1) throw B(); throw C(); }\nint main() {\n    for (int k = 0; k < 3; k++) {\n        try { t(k); }\n        catch (C &) { cout << \"C\"; }\n        catch (A &) { cout << \"A\"; }\n        catch (B &) { cout << \"B\"; }\n    }\n}",
+          "options": [
+            "ABC",
+            "AAC",
+            "ACB",
+            "AAA"
+          ],
+          "correctIndex": 1,
+          "explanation": "k = 0 throws an A, which only catch (A &) matches. k = 1 throws a B: catch (C &) does not match, but catch (A &) does because B is derived from A, so the later B handler is never reached. k = 2 throws a C, caught by the first handler.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m042",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct L { char c; L(char x) : c(x) {} ~L() { cout << c; } };\nvoid f() {\n    L x('1');\n    try { L y('2'); throw 0; }\n    catch (int) { cout << \"c\"; throw; }\n}\nint main() {\n    try { L z('3'); f(); }\n    catch (int) { cout << \"m\"; }\n}",
+          "options": [
+            "c213m",
+            "2c1m3",
+            "21c3m",
+            "2c13m"
+          ],
+          "correctIndex": 3,
+          "explanation": "y is destroyed as the throw leaves the inner try (2), then f's handler prints c and rethrows. The rethrow unwinds f, destroying x (1), then leaves main's try block, destroying z (3), and main's handler prints m.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m043",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint dtors = 0;\nstruct D { ~D() { dtors++; } };\nvoid rec(int n) {\n    D d;\n    if (n == 0) throw n;\n    rec(n - 1);\n}\nint main() {\n    try { rec(4); }\n    catch (int) { cout << dtors; }\n}",
+          "options": [
+            "5",
+            "4",
+            "0",
+            "1"
+          ],
+          "correctIndex": 0,
+          "explanation": "rec(4), rec(3), rec(2), rec(1) and rec(0) are all active when the throw happens, each with its own D object: 5 objects. Stack unwinding destroys all five before the handler in main runs, so dtors is 5.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m044",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\n#include <string>\nusing namespace std;\nstruct AppError : runtime_error {\n    int code;\n    AppError(const string &m, int c) : runtime_error(m), code(c) {}\n};\nint main() {\n    try {\n        try { throw AppError(\"no file\", 404); }\n        catch (const runtime_error &e) { cout << e.what() << \" \"; throw; }\n    } catch (const AppError &e) { cout << e.code; }\n    catch (const exception &e) { cout << \"generic\"; }\n}",
+          "options": [
+            "no file generic",
+            "404",
+            "no file 404",
+            "no file"
+          ],
+          "correctIndex": 2,
+          "explanation": "The inner handler catches through a reference to the base runtime_error, prints the message and rethrows with throw;, which passes on the original AppError object. The outer AppError handler therefore matches and prints its code, 404.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i62_m045",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint hits = 0;\nvoid level(int n) {\n    try {\n        if (n == 0) throw 1;\n        level(n - 1);\n    } catch (int &e) { hits++; e *= 2; throw; }\n}\nint main() {\n    try { level(2); }\n    catch (int e) { cout << hits << \" \" << e; }\n}",
+          "options": [
+            "3 8",
+            "1 2",
+            "3 1",
+            "2 4"
+          ],
+          "correctIndex": 0,
+          "explanation": "The exception thrown in level(0) is caught in turn by the handlers of level(0), level(1) and level(2); each doubles the same object through the reference and rethrows it with throw;. So hits = 3 and the value is 1 × 2 × 2 × 2 = 8 when main catches it.",
+          "difficulty": "hard"
+        }
+      ]
+    }
+  ]
+}

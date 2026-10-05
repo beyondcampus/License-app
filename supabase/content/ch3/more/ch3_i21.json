@@ -1,0 +1,738 @@
+{
+  "topicId": "ch3_i21",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Arrays, Functions and Command Lines"
+    },
+    {
+      "type": "paragraph",
+      "text": "The C standard defines the subscript operator through pointer arithmetic: E1[E2] means *((E1) + (E2)). An array name decays to a pointer to its first element in every expression except when it is the operand of sizeof or of unary &, so a[i], *(a + i), *(i + a) and even i[a] name the same element. Decay keeps the address but fixes the type, and the type decides how far + 1 moves. That is why a, &a[0] and &a all start at the same byte, yet a + 1 and &a + 1 land in different places."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Expression (int a[5], int m[3][4])",
+          "Type",
+          "Effect of + 1 (int = 4 bytes)"
+        ],
+        [
+          "a or &a[0]",
+          "int * (after decay)",
+          "4 bytes: one element"
+        ],
+        [
+          "&a",
+          "int (*)[5]",
+          "20 bytes: the whole array"
+        ],
+        [
+          "m",
+          "int (*)[4] (after decay)",
+          "16 bytes: one row"
+        ],
+        [
+          "m[i] or *(m + i)",
+          "int * (after decay)",
+          "4 bytes: one element"
+        ],
+        [
+          "&m",
+          "int (*)[3][4]",
+          "48 bytes: the whole matrix"
+        ],
+        [
+          "m[i][j] or *(*(m + i) + j)",
+          "int",
+          "Not a pointer: ordinary arithmetic"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{addr}(m[i][j]) = B + (i \\times C + j) \\times \\text{sizeof}(T)",
+      "plainText": "address of m[i][j] = base B + (i × C + j) × sizeof(T), where C is the number of columns (row-major)"
+    },
+    {
+      "type": "paragraph",
+      "text": "To read a declaration, start at the name, look right for [ ] or ( ), then look left for *, and let parentheses override that order. Because [ ] and ( ) bind more tightly than *, int *p[4] is an array of 4 pointers, while int (*p)[4] is a single pointer to an array of 4 ints. The same rule separates int *f(int), a function returning int *, from int (*f)(int), a pointer to such a function."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Declaration",
+          "Meaning",
+          "sizeof (int 4, pointer 8 bytes)"
+        ],
+        [
+          "int *p[4]",
+          "Array of 4 pointers to int",
+          "32"
+        ],
+        [
+          "int (*p)[4]",
+          "Pointer to an array of 4 ints",
+          "8"
+        ],
+        [
+          "int *f(int)",
+          "Function taking int and returning int *",
+          "Not an object: no sizeof"
+        ],
+        [
+          "int (*fp)(int)",
+          "Pointer to a function taking int and returning int",
+          "8"
+        ],
+        [
+          "int (*fa[3])(int)",
+          "Array of 3 such function pointers",
+          "24"
+        ],
+        [
+          "char **argv",
+          "Pointer to pointer to char (same as char *argv[] as a parameter)",
+          "8"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint sq(int x) { return x * x; }\nint neg(int x) { return -x; }\nvoid apply(int *a, int n, int (*f)(int)) {\n    for (int *p = a; p < a + n; p++)\n        *p = f(*p);\n}\nint main(void) {\n    int v[4] = {1, -2, 3, -4};\n    apply(v, 4, sq);\n    apply(v + 2, 2, neg);\n    printf(\"%d %d %d %d\\n\", v[0], v[1], *(v + 2), 3[v]);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n1 4 -9 -16\nTrace:\napply(v, 4, sq)       -> each *p = sq(*p): v = {1, 4, 9, 16}\napply(v + 2, 2, neg)  -> inside, a = &v[2] and n = 2: v[2] = -9, v[3] = -16\n*(v + 2) and 3[v]     -> both are subscripts in disguise: v[2] and v[3]\nOnly the address of v was passed, so the changes are made in main's array."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <string.h>\nint main(int argc, char *argv[]) {\n    printf(\"argc = %d\\n\", argc);\n    for (char **p = argv + 1; *p != NULL; p++)\n        printf(\"%s: first %c, length %zu\\n\", *p, **p, strlen(*p));\n    printf(\"argv[argc] is %s\\n\", argv[argc] == NULL ? \"NULL\" : \"set\");\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Run as: prog exam 2026\nOutput:\nargc = 3\nexam: first e, length 4\n2026: first 2, length 4\nargv[argc] is NULL\nTrace:\nargv[0] = program name, argv[1] = \"exam\", argv[2] = \"2026\", argv[3] = NULL\np starts at argv + 1, so *p is each argument string and **p its first char\nthe loop stops when *p reaches the null pointer stored in argv[argc]"
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes and special cases to watch for:",
+      "items": [
+        "A function that swaps its pointer parameters (int *t = x; x = y; y = t;) changes only its own copies; a real swap exchanges *x and *y.",
+        "A 2-D array does not convert to int **. Pass it to int m[][4] or int (*m)[4], because the column count is part of the type.",
+        "A pointer may walk from a up to a + n (one past the end) but no further, and never down to a − 1; write reverse loops so that the pointer stops at a instead of stepping below it.",
+        "char *s = \"abc\" points at a read-only literal, while char s[] = \"abc\" is a writable 4-byte copy; sizeof gives the pointer size for the first and 4 for the second.",
+        "A qsort comparator written as return x - y; can overflow when the values are far apart; return (x > y) - (x < y); is always safe.",
+        "atoi(argv[i]) returns 0 for text that is not a number, so validate the input (or use strtol) before trusting the value."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Rewrite every expression into pure pointer form before evaluating it: x[i] becomes *(x + i), x[i][j] becomes *(*(x + i) + j), and argv[i][j] becomes *(*(argv + i) + j). Then ask what type each step has: stepping a row pointer skips a whole row, while stepping an element pointer skips one element."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i21_m001",
+      "questionText": "Given the declarations below, which statement is a compile error?\n\nint a[5] = {1, 2, 3, 4, 5};\nint *p;\nint *r = a;",
+      "options": [
+        "p = a;",
+        "a = r;",
+        "p = &a[2];",
+        "p = a + 4;"
+      ],
+      "correctIndex": 1,
+      "explanation": "An array name is not a modifiable lvalue, so it can never be assigned to (a = r, a++). The other statements store addresses in the pointer variable p, which is legal; a + 4 is the address of the last element.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m002",
+      "questionText": "What does the following fragment print?\n\nint a[] = {4, 8, 12, 16};\nint x = 2[a], y = *(a + 3) - 1[a];\nprintf(\"%d %d\", x, y);",
+      "options": [
+        "12 8",
+        "Compile error: 2[a] is not valid C",
+        "8 8",
+        "12 12"
+      ],
+      "correctIndex": 0,
+      "explanation": "E1[E2] is defined as *((E1) + (E2)) and addition is commutative, so 2[a] = *(2 + a) = a[2] = 12 and 1[a] = a[1] = 8. Then *(a + 3) − 1[a] = 16 − 8 = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m003",
+      "questionText": "Inside main, where int a[8]; is declared, which expression gives the number of elements of a (8)?",
+      "options": [
+        "sizeof a",
+        "sizeof(&a) / sizeof(int)",
+        "sizeof(a[0])",
+        "sizeof a / sizeof a[0]"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof a is the size of the whole array (8 × sizeof(int)) and sizeof a[0] is one element, so the quotient is 8. The trick works only where a is the array itself, not a pointer parameter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m004",
+      "questionText": "For int a[10]; int *p = a; which statement is TRUE?",
+      "options": [
+        "sizeof(a) equals sizeof(p)",
+        "a can be incremented with a++ just like p",
+        "a and &a hold the same address value but have different types",
+        "&a has type int **"
+      ],
+      "correctIndex": 2,
+      "explanation": "a (decayed to &a[0]) and &a start at the same byte, but a is int * while &a is int (*)[10], so with 4-byte ints a + 1 moves 4 bytes and &a + 1 moves 40. sizeof a is the size of the whole array (10 × sizeof(int), 40 bytes with 4-byte ints), not a pointer size, and an array name cannot be incremented.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m005",
+      "questionText": "What does the following fragment print?\n\nint a[] = {7, 2, 9, 4};\nint x = *a + 1;\nprintf(\"%d %d %d\", x, *(a + 1), *(a + 1) + a[3]);",
+      "options": [
+        "2 2 6",
+        "8 8 12",
+        "2 8 12",
+        "8 2 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "*a + 1 is (*a) + 1 = 7 + 1 = 8, because unary * binds tighter than +. *(a + 1) is a[1] = 2, and 2 + a[3] = 2 + 4 = 6.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m006",
+      "questionText": "What does the following fragment print?\n\nint a[] = {5, 1, 4, 2, 3, 6};\nint *p = a, s = 0;\nwhile (p < a + 6) {\n    s += *p;\n    p += 2;\n}\nprintf(\"%d\", s);",
+      "options": [
+        "12",
+        "9",
+        "21",
+        "5"
+      ],
+      "correctIndex": 0,
+      "explanation": "p visits a[0], a[2] and a[4] (5, 4 and 3) and stops when it reaches a + 6, the one-past-the-end address, so s = 12.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m007",
+      "questionText": "What does the declaration int (*p)[5]; declare?",
+      "options": [
+        "An array of 5 pointers to int",
+        "A function that returns a pointer to int",
+        "A pointer to an array of 5 ints",
+        "A pointer to a pointer to int"
+      ],
+      "correctIndex": 2,
+      "explanation": "The parentheses bind * to p first, so p is a pointer, and what it points to is [5] of int, a whole array. Without them, int *p[5] would be an array of 5 int pointers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m008",
+      "questionText": "Assume int is 4 bytes and pointers are 8 bytes. What does the following fragment print?\n\nint *a[5];\nint (*b)[5];\nprintf(\"%zu %zu %zu\", sizeof a, sizeof b, sizeof *b);",
+      "options": [
+        "8 40 20",
+        "40 8 20",
+        "40 8 8",
+        "20 8 40"
+      ],
+      "correctIndex": 1,
+      "explanation": "a is an array of 5 pointers: 5 × 8 = 40 bytes. b is a single pointer (8 bytes), and *b is the array of 5 ints it points to: 5 × 4 = 20 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m009",
+      "questionText": "What does the following fragment print?\n\nint m[3][2] = {{1, 2}, {3, 4}, {5, 6}};\nint (*r)[2] = m;\nr++;\nprintf(\"%d %d\", (*r)[1], r[1][0]);",
+      "options": [
+        "2 3",
+        "4 3",
+        "4 5",
+        "3 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "r points to whole rows of 2 ints, so r++ moves it to m[1]. (*r)[1] is m[1][1] = 4, and r[1] is the next row m[2], so r[1][0] = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m010",
+      "questionText": "What does the following fragment print?\n\nchar *w[] = {\"red\", \"green\", \"blue\"};\nchar **p = w + 1;\nprintf(\"%c %s %c\", **p, *(p + 1), *(*p + 2));",
+      "options": [
+        "r green d",
+        "g reen e",
+        "g blue b",
+        "g blue e"
+      ],
+      "correctIndex": 3,
+      "explanation": "p points to w[1], so **p is 'g'. *(p + 1) is w[2], the string \"blue\", and *(*p + 2) is w[1][2], the 'e' of \"green\".",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m011",
+      "questionText": "What does the following fragment print?\n\nint a[] = {10, 20, 30, 40};\nint *p[] = {a + 3, a + 2, a + 1, a};\nint **pp = p;\npp++;\nprintf(\"%d %d %d\", **pp, *(*pp + 1), **(pp + 2) + 1);",
+      "options": [
+        "30 40 11",
+        "20 30 11",
+        "30 40 20",
+        "30 31 11"
+      ],
+      "correctIndex": 0,
+      "explanation": "After pp++, pp points to p[1], which holds a + 2, so **pp = 30 and *(*pp + 1) = a[3] = 40. pp + 2 is &p[3], which holds a, so **(pp + 2) + 1 = 10 + 1 = 11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m012",
+      "questionText": "What does the following fragment print?\n\nint m[3][4] = {\n    {12, 7, 3, 9}, {4, 15, 6, 1}, {10, 2, 14, 8}\n};\nprintf(\"%d %d %d\", *(*(m + 2) + 1), *(m[1] + 3), **m + 5);",
+      "options": [
+        "2 1 15",
+        "2 1 17",
+        "14 1 17",
+        "2 6 17"
+      ],
+      "correctIndex": 1,
+      "explanation": "*(*(m + 2) + 1) is m[2][1] = 2 and *(m[1] + 3) is m[1][3] = 1. **m is m[0][0] = 12, and the + 5 is added to that value, giving 17.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m013",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint sum(const int *b, const int *e) {\n    int s = 0;\n    while (b != e)\n        s += *b++;\n    return s;\n}\nint main(void) {\n    int a[] = {3, 1, 4, 1, 5, 9};\n    printf(\"%d %d\", sum(a, a + 6), sum(a + 2, a + 4));\n    return 0;\n}",
+      "options": [
+        "23 5",
+        "23 10",
+        "23 19",
+        "14 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "sum adds the elements from b up to, but not including, e. sum(a, a + 6) covers a[0] to a[5]: 3 + 1 + 4 + 1 + 5 + 9 = 23, and sum(a + 2, a + 4) covers a[2] and a[3]: 4 + 1 = 5. The end pointer a + 6 points one past the last element, which may be formed and compared but is never dereferenced.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m014",
+      "questionText": "Assume int is 4 bytes. What does the following fragment print?\n\nint m[3][5];\nprintf(\"%td %td %td\",\n    (char *)(m + 1) - (char *)m,\n    (char *)(*m + 1) - (char *)m,\n    (char *)(&m + 1) - (char *)m);",
+      "options": [
+        "4 4 60",
+        "20 20 60",
+        "20 4 20",
+        "20 4 60"
+      ],
+      "correctIndex": 3,
+      "explanation": "m decays to a pointer to a row of 5 ints, so m + 1 is 20 bytes further on. *m is row 0 decayed to int *, so *m + 1 is 4 bytes on, and &m points to the whole 3 × 5 array, so &m + 1 is 60 bytes on.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m015",
+      "questionText": "main declares int m[3][4]; and calls f(m, 3);. Which prototype for f is correct?",
+      "options": [
+        "void f(int m[][], int rows);",
+        "void f(int m[][4], int rows);",
+        "void f(int m[3][], int rows);",
+        "void f(int **m, int rows);"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only the first dimension may be omitted, because the compiler needs the column count to locate m[i][j]; int m[][4] means int (*m)[4]. m does not convert to int **, since it decays to a pointer to an array of 4 ints.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m016",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint trace(int m[][3], int n) {\n    int s = 0;\n    for (int i = 0; i < n; i++)\n        s += *(*(m + i) + i);\n    return s;\n}\nint main(void) {\n    int a[3][3] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};\n    printf(\"%d\", trace(a, 3));\n    return 0;\n}",
+      "options": [
+        "6",
+        "12",
+        "15",
+        "45"
+      ],
+      "correctIndex": 2,
+      "explanation": "*(*(m + i) + i) is m[i][i], so the function adds the main diagonal: 1 + 5 + 9 = 15.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m017",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid swapp(int *x, int *y) {\n    int *t = x;\n    x = y;\n    y = t;\n}\nint main(void) {\n    int a = 1, b = 2;\n    swapp(&a, &b);\n    printf(\"%d %d\", a, b);\n    return 0;\n}",
+      "options": [
+        "1 2",
+        "2 1",
+        "Compile error: pointer parameters cannot be reassigned",
+        "2 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "swapp exchanges only its own copies of the two addresses and never dereferences them, so a and b are untouched. A working swap must exchange *x and *y.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m018",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid stats(const int *a, int n, int *mn, int *mx) {\n    *mn = *mx = a[0];\n    for (int i = 1; i < n; i++) {\n        if (a[i] < *mn) *mn = a[i];\n        if (a[i] > *mx) *mx = a[i];\n    }\n}\nint main(void) {\n    int v[] = {4, -2, 9, 0}, lo, hi;\n    stats(v, 4, &lo, &hi);\n    printf(\"%d %d\", lo, hi);\n    return 0;\n}",
+      "options": [
+        "4 4",
+        "-2 9",
+        "0 9",
+        "-2 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "lo and hi are passed by address, so stats writes its results straight into them: the smallest element is −2 and the largest is 9. Output parameters like these let a C function return more than one value.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m019",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid f(int *p, int n) {\n    for (int i = 0; i < n; i++)\n        *(p + i) += i;\n}\nint main(void) {\n    int a[5] = {10, 10, 10, 10, 10};\n    f(a + 1, 3);\n    printf(\"%d %d %d %d %d\", a[0], a[1], a[2], a[3], a[4]);\n    return 0;\n}",
+      "options": [
+        "10 11 12 10 10",
+        "10 10 10 10 10",
+        "10 10 11 12 10",
+        "10 11 12 13 10"
+      ],
+      "correctIndex": 2,
+      "explanation": "f receives the address of a[1], so p[0], p[1] and p[2] are a[1], a[2] and a[3], which gain 0, 1 and 2. The changes appear in main's array because only the address was copied.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m020",
+      "questionText": "Why is the & needed in scanf(\"%d\", &n); when n is an int?",
+      "options": [
+        "& converts the typed characters into an int",
+        "& tells scanf that n is a global variable",
+        "& is needed only because n has not been initialised yet",
+        "scanf must receive n's address so that it can store the value in the caller's variable"
+      ],
+      "correctIndex": 3,
+      "explanation": "C passes arguments by value, so scanf could not change n if it received only n's value. Given &n, it writes the converted number through the pointer; an array name such as a char buffer is already an address and needs no &.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m021",
+      "questionText": "What does const guarantee in the prototype void print(const int *a, int n);?",
+      "options": [
+        "a cannot be moved (a++ is illegal) inside print",
+        "The caller may pass only an array that is declared const",
+        "print cannot modify the array elements through a",
+        "n also becomes read-only inside print"
+      ],
+      "correctIndex": 2,
+      "explanation": "const int *a is a pointer to read-only ints: a[i] = 0 inside print is a compile error, but a itself may be incremented. An ordinary int array can still be passed to it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m022",
+      "questionText": "Which function returns a pointer that the caller can safely use after the call?",
+      "options": [
+        "int *f(void) { int x = 5; return &x; }",
+        "int *f(void) { int a[3] = {1, 2, 3}; return a; }",
+        "int *f(void) { int *p; *p = 5; return p; }",
+        "int *f(void) { static int x = 5; return &x; }"
+      ],
+      "correctIndex": 3,
+      "explanation": "A static local lives for the whole run of the program, so its address stays valid. The automatic x and a are destroyed when f returns (leaving dangling pointers), and the last version writes through an uninitialised pointer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m023",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint *largest(int *a, int n) {\n    int *m = a;\n    for (int i = 1; i < n; i++)\n        if (a[i] > *m) m = a + i;\n    return m;\n}\nint main(void) {\n    int v[] = {3, 8, 2, 8, 5};\n    int *p = largest(v, 5);\n    *p = 0;\n    printf(\"%td %d %d\", p - v, v[1], v[3]);\n    return 0;\n}",
+      "options": [
+        "3 8 0",
+        "1 0 8",
+        "1 8 8",
+        "8 0 8"
+      ],
+      "correctIndex": 1,
+      "explanation": "The strict > keeps the first maximum, so largest returns &v[1] and p − v = 1. *p = 0 writes into v itself, making v[1] = 0 while v[3] stays 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m024",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint *counter(void) {\n    static int c = 0;\n    c += 5;\n    return &c;\n}\nint main(void) {\n    int *p = counter();\n    int *q = counter();\n    *p += 1;\n    printf(\"%d %d %d\", *p, *q, p == q);\n    return 0;\n}",
+      "options": [
+        "11 11 1",
+        "6 10 0",
+        "11 10 0",
+        "6 11 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both calls return the address of the same static c, which is 10 after the second call, so p == q is 1. *p += 1 makes c 11, and *p and *q both read 11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m025",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nchar *find(char *s, char c) {\n    while (*s && *s != c)\n        s++;\n    return s;\n}\nint main(void) {\n    char t[] = \"network\";\n    char *p = find(t, 'w');\n    printf(\"%s %td\", p, p - t);\n    return 0;\n}",
+      "options": [
+        "work 4",
+        "netw 3",
+        "w 3",
+        "work 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "find returns a pointer to the first 'w', which is t + 3. Printing that pointer with %s shows the rest of the string, \"work\", and p − t = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m026",
+      "questionText": "Which declaration makes fp a pointer to a function that takes two ints and returns an int?",
+      "options": [
+        "int *fp(int, int);",
+        "int (*fp)[2];",
+        "int (*fp)(int, int);",
+        "int fp(int *, int *);"
+      ],
+      "correctIndex": 2,
+      "explanation": "The parentheses make fp a pointer first, and the (int, int) after them says it points to a function. int *fp(int, int) declares a function returning int *, and int (*fp)[2] is a pointer to an array.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m027",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint add(int a, int b) { return a + b; }\nint mul(int a, int b) { return a * b; }\nint main(void) {\n    int (*op)(int, int) = add;\n    int r = op(2, 3);\n    op = mul;\n    r = op(r, (*op)(2, 2));\n    printf(\"%d\", r);\n    return 0;\n}",
+      "options": [
+        "20",
+        "9",
+        "24",
+        "10"
+      ],
+      "correctIndex": 0,
+      "explanation": "op first points to add, so r = 5. After op = mul, (*op)(2, 2) = 4 and op(5, 4) = 20; op(...) and (*op)(...) are two spellings of the same call.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m028",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint inc(int x) { return x + 1; }\nint dbl(int x) { return x * 2; }\nint sqr(int x) { return x * x; }\nint main(void) {\n    int (*f[3])(int) = {inc, dbl, sqr};\n    int v = 3;\n    for (int i = 0; i < 3; i++)\n        v = f[i](v);\n    printf(\"%d\", v);\n    return 0;\n}",
+      "options": [
+        "19",
+        "64",
+        "36",
+        "49"
+      ],
+      "correctIndex": 1,
+      "explanation": "f is an array of three function pointers called in order: inc(3) = 4, dbl(4) = 8 and sqr(8) = 64.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m029",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nint cmp(const void *a, const void *b) {\n    int x = *(const int *)a, y = *(const int *)b;\n    return abs(x - 5) - abs(y - 5);\n}\nint main(void) {\n    int v[] = {1, 8, 6, 12, 5};\n    qsort(v, 5, sizeof(int), cmp);\n    printf(\"%d %d %d %d %d\", v[0], v[1], v[2], v[3], v[4]);\n    return 0;\n}",
+      "options": [
+        "5 6 8 1 12",
+        "1 5 6 8 12",
+        "12 1 8 6 5",
+        "12 8 6 5 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "qsort calls cmp back to order the elements by their distance from 5: 5 (0), 6 (1), 8 (3), 1 (4) and 12 (7). All the distances differ, so the order is fully determined.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m030",
+      "questionText": "In the call qsort(v, n, sizeof v[0], cmp); the function cmp is best described as:",
+      "options": [
+        "A recursive function that calls itself to sort the array",
+        "An inline function that the compiler pastes into the source of qsort",
+        "A macro that the preprocessor expands before compilation",
+        "A callback: qsort receives its address and calls it whenever two elements must be compared"
+      ],
+      "correctIndex": 3,
+      "explanation": "The name cmp decays to a function pointer that qsort stores and calls back as needed. This lets one library sorting routine work with any element type and any ordering.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m031",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint twice(int (*g)(int), int x) { return g(g(x)); }\nint sub3(int x) { return x - 3; }\nint neg(int x) { return -x; }\nint main(void) {\n    printf(\"%d %d\", twice(sub3, 10), twice(neg, 7));\n    return 0;\n}",
+      "options": [
+        "7 -7",
+        "4 -7",
+        "4 7",
+        "1 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "twice applies g two times: sub3(sub3(10)) = 10 − 3 − 3 = 4, and neg(neg(7)) = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m032",
+      "questionText": "Given int f(int); and int (*fp)(int);, which statement is correct?",
+      "options": [
+        "Only fp = &f; is legal, because a function name is not an address",
+        "fp = f; and fp = &f; are equivalent, and fp(3) and (*fp)(3) both call f",
+        "fp(3) is illegal; a function pointer must always be called as (*fp)(3)",
+        "fp++ makes fp point to the next function defined in the file"
+      ],
+      "correctIndex": 1,
+      "explanation": "A function name decays to a pointer to the function, so the & is optional, and a call through the pointer may be written with or without the explicit *. Arithmetic such as fp++ is not allowed on function pointers in standard C (GCC accepts it only as an extension that steps 1 byte, never to another function).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m033",
+      "questionText": "What does the following fragment print?\n\nchar *s = \"LICENSE\";\nchar c = *(s + 2);\nprintf(\"%c %s\", c, s + 4);",
+      "options": [
+        "I NSE",
+        "C ENSE",
+        "C NSE",
+        "C N"
+      ],
+      "correctIndex": 2,
+      "explanation": "*(s + 2) is s[2] = 'C'. s + 4 is the address of the 'N', and %s prints from there up to the terminator: \"NSE\".",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m034",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint len(const char *s) {\n    const char *p = s;\n    while (*p)\n        p++;\n    return (int)(p - s);\n}\nint main(void) {\n    printf(\"%d %d\", len(\"exam\"), len(\"ab\\0cd\"));\n    return 0;\n}",
+      "options": [
+        "5 3",
+        "4 2",
+        "4 5",
+        "5 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "p stops at the first '\\0', so p − s is the number of characters before it: 4 for \"exam\". In \"ab\\0cd\" the embedded '\\0' ends the scan after 2 characters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m035",
+      "questionText": "Assume pointers are 8 bytes. What does the following fragment print?\n\nchar a[] = \"hello\";\nchar *p = \"hello\";\nprintf(\"%zu %zu %zu\", sizeof a, sizeof p, strlen(p));",
+      "options": [
+        "6 8 5",
+        "5 8 5",
+        "6 6 5",
+        "6 8 6"
+      ],
+      "correctIndex": 0,
+      "explanation": "a is a 6-byte array holding the 5 letters and the '\\0'. p is only a pointer (8 bytes), and strlen counts the 5 characters before the terminator.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m036",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\n#include <string.h>\nvoid cpy(char *d, const char *s) {\n    while ((*d++ = *s++) != '\\0')\n        ;\n}\nint main(void) {\n    char buf[20];\n    cpy(buf, \"pointer\");\n    cpy(buf + 3, \"k\");\n    printf(\"%s %zu\", buf, strlen(buf));\n    return 0;\n}",
+      "options": [
+        "poikter 7",
+        "k 1",
+        "poinkter 8",
+        "poik 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loop copies every character including the terminating '\\0'. The second call writes 'k' into buf[3] and '\\0' into buf[4], so the string now ends after \"poik\" and its length is 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m037",
+      "questionText": "In C, what is the effect of the statements char *s = \"abc\"; s[0] = 'x';?",
+      "options": [
+        "s now points to the string \"xbc\"",
+        "A compile error in every C compiler",
+        "Undefined behaviour, because a string literal must not be modified",
+        "Only a private copy changes, and the literal itself stays \"abc\""
+      ],
+      "correctIndex": 2,
+      "explanation": "s points directly at the string literal, which may be stored in read-only memory, so writing to it is undefined and often crashes. char s[] = \"abc\"; makes a modifiable array copy instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m038",
+      "questionText": "What does the following fragment print?\n\nchar s[] = \"ABCDE\";\nchar *lo = s, *hi = s + 3;\nwhile (lo < hi) {\n    char t = *lo;\n    *lo++ = *hi;\n    *hi-- = t;\n}\nprintf(\"%s\", s);",
+      "options": [
+        "EDCBA",
+        "DCBAE",
+        "DBCAE",
+        "ABCDE"
+      ],
+      "correctIndex": 1,
+      "explanation": "hi starts at s[3], so only the first four characters are reversed: s[0] is swapped with s[3] and s[1] with s[2], after which lo > hi. s[4] = 'E' is never touched.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m039",
+      "questionText": "A program declared with int main(int argc, char *argv[]) is run as: prog alpha beta. What is the value of argc?",
+      "options": [
+        "3",
+        "2",
+        "4",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "argc counts the program name too: argv[0] is the program name, argv[1] is \"alpha\" and argv[2] is \"beta\", so argc = 3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m040",
+      "questionText": "The program below is run as: prog red green blue. What does it print?\n\n#include <stdio.h>\nint main(int argc, char *argv[]) {\n    printf(\"%d %s %c\", argc, argv[argc - 1], argv[1][1]);\n    return 0;\n}",
+      "options": [
+        "3 blue e",
+        "4 green r",
+        "3 green e",
+        "4 blue e"
+      ],
+      "correctIndex": 3,
+      "explanation": "argc is 4 (the program name plus three words), so argv[argc − 1] is argv[3] = \"blue\". argv[1] is \"red\", and argv[1][1] is its second character, 'e'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m041",
+      "questionText": "Which statement about the parameters of int main(int argc, char *argv[]) is correct?",
+      "options": [
+        "argv[argc] is a null pointer",
+        "argv[0] is always the first argument typed after the program name",
+        "argc counts only the arguments that follow the program name",
+        "The elements of argv are ints, so they can be used in arithmetic directly"
+      ],
+      "correctIndex": 0,
+      "explanation": "The C standard guarantees that argv[argc] is a null pointer, so argv can be walked until NULL. argv[0] is the program name and argc includes it, and every element is a string (char *) that needs atoi or strtol before arithmetic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m042",
+      "questionText": "The program below is run as: sum 10 20 x 5. What does it print?\n\n#include <stdio.h>\n#include <stdlib.h>\nint main(int argc, char *argv[]) {\n    int s = 0;\n    for (int i = 1; i < argc; i++)\n        s += atoi(argv[i]);\n    printf(\"%d %d\", argc, s);\n    return 0;\n}",
+      "options": [
+        "4 35",
+        "5 35",
+        "4 30",
+        "The program stops with a run-time error at \"x\""
+      ],
+      "correctIndex": 1,
+      "explanation": "argc is 5 (sum, 10, 20, x and 5). atoi returns 0 for text that does not begin with a number, so s = 10 + 20 + 0 + 5 = 35.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m043",
+      "questionText": "Which is a standard way to declare main so that it receives command-line arguments?",
+      "options": [
+        "void main(char *args)",
+        "int main(char *argv[], int argc)",
+        "int main(int argc, char argv[])",
+        "int main(int argc, char **argv)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The standard form is int main(int argc, char *argv[]), and char **argv is the same parameter type because an array parameter is adjusted to a pointer. The count comes first, and argv is an array of strings, not of single chars.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i21_m044",
+      "questionText": "Compare char a[3][10] = {\"Ram\", \"Sita\", \"Hari\"}; with char *b[3] = {\"Ram\", \"Sita\", \"Hari\"};. Which statement is correct?",
+      "options": [
+        "a and b always occupy exactly the same amount of memory",
+        "b[1][0] = 'G'; is safe, but a[1][0] = 'G'; is a compile error",
+        "a reserves 30 bytes of writable characters, while b holds 3 pointers to string literals that must not be modified",
+        "sizeof b is 30, the same as sizeof a"
+      ],
+      "correctIndex": 2,
+      "explanation": "a is a true 2-D array: each of its 3 rows has 10 chars (30 bytes) copied from the literals, and they may be edited. b is an array of 3 pointers (3 × pointer size) aimed at read-only literals, so writing b[1][0] is undefined behaviour.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i21_m045",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid bump(int (*r)[3], int rows) {\n    for (int i = 0; i < rows; i++)\n        r[i][i] *= 10;\n}\nint main(void) {\n    int m[3][3] = {{1, 2, 3}, {4, 5, 6}, {7, 8, 9}};\n    bump(m + 1, 2);\n    printf(\"%d %d %d\", m[1][0], m[2][1], m[1][1]);\n    return 0;\n}",
+      "options": [
+        "4 8 50",
+        "40 80 5",
+        "4 8 5",
+        "40 80 50"
+      ],
+      "correctIndex": 1,
+      "explanation": "m + 1 points to row m[1], so inside bump r[0] is m[1] and r[1] is m[2]. r[0][0] (m[1][0]) becomes 40 and r[1][1] (m[2][1]) becomes 80, while m[1][1] stays 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i21_m046",
+      "questionText": "In a program with int main(int argc, char *argv[]), which expression is equivalent to argv[2][0]?",
+      "options": [
+        "*(*argv + 2)",
+        "**argv + 2",
+        "**(argv + 2)",
+        "*(argv + 2)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Applying x[i] ≡ *(x + i) twice gives argv[2][0] = *(*(argv + 2) + 0) = **(argv + 2), the first character of the third string. *(*argv + 2) is argv[0][2], and *(argv + 2) is the string pointer argv[2], not a char.",
+      "difficulty": "medium"
+    }
+  ]
+}

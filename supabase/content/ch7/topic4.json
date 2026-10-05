@@ -1,0 +1,684 @@
+{
+  "parent": {
+    "id": "ch7_p4",
+    "title": "Transactions, Concurrency Control & Crash Recovery"
+  },
+  "subtopics": [
+    {
+      "id": "ch7_t4",
+      "title": "Transactions, ACID Properties & Serializability",
+      "subtitle": "Transaction states, ACID, anomalies, schedules, precedence graphs and isolation levels",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What a Transaction Is"
+          },
+          {
+            "type": "paragraph",
+            "text": "A transaction is a logical unit of database work: a sequence of read and write operations that must be executed as a whole, such as transferring money between two accounts. It begins with BEGIN (or implicitly with the first statement) and ends with COMMIT, which makes its changes permanent, or ROLLBACK (ABORT), which undoes them. The DBMS treats the transaction as indivisible even though it is made of many low-level steps."
+          },
+          {
+            "type": "bulletList",
+            "text": "A transaction moves through five states (state diagram in words):",
+            "items": [
+              "Active: the initial state; the transaction is executing its reads and writes.",
+              "Partially committed: the final statement has executed, but the changes may still be only in main-memory buffers.",
+              "Committed: the commit record has reached stable storage; the changes are permanent. Path: active -> partially committed -> committed.",
+              "Failed: normal execution can no longer proceed (logic error, constraint violation, system failure). Reached from active or partially committed.",
+              "Aborted: the transaction has been rolled back and the database restored to its state before it started; the system may then restart it or kill it. Path: failed -> aborted. Committed and aborted are both terminated states."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "ACID Properties"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Property", "Meaning", "Bank transfer of Rs 500 from A to B", "Ensured by"],
+              ["Atomicity", "All operations happen or none do", "If the system crashes after A is debited but before B is credited, the debit is undone", "Recovery manager (undo using the log)"],
+              ["Consistency", "A correct transaction takes the database from one valid state to another", "A + B is the same before and after the transfer; no balance goes negative", "Programmer plus integrity constraints"],
+              ["Isolation", "Concurrent transactions do not see each other's intermediate results", "Another transaction summing A + B never sees A debited but B not yet credited", "Concurrency-control manager (locks, timestamps)"],
+              ["Durability", "Committed changes survive later failures", "Once the user is told the transfer succeeded, a power cut cannot lose it", "Recovery manager (redo using the log, stable storage)"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Concurrent Executions and Anomalies"
+          },
+          {
+            "type": "paragraph",
+            "text": "Running transactions concurrently improves throughput and resource utilisation, because while one transaction waits for disk I/O another can use the CPU. It also reduces average response time, since short transactions need not wait behind long ones. The price is that uncontrolled interleaving can produce anomalies, so the DBMS must restrict interleavings to those that are equivalent to some serial order."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Anomaly", "What happens", "Example"],
+              ["Lost update", "Two transactions read the same item and both write it; one write overwrites the other", "T1 and T2 both read A = 100, T1 writes 150, T2 writes 80; T1's update is lost"],
+              ["Dirty read", "A transaction reads a value written by another transaction that has not committed", "T2 reads A written by T1, then T1 aborts; T2 used a value that never existed"],
+              ["Unrepeatable read", "A transaction reads the same item twice and gets different values", "T1 reads A = 100, T2 updates A to 200 and commits, T1 reads A = 200"],
+              ["Phantom read", "A repeated query with the same condition returns a different set of rows", "T1 counts rows WHERE dept = 'IT', T2 inserts a new IT employee, T1 counts again"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Schedules and Conflict Serializability"
+          },
+          {
+            "type": "paragraph",
+            "text": "A schedule is the chronological order in which operations of several transactions are executed, preserving the order within each transaction. A serial schedule runs one transaction completely before the next starts and is always correct; a non-serial (interleaved) schedule is correct only if it is serializable, i.e. equivalent to some serial schedule. Two operations conflict if they belong to different transactions, access the same data item, and at least one of them is a write (read-write, write-read, write-write). A schedule is conflict serializable if it can be turned into a serial schedule by swapping adjacent non-conflicting operations."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Serial schedules of } n \\text{ transactions} = n!",
+            "plainText": "Number of serial schedules of n transactions = n!"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Schedule S:  r1(A)  w1(A)  r2(A)  w2(A)  r2(B)  w2(B)  r1(B)  w1(B)\nConflicting pairs (earlier -> later):\n  w1(A) ... r2(A)   gives edge T1 -> T2\n  w1(A) ... w2(A)   gives edge T1 -> T2\n  w2(B) ... r1(B)   gives edge T2 -> T1\n  r2(B) ... w1(B)   gives edge T2 -> T1\nPrecedence graph: T1 -> T2 and T2 -> T1  => cycle\nResult: S is NOT conflict serializable.\nIf r1(B) w1(B) came before r2(B), only T1 -> T2 exists:\nacyclic, equivalent serial order T1, T2."
+          },
+          {
+            "type": "bulletList",
+            "text": "Precedence (serializability) graph test:",
+            "items": [
+              "Draw one node per transaction.",
+              "For each conflicting pair where Ti's operation comes before Tj's, add a directed edge Ti -> Tj.",
+              "The schedule is conflict serializable if and only if the graph has no cycle; a topological sort of the graph gives an equivalent serial order."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "View serializability is a weaker condition: a schedule is view equivalent to a serial schedule if every transaction reads the same initial values, reads each value from the same writer, and the same transaction performs the final write of each item. Every conflict-serializable schedule is view serializable, but not vice versa; the extra view-serializable schedules always contain blind writes (writes without a prior read). Testing view serializability is NP-complete, so practical systems enforce conflict serializability."
+          },
+          {
+            "type": "bulletList",
+            "text": "Recoverability of schedules (important when transactions abort):",
+            "items": [
+              "Recoverable schedule: if Tj reads a value written by Ti, then Ti commits before Tj commits. Otherwise a committed Tj might depend on an aborted Ti, which cannot be fixed.",
+              "Cascading rollback: one abort forces several dependent transactions (that read its dirty data) to roll back too.",
+              "Cascadeless schedule: a transaction reads only values written by already-committed transactions, so no cascading rollback can occur. Every cascadeless schedule is recoverable.",
+              "Strict schedule: no transaction reads or overwrites an item until the last writer of that item has committed or aborted; produced by strict 2PL."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["SQL isolation level", "Dirty read", "Unrepeatable read", "Phantom"],
+              ["Read Uncommitted", "Possible", "Possible", "Possible"],
+              ["Read Committed", "Prevented", "Possible", "Possible"],
+              ["Repeatable Read", "Prevented", "Prevented", "Possible"],
+              ["Serializable", "Prevented", "Prevented", "Prevented"]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Serial schedules of } n \\text{ transactions} = n!",
+            "plainText": "Number of serial schedules of n transactions = n!"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Schedules} = \\frac{(n_1 + n_2 + \\dots + n_k)!}{n_1!\\, n_2! \\cdots n_k!}",
+            "plainText": "Total schedules of k transactions with n1..nk operations = (n1 + ... + nk)! / (n1! n2! ... nk!)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Conflict serializable} \\iff \\text{precedence graph is acyclic}",
+            "plainText": "Conflict serializable if and only if the precedence graph has no cycle"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "To test a schedule, list only the conflicting pairs (same item, different transactions, at least one write) and draw edges in time order. Read-read pairs never create edges."
+          },
+          {
+            "type": "note",
+            "text": "Conflict serializable is a subset of view serializable, which is a subset of all correct schedules. A view-serializable but not conflict-serializable schedule must contain a blind write."
+          },
+          {
+            "type": "warning",
+            "text": "Recoverable does not mean cascadeless. A schedule where Tj reads Ti's uncommitted write but commits after Ti is recoverable, yet aborting Ti still forces Tj to roll back."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_t4_01",
+          "title": "Serial schedules",
+          "latex": "\\text{Serial schedules of } n \\text{ transactions} = n!",
+          "plainText": "Number of serial schedules of n transactions = n!",
+          "description": "Each ordering of the n transactions, run one after another, is a distinct serial schedule."
+        },
+        {
+          "id": "f_ch7_t4_02",
+          "title": "Total possible schedules",
+          "latex": "\\text{Schedules} = \\frac{(n_1 + n_2 + \\dots + n_k)!}{n_1!\\, n_2! \\cdots n_k!}",
+          "plainText": "Total schedules = (n1 + ... + nk)! / (n1! n2! ... nk!)",
+          "description": "Counts all interleavings that keep each transaction's own operations in order; e.g. two transactions of 2 operations each give 4!/(2!2!) = 6."
+        },
+        {
+          "id": "f_ch7_t4_03",
+          "title": "Conflict serializability test",
+          "latex": "\\text{Conflict serializable} \\iff \\text{precedence graph is acyclic}",
+          "plainText": "Conflict serializable iff precedence graph has no cycle",
+          "description": "Add an edge Ti -> Tj for every conflicting pair where Ti acts first; any cycle means the schedule is not conflict serializable."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_t4_01",
+          "front": "Name the five transaction states.",
+          "back": "Active, partially committed, committed, failed and aborted; committed and aborted are the terminal states.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_t4_02",
+          "front": "When do two operations in a schedule conflict?",
+          "back": "When they belong to different transactions, access the same data item, and at least one of them is a write.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_t4_03",
+          "front": "What is a cascadeless schedule?",
+          "back": "One in which every transaction reads only data written by already-committed transactions, so an abort never forces other transactions to roll back.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_t4_04",
+          "front": "Which SQL isolation level prevents dirty and unrepeatable reads but still allows phantoms?",
+          "back": "Repeatable Read.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_t4_n01",
+          "questionText": "For the schedule r1(X), r2(X), w1(X), w2(X), the precedence graph contains:",
+          "options": [
+            "Only the edge T1 -> T2, so the schedule is conflict serializable",
+            "Only the edge T2 -> T1, so the schedule is conflict serializable",
+            "Edges T1 -> T2 and T2 -> T1, so the schedule is not conflict serializable",
+            "No edges, because read operations never conflict"
+          ],
+          "correctIndex": 2,
+          "explanation": "r1(X) before w2(X) and w1(X) before w2(X) give T1 -> T2, while r2(X) before w1(X) gives T2 -> T1. The cycle means the schedule is not conflict serializable (it is the classic lost-update pattern).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_t4_n02",
+          "questionText": "Which SQL isolation level prevents dirty reads but still permits unrepeatable reads?",
+          "options": [
+            "Read Committed",
+            "Read Uncommitted",
+            "Repeatable Read",
+            "Serializable"
+          ],
+          "correctIndex": 0,
+          "explanation": "Read Committed allows reading only committed data, so dirty reads are impossible, but another transaction may commit a change between two reads of the same item.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i41",
+      "title": "Lock-Based Protocols & Deadlock Handling",
+      "subtitle": "S/X locks, two-phase locking, timestamps, wait-for graphs, wait-die and wound-wait",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Shared and Exclusive Locks"
+          },
+          {
+            "type": "paragraph",
+            "text": "A lock is a variable attached to a data item that controls how transactions may access it. A shared lock (S, lock-S) lets the holder read the item only, and many transactions may hold S locks on the same item together. An exclusive lock (X, lock-X) lets the holder read and write the item, and no other transaction may hold any lock on it at the same time. A transaction requests the lock from the concurrency-control manager and waits if the request is incompatible with locks already granted."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Requested \\ Held", "Shared (S) held", "Exclusive (X) held"],
+              ["Shared (S) requested", "Compatible: grant", "Not compatible: wait"],
+              ["Exclusive (X) requested", "Not compatible: wait", "Not compatible: wait"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Two-Phase Locking (2PL)"
+          },
+          {
+            "type": "bulletList",
+            "text": "Under 2PL each transaction issues lock and unlock requests in two phases:",
+            "items": [
+              "Growing phase: the transaction may acquire locks but may not release any.",
+              "Shrinking phase: the transaction may release locks but may not acquire any new one.",
+              "Lock point: the moment the transaction obtains its final lock; ordering transactions by lock point gives an equivalent serial order.",
+              "Guarantee: every schedule allowed by 2PL is conflict serializable.",
+              "Limitations: basic 2PL does not prevent deadlock and does not prevent cascading rollback."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Variant", "Rule", "Benefit"],
+              ["Basic 2PL", "Growing then shrinking phase", "Conflict serializability"],
+              ["Strict 2PL", "Hold all exclusive (X) locks until commit or abort", "Strict, cascadeless schedules; no cascading rollback"],
+              ["Rigorous 2PL", "Hold all locks (S and X) until commit or abort", "Transactions serialize in commit order; simplest to reason about"],
+              ["Conservative (static) 2PL", "Acquire every needed lock before starting", "Deadlock-free, but needs the lock set in advance"]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "T1 under strict 2PL (transfer 50 from A to B):\n  lock-X(A)\n  read(A); A := A - 50; write(A)\n  lock-X(B)             <- lock point (last lock acquired)\n  read(B); B := B + 50; write(B)\n  commit\n  unlock(A); unlock(B)  <- shrinking phase after commit"
+          },
+          {
+            "type": "paragraph",
+            "text": "Lock conversion lets a transaction change the mode of a lock it already holds. An upgrade converts S to X and is allowed only in the growing phase; a downgrade converts X to S and is allowed only in the shrinking phase. Conversion improves concurrency because a transaction can read an item under a shared lock and take the exclusive lock only when it actually needs to write."
+          },
+          {
+            "type": "paragraph",
+            "text": "Timestamp ordering is a lock-free alternative: each transaction gets a unique timestamp TS(Ti) when it starts, and each item keeps its largest read timestamp R-TS(X) and write timestamp W-TS(X). An operation that would violate timestamp order (for example Ti writing X when TS(Ti) < R-TS(X)) causes Ti to be rolled back and restarted with a new timestamp. The protocol guarantees conflict serializability and is deadlock-free because no transaction ever waits, though it may cause starvation and cascading rollbacks; Thomas' write rule ignores obsolete writes."
+          },
+          {
+            "type": "heading",
+            "text": "Deadlock in Databases"
+          },
+          {
+            "type": "paragraph",
+            "text": "A deadlock exists when every transaction in a set waits for a lock held by another transaction in the same set, so none can proceed. For example, T1 holds X(A) and requests X(B) while T2 holds X(B) and requests X(A). It requires the four Coffman conditions: mutual exclusion, hold and wait, no preemption and circular wait. Deadlock is handled by prevention (never let it happen), or by detection and recovery (let it happen, find it, break it)."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Wait-for graph (edge Ti -> Tj: Ti waits for a lock held by Tj)\n  T1 waits for T2 (item B)   T1 -> T2\n  T2 waits for T3 (item C)   T2 -> T3\n  T3 waits for T1 (item A)   T3 -> T1\n  T4 waits for T2 (item B)   T4 -> T2\nCycle T1 -> T2 -> T3 -> T1  => T1, T2, T3 are deadlocked.\nT4 is not in the cycle: it is blocked, but not deadlocked.\nRoll back one cycle member (e.g. T3) to break the deadlock."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Deadlock} \\iff \\text{cycle in the wait-for graph}",
+            "plainText": "Deadlock exists if and only if the wait-for graph has a cycle"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Scheme (Ti requests an item held by Tj)", "Ti is older (TS(Ti) < TS(Tj))", "Ti is younger (TS(Ti) > TS(Tj))", "Nature"],
+              ["Wait-die", "Ti waits", "Ti dies (rolls back, restarts with same timestamp)", "Non-preemptive"],
+              ["Wound-wait", "Ti wounds Tj (Tj rolls back)", "Ti waits", "Preemptive"]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Other prevention approaches deny one Coffman condition:",
+            "items": [
+              "Lock all items at once before starting (conservative 2PL) removes hold and wait.",
+              "Impose a total order on data items and lock them only in that order (resource ordering) removes circular wait.",
+              "Preemption through wait-die or wound-wait; restarted transactions keep their original timestamp, so they eventually become the oldest and cannot starve."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Detection, recovery, timeouts and starvation:",
+            "items": [
+              "Detection: the system maintains the wait-for graph and periodically searches it for cycles; a cycle means deadlock.",
+              "Victim selection: roll back the transaction with the least cost, judged by work done so far, locks held, work remaining and how many transactions would be involved.",
+              "Rollback: total rollback aborts and restarts the victim; partial rollback undoes it only as far as needed to release the required lock.",
+              "Timeout: a transaction that waits longer than a set interval is assumed deadlocked and rolled back; simple, but it may abort transactions that were not deadlocked.",
+              "Starvation: the same transaction repeatedly chosen as victim, or repeatedly overtaken in lock queues; avoided by counting rollbacks in the cost factor and granting locks in FIFO order."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Wait-die: } TS(T_i) < TS(T_j) \\Rightarrow T_i \\text{ waits, else } T_i \\text{ dies}",
+            "plainText": "Wait-die: if TS(Ti) < TS(Tj) then Ti waits, else Ti is rolled back"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Wound-wait: } TS(T_i) < TS(T_j) \\Rightarrow T_j \\text{ rolled back, else } T_i \\text{ waits}",
+            "plainText": "Wound-wait: if TS(Ti) < TS(Tj) then Tj is rolled back, else Ti waits"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Deadlock} \\iff \\text{cycle in the wait-for graph}",
+            "plainText": "Deadlock exists if and only if the wait-for graph has a cycle"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "In both wait-die and wound-wait the older transaction is never rolled back. Remember: wait-die, the older one waits; wound-wait, the older one wounds."
+          },
+          {
+            "type": "warning",
+            "text": "Basic 2PL guarantees conflict serializability but NOT freedom from deadlock or cascading rollback. Strict 2PL removes cascading rollback; only conservative 2PL removes deadlock."
+          },
+          {
+            "type": "note",
+            "text": "A transaction blocked behind a deadlocked set (like T4 in the example) is not itself part of the deadlock; only the transactions on the cycle are."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i41_01",
+          "title": "Wait-die rule",
+          "latex": "\\text{Wait-die: } TS(T_i) < TS(T_j) \\Rightarrow T_i \\text{ waits, else } T_i \\text{ dies}",
+          "plainText": "Wait-die: if TS(Ti) < TS(Tj) then Ti waits, else Ti is rolled back",
+          "description": "Non-preemptive: an older requester waits, a younger requester is rolled back and restarted with its original timestamp."
+        },
+        {
+          "id": "f_ch7_i41_02",
+          "title": "Wound-wait rule",
+          "latex": "\\text{Wound-wait: } TS(T_i) < TS(T_j) \\Rightarrow T_j \\text{ rolled back, else } T_i \\text{ waits}",
+          "plainText": "Wound-wait: if TS(Ti) < TS(Tj) then Tj is rolled back, else Ti waits",
+          "description": "Preemptive: an older requester forces the younger lock holder to roll back, a younger requester waits."
+        },
+        {
+          "id": "f_ch7_i41_03",
+          "title": "Deadlock detection",
+          "latex": "\\text{Deadlock} \\iff \\text{cycle in the wait-for graph}",
+          "plainText": "Deadlock iff the wait-for graph has a cycle",
+          "description": "With single-instance locks, a cycle in the wait-for graph is both necessary and sufficient for deadlock."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i41_01",
+          "front": "What are the two phases of two-phase locking?",
+          "back": "Growing phase, in which locks are acquired but none released, then shrinking phase, in which locks are released but none acquired.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i41_02",
+          "front": "How does strict 2PL differ from rigorous 2PL?",
+          "back": "Strict 2PL holds only exclusive locks until commit or abort; rigorous 2PL holds all locks, shared and exclusive, until commit or abort.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i41_03",
+          "front": "In a wait-for graph, what does an edge Ti -> Tj mean?",
+          "back": "Transaction Ti is waiting for a lock that Tj currently holds.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i41_04",
+          "front": "Why do wait-die and wound-wait not cause starvation?",
+          "back": "A rolled-back transaction restarts with its original timestamp, so it eventually becomes the oldest and is never rolled back again.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i41_n01",
+          "questionText": "Transaction T1 holds a shared lock on item Q. Which request by another transaction T2 can be granted immediately?",
+          "options": [
+            "An exclusive lock on Q",
+            "An upgrade of T1's lock to exclusive on behalf of T2",
+            "A shared lock on Q",
+            "No lock on Q until T1 commits"
+          ],
+          "correctIndex": 2,
+          "explanation": "Shared locks are compatible with each other, so T2 can also read Q. An exclusive lock is incompatible with any existing lock and must wait.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_i41_n02",
+          "questionText": "Under the wait-die scheme, T5 with timestamp 5 requests an item held by T9 with timestamp 9. What happens?",
+          "options": [
+            "T5 is rolled back",
+            "T5 waits for T9",
+            "T9 is rolled back",
+            "Both transactions are rolled back"
+          ],
+          "correctIndex": 1,
+          "explanation": "T5 has the smaller timestamp, so it is older. In wait-die an older requester waits; only a younger requester dies.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_i41_n03",
+          "questionText": "Which modification of two-phase locking avoids cascading rollbacks?",
+          "options": [
+            "Releasing shared locks as soon as the item is read",
+            "Allowing lock upgrades in the shrinking phase",
+            "Acquiring locks in timestamp order",
+            "Holding all exclusive locks until the transaction commits or aborts"
+          ],
+          "correctIndex": 3,
+          "explanation": "This is strict 2PL: no other transaction can read an item written by an uncommitted transaction, so an abort never cascades.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_i41_n04",
+          "questionText": "A wait-for graph has edges T1 -> T2, T2 -> T3, T3 -> T1 and T4 -> T2. Which transactions are deadlocked?",
+          "options": [
+            "T1, T2 and T3 only",
+            "T1, T2, T3 and T4",
+            "T2 and T4 only",
+            "None, because T4 breaks the cycle"
+          ],
+          "correctIndex": 0,
+          "explanation": "The cycle T1 -> T2 -> T3 -> T1 contains T1, T2 and T3. T4 waits for T2 and is blocked, but it is not on the cycle, so it is not part of the deadlock.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i42",
+      "title": "Failure Classification & Log-Based Recovery",
+      "subtitle": "Failure types, stable storage, log records, WAL, undo/redo, checkpoints and shadow paging",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Failure Classification"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Failure type", "Cause", "What is lost", "Recovery action"],
+              ["Transaction failure", "Logical error (bad input, constraint violation) or system error (deadlock victim)", "Only that transaction's work", "Undo (roll back) the transaction"],
+              ["System crash", "Power failure, OS or DBMS bug, hardware fault", "Main memory (buffers) contents; disk intact (fail-stop assumption)", "Redo committed, undo uncommitted transactions from the log"],
+              ["Disk failure", "Head crash, media corruption during transfer", "Part or all of the disk", "Restore from backup/archive copy, then redo from the archived log"]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Storage types, by how well they survive failures:",
+            "items": [
+              "Volatile storage: main memory and cache; fast, but contents are lost in a system crash.",
+              "Non-volatile storage: magnetic disk, SSD, tape; survives crashes but can still fail (disk failure).",
+              "Stable storage: an abstraction of storage that never loses data, approximated by keeping multiple copies on independent non-volatile media (for example RAID or remote replicas) and writing them one after another. The log must be kept on stable storage."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Recovery and Atomicity"
+          },
+          {
+            "type": "paragraph",
+            "text": "A transaction may modify several data items, and a crash can happen after some of those modifications have reached disk but not others. To keep atomicity, the DBMS first writes information describing the modifications to stable storage, without modifying the database itself. After a crash this information lets the system undo the effects of transactions that did not commit and redo the effects of those that did, preserving both atomicity and durability. The most widely used structure for this is the log."
+          },
+          {
+            "type": "bulletList",
+            "text": "Log records (the log is a sequential file of records):",
+            "items": [
+              "<Ti start>: transaction Ti has started.",
+              "<Ti, X, V1, V2>: Ti wrote item X, changing it from old value V1 to new value V2. The old value is used for undo, the new value for redo.",
+              "<Ti commit>: Ti has committed; once this record is on stable storage the transaction is durable.",
+              "<Ti abort>: Ti has aborted and its rollback is complete."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Write-ahead logging (WAL) requires that a log record for an update reach stable storage before the corresponding data page is written to disk, and that all log records of a transaction, including <Ti commit>, be forced out before the transaction is declared committed. This guarantees that whenever a modified page is on disk, the old value needed to undo it can be found in the log."
+          },
+          {
+            "type": "heading",
+            "text": "Deferred vs Immediate Modification"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Aspect", "Deferred modification", "Immediate modification"],
+              ["When the database is written", "Only after the transaction partially commits", "While the transaction is still active"],
+              ["Log record needed", "<Ti, X, V2> (new value only)", "<Ti, X, V1, V2> (old and new)"],
+              ["Operations at recovery", "Redo only; no undo is ever needed", "Undo and redo"],
+              ["Failed transaction", "Simply ignore its log records", "Undo using old values"]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Immediate-modification log at the moment of a crash:\n  <T0 start>\n  <T0, A, 1000, 950>\n  <T0, B, 2000, 2050>\n  <T0 commit>\n  <T1 start>\n  <T1, C, 700, 600>\n  --- crash ---\nRecovery: T0 has start and commit  -> redo(T0): A = 950, B = 2050\n          T1 has start, no commit  -> undo(T1): C = 700, log <T1 abort>\nUndo scans backward; redo scans forward. Both are idempotent."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{redo}(T_i) \\text{ if } \\langle T_i\\ \\text{start}\\rangle \\wedge \\langle T_i\\ \\text{commit}\\rangle \\text{ in log}",
+            "plainText": "Redo Ti if the log contains both <Ti start> and <Ti commit>"
+          },
+          {
+            "type": "heading",
+            "text": "Checkpoints"
+          },
+          {
+            "type": "paragraph",
+            "text": "Without checkpoints the recovery manager would have to scan the whole log and would redo many transactions whose updates already reached disk. A checkpoint writes all log records in memory to stable storage, flushes all modified buffer blocks to disk, and then writes a <checkpoint L> record listing the transactions L active at that moment. At recovery the system scans back only to the last checkpoint: transactions that committed before it need no action, transactions that committed after it are redone, and transactions in L or started after it with no commit are undone."
+          },
+          {
+            "type": "bulletList",
+            "text": "Other recovery techniques:",
+            "items": [
+              "Shadow paging: the database keeps two page tables, a current table updated by the transaction and a shadow table that is never changed during it. Modified pages are written to new locations; commit simply makes the current table the new shadow by atomically updating a single on-disk pointer. No undo or redo log is needed, but it causes data fragmentation, needs garbage collection and handles concurrency poorly.",
+              "ARIES: the industrial log-based algorithm using log sequence numbers (LSNs), WAL and three passes (analysis, redo, undo) that repeats history and supports fuzzy checkpoints."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{redo}(T_i) \\text{ if } \\langle T_i\\ \\text{start}\\rangle \\wedge \\langle T_i\\ \\text{commit}\\rangle \\text{ in log}",
+            "plainText": "Redo Ti if the log contains both <Ti start> and <Ti commit>"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{undo}(T_i) \\text{ if } \\langle T_i\\ \\text{start}\\rangle \\text{ in log but no commit or abort}",
+            "plainText": "Undo Ti if the log contains <Ti start> but neither <Ti commit> nor <Ti abort>"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Scan range} = \\text{log records from last checkpoint (and its list } L\\text{) to end}",
+            "plainText": "Recovery scans only from the last checkpoint (and transactions in its list L) to the end of the log"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Undo uses the OLD value and proceeds backward through the log; redo uses the NEW value and proceeds forward. Deferred modification never needs undo."
+          },
+          {
+            "type": "note",
+            "text": "A system crash destroys volatile storage only; data on disk is assumed intact (fail-stop). Disk failure is the case that needs an archival backup."
+          },
+          {
+            "type": "warning",
+            "text": "A transaction that committed before the last checkpoint needs neither redo nor undo, because the checkpoint already flushed its updates to disk."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i42_01",
+          "title": "Redo rule",
+          "latex": "\\text{redo}(T_i) \\text{ if } \\langle T_i\\ \\text{start}\\rangle \\wedge \\langle T_i\\ \\text{commit}\\rangle \\text{ in log}",
+          "plainText": "Redo Ti if the log contains both <Ti start> and <Ti commit>",
+          "description": "A committed transaction's updates are reapplied using the new values so that its effects are durable."
+        },
+        {
+          "id": "f_ch7_i42_02",
+          "title": "Undo rule",
+          "latex": "\\text{undo}(T_i) \\text{ if } \\langle T_i\\ \\text{start}\\rangle \\text{ in log but no commit or abort}",
+          "plainText": "Undo Ti if the log has <Ti start> but no <Ti commit> or <Ti abort>",
+          "description": "An incomplete transaction is rolled back by restoring old values, scanning the log backward."
+        },
+        {
+          "id": "f_ch7_i42_03",
+          "title": "Checkpoint scan range",
+          "latex": "\\text{Scan range} = \\text{log records from last checkpoint (and its list } L\\text{) to end}",
+          "plainText": "Recovery scans from the last checkpoint (and its active list L) to the end of the log",
+          "description": "Checkpoints bound recovery work, since earlier committed transactions are already on disk."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i42_01",
+          "front": "What does the log record <Ti, X, V1, V2> store?",
+          "back": "That Ti wrote item X, changing it from old value V1 (used for undo) to new value V2 (used for redo).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i42_02",
+          "front": "Why does deferred modification never need undo?",
+          "back": "The database is written only after the transaction partially commits, so an incomplete transaction has changed nothing on disk.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i42_03",
+          "front": "What three steps does a checkpoint perform?",
+          "back": "Flush all log records in memory to stable storage, flush all modified buffer blocks to disk, then write a <checkpoint L> record to stable storage.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i42_04",
+          "front": "How does shadow paging commit a transaction?",
+          "back": "By atomically switching the single on-disk pointer from the shadow page table to the current page table.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i42_n01",
+          "questionText": "With immediate modification, the log at a crash is: <T1 start>, <T1, A, 500, 400>, <T1 commit>, <T2 start>, <T2, B, 300, 350>. After recovery, what are A and B?",
+          "options": [
+            "A = 500, B = 300",
+            "A = 400, B = 350",
+            "A = 500, B = 350",
+            "A = 400, B = 300"
+          ],
+          "correctIndex": 3,
+          "explanation": "T1 has start and commit, so it is redone and A = 400. T2 has no commit, so it is undone using the old value and B = 300.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_i42_n02",
+          "questionText": "In log-based recovery with deferred database modification, which operation is required after a system crash?",
+          "options": [
+            "Undo only",
+            "Redo only",
+            "Both undo and redo",
+            "Neither; the database is always consistent"
+          ],
+          "correctIndex": 1,
+          "explanation": "Writes reach the database only after partial commit, so uncommitted transactions changed nothing and need no undo; committed ones may need redo.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_i42_n03",
+          "questionText": "T1 commits before the last checkpoint, T2 commits after it, and T3 is active at the crash. Which action does recovery take?",
+          "options": [
+            "Redo T1, T2 and T3",
+            "Undo T1, redo T2, ignore T3",
+            "Ignore T1, redo T2, undo T3",
+            "Redo T1, undo T2 and T3"
+          ],
+          "correctIndex": 2,
+          "explanation": "The checkpoint already flushed T1's updates, T2 committed after the checkpoint so it is redone, and T3 never committed so it is undone.",
+          "difficulty": "hard"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,707 @@
+{
+  "topicId": "ch3_i33",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Static, const, this and Friends"
+    },
+    {
+      "type": "paragraph",
+      "text": "A class body only describes a type, and the same class definition is normally included into many source files, so the declaration static int count; inside it cannot reserve storage without creating one copy per file. The out-of-class definition int Counter::count = 0; written in exactly one .cpp file is where the single shared object is actually created, and the linker connects every use of Counter::count to it. Static data members have static storage duration: they exist before main() starts, are zero-initialised when no initialiser is written, and live until the program ends. Integral static const members and static constexpr members may be initialised inside the class, and C++17 also allows inline static int count = 0; which needs no separate definition."
+    },
+    {
+      "type": "formula",
+      "latex": "\\texttt{sizeof(T)} = \\sum \\texttt{sizeof}(\\text{non-static data members}) + \\text{padding}",
+      "plainText": "sizeof(T) = sum of the sizes of the non-static data members + padding; static members and member functions add nothing"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass T {\npublic:\n    static int n;\n    T()  { ++n; }\n    ~T() { --n; }\n};\nint T::n = 0;\nvoid f(T x) { cout << T::n << \" \"; }   // x is a copy of the argument\nint main() {\n    T a, b;\n    f(a);\n    cout << T::n;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - output: 2 1\nT a, b;      default constructor runs twice            n = 2\nf(a);        x is built by the implicit copy\n             constructor, which does not do ++n        n = 2\n             f prints T::n                              \"2 \"\n             x is destroyed when the call ends: --n      n = 1\ncout << T::n                                            \"1\"\nTwo objects (a and b) are alive, yet n says 1.\nFix: add T(const T &) { ++n; }  ->  the output becomes 3 2"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass Arr {\n    int d[3] = {4, 5, 6};\npublic:\n    int& at(int i)       { return d[i]; }   // chosen for non-const objects\n    int  at(int i) const { return d[i]; }   // chosen for const objects\n};\nint total(const Arr &a) { return a.at(0) + a.at(1) + a.at(2); }\nint main() {\n    Arr x;\n    x.at(1) = 50;          // OK: the non-const at() returns int&\n    cout << total(x);      // inside total, a is const: const at() is used\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - output: 60\nArr x;          d = {4, 5, 6}\nx.at(1) = 50;   x is non-const, so int& at(int) is chosen: d[1] = 50\ntotal(x)        a is a const Arr&, so int at(int) const is chosen\n                a.at(0) + a.at(1) + a.at(2) = 4 + 50 + 6 = 60\nWithout the const overload total() would not compile, because a\nconst object (or const reference) may call only const member functions."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Situation",
+          "Allowed?",
+          "Reason"
+        ],
+        [
+          "const object calls a non-const member function",
+          "No",
+          "The call would need this of type T*, but the object is const"
+        ],
+        [
+          "Non-const object calls a const member function",
+          "Yes",
+          "Treating a modifiable object as const is always safe"
+        ],
+        [
+          "const member function assigns to a mutable member",
+          "Yes",
+          "mutable members are exempt from the const promise"
+        ],
+        [
+          "const member function calls a non-const member function of the same object",
+          "No",
+          "Inside it this is const T*, so the call would drop const"
+        ],
+        [
+          "static member function reads a non-static data member",
+          "No",
+          "It has no this pointer, so there is no object to read"
+        ],
+        [
+          "friend function reads a private member of its argument",
+          "Yes",
+          "The class granted access; the object arrives as a parameter"
+        ],
+        [
+          "Class derived from a friend class reads the private members",
+          "No",
+          "Friendship is not inherited"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The compiler implements a member call obj.f(a) by passing &obj as a hidden first argument named this. Inside a non-const member function this has type T*, and inside a const member function it has type const T*, which is exactly why a const function can neither assign to ordinary members nor call non-const member functions. A static member function is called without any object, so no hidden argument exists; that is also why a static function cannot be const, volatile or virtual, since all three describe the object behind this. A friend function is an ordinary non-member even when its body is written inside the class, so it has no this either and must name the object it uses, as in v.x."
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that cost marks in this topic:",
+      "items": [
+        "Repeating static in the out-of-class definition (static int Counter::count = 0;) is a compile error; the keyword belongs only on the declaration inside the class.",
+        "Dropping const from the out-of-class definition of a const member function: int T::get() { ... } does not match the declaration int get() const; and does not compile.",
+        "Counting objects in the constructor and destructor but not in the copy constructor, so copies are destroyed without ever having been counted.",
+        "Returning the object by value (T f() { ...; return *this; }) when chaining is intended: every later call in the chain changes a temporary copy.",
+        "Defining a friend function with a class prefix (void T::show(...)): a friend is not a member, so the compiler looks for a member that does not exist.",
+        "Returning int& to a data member from a const member function: the member is const there, so only const int& or a copy may be returned."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For output questions on static counters, list every creation in order (plain objects, array elements, new, copies made by pass-by-value or T b = a, and static locals) and every destruction (end of block, delete, end of function). A static local object is constructed only on the first call of its function, and a counting constructor is skipped whenever the compiler-generated copy constructor is used."
+    },
+    {
+      "type": "warning",
+      "text": "Put int Counter::count = 0; in exactly one .cpp file, never in a header that several files include: each inclusion creates another definition and the linker reports a multiple-definition error. In C++17 the alternative is to write inline static int count = 0; inside the class."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i33_m001",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass A {\npublic:\n    static int n;\n    A() { n++; }\n};\nint A::n = 0;\nint main() {\n    A x, y, z;\n    cout << A::n << \" \" << x.n;\n}",
+      "options": [
+        "1 1",
+        "3 3",
+        "3 1",
+        "0 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "n is static, so all three constructor calls increment the one shared copy: n = 3. A::n and x.n name the same variable, so both print 3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m002",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct B {\n    static int live;\n    B() { ++live; }   ~B() { --live; }\n};\nint B::live = 0;\nint main() {\n    B a[3];\n    B *p = new B[2];\n    cout << B::live << \" \";\n    delete[] p;\n    { B t; cout << B::live << \" \"; }\n    cout << B::live;\n}",
+      "options": [
+        "3 4 3",
+        "5 6 5",
+        "5 4 3",
+        "5 4 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "B a[3] runs the constructor 3 times and new B[2] twice, so live = 5. delete[] p runs two destructors (live = 3), t raises it to 4 inside the block, and t's destructor at the closing brace brings it back to 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m003",
+      "questionText": "Class Cls declares static int count; inside its body. Which line, written once outside the class, correctly defines this static data member?",
+      "options": [
+        "static int Cls::count = 0;",
+        "Cls::int count = 0;",
+        "int count = 0;",
+        "int Cls::count = 0;"
+      ],
+      "correctIndex": 3,
+      "explanation": "The definition names the member with the class qualifier and must not repeat static: int Cls::count = 0;. Writing static there is a compile error, and int count = 0; merely creates an unrelated global variable, leaving Cls::count undefined at link time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m004",
+      "questionText": "What happens when this C++ program is compiled and linked?\n\n#include <iostream>\nusing namespace std;\nclass Counter {\npublic:\n    static int n;\n    Counter() { n++; }\n};\nint main() {\n    Counter a, b;\n    cout << Counter::n;\n}",
+      "options": [
+        "It compiles, but linking fails with an undefined reference to Counter::n",
+        "It prints 2",
+        "It prints 0",
+        "Compile error: a static data member must be initialised inside the class"
+      ],
+      "correctIndex": 0,
+      "explanation": "static int n; inside the class is only a declaration; without the out-of-class definition int Counter::n = 0; no storage exists, so every source line compiles but the linker cannot resolve Counter::n.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m005",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass C {\npublic:\n    static int k;\n    static double r;\n};\nint C::k;\ndouble C::r;\nint main() {\n    cout << C::k << \" \" << C::r;\n}",
+      "options": [
+        "Unpredictable (garbage) values",
+        "Compile error: a static member needs an initialiser",
+        "0 0",
+        "Link error: undefined reference to C::k"
+      ],
+      "correctIndex": 2,
+      "explanation": "int C::k; and double C::r; are valid definitions without initialisers. Static data members have static storage duration, so they are zero-initialised before main() runs and the program prints 0 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m006",
+      "questionText": "Assume int is 4 bytes. What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass S {\n    int a;\n    static int b;\n    int c;\npublic:\n    static int get() { return b; }\n};\nint S::b = 7;\nint main() {\n    S x, y;\n    cout << sizeof(S) << \" \" << sizeof(x) + sizeof(y);\n}",
+      "options": [
+        "12 24",
+        "8 16",
+        "8 20",
+        "16 32"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only the non-static members a and c live inside each object: sizeof(S) = 4 + 4 = 8. The static b and the member function take no space in objects, so sizeof(x) + sizeof(y) = 8 + 8 = 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m007",
+      "questionText": "Class Item has a public data member declared static int count;. Which statement about count is NOT correct?",
+      "options": [
+        "It can be used as Item::count even before any Item object exists",
+        "It exists for the whole run of the program, like a global variable",
+        "It can also be reached through an object, as obj.count",
+        "Every Item object holds its own copy of count, so sizeof(Item) grows by sizeof(count)"
+      ],
+      "correctIndex": 3,
+      "explanation": "A static data member is stored once, outside all objects, so it does not add to sizeof(Item) and is not copied per object. The other three statements are true: it is reachable through the class name or any object and has static storage duration.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m008",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Item {\n    static int next;\n    int id;\npublic:\n    Item() : id(next++) {}\n    int get() const { return id; }\n};\nint Item::next = 100;\nint main() {\n    Item a, b, c;\n    cout << a.get() + c.get() << \" \" << b.get();\n}",
+      "options": [
+        "202 101",
+        "204 102",
+        "200 100",
+        "2 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "next++ hands out the current value and then increments the shared counter, so a, b and c get ids 100, 101 and 102. a.get() + c.get() = 100 + 102 = 202 and b.get() = 101.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m009",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass T {\npublic:\n    static int n;\n    T()  { n++; }\n    ~T() { n--; }\n};\nint T::n = 0;\nint main() {\n    T a;\n    { T b = a;  T c;  cout << T::n << \" \"; }\n    cout << T::n;\n}",
+      "options": [
+        "3 1",
+        "2 0",
+        "2 1",
+        "3 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "a and c use T() (n = 2), but T b = a uses the compiler-generated copy constructor, which does not change n, so 2 is printed. At the closing brace both c and b run ~T(), giving n = 2 - 2 = 0 even though a is still alive.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m010",
+      "questionText": "In C++17, which of these declarations written inside a class body is a compile error?",
+      "options": [
+        "static const int max = 10;",
+        "static constexpr int size = 4;",
+        "static int count = 0;",
+        "inline static int total = 0;"
+      ],
+      "correctIndex": 2,
+      "explanation": "A non-const, non-inline static data member may not have an initialiser inside the class; it must be defined outside as int X::count = 0;. Integral static const members, static constexpr members and C++17 inline static members may all be initialised in the class.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m011",
+      "questionText": "Class Util has the public member function static int sq(int x) { return x * x; }. Which expression calls it correctly when no Util object exists?",
+      "options": [
+        "Util.sq(4)",
+        "Util::sq(4)",
+        "sq(4)",
+        "Util->sq(4)"
+      ],
+      "correctIndex": 1,
+      "explanation": "A static member function belongs to the class, so it is called with the scope resolution operator: Util::sq(4). The dot and arrow operators need an object or a pointer, and plain sq(4) is not in scope outside the class.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m012",
+      "questionText": "Inside the body of a static member function, which members of its class can be named directly?",
+      "options": [
+        "only the non-static data members of the object it is called through",
+        "every data member of the class, reached through the this pointer",
+        "only the public members of the class, whether static or not",
+        "only the static members of the class, plus its own parameters and locals"
+      ],
+      "correctIndex": 3,
+      "explanation": "A static member function is not called on an object, so it has no this pointer and cannot name non-static members directly. It may use the class's static members (public or private) and anything passed to it as arguments.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m013",
+      "questionText": "Which line of this class causes a compile error?\n\nclass M {\n    int a = 1;\n    static int b;\npublic:\n    static int f() { return b; }        // Line 1\n    static int g() { return a; }        // Line 2\n    int h() { return a + b; }           // Line 3\n    static int k() { return f() * 2; }  // Line 4\n};\nint M::b = 2;",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "g() is static and therefore has no this pointer, so it cannot use the non-static member a. A static function may use static b and call static f(), and the ordinary member h() may use both a and b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m014",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass K {\n    static int v;\npublic:\n    static void add(int x) { v += x; }\n    static int get() { return v; }\n};\nint K::v = 5;\nint main() {\n    K p, q;\n    p.add(3);  q.add(4);\n    K::add(1);\n    cout << K::get();\n}",
+      "options": [
+        "13",
+        "9",
+        "6",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "Calling a static function through p, through q or through K:: makes no difference: all three calls update the single shared v. v = 5 + 3 + 4 + 1 = 13.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m015",
+      "questionText": "Why can a static member function not be declared const, as in static int f() const;?",
+      "options": [
+        "Because static functions must always return void",
+        "Because a const member function must also be virtual",
+        "Because const after the parameter list makes the object pointed to by this const, and a static function has no this pointer",
+        "Because static functions are stored in read-only memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "The trailing const qualifies the implicit object (this becomes const T*). A static member function is called without an object and receives no this, so there is nothing for const to apply to and the compiler rejects the declaration.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m016",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Z {\npublic:\n    static int n;\n    Z() { ++n; }\n};\nint Z::n = 0;\nvoid make() {\n    static Z s;  Z t;\n}\nint main() {\n    make(); make(); make();\n    cout << Z::n;\n}",
+      "options": [
+        "6",
+        "4",
+        "3",
+        "1"
+      ],
+      "correctIndex": 1,
+      "explanation": "The static local s is constructed only on the first call of make(), while the ordinary local t is constructed on every call. Constructions: 1 (s) + 3 (t) = 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m017",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct P {\n    static int c;\n    P() { c++; }\n};\nint P::c = 0;\nclass Q : public P {\npublic:\n    Q() { c += 10; }\n};\nint main() {\n    P a;  Q b, d;\n    cout << P::c << \" \" << Q::c;\n}",
+      "options": [
+        "3 20",
+        "21 21",
+        "23 23",
+        "23 20"
+      ],
+      "correctIndex": 2,
+      "explanation": "A derived class shares its base's static member, so P::c and Q::c are the same variable. a adds 1; each Q object first runs P() (+1) and then Q() (+10): c = 1 + 11 + 11 = 23, printed twice.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m018",
+      "questionText": "Which declaration inside class Box makes show() a constant member function, one that can be called on a const Box object?",
+      "options": [
+        "const void show();",
+        "void show(const);",
+        "static void show();",
+        "void show() const;"
+      ],
+      "correctIndex": 3,
+      "explanation": "The keyword const goes after the parameter list: void show() const;. const before the return type only qualifies the (void) result, void show(const) is a syntax error, and static void show(); declares a static function, which has no this pointer and so is not a const member function.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m019",
+      "questionText": "Which marked line of this program fails to compile?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    int x;\npublic:\n    P(int v) : x(v) {}\n    int get() const { return x; }\n    void set(int v) { x = v; }\n};\nint main() {\n    const P a(5);  P b(7);\n    cout << a.get();   // Line A\n    b.set(a.get());    // Line B\n    a.set(9);          // Line C\n}",
+      "options": [
+        "Line A",
+        "Line B",
+        "Line C",
+        "None; the program prints 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "a is a const object, so it may call only const member functions. a.get() is const and fine in Lines A and B, and b is non-const so b.set() is allowed, but a.set(9) calls a non-const function on a const object.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m020",
+      "questionText": "Class T has the data member int x;. Which member function defined inside T fails to compile?",
+      "options": [
+        "int f() const { return x + 1; }",
+        "int g() const { x++; return x; }",
+        "int h() const { int y = x; y++; return y; }",
+        "void k() { x++; }"
+      ],
+      "correctIndex": 1,
+      "explanation": "In a const member function the data members are read-only, so x++ inside g() const is an error. Reading x (f), changing a local copy (h) and modifying x in a non-const function (k) are all legal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m021",
+      "questionText": "Inside a const member function of class T, what is the type of the this pointer?",
+      "options": [
+        "const T* (a pointer to a const T object)",
+        "T* (a pointer to a modifiable T object)",
+        "T& (a reference to the object)",
+        "void* (an untyped pointer)"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a const member function the object is treated as const, so this is a pointer to const T; in a non-const member function it is T*. this is always a pointer, never a reference.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m022",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Q {\npublic:\n    void show()       { cout << \"N\"; }\n    void show() const { cout << \"C\"; }\n};\nint main() {\n    Q a;\n    const Q b = a;\n    const Q &r = a;\n    a.show(); b.show(); r.show();\n}",
+      "options": [
+        "NNN",
+        "NCN",
+        "CCC",
+        "NCC"
+      ],
+      "correctIndex": 3,
+      "explanation": "show() is overloaded on const. a is non-const, so the non-const version prints N; b is a const object and r is a const reference (even though it refers to a), so both select the const version: NCC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m023",
+      "questionText": "This class fails to compile. What is the reason?\n\nclass R {\n    int v = 0;\npublic:\n    int peek() { return v; }\n    int twice() const { return 2 * peek(); }\n};",
+      "options": [
+        "twice() is const, so this is a const R*, and the non-const function peek() cannot be called through it",
+        "A const member function may not read data members, so v must be declared mutable",
+        "A const member function can never call another member function",
+        "peek() must be declared static before a const function can call it"
+      ],
+      "correctIndex": 0,
+      "explanation": "Inside a const member function the object is const, and a const object may call only const member functions. Declaring int peek() const fixes it; const functions may read members and may call other const functions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m024",
+      "questionText": "Class T has a private data member int x;. Which of these getter definitions inside T fails to compile?",
+      "options": [
+        "const int &get() const { return x; }",
+        "int get() const { return x; }",
+        "int &get() const { return x; }",
+        "int &get() { return x; }"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inside a const member function x is a const int, and a plain int& cannot bind to a const int because that would let callers modify a const object. Returning const int&, returning a copy, or returning int& from a non-const function are all valid.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m025",
+      "questionText": "What does the keyword mutable do when applied to a data member?",
+      "options": [
+        "It makes the member shared by all objects of the class",
+        "It allows the member to be modified even inside a const member function or in a const object",
+        "It makes the member accessible to friend functions only",
+        "It prevents the member from ever being changed after construction"
+      ],
+      "correctIndex": 1,
+      "explanation": "A mutable member is exempt from const: const member functions and const objects may still change it. It is used for caches, counters and similar data that is not part of the object's logical state.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m026",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Log {\n    int data;  mutable int hits = 0;\npublic:\n    Log(int d) : data(d) {}\n    int read() const { ++hits; return data; }\n    int count() const { return hits; }\n};\nint main() {\n    const Log g(7);\n    int s = g.read() * 2;\n    g.read();\n    cout << s << \" \" << g.count();\n}",
+      "options": [
+        "14 0",
+        "7 2",
+        "Compile error: read() modifies a member of a const object",
+        "14 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "hits is mutable, so the const function read() may increment it even on the const object g. s = 7 * 2 = 14 after the first call, the second call makes hits = 2, so the output is 14 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m027",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Box {\n    int w = 0;\npublic:\n    void setA(int w) { w = w; }\n    void setB(int w) { this->w = w; }\n    int get() const { return w; }\n};\nint main() {\n    Box b;\n    b.setB(4);\n    b.setA(9);\n    cout << b.get();\n}",
+      "options": [
+        "9",
+        "0",
+        "13",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "In setA the parameter w hides the member, so w = w assigns the parameter to itself and the object is unchanged. setB uses this->w to reach the member, so the stored value stays 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m028",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Acc {\n    int t = 0;\npublic:\n    Acc& add(int x) { t += x; return *this; }\n    Acc& mul(int x) { t *= x; return *this; }\n    int get() const { return t; }\n};\nint main() {\n    Acc a;\n    cout << a.add(3).mul(4).add(-2).get();\n}",
+      "options": [
+        "10",
+        "6",
+        "12",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each function returns *this by reference, so every call in the chain works on a itself and runs left to right: 0 + 3 = 3, 3 * 4 = 12, 12 - 2 = 10.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m029",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Val {\n    int t;\npublic:\n    Val(int v) : t(v) {}\n    Val  add(int x) { t += x; return *this; }\n    Val& sub(int x) { t -= x; return *this; }\n    int get() const { return t; }\n};\nint main() {\n    Val a(10);\n    Val b = a.sub(2).add(5).sub(1);\n    cout << a.get() << \" \" << b.get();\n}",
+      "options": [
+        "12 12",
+        "8 12",
+        "13 12",
+        "13 13"
+      ],
+      "correctIndex": 2,
+      "explanation": "sub(2) changes a to 8 and returns a itself; add(5) changes a to 13 but returns a copy; the final sub(1) acts on that copy (12), which initialises b. So a = 13 and b = 12.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m030",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass N {\npublic:\n    bool same(const N &o) const { return this == &o; }\n};\nint main() {\n    N a, b;\n    N &r = a;\n    N *p = &b;\n    cout << a.same(r) << b.same(a) << p->same(b);\n}",
+      "options": [
+        "111",
+        "101",
+        "100",
+        "001"
+      ],
+      "correctIndex": 1,
+      "explanation": "same() compares addresses. r is another name for a, so a.same(r) is true (1); b.same(a) compares &b with &a (0); p points to b, so inside p->same(b) this equals &b (1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m031",
+      "questionText": "Which statement about the this pointer is FALSE?",
+      "options": [
+        "Inside obj.f(), this holds the address &obj",
+        "return *this; lets a member function return the calling object by reference",
+        "this cannot be made to point to a different object inside a member function",
+        "Inside a const member function, the non-mutable data members can be modified through this"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a const member function this has type const T*, so ordinary (non-mutable) members cannot be changed through it. The other statements are true: this equals &obj, *this can be returned by reference for chaining, and this itself cannot be reassigned.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m032",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass E {\npublic:\n    int idx(const E *base) const { return this - base; }\n};\nint main() {\n    E arr[5];\n    E *p = arr + 1;\n    cout << arr[3].idx(arr) << \" \" << (p + 2)->idx(p);\n}",
+      "options": [
+        "3 2",
+        "3 3",
+        "4 3",
+        "3 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "this is the address of the object the function is called on. arr[3].idx(arr) gives &arr[3] - &arr[0] = 3; (p + 2) is arr + 3, so its idx(p) gives (arr + 3) - (arr + 1) = 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m033",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass W {\n    int x;\npublic:\n    W(int v) : x(v) {}\n    friend int twice(W w);\n};\nint twice(W w) { w.x *= 2; return w.x; }\nint main() {\n    W a(6);\n    cout << twice(a) << \" \" << twice(a);\n}",
+      "options": [
+        "12 24",
+        "6 12",
+        "12 12",
+        "Compile error: a friend function cannot modify private members"
+      ],
+      "correctIndex": 2,
+      "explanation": "twice() is a friend, so it may change the private x, but it receives W by value and doubles only its copy. a keeps x = 6, so both calls return 6 * 2 = 12.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m034",
+      "questionText": "Class Rect contains the declaration friend int area(Rect r); and r1 is a Rect object. Which call of area is correct?",
+      "options": [
+        "r1.area()",
+        "area(r1)",
+        "Rect::area(r1)",
+        "r1.area(r1)"
+      ],
+      "correctIndex": 1,
+      "explanation": "A friend function is not a member of Rect, so it is called like an ordinary function with the object as an argument: area(r1). The member-call forms r1.area() and Rect::area(r1) look for a member that does not exist.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m035",
+      "questionText": "Class T contains the declaration friend void show(const T &t);. Which definition written outside the class is correct?",
+      "options": [
+        "void T::show(const T &t) { cout << t.v; }",
+        "friend void show(const T &t) { cout << t.v; }",
+        "void show(const T &t) const { cout << t.v; }",
+        "void show(const T &t) { cout << t.v; }"
+      ],
+      "correctIndex": 3,
+      "explanation": "A friend is an ordinary non-member function, so it is defined without the T:: prefix and without repeating friend. A trailing const is allowed only on member functions, because it qualifies this.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m036",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass B;\nclass A {\n    int a = 3;\n    friend int sum(const A &, const B &);\n};\nclass B {\n    int b = 4;\n    friend int sum(const A &, const B &);\n};\nint sum(const A &x, const B &y) { return x.a * 10 + y.b; }\nint main() {\n    A p;  B q;  cout << sum(p, q);\n}",
+      "options": [
+        "34",
+        "7",
+        "43",
+        "Compile error: a function cannot be a friend of two classes"
+      ],
+      "correctIndex": 0,
+      "explanation": "One function may be a friend of several classes, so sum() can read both private members: 3 * 10 + 4 = 34.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m037",
+      "questionText": "The function int sum(const A &, const B &) must read private data of two classes, so both A and B declare it a friend. Class A is defined before class B. Why must the line class B; appear before class A?",
+      "options": [
+        "Without it, B would automatically become a friend of A",
+        "A friend function may only be a friend of the class that is defined last",
+        "A's friend declaration names B in its parameter list, so B must already be declared (a forward declaration)",
+        "It allocates storage for B's objects before A is compiled"
+      ],
+      "correctIndex": 2,
+      "explanation": "class B; is a forward declaration: it tells the compiler that B is a class so that A's friend declaration can mention const B &. Without it, compiling A fails because B is an unknown type.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m038",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Engine {\n    int rpm = 900;\n    friend class Car;\n};\nclass Car {\npublic:\n    int boost(Engine &e) { e.rpm += 100; return e.rpm; }\n};\nint main() {\n    Engine e;  Car c;\n    c.boost(e);\n    cout << c.boost(e);\n}",
+      "options": [
+        "1000",
+        "1100",
+        "900",
+        "Compile error: rpm is private to Engine"
+      ],
+      "correctIndex": 1,
+      "explanation": "friend class Car; lets every member function of Car access Engine's private members. boost() is called twice on the same object (passed by reference): 900 + 100 + 100 = 1100.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m039",
+      "questionText": "Which member function in this code fails to compile?\n\nclass Y;\nclass X {\n    int p = 1;\n    friend class Y;\npublic:\n    int readY(const Y &y);\n};\nclass Y {\n    int q = 2;\npublic:\n    int readX(const X &x) { return x.p; }\n};\nint X::readY(const Y &y) { return y.q; }",
+      "options": [
+        "Only X::readY, because friendship is not mutual",
+        "Only Y::readX, because Y is not a member of X",
+        "Both functions",
+        "Neither function"
+      ],
+      "correctIndex": 0,
+      "explanation": "X declares Y a friend, so Y::readX may read X's private p. Friendship is one-way: Y has not declared X a friend, so X::readY cannot access Y's private q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m040",
+      "questionText": "Class F is a friend of Base, and G derives publicly from F. Which marked line(s) fail to compile?\n\nclass Base {\n    int secret = 5;\n    friend class F;\n};\nclass F {\npublic:\n    int get(const Base &b) { return b.secret; }        // Line 1\n};\nclass G : public F {\npublic:\n    int viaF(const Base &b) { return get(b); }         // Line 2\n    int direct(const Base &b) { return b.secret; }     // Line 3\n};",
+      "options": [
+        "Line 1 only",
+        "Line 3 only",
+        "Lines 2 and 3",
+        "None; G inherits F's friendship"
+      ],
+      "correctIndex": 1,
+      "explanation": "F's own member get() may read secret (Line 1), and G may call the inherited public get() (Line 2). Friendship is not inherited, so G's own function direct() has no access to Base's private member (Line 3).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m041",
+      "questionText": "Class A declares friend class B;, and class B declares friend class C;. Which statement is correct?",
+      "options": [
+        "B can access A's private members, but C cannot",
+        "C can access A's private members through B",
+        "A can access B's private members",
+        "A and C can access each other's private members"
+      ],
+      "correctIndex": 0,
+      "explanation": "Friendship is granted only by the class being accessed and is neither transitive nor mutual. A trusts B and B trusts C, so B may use A's privates and C may use B's, but C gains nothing in A and A gains nothing in B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m042",
+      "questionText": "In which part of a class may a friend declaration be placed?",
+      "options": [
+        "Only in the public section",
+        "Only in the private section",
+        "Anywhere in the class body; the access label has no effect on it",
+        "Only before the first access specifier"
+      ],
+      "correctIndex": 2,
+      "explanation": "A friend is not a member, so private, protected and public labels do not apply to its declaration; it grants the same access wherever it appears in the class body.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m043",
+      "questionText": "Class A, defined before class B, has the public member function void show(B &b);. Inside class B, which declaration makes only this one member function of A (not the whole class A) a friend of B?",
+      "options": [
+        "friend class A;",
+        "friend A::void show(B &b);",
+        "friend void show(B &b);",
+        "friend void A::show(B &b);"
+      ],
+      "correctIndex": 3,
+      "explanation": "A single member function of another class is befriended with its qualified name: friend void A::show(B &b);. friend class A; would trust every member of A, and friend void show(B &b); befriends an unrelated non-member function.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i33_m044",
+      "questionText": "What is the main drawback of using friend functions?",
+      "options": [
+        "They weaken encapsulation, because a non-member function gains access to private data",
+        "They are always slower because every call is resolved at run time",
+        "They cannot take objects of the class as arguments",
+        "They can access only the public members of the class"
+      ],
+      "correctIndex": 0,
+      "explanation": "A friend function breaks the rule that only members touch private data, so every friend widens the set of code that depends on the class internals. Friend calls are ordinary compile-time bound calls and can take objects as arguments.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i33_m045",
+      "questionText": "Consider these statements: (i) a static member function can be called even when no object of the class exists; (ii) a const member function may modify a data member declared mutable; (iii) a friend function receives a this pointer to the object it is called for; (iv) if class F is a friend of class A, classes derived from F are also friends of A. Which of them are true?",
+      "options": [
+        "(i), (ii) and (iii) only",
+        "(ii) and (iv) only",
+        "(i) and (ii) only",
+        "(i), (ii) and (iv) only"
+      ],
+      "correctIndex": 2,
+      "explanation": "(i) is true because static functions are called as Class::f(), and (ii) is true because mutable members are exempt from const. (iii) is false since a friend is a non-member with no this, and (iv) is false because friendship is not inherited.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i33_m046",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct C {\n    static int total;\n    int v;\n    C(int x) : v(x) { total += x; }\n    C& twice() { total += v; v *= 2; return *this; }\n};\nint C::total = 0;\nint main() {\n    C a(2), b(5);\n    a.twice().twice();\n    b.twice();\n    cout << a.v << \" \" << b.v << \" \" << C::total;\n}",
+      "options": [
+        "4 10 18",
+        "8 10 7",
+        "8 10 29",
+        "8 10 18"
+      ],
+      "correctIndex": 3,
+      "explanation": "Constructors add 2 and 5 (total = 7). a.twice() adds v = 2 then doubles v to 4; the chained call works on a again (reference), adding 4 and making v = 8; b.twice() adds 5 and makes v = 10. total = 7 + 2 + 4 + 5 = 18.",
+      "difficulty": "hard"
+    }
+  ]
+}

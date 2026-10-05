@@ -1,0 +1,696 @@
+{
+  "topicId": "ch1_i44",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: MOSFET Analysis and Biasing"
+    },
+    {
+      "type": "paragraph",
+      "text": "The square law comes from the charge in the channel. Once V_GS exceeds V_T, the inversion charge per unit area at a point x along the channel is C_ox(V_GS − V_T − v(x)), where v(x) is the local channel voltage that rises from 0 at the source to V_DS at the drain. The drift current is this charge times the electron velocity μ_n E, and integrating from source to drain gives the ohmic-region equation. When V_DS reaches V_GS − V_T the charge at the drain end falls to zero (pinch-off); beyond that point the extra voltage drops across the short pinched region and the current stays at its peak value, which is the saturation equation."
+    },
+    {
+      "type": "formula",
+      "latex": "I_D = \\mu_n C_{ox}\\frac{W}{L}\\left[(V_{GS}-V_T)V_{DS} - \\frac{V_{DS}^2}{2}\\right]",
+      "plainText": "ID = mu_n Cox (W/L) [ (VGS - VT) VDS - VDS^2 / 2 ]   (same as k[2 Vov VDS - VDS^2] with k = mu_n Cox W / 2L)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Two second-order effects matter in practice. Channel-length modulation: in saturation the pinch-off point moves slightly towards the source as V_DS rises, so the effective channel shortens and I_D creeps up with V_DS; this is modelled by the factor (1 + λV_DS) and gives the finite output resistance r_o = 1/(λI_D). Body effect: if the source is above the body potential, the extra reverse bias widens the depletion layer under the gate and raises V_T, which is why stacked transistors in an IC have slightly higher thresholds."
+    },
+    {
+      "type": "formula",
+      "latex": "I_D = k(V_{GS}-V_T)^2(1+\\lambda V_{DS}), \\qquad r_o = \\frac{1}{\\lambda I_D}",
+      "plainText": "ID = k (VGS - VT)^2 (1 + lambda VDS);   ro = 1 / (lambda ID)"
+    },
+    {
+      "type": "paragraph",
+      "text": "JFETs and depletion MOSFETs obey the Shockley equation instead of the enhancement square law. Here I_DSS is the drain current at V_GS = 0 and V_P (the pinch-off voltage, negative for n-channel) is the gate voltage at which the channel is fully depleted. A depletion MOSFET can also be driven with positive V_GS, where the same equation predicts I_D above I_DSS; a JFET cannot, because its gate junction would become forward biased."
+    },
+    {
+      "type": "formula",
+      "latex": "I_D = I_{DSS}\\left(1-\\frac{V_{GS}}{V_P}\\right)^2, \\qquad g_m = \\frac{2I_{DSS}}{|V_P|}\\left(1-\\frac{V_{GS}}{V_P}\\right)",
+      "plainText": "ID = IDSS (1 - VGS/VP)^2;   gm = (2 IDSS / |VP|)(1 - VGS/VP)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Bias method",
+          "How V_GS is set",
+          "Suits",
+          "Key equation"
+        ],
+        [
+          "Fixed or divider bias",
+          "V_GS = V_G from a divider, source grounded",
+          "E-MOSFET, D-MOSFET",
+          "V_GS = V_DD R2/(R1 + R2)"
+        ],
+        [
+          "Divider with source resistor",
+          "V_GS = V_G − I_D R_S (negative feedback)",
+          "E-MOSFET, D-MOSFET, JFET",
+          "Solve with the device equation (quadratic)"
+        ],
+        [
+          "Self-bias",
+          "Gate at 0 V, V_GS = −I_D R_S (always ≤ 0)",
+          "JFET, D-MOSFET only",
+          "Quadratic with the Shockley equation"
+        ],
+        [
+          "Drain feedback",
+          "R_G from drain to gate, so V_GS = V_DS",
+          "E-MOSFET",
+          "V_GS = V_DD − I_D R_D, device always saturated"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: divider plus source resistor (E-MOSFET)\nGiven: V_G = 6 V, R_S = 1 kΩ, V_T = 2 V, k = 1 mA/V²\nLoop:   V_GS = V_G − I_D R_S = 6 − I_D   (I_D in mA)\nDevice: I_D = (V_GS − 2)²\nLet x = V_GS − 2:  2 + x = 6 − x²  ->  x² + x − 4 = 0\nx = (−1 + √17)/2 = 1.56 V   (other root −2.56 V gives V_GS < V_T, reject)\nI_D = x² = 2.44 mA,  V_GS = 3.56 V\nCheck: V_DS must be at least V_GS − V_T = 1.56 V for saturation"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: common-source gain with r_o\nGiven: I_D = 1 mA, V_GS − V_T = 1 V, λ = 0.02 V⁻¹, R_D = 10 kΩ\ng_m = 2 I_D/(V_GS − V_T) = 2 × 1/1 = 2 mA/V\nr_o = 1/(λ I_D) = 1/(0.02 × 1 mA) = 50 kΩ\nR_D ∥ r_o = (10 × 50)/(10 + 50) = 8.33 kΩ\nA_v = −g_m (R_D ∥ r_o) = −2 × 8.33 = −16.7\nIgnoring r_o would give −20, a 20 % overestimate"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in MOSFET problems:",
+      "items": [
+        "Squaring a negative overdrive: if V_GS < V_T the device is off and I_D = 0, not k(V_GS − V_T)².",
+        "Using the saturation equation without checking V_DS ≥ V_GS − V_T; if the check fails, redo the problem with the ohmic equation.",
+        "Keeping the wrong root of the bias quadratic: reject any root that makes V_GS < V_T (enhancement) or V_GS beyond V_P (JFET or depletion).",
+        "Mixing k conventions: some books write I_D = (k'/2)(W/L)(V_GS − V_T)², so k in the form used here already contains the factor one half.",
+        "Forgetting that for a p-channel device V_GS, V_DS and V_T are all negative; work with magnitudes and then give the current direction (source to drain)."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Every biasing problem follows the same three steps: write the loop equation for V_GS, substitute the device equation, then solve and check the region. Two roots always appear in a quadratic bias problem and exactly one of them is physical."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i44_m001",
+      "questionText": "When an n-channel enhancement MOSFET is biased with V_GS above its threshold voltage, the conducting channel between source and drain is:",
+      "options": [
+        "A layer of holes attracted to the surface of an n-type substrate",
+        "An inversion layer of electrons induced at the surface of the p-type substrate under the gate",
+        "An n-type region diffused between source and drain during manufacture",
+        "The depletion region around the reverse-biased drain junction"
+      ],
+      "correctIndex": 1,
+      "explanation": "A positive gate repels holes and attracts electrons to the surface of the p-type body; above V_T the surface inverts to n-type and links the n+ source and drain. A channel diffused in during manufacture is the feature of a depletion-mode device.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m002",
+      "questionText": "An n-channel enhancement MOSFET has V_T = 2 V and k = 1 mA/V². With V_GS = 1.5 V and V_DS = 10 V, the drain current is:",
+      "options": [
+        "0.25 mA",
+        "2.25 mA",
+        "0 mA, because the device is in cut-off",
+        "0.5 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_GS = 1.5 V is below V_T = 2 V, so no channel forms and I_D ≈ 0. Squaring (V_GS − V_T) = −0.5 V to get 0.25 mA is a classic error: the square law applies only when V_GS > V_T.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m003",
+      "questionText": "An n-channel enhancement MOSFET has k = 0.4 mA/V² and V_T = 1 V. In saturation with V_GS = 3.5 V, the drain current is:",
+      "options": [
+        "1.0 mA",
+        "2.5 mA",
+        "5.0 mA",
+        "1.4 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_D = k(V_GS − V_T)² = 0.4 × (3.5 − 1)² = 0.4 × 6.25 = 2.5 mA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m004",
+      "questionText": "An n-channel enhancement MOSFET with k = 0.5 mA/V² and V_T = 1 V is biased in saturation at V_GS = 3 V. Its transconductance g_m is:",
+      "options": [
+        "1 mA/V",
+        "2 mA/V",
+        "4 mA/V",
+        "0.5 mA/V"
+      ],
+      "correctIndex": 1,
+      "explanation": "g_m = 2k(V_GS − V_T) = 2 × 0.5 × (3 − 1) = 2 mA/V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m005",
+      "questionText": "An n-channel enhancement MOSFET has k = 0.5 mA/V² and V_T = 1 V. With V_GS = 4 V and V_DS = 1 V, the drain current is:",
+      "options": [
+        "4.5 mA",
+        "3.0 mA",
+        "2.5 mA",
+        "1.5 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_DS = 1 V is less than V_GS − V_T = 3 V, so the device is in the ohmic region: I_D = k[2(V_GS − V_T)V_DS − V_DS²] = 0.5 × (2 × 3 × 1 − 1²) = 2.5 mA. The saturation formula would wrongly give 4.5 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m006",
+      "questionText": "In a common-source stage, V_DD = 12 V, R_D = 2 kΩ and the gate bias sets V_GS = 4 V. The n-channel enhancement MOSFET has V_T = 2 V and k = 0.5 mA/V². The drain-source voltage V_DS is:",
+      "options": [
+        "4 V",
+        "10 V",
+        "8 V",
+        "2 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_D = 0.5 × (4 − 2)² = 2 mA, so V_DS = 12 − 2 mA × 2 kΩ = 8 V. Since 8 V ≥ V_GS − V_T = 2 V, the saturation assumption holds.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m007",
+      "questionText": "An n-channel enhancement MOSFET (V_T = 2 V, k = 0.25 mA/V²) has its gate fed from a divider R1 = 1 MΩ (to V_DD) and R2 = 500 kΩ (to ground), with V_DD = 15 V, R_D = 3 kΩ and the source grounded. V_DS is:",
+      "options": [
+        "12.75 V",
+        "1.5 V",
+        "6.75 V",
+        "8.25 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_G = 15 × 0.5/1.5 = 5 V = V_GS (no gate current). I_D = 0.25 × (5 − 2)² = 2.25 mA, so V_DS = 15 − 2.25 × 3 = 8.25 V, which exceeds V_GS − V_T = 3 V, confirming saturation.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m008",
+      "questionText": "An n-channel enhancement MOSFET with V_T = 2 V and k = 1 mA/V² has V_G = 6 V set by a divider and a source resistor R_S = 1 kΩ. Assuming saturation, the drain current is approximately:",
+      "options": [
+        "2.44 mA",
+        "16 mA",
+        "6.56 mA",
+        "4.00 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_GS = 6 − I_D × 1 kΩ and I_D = (V_GS − 2)². With x = V_GS − 2: x² + x − 4 = 0, so x = 1.56 V and I_D = x² ≈ 2.44 mA. The other root (6.56 mA) makes V_GS negative, below V_T, and is rejected.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m009",
+      "questionText": "A MOSFET in saturation carries I_D = 2 mA with an overdrive V_GS − V_T = 0.5 V. Its transconductance is:",
+      "options": [
+        "4 mA/V",
+        "1 mA/V",
+        "16 mA/V",
+        "8 mA/V"
+      ],
+      "correctIndex": 3,
+      "explanation": "g_m = 2I_D/(V_GS − V_T) = 2 × 2 mA/0.5 V = 8 mA/V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m010",
+      "questionText": "An n-channel enhancement MOSFET with k = 1 mA/V² is biased in saturation at I_D = 4 mA. Its transconductance is:",
+      "options": [
+        "2 mA/V",
+        "4 mA/V",
+        "8 mA/V",
+        "16 mA/V"
+      ],
+      "correctIndex": 1,
+      "explanation": "From I_D = k(V_GS − V_T)², the overdrive is √(4/1) = 2 V, so g_m = 2k(V_GS − V_T) = 2√(kI_D) = 2 × 1 × 2 = 4 mA/V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m011",
+      "questionText": "A common-source MOSFET amplifier with a bypassed source has g_m = 3 mA/V and R_D = 4 kΩ (r_o neglected). Its small-signal voltage gain is:",
+      "options": [
+        "+12",
+        "−0.75",
+        "−12",
+        "−1.33"
+      ],
+      "correctIndex": 2,
+      "explanation": "A_v = −g_m R_D = −3 mA/V × 4 kΩ = −12. The minus sign shows the 180° phase inversion of the common-source stage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m012",
+      "questionText": "A common-source stage has I_D = 1 mA, g_m = 2 mA/V, channel-length modulation λ = 0.02 V⁻¹ and R_D = 10 kΩ. Including r_o, the voltage gain is approximately:",
+      "options": [
+        "−20",
+        "−16.7",
+        "−100",
+        "−120"
+      ],
+      "correctIndex": 1,
+      "explanation": "r_o = 1/(λI_D) = 1/(0.02 × 1 mA) = 50 kΩ; R_D ∥ r_o = 8.33 kΩ; A_v = −g_m(R_D ∥ r_o) = −2 × 8.33 ≈ −16.7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m013",
+      "questionText": "A MOSFET with channel-length modulation parameter λ = 0.01 V⁻¹ is biased at I_D = 2 mA. Its output resistance r_o is:",
+      "options": [
+        "50 kΩ",
+        "5 kΩ",
+        "500 kΩ",
+        "100 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "r_o = 1/(λI_D) = 1/(0.01 × 2 × 10⁻³) = 50 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m014",
+      "questionText": "An n-channel enhancement MOSFET with V_T = 1 V carries 2 mA in saturation at V_GS = 3 V. If V_GS is raised to 5 V (still in saturation), the drain current becomes:",
+      "options": [
+        "5.56 mA",
+        "3.33 mA",
+        "4 mA",
+        "8 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_D is proportional to (V_GS − V_T)²: the overdrive doubles from 2 V to 4 V, so I_D = 2 × (4/2)² = 8 mA. Forgetting V_T gives 2 × (5/3)² = 5.56 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m015",
+      "questionText": "An n-channel enhancement MOSFET has k = 0.5 mA/V² and V_T = 1.5 V. The gate-source voltage needed for I_D = 2 mA in saturation is:",
+      "options": [
+        "2.0 V",
+        "5.5 V",
+        "3.5 V",
+        "4.33 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_GS = V_T + √(I_D/k) = 1.5 + √(2/0.5) = 1.5 + 2 = 3.5 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m016",
+      "questionText": "A MOSFET has μ_nC_ox = 200 µA/V², W/L = 10 and V_T = 0.5 V, with k = ½μ_nC_ox(W/L). In saturation at V_GS = 1.5 V, the drain current is:",
+      "options": [
+        "2 mA",
+        "0.1 mA",
+        "2.25 mA",
+        "1 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "k = ½ × 200 µA/V² × 10 = 1 mA/V², and I_D = k(V_GS − V_T)² = 1 × (1.5 − 0.5)² = 1 mA. Dropping the ½ gives 2 mA; forgetting W/L gives 0.1 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m017",
+      "questionText": "A MOSFET switch with k = 2 mA/V² and V_T = 2 V is driven at V_GS = 7 V and carries a small V_DS. Its on-resistance r_DS(on) is approximately:",
+      "options": [
+        "100 Ω",
+        "10 Ω",
+        "500 Ω",
+        "50 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "For small V_DS, r_DS(on) ≈ 1/[2k(V_GS − V_T)] = 1/(2 × 2 × 10⁻³ × 5) = 50 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m018",
+      "questionText": "A power MOSFET with R_DS(on) = 0.05 Ω switches a 10 A load current with a 50 % duty cycle. Neglecting switching losses, its average conduction loss is:",
+      "options": [
+        "2.5 W",
+        "5 W",
+        "0.25 W",
+        "25 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "P = I² R_DS(on) × D = 10² × 0.05 × 0.5 = 2.5 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m019",
+      "questionText": "A p-channel enhancement MOSFET has V_T = −2 V and k = 0.2 mA/V². In saturation with V_GS = −5 V, the magnitude of the drain current is:",
+      "options": [
+        "9.8 mA",
+        "0.6 mA",
+        "1.8 mA",
+        "5.0 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_D = k(V_GS − V_T)² = 0.2 × (−5 + 2)² = 0.2 × 9 = 1.8 mA, flowing from source to drain. Adding the magnitudes, (5 + 2)², gives the wrong 9.8 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m020",
+      "questionText": "A p-channel enhancement MOSFET with V_T = −1.5 V conducts when:",
+      "options": [
+        "V_GS is more negative than −1.5 V",
+        "V_GS is more positive than +1.5 V",
+        "V_GS is between −1.5 V and 0 V",
+        "V_GS is exactly 0 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "A p-channel enhancement device needs the gate driven negative with respect to the source, beyond the (negative) threshold, to attract holes and form the channel.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m021",
+      "questionText": "An n-channel depletion MOSFET has I_DSS = 8 mA and V_P = −4 V. At V_GS = −2 V, the drain current is:",
+      "options": [
+        "4 mA",
+        "18 mA",
+        "0.5 mA",
+        "2 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_D = I_DSS(1 − V_GS/V_P)² = 8 × (1 − 0.5)² = 8 × 0.25 = 2 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m022",
+      "questionText": "An n-channel depletion MOSFET with I_DSS = 8 mA and V_P = −4 V is operated at V_GS = +1 V. The drain current is:",
+      "options": [
+        "4.5 mA",
+        "10 mA",
+        "8 mA",
+        "12.5 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "A positive gate enhances the built-in channel: I_D = 8 × (1 − 1/(−4))² = 8 × 1.25² = 12.5 mA, above I_DSS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m023",
+      "questionText": "Which device can be operated in both depletion and enhancement modes, that is, with its drain current controlled by either polarity of V_GS while the gate current stays negligible?",
+      "options": [
+        "n-channel JFET",
+        "Depletion-type MOSFET",
+        "Enhancement-type MOSFET",
+        "p-channel JFET"
+      ],
+      "correctIndex": 1,
+      "explanation": "The insulated gate of a D-MOSFET allows positive or negative V_GS. A JFET gate junction becomes forward biased if driven the wrong way, and an E-MOSFET simply stays off for one polarity.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m024",
+      "questionText": "An n-channel JFET has I_DSS = 10 mA and V_P = −5 V. Its transconductance at V_GS = −2 V is:",
+      "options": [
+        "4.0 mA/V",
+        "1.44 mA/V",
+        "1.6 mA/V",
+        "2.4 mA/V"
+      ],
+      "correctIndex": 3,
+      "explanation": "g_m0 = 2I_DSS/|V_P| = 2 × 10/5 = 4 mA/V; g_m = g_m0(1 − V_GS/V_P) = 4 × (1 − 0.4) = 2.4 mA/V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m025",
+      "questionText": "An n-channel depletion MOSFET (I_DSS = 6 mA, V_P = −3 V) is self-biased: the gate is returned to ground through R_G and R_S = 1 kΩ is in the source. The drain current is:",
+      "options": [
+        "1.5 mA",
+        "6.0 mA",
+        "3.0 mA",
+        "0.75 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_GS = −I_D R_S, so I_D = 6(1 − I_D/3)², giving I_D² − 7.5I_D + 9 = 0 with roots 1.5 mA and 6 mA. The 6 mA root makes V_GS = −6 V, beyond V_P, so I_D = 1.5 mA (V_GS = −1.5 V).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m026",
+      "questionText": "The input resistance of a MOSFET is much higher than that of a JFET because:",
+      "options": [
+        "The MOSFET gate is insulated from the channel by silicon dioxide, while the JFET gate is a reverse-biased pn junction",
+        "The MOSFET channel is much longer than a JFET channel",
+        "The MOSFET is a bipolar device",
+        "The JFET gate junction is forward biased in normal operation"
+      ],
+      "correctIndex": 0,
+      "explanation": "A reverse-biased junction still passes a small leakage current (input resistance about 10^8 Ω), whereas the oxide insulator passes practically none (10^12 Ω or more).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m027",
+      "questionText": "In an n-channel enhancement MOSFET, the substrate (body) is made of:",
+      "options": [
+        "n-type silicon",
+        "p-type silicon",
+        "Intrinsic silicon",
+        "Silicon dioxide"
+      ],
+      "correctIndex": 1,
+      "explanation": "The n+ source and drain sit in a p-type body; the n-type channel is formed by inverting the surface of this p-type material.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m028",
+      "questionText": "In its saturation region, a MOSFET behaves mainly as:",
+      "options": [
+        "A closed switch with very low resistance",
+        "An open switch",
+        "A current source whose value is set by V_GS",
+        "A resistor whose value is set by V_GS"
+      ],
+      "correctIndex": 2,
+      "explanation": "In saturation I_D = k(V_GS − V_T)² is nearly independent of V_DS, so the device acts as a voltage-controlled current source, which is why amplifiers are biased there.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m029",
+      "questionText": "Which statement about an n-channel enhancement MOSFET is NOT correct?",
+      "options": [
+        "In saturation the drain current rises in proportion to V_DS",
+        "The steady-state gate current is practically zero",
+        "No drain current flows until V_GS exceeds V_T",
+        "Its circuit symbol shows a broken line for the channel"
+      ],
+      "correctIndex": 0,
+      "explanation": "In saturation I_D is almost independent of V_DS (only a slight rise from channel-length modulation). The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m030",
+      "questionText": "When V_DS of a MOSFET is increased to V_GS − V_T, the channel:",
+      "options": [
+        "Pinches off at the drain end, and further increases in V_DS barely change I_D",
+        "Disappears completely, so I_D falls to zero",
+        "Pinches off at the source end and the current reverses",
+        "Widens uniformly, so I_D starts rising faster"
+      ],
+      "correctIndex": 0,
+      "explanation": "At V_DS = V_GS − V_T the gate-to-channel voltage at the drain end drops to V_T and the inversion charge there falls to zero. Current still flows through the pinched region, but it saturates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m031",
+      "questionText": "Power MOSFETs can be connected in parallel to share a large current without special balancing, mainly because:",
+      "options": [
+        "Their threshold voltages are exactly equal from device to device",
+        "Their gate currents divide equally",
+        "Their drain current rises with temperature",
+        "Their on-resistance rises with temperature, so a hotter device takes less current"
+      ],
+      "correctIndex": 3,
+      "explanation": "Carrier mobility falls as temperature rises, so R_DS(on) has a positive temperature coefficient; a device that heats up conducts less, which balances the current. A BJT behaves the opposite way and can suffer thermal runaway.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m032",
+      "questionText": "If the source of an n-channel MOSFET is at a higher potential than its p-type body, the threshold voltage:",
+      "options": [
+        "Decreases",
+        "Stays exactly the same",
+        "Becomes negative, so the device is always on",
+        "Increases (body effect)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The extra source-to-body reverse bias widens the depletion region under the gate, so more gate voltage is needed to create inversion: V_T increases.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m033",
+      "questionText": "MOSFETs are stored in conductive foam or with their leads shorted together because:",
+      "options": [
+        "The drain junction is damaged by light",
+        "Static charge can puncture the very thin gate oxide",
+        "The body diode is damaged by moisture",
+        "The channel slowly loses its doping in storage"
+      ],
+      "correctIndex": 1,
+      "explanation": "The gate oxide is only nanometres thick and has very high resistance, so static charge builds up a voltage that can break it down permanently.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m034",
+      "questionText": "The transfer characteristic (I_D versus V_GS in saturation) of an n-channel enhancement MOSFET is:",
+      "options": [
+        "A straight line through the origin",
+        "Maximum at V_GS = 0 and falling to zero at V_P",
+        "Zero up to V_T and then a rising parabola",
+        "An exponential curve like that of a diode"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_D = k(V_GS − V_T)² for V_GS > V_T and zero below it. A curve that is maximum at V_GS = 0 describes a JFET or depletion MOSFET.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m035",
+      "questionText": "For very small V_DS (well below V_GS − V_T), a MOSFET behaves as:",
+      "options": [
+        "A constant-current source",
+        "A resistor whose value is controlled by V_GS",
+        "An open circuit",
+        "A forward-biased diode"
+      ],
+      "correctIndex": 1,
+      "explanation": "With V_DS small, the ohmic equation reduces to I_D ≈ 2k(V_GS − V_T)V_DS, a straight line through the origin whose slope is set by V_GS: a voltage-controlled resistor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m036",
+      "questionText": "For the same dimensions and overdrive, an n-channel MOSFET carries more current than a p-channel MOSFET because:",
+      "options": [
+        "Electron mobility is about two to three times hole mobility",
+        "The n-channel device has a thicker gate oxide",
+        "Holes carry a larger charge than electrons",
+        "The p-channel threshold voltage is always zero"
+      ],
+      "correctIndex": 0,
+      "explanation": "k is proportional to carrier mobility, and in silicon μ_n is roughly 2 to 3 times μ_p, so pMOS devices must be made wider to match nMOS drive.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m037",
+      "questionText": "An n-channel enhancement MOSFET (k = 1 mA/V², V_T = 1 V) has V_GS = 3 V, R_D = 4 kΩ and V_DD = 10 V. The drain-source voltage is approximately:",
+      "options": [
+        "−6 V",
+        "3.55 V",
+        "0.71 V",
+        "2.0 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Assuming saturation gives I_D = 4 mA and V_DS = 10 − 16 = −6 V, which is impossible, so the device is ohmic. Solving I_D = 4V_DS − V_DS² with V_DS = 10 − 4I_D gives 4V_DS² − 17V_DS + 10 = 0, so V_DS ≈ 0.71 V (the 3.55 V root exceeds V_GS − V_T = 2 V and is rejected).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m038",
+      "questionText": "In the circuit symbol of an enhancement MOSFET, an arrow on the body lead pointing inward towards the channel indicates:",
+      "options": [
+        "An n-channel device",
+        "A p-channel device",
+        "A depletion-mode device",
+        "A JFET"
+      ],
+      "correctIndex": 0,
+      "explanation": "The arrow shows the p-body to n-channel junction direction (p to n, like a diode arrow), so inward means n-channel; outward means p-channel.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m039",
+      "questionText": "A MOSFET has its gate connected to its drain (k = 0.5 mA/V², V_T = 1 V) and carries I_D = 2 mA. Its V_GS is:",
+      "options": [
+        "5 V",
+        "2 V",
+        "3 V",
+        "4 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "With gate tied to drain, V_DS = V_GS > V_GS − V_T, so the device is always saturated: V_GS = V_T + √(I_D/k) = 1 + √4 = 3 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m040",
+      "questionText": "A MOSFET source follower has g_m = 4 mA/V and R_S = 1 kΩ (r_o neglected). Its voltage gain is:",
+      "options": [
+        "4.0",
+        "0.2",
+        "1.25",
+        "0.8"
+      ],
+      "correctIndex": 3,
+      "explanation": "A_v = g_m R_S/(1 + g_m R_S) = 4/(1 + 4) = 0.8, positive and a little below one.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m041",
+      "questionText": "In a discrete n-channel power MOSFET with the body tied to the source, the intrinsic body diode:",
+      "options": [
+        "Conducts from drain to source whenever V_GS exceeds V_T",
+        "Conducts from source to drain when the drain is driven below the source",
+        "Is connected between gate and source to protect the oxide",
+        "Exists only in p-channel devices"
+      ],
+      "correctIndex": 1,
+      "explanation": "The p-type body (anode, tied to the source) and the n-type drain (cathode) form a diode, so it conducts when the drain goes negative with respect to the source, for example with an inductive load.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m042",
+      "questionText": "Compared with a BJT, a main advantage of a MOSFET used as a switch is:",
+      "options": [
+        "Current is carried by both electrons and holes",
+        "It is controlled by input current rather than voltage",
+        "Negligible steady-state drive current because the gate is insulated",
+        "Its gate forms a forward-biased pn junction with the channel"
+      ],
+      "correctIndex": 2,
+      "explanation": "The MOSFET is a voltage-controlled, unipolar device with an insulated gate, so once the gate capacitance is charged no drive current is needed to hold it on.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i44_m043",
+      "questionText": "A power MOSFET needs a total gate charge Q_g = 20 nC to switch on and is switched at 100 kHz. The average gate-drive current is:",
+      "options": [
+        "2 mA",
+        "0.2 mA",
+        "20 mA",
+        "200 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_avg = Q_g × f = 20 × 10⁻⁹ × 100 × 10³ = 2 × 10⁻³ A = 2 mA. Although the DC gate current is zero, charging the gate capacitance every cycle needs real drive current.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m044",
+      "questionText": "An n-channel depletion MOSFET (I_DSS = 10 mA, V_P = −5 V) is fixed-biased at V_GS = −2 V with V_DD = 20 V and R_D = 2 kΩ. V_DS is:",
+      "options": [
+        "8.0 V",
+        "12.8 V",
+        "16.8 V",
+        "7.2 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_D = 10 × (1 − (−2)/(−5))² = 10 × 0.6² = 3.6 mA, so V_DS = 20 − 3.6 × 2 = 12.8 V, well above V_GS − V_P = 3 V, so the device is saturated.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i44_m045",
+      "questionText": "Self-bias (gate returned to ground through R_G, resistor R_S in the source) is used with JFETs and depletion MOSFETs but not with an n-channel enhancement MOSFET because:",
+      "options": [
+        "It can only make V_GS zero or negative, which keeps an enhancement device below threshold and off",
+        "The gate current through R_G would be too large",
+        "It makes V_GS too positive for an enhancement device",
+        "Enhancement MOSFETs have no separate source terminal"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the gate at 0 V and the source at +I_D R_S, V_GS = −I_D R_S ≤ 0. An n-channel E-MOSFET needs V_GS above a positive V_T, so it needs a divider or drain-feedback bias.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i44_m046",
+      "questionText": "An n-channel enhancement MOSFET (k = 0.5 mA/V², V_T = 2 V) uses drain-feedback bias: a large R_G connects drain to gate, with R_D = 2 kΩ and V_DD = 12 V. The drain current is approximately:",
+      "options": [
+        "6.00 mA",
+        "3.65 mA",
+        "50.0 mA",
+        "6.85 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "No gate current flows, so V_GS = V_DS = 12 − 2I_D and I_D = 0.5(V_GS − 2)². With x = V_GS − 2: x² + x − 10 = 0, x = 2.70 V, so I_D = 0.5 × 2.70² ≈ 3.65 mA (V_GS ≈ 4.70 V). The other root gives V_GS below V_T and is rejected.",
+      "difficulty": "hard"
+    }
+  ]
+}

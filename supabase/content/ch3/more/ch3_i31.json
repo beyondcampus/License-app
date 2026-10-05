@@ -1,0 +1,733 @@
+{
+  "topicId": "ch3_i31",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Objects in Memory and in Function Calls"
+    },
+    {
+      "type": "paragraph",
+      "text": "Behind the call obj.f(x), the compiler runs the single shared copy of f and passes it the address of obj as a hidden argument (the this pointer), which is why member functions add nothing to sizeof and yet every call still sees its own object's data. Access labels are checked only by the compiler and per class: c.secret is refused in main(), but a member function may read the private data of any object of its own class. An object passed by value is a separate copy, an object passed by reference or through a pointer is the caller's object itself, and an object returned by value is a fresh copy handed back to the caller. The program below shows all three cases."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass Wallet {\npublic:\n    int cash;\n};\nvoid spend(Wallet w)     { w.cash -= 30; }\nvoid spendRef(Wallet &w) { w.cash -= 30; }\nWallet refill(Wallet w)  { w.cash += 100; return w; }\nint main() {\n    Wallet a; a.cash = 50;\n    spend(a);    cout << a.cash << \" \";\n    spendRef(a); cout << a.cash << \" \";\n    Wallet b = refill(a); cout << a.cash << \" \" << b.cash;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "a.cash = 50\nspend(a)     : w is a copy; the copy drops to 20, a.cash stays 50   -> 50\nspendRef(a)  : w is another name for a, so a.cash becomes 20        -> 20\nrefill(a)    : a copy of a (20) grows to 120 and is returned into b;\n               a itself is untouched                                -> 20 120\nOutput: 50 20 20 120"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Parameter form",
+          "Is a copy made?",
+          "Can the function change the caller's object?"
+        ],
+        [
+          "Wallet w (by value)",
+          "Yes, a whole new object",
+          "No, only the copy changes"
+        ],
+        [
+          "Wallet &w (by reference)",
+          "No, w is an alias",
+          "Yes"
+        ],
+        [
+          "const Wallet &w",
+          "No",
+          "No, the compiler rejects any change"
+        ],
+        [
+          "Wallet *w (by pointer)",
+          "No, only the address is copied",
+          "Yes, through w->member"
+        ],
+        [
+          "Wallet arr[] (array of objects)",
+          "No, arr is really a pointer",
+          "Yes, arr[i].member changes the caller's elements"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The size of an object that holds only data members follows two alignment rules. Each member starts at the next offset that is a multiple of its own alignment (on a typical 64-bit compiler char is 1, short 2, int 4, and double and pointers 8), so padding bytes may be inserted before it. The total is then rounded up to a multiple of the largest member alignment, so that every element of an array of objects is also correctly aligned. Static data members, member functions and access labels are not stored in the object at all."
+    },
+    {
+      "type": "formula",
+      "latex": "o_k = \\lceil e_{k-1}/a_k \\rceil \\, a_k,\\quad S = \\lceil e_n/a_{\\max} \\rceil \\, a_{\\max}",
+      "plainText": "o_k (offset of member k) = end of the previous member e_{k-1} rounded up to a multiple of its alignment a_k; S (sizeof) = end of the last member e_n rounded up to a multiple of the largest alignment a_max"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass A { char c; double d; int i; };\nclass B { double d; int i; char c; };\nclass C { int i; static int count; void show() {} };\nclass E { void f() {} };\nint main() {\n    cout << sizeof(A) << \" \" << sizeof(B) << \" \"\n         << sizeof(C) << \" \" << sizeof(E);\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "A: c at 0, padding 1-7, d at 8-15, i at 16-19, padding 20-23  -> 24\nB: d at 0-7, i at 8-11, c at 12, padding 13-15                -> 16\nC: only int i is stored; count and show() are not in objects  -> 4\nE: no data at all, but every object needs its own address     -> 1\nOutput: 24 16 4 1"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Members in declaration order",
+          "Padding inserted",
+          "sizeof"
+        ],
+        [
+          "char, short, int",
+          "1 byte after the char",
+          "8"
+        ],
+        [
+          "char, int, double",
+          "3 bytes after the char",
+          "16"
+        ],
+        [
+          "double, char",
+          "7 bytes at the end",
+          "16"
+        ],
+        [
+          "char[5], int",
+          "3 bytes after the array",
+          "12"
+        ],
+        [
+          "int, int* (8-byte pointer)",
+          "4 bytes after the int",
+          "16"
+        ],
+        [
+          "char, char, char",
+          "None (the largest alignment is 1)",
+          "3"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that cost marks with classes and objects:",
+      "items": [
+        "Using the dot on a pointer (p.x) or writing *p.x, which means *(p.x); use p->x or (*p).x.",
+        "Defining a member function outside the class without ClassName::, which silently creates an ordinary global function that cannot see the data members.",
+        "Expecting a change made to a by-value object parameter to reach the caller; only reference, pointer and array parameters change the original.",
+        "Adding member sizes without the padding, or counting static members and member functions in sizeof.",
+        "Forgetting that a = b between two objects copies every data member, including whole arrays inside the class, while a == b and a + b do not compile unless those operators are overloaded.",
+        "Assuming a C++ struct cannot have member functions or private members: it can; only the defaults (public members, public inheritance) differ from class."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For a sizeof question, write the offsets member by member (start, padding, end), then round the end up to the largest alignment. For an output question that passes objects around, first mark every parameter as copy, alias or pointer; that decides which changes survive the call."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i31_m001",
+      "questionText": "Consider a class definition and the objects created from it. Which statement is correct?",
+      "options": [
+        "Declaring a class reserves memory for all of its data members",
+        "Memory for an object's non-static data members is set aside only when that object is created",
+        "Every object stores its own copy of the code of each member function",
+        "An object can be defined before the class body appears, provided the class is completed later in the file"
+      ],
+      "correctIndex": 1,
+      "explanation": "A class definition is only a type description (a blueprint); storage for an object's non-static data members is set aside when the object is defined. Member function code exists once and is shared, and a class must be complete before objects of it can be defined.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m002",
+      "questionText": "Which statement is true for a structure in C, as opposed to a struct in C++?",
+      "options": [
+        "Its members are private by default",
+        "It can contain constructors and destructors",
+        "It cannot contain member functions or access specifiers such as private:",
+        "It can inherit the members of another structure"
+      ],
+      "correctIndex": 2,
+      "explanation": "In C a struct is a plain collection of data members: no member functions, no constructors, no access specifiers and no inheritance. C++ extends struct so that it differs from class only in its default access.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m003",
+      "questionText": "ptr is a pointer to an object of class Shape, which has a public member function void draw(). Which call is correct?",
+      "options": [
+        "ptr::draw();",
+        "*ptr.draw();",
+        "ptr.draw();",
+        "ptr->draw();"
+      ],
+      "correctIndex": 3,
+      "explanation": "The arrow operator reaches a member through a pointer: ptr->draw() means (*ptr).draw(). ptr.draw() applies the dot to a pointer, *ptr.draw() parses as *(ptr.draw()), and :: names a class scope, not an object.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m004",
+      "questionText": "A member function whose complete definition (body included) is written inside the class body is automatically treated as:",
+      "options": [
+        "An inline function",
+        "A static member function",
+        "A virtual function",
+        "A friend function"
+      ],
+      "correctIndex": 0,
+      "explanation": "A member function defined inside the class body is implicitly inline. It is static, virtual or a friend only if declared so explicitly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m005",
+      "questionText": "Class Student declares void display(); in its body. Which is the correct definition of display() written outside the class?",
+      "options": [
+        "void display::Student() { ... }",
+        "Student::void display() { ... }",
+        "void Student::display() { ... }",
+        "void Student.display() { ... }"
+      ],
+      "correctIndex": 2,
+      "explanation": "An outside definition gives the return type, then qualifies the function name with the class name and the scope resolution operator: void Student::display(). The other forms are not valid C++.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m006",
+      "questionText": "In C++, data hiding is achieved mainly by:",
+      "options": [
+        "Declaring the data members private so that only the class's own member functions (and friends) use them directly",
+        "Defining every member function outside the class body",
+        "Using the scope resolution operator :: for every member",
+        "Declaring every data member static"
+      ],
+      "correctIndex": 0,
+      "explanation": "Data hiding means outside code cannot touch the data directly; private data members with public member functions achieve it. Defining functions outside the class, using :: or making members static hides nothing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m007",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Point {\n    int x, y;\n};\nint main() {\n    Point p;\n    p.x = 3; p.y = 4;\n    cout << p.x + p.y;\n}",
+      "options": [
+        "34",
+        "7",
+        "0",
+        "Compile error: x and y are private"
+      ],
+      "correctIndex": 1,
+      "explanation": "Members of a struct are public by default, so main() may assign p.x and p.y directly. The integer sum 3 + 4 = 7 is printed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m008",
+      "questionText": "What does the following program print on a typical compiler such as GCC, Clang or MSVC?\n\n#include <iostream>\nusing namespace std;\nclass Util {\npublic:\n    void a() {}\n    int b(int n) { return n * 2; }\n};\nint main() {\n    Util u1, u2;\n    cout << sizeof(u1) + sizeof(u2);\n}",
+      "options": [
+        "0",
+        "32",
+        "16",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Member functions are not stored inside objects, and an object of a class with no data members still has size 1 so that every object has its own address. So 1 + 1 = 2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m009",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Item {\n    int v;\npublic:\n    void set(int x) { v = x; }\n    int get() { return v; }\n};\nint main() {\n    Item a[3];\n    for (int i = 0; i < 3; i++) a[i].set(i * 10);\n    cout << a[2].get();\n}",
+      "options": [
+        "30",
+        "10",
+        "20",
+        "Compile error: an array of objects needs initial values"
+      ],
+      "correctIndex": 2,
+      "explanation": "Item has no user-written constructor, so an array of three objects is allowed. The loop stores 0, 10 and 20, and a[2] is the third object, holding 2 × 10 = 20.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m010",
+      "questionText": "A program creates 10 objects of a class that has 3 non-static data members and 4 member functions. How many data-member copies and how many copies of member-function code exist in memory?",
+      "options": [
+        "30 data-member copies; 40 function copies (4 per object)",
+        "30 data-member copies; 4 function copies (one per function, shared)",
+        "3 data-member copies; 4 function copies (all shared)",
+        "3 data-member copies; 40 function copies"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every object has its own copy of each non-static data member: 10 × 3 = 30. Member-function code is not duplicated per object, so there is one copy of each of the 4 functions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m011",
+      "questionText": "Which of the following is NOT an access specifier in C++?",
+      "options": [
+        "public",
+        "protected",
+        "private",
+        "internal"
+      ],
+      "correctIndex": 3,
+      "explanation": "C++ has exactly three access specifiers: public, protected and private. internal is an access modifier of C#, not a C++ keyword.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m012",
+      "questionText": "A data member declared private in class Account can be accessed directly by:",
+      "options": [
+        "Member functions of classes derived from Account",
+        "Any function defined in the same source file as Account",
+        "main(), through an Account object",
+        "Only member functions of Account and friends of Account"
+      ],
+      "correctIndex": 3,
+      "explanation": "private members are accessible only inside the class's own member functions and to its friends. Derived classes and outside code such as main() cannot access them directly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m013",
+      "questionText": "What does the declaration class Point { public: int x, y; } p1, p2; do?",
+      "options": [
+        "It defines the class Point and two objects, p1 and p2, of that class",
+        "It defines two classes named p1 and p2 with the members of Point",
+        "It is a syntax error, because object names cannot follow the closing brace",
+        "It declares p1 and p2 as pointers to Point"
+      ],
+      "correctIndex": 0,
+      "explanation": "Object names may be listed between the closing brace and the semicolon of a class definition, just as with a C struct. The declaration defines the class and two objects of it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m014",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct Counter {\n    int n = 0;\n    void hit() { n += 2; }\nprivate:\n    int secret = 9;\n};\nint main() {\n    Counter c;\n    c.hit(); c.hit();\n    cout << c.n;\n}",
+      "options": [
+        "2",
+        "Compile error: a struct cannot have member functions",
+        "4",
+        "Compile error: a struct cannot have a private section"
+      ],
+      "correctIndex": 2,
+      "explanation": "In C++ a struct may have member functions, member initialisers and a private section; only its default access is public. Each hit() adds 2, so n = 0 + 2 + 2 = 4.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i31_m015",
+      "questionText": "Which of the marked lines cause a compile error?\n\nstruct S { int a; };\nclass C { int a; };\nint main() {\n    S s;\n    C c;\n    s.a = 1;   // line A\n    c.a = 2;   // line B\n}",
+      "options": [
+        "Line A only",
+        "Line B only",
+        "Both line A and line B",
+        "Neither line; the program compiles"
+      ],
+      "correctIndex": 1,
+      "explanation": "The struct member a is public by default, so line A compiles. The class member a is private by default, so line B is rejected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m016",
+      "questionText": "Which statement in main() causes a compile error?\n\nclass T {\npublic:\n    int a;\nprivate:\n    int b;\npublic:\n    int c;\n    void setB(int v) { b = v; }\n};\nint main() {\n    T t;\n    t.a = 1; t.c = 3;\n    t.b = 2;\n    t.setB(4);\n}",
+      "options": [
+        "t.a = 1;",
+        "t.b = 2;",
+        "t.c = 3;",
+        "t.setB(4);"
+      ],
+      "correctIndex": 1,
+      "explanation": "A label applies until the next label, so b is private while a and c are public. main() cannot use t.b, but the public member function setB() may assign b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m017",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    int v;\npublic:\n    void set(int x) { v = x; }\n    bool bigger(P o) { return v > o.v; }\n};\nint main() {\n    P a, b;\n    a.set(5); b.set(9);\n    cout << a.bigger(b) << b.bigger(a);\n}",
+      "options": [
+        "10",
+        "Compile error: o.v is private",
+        "01",
+        "11"
+      ],
+      "correctIndex": 2,
+      "explanation": "Access is checked per class, not per object, so bigger() may read o.v of another P. a.bigger(b) is 5 > 9, false (0), and b.bigger(a) is 9 > 5, true (1): output 01.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m018",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Acc {\npublic:\n    int bal;\n};\nvoid add(Acc a) { a.bal += 100; }\nvoid addRef(Acc &a) { a.bal += 100; }\nint main() {\n    Acc x;\n    x.bal = 50;\n    add(x); addRef(x); add(x);\n    cout << x.bal;\n}",
+      "options": [
+        "150",
+        "50",
+        "250",
+        "350"
+      ],
+      "correctIndex": 0,
+      "explanation": "add() receives a copy, so its change is lost; addRef() works on x itself. Only one of the three calls changes x: 50 + 100 = 150.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m019",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass V {\npublic:\n    int x, y;\n};\nV sum(V a, V b) {\n    V r = {a.x + b.x, a.y + b.y};\n    return r;\n}\nint main() {\n    V p = {1, 2}, q = {3, 4};\n    V s = sum(p, sum(p, q));\n    cout << s.x << \",\" << s.y;\n}",
+      "options": [
+        "4,6",
+        "1,2",
+        "Compile error: a function cannot return an object",
+        "5,8"
+      ],
+      "correctIndex": 3,
+      "explanation": "Functions may take and return objects by value. sum(p, q) returns (4, 6), and sum(p, that result) returns (1 + 4, 2 + 6) = (5, 8).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m020",
+      "questionText": "Assume char is 1 byte and double is 8 bytes with 8-byte alignment (a typical 64-bit compiler). What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass X {\n    char a;\n    double b;\n    char c;\npublic:\n    void f() {}\n};\nint main() {\n    cout << sizeof(X);\n}",
+      "options": [
+        "10",
+        "16",
+        "24",
+        "32"
+      ],
+      "correctIndex": 2,
+      "explanation": "a is at offset 0, 7 padding bytes follow so b occupies 8 to 15, c is at 16, and the size is rounded up to a multiple of 8: 17 → 24. The member function adds nothing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m021",
+      "questionText": "Assume int is 4 bytes and double is 8 bytes. What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass S {\n    int a, b, c;\n    static double total;\npublic:\n    void show() {}\n};\ndouble S::total = 0;\nint main() {\n    S s;\n    cout << sizeof(s);\n}",
+      "options": [
+        "12",
+        "20",
+        "24",
+        "4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only non-static data members are stored in each object: 3 × 4 = 12 bytes. The static member total exists once, outside all objects, and show() adds nothing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m022",
+      "questionText": "Assume double is 8 bytes and pointers are 8 bytes. What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass D {\n    double a[3];\n};\nint main() {\n    D obj;\n    D *p = &obj;\n    cout << sizeof(obj) << \" \" << sizeof(p) << \" \" << sizeof(*p);\n}",
+      "options": [
+        "24 24 24",
+        "24 8 24",
+        "24 8 8",
+        "3 8 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "obj holds 3 doubles = 3 × 8 = 24 bytes; p is a pointer = 8 bytes; *p is the object itself = 24 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m023",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Pt {\npublic:\n    int x;\n    void inc() { x++; }\n};\nint main() {\n    Pt a;\n    a.x = 5;\n    Pt *p = &a;\n    p->inc(); (*p).inc(); a.inc();\n    cout << a.x;\n}",
+      "options": [
+        "6",
+        "7",
+        "Compile error: (*p).inc() is invalid",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "p points to a, so p->inc(), (*p).inc() and a.inc() all increment the same object: 5 + 3 = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m024",
+      "questionText": "Given the fragment below, which expression does NOT compile?\n\nclass Pt {\npublic:\n    int x;\n};\nPt a;\nPt *p = &a;",
+      "options": [
+        "p->x",
+        "(*p).x",
+        "*p.x",
+        "p[0].x"
+      ],
+      "correctIndex": 2,
+      "explanation": "The dot operator binds tighter than unary *, so *p.x means *(p.x), and p.x is invalid because p is a pointer. p->x, (*p).x and p[0].x all name a.x.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m025",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass N {\npublic:\n    int v;\n};\nint main() {\n    N a[4];\n    for (int i = 0; i < 4; i++) a[i].v = i * i;\n    N *p = a;\n    p += 2;\n    cout << p->v + (p - 1)->v;\n}",
+      "options": [
+        "5",
+        "13",
+        "4",
+        "Compile error: -> cannot be applied to (p - 1)"
+      ],
+      "correctIndex": 0,
+      "explanation": "The objects hold 0, 1, 4 and 9. After p += 2, p points to a[2] (4) and p - 1 points to a[1] (1), so 4 + 1 = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m026",
+      "questionText": "Why is it good practice to keep data members private and change them only through public member functions?",
+      "options": [
+        "Private data members are stored in faster memory than public ones",
+        "Every change goes through member functions that can validate it, and the internal representation can later change without breaking code that uses the class",
+        "Private data members take up less memory than public data members",
+        "Private data members are automatically initialised to zero"
+      ],
+      "correctIndex": 1,
+      "explanation": "With private data every change passes through member functions that can check it, and the class can change its internals without touching outside code. Access control has no effect on speed, size or initial values.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m027",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Temp {\n    int c;\npublic:\n    void set(int v) { if (v >= -273) c = v; }\n    int get() { return c; }\n};\nint main() {\n    Temp t;\n    t.set(25);\n    t.set(-300);\n    t.set(t.get() - 5);\n    cout << t.get();\n}",
+      "options": [
+        "25",
+        "-300",
+        "-305",
+        "20"
+      ],
+      "correctIndex": 3,
+      "explanation": "set(25) stores 25, set(-300) is refused by the check, and set(25 - 5) stores 20. The validating setter keeps the object in a valid state.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m028",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Calc {\n    int a, b;\npublic:\n    void set(int x, int y);\n    int sum();\n    int twice();\n};\nvoid Calc::set(int x, int y) { a = x; b = y; }\nint Calc::sum() { return a + b; }\nint Calc::twice() { return 2 * sum(); }\nint main() { Calc c; c.set(3, 4); cout << c.twice(); }",
+      "options": [
+        "14",
+        "7",
+        "10",
+        "Compile error: sum() is called without an object"
+      ],
+      "correctIndex": 0,
+      "explanation": "Functions defined outside with Calc:: are full members. twice() calls sum() on the same object, so it returns 2 × (3 + 4) = 14.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m029",
+      "questionText": "Which marked line fails to compile, and why?\n\nclass K {\n    int v;\npublic:\n    void set(int x);\n    int get();\n};\nvoid K::set(int x) { v = x; }   // line A\nint get() { return v; }         // line B\nint main() { K k; k.set(1); }",
+      "options": [
+        "Line A: v is private, so it cannot be assigned in a definition written outside the class",
+        "Line B: get() is an ordinary global function, so v is not declared in its scope",
+        "Both line A and line B",
+        "Neither line; an error appears only when k.get() is called"
+      ],
+      "correctIndex": 1,
+      "explanation": "Line A is a proper member definition, so it may use the private v. Line B has no K:: qualifier, so it defines an unrelated global function get() in which v is undeclared.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m030",
+      "questionText": "Which statement in this code causes a compile error?\n\nclass Base { protected: int p; public: int q; };\nclass Der : public Base {\npublic:\n    void set() { p = 1; q = 2; }\n};\nint main() {\n    Der d;\n    d.set();\n    d.q = 5;\n    d.p = 6;\n}",
+      "options": [
+        "p = 1; inside Der::set()",
+        "q = 2; inside Der::set()",
+        "d.q = 5; in main()",
+        "d.p = 6; in main()"
+      ],
+      "correctIndex": 3,
+      "explanation": "A protected member is accessible inside member functions of a derived class, so p = 1 in Der::set() compiles, but outside code such as main() cannot use it. q is public everywhere.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m031",
+      "questionText": "Which marked line(s) fail to compile?\n\nclass A {\npublic:\n    int x;\n};\nstruct B : A {};\nclass C : A {};\nint main() {\n    B b; C c;\n    b.x = 1;   // line 1\n    c.x = 2;   // line 2\n}",
+      "options": [
+        "Line 1 only",
+        "Line 2 only",
+        "Both lines",
+        "Neither line; the program compiles"
+      ],
+      "correctIndex": 1,
+      "explanation": "A struct inherits publicly by default, so x stays public in B. A class inherits privately by default, so x becomes private in C and c.x = 2 is rejected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m032",
+      "questionText": "Given the fragment below (with <iostream> included and using namespace std; in effect), and with no operators overloaded for P, which statement compiles?\n\nclass P {\npublic:\n    int x;\n};\nP a, b;",
+      "options": [
+        "if (a == b) {}",
+        "a = a + b;",
+        "a = b;",
+        "cout << a;"
+      ],
+      "correctIndex": 2,
+      "explanation": "The compiler supplies a member-wise copy assignment operator, so a = b; compiles. ==, + and << are not generated for class types; they work only after being overloaded.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m033",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Engine { public: int hp; };\nclass Car { public: Engine e; int id; };\nint main() {\n    Car c[2];\n    c[0].e.hp = 90;\n    c[1].e.hp = c[0].e.hp + 10;\n    Car *p = &c[1];\n    cout << p->e.hp + c[0].e.hp;\n}",
+      "options": [
+        "190",
+        "100",
+        "180",
+        "Compile error: p->e.hp is invalid"
+      ],
+      "correctIndex": 0,
+      "explanation": "c[1].e.hp = 90 + 10 = 100 and p points to c[1], so p->e.hp is 100 and the sum is 100 + 90 = 190. The arrow reaches the Car, then the dot reaches the member object's hp.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m034",
+      "questionText": "What happens when the following program is compiled and run?\n\n#include <iostream>\nusing namespace std;\nclass Box {\npublic:\n    int w = 7;\n};\nint main() {\n    Box b();\n    cout << b.w;\n}",
+      "options": [
+        "7",
+        "0",
+        "Compile error: b is declared as a function, so b.w is invalid",
+        "A garbage value"
+      ],
+      "correctIndex": 2,
+      "explanation": "Box b(); declares a function b that takes no arguments and returns a Box; it does not create an object. b.w therefore does not compile, whereas Box b; would print 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m035",
+      "questionText": "Which statement about C++ access specifiers is NOT correct?",
+      "options": [
+        "A label such as private: applies to every member that follows it until the next label",
+        "The same access label may appear more than once in one class",
+        "Access rights are checked while the program runs, each time a member is used",
+        "Members written before any label in a class are private"
+      ],
+      "correctIndex": 2,
+      "explanation": "Access checking is done entirely by the compiler, so it has no run-time cost. The other three statements are correct rules for access labels.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m036",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass M {\npublic:\n    int v;\n};\nvoid f(M *p) { p->v *= 3; }\nvoid g(M &r) { r.v -= 1; }\nint main() {\n    M m;\n    m.v = 4;\n    f(&m); g(m); f(&m);\n    cout << m.v;\n}",
+      "options": [
+        "12",
+        "36",
+        "3",
+        "33"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both the pointer and the reference refer to m itself: 4 × 3 = 12, then 12 − 1 = 11, then 11 × 3 = 33.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m037",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct P {\n    int x, y;\n};\nint main() {\n    P a[3] = {{1, 2}, {3}};\n    cout << a[1].y + a[2].x + a[0].y;\n}",
+      "options": [
+        "2",
+        "5",
+        "A garbage value",
+        "Compile error: too few initialisers"
+      ],
+      "correctIndex": 0,
+      "explanation": "In aggregate initialisation, members without an initialiser are zero-initialised: a[0] = {1, 2}, a[1] = {3, 0}, a[2] = {0, 0}. So 0 + 0 + 2 = 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i31_m038",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Pt {\npublic:\n    int x, y;\n    Pt shifted(int d) {\n        Pt r = {x + d, y + d};\n        return r;\n    }\n};\nint main() {\n    Pt a = {1, 2};\n    Pt b = a.shifted(3).shifted(1);\n    cout << a.x << a.y << \" \" << b.x << b.y;\n}",
+      "options": [
+        "56 56",
+        "12 56",
+        "12 45",
+        "45 56"
+      ],
+      "correctIndex": 1,
+      "explanation": "shifted() builds and returns a new object without changing the object it is called on, so a stays (1, 2). a.shifted(3) is (4, 5), and .shifted(1) on that returned object gives (5, 6), printed as 12 56.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m039",
+      "questionText": "Assume char is 1 byte and int is 4 bytes with 4-byte alignment. What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass A {\n    char c1;\n    int i;\n    char c2;\n};\nclass B {\n    int i;\n    char c1;\n    char c2;\n};\nint main() {\n    cout << sizeof(A) - sizeof(B);\n}",
+      "options": [
+        "0",
+        "2",
+        "4",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "A: c1 at 0, 3 padding bytes, i at 4 to 7, c2 at 8, rounded up to 12. B: i at 0 to 3, c1 at 4, c2 at 5, rounded up to 8. 12 − 8 = 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m040",
+      "questionText": "Assume short is 2 bytes and int is 4 bytes, each aligned to its own size. What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    short s;\n    int i;\n};\nint main() {\n    P arr[5];\n    cout << sizeof(arr) << \" \" << sizeof(arr[0]);\n}",
+      "options": [
+        "40 8",
+        "30 6",
+        "8 8",
+        "5 8"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each P is s (2 bytes) + 2 padding bytes + i (4 bytes) = 8 bytes, so sizeof(arr) = 5 × 8 = 40. sizeof applied to an array gives its total size in bytes, not the element count.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m041",
+      "questionText": "Assume char is 1 byte and int is 4 bytes with 4-byte alignment. What does the program print?\n\n#include <iostream>\nusing namespace std;\nclass In {\n    char c;\n    int i;\n};\nclass Out {\n    In x;\n    char d;\n};\nint main() {\n    cout << sizeof(In) << \" \" << sizeof(Out);\n}",
+      "options": [
+        "5 6",
+        "8 9",
+        "8 16",
+        "8 12"
+      ],
+      "correctIndex": 3,
+      "explanation": "In: c at 0, 3 padding bytes, i at 4 to 7, so 8 bytes with alignment 4. Out: the In member takes 0 to 7, d is at 8, and the size is rounded up to a multiple of 4: 9 → 12.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m042",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass C {\npublic:\n    int n;\n};\nvoid bump(C arr[], int k) { for (int i = 0; i < k; i++) arr[i].n += i; }\nvoid bumpOne(C c) { c.n += 100; }\nint main() {\n    C a[3] = {{1}, {2}, {3}};\n    bump(a, 3); bumpOne(a[2]);\n    int s = 0;\n    for (int i = 0; i < 3; i++) s += a[i].n;\n    cout << s;\n}",
+      "options": [
+        "6",
+        "9",
+        "109",
+        "106"
+      ],
+      "correctIndex": 1,
+      "explanation": "An array parameter is really a pointer, so bump() changes the caller's objects to 1, 3 and 5, while bumpOne() changes only a copy of a[2]. The sum is 1 + 3 + 5 = 9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m043",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Q {\npublic:\n    int a[2];\n};\nint main() {\n    Q x;\n    x.a[0] = 1; x.a[1] = 2;\n    Q y = x;\n    y.a[0] = 9;\n    x = y;\n    y.a[1] = 7;\n    cout << x.a[0] << x.a[1] << y.a[0] << y.a[1];\n}",
+      "options": [
+        "9297",
+        "9797",
+        "1297",
+        "Compile error: an object containing an array cannot be assigned"
+      ],
+      "correctIndex": 0,
+      "explanation": "Copying or assigning an object copies its array member element by element, so x and y never share storage. y becomes {9, 2}, x = y makes x {9, 2}, then y becomes {9, 7}: output 9297.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m044",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Box {\npublic:\n    int w;\n};\nBox grow(Box b) { b.w *= 2; return b; }\nint main() {\n    Box a; a.w = 3;\n    Box c = grow(grow(a));\n    a = grow(c);\n    cout << a.w << \" \" << c.w;\n}",
+      "options": [
+        "24 24",
+        "12 12",
+        "24 12",
+        "6 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "grow() doubles a copy and returns it: grow(a) gives 6 and grow(6) gives 12, so c.w = 12 while a is still 3. a = grow(c) then sets a.w = 24 and leaves c at 12.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m045",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass S {\n    int x = 0;\npublic:\n    void set(int x) { S::x = x + 1; }\n    void bad(int x) { x = x * 10; }\n    int get() { return x; }\n};\nint main() {\n    S s;\n    s.set(4);\n    s.bad(7);\n    cout << s.get();\n}",
+      "options": [
+        "70",
+        "4",
+        "50",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "Inside set() the parameter x hides the member, so S::x is needed to name the member, which becomes 4 + 1 = 5. In bad(), x = x * 10 changes only the parameter, so get() returns 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i31_m046",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Cell {\n    int v;\npublic:\n    void set(int x) { v = x; }\n    int get() { return v; }\n};\nint main() {\n    Cell g[5];\n    for (int i = 0; i < 5; i++) g[i].set(i % 2 ? i : -i);\n    int s = 0;\n    for (int i = 1; i < 5; i += 2) s += g[i].get() - g[i - 1].get();\n    cout << s;\n}",
+      "options": [
+        "2",
+        "6",
+        "-2",
+        "1"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first loop stores 0, 1, −2, 3, −4 (odd i keeps i, even i stores −i). The second loop adds g[1] − g[0] = 1 and g[3] − g[2] = 3 − (−2) = 5, so s = 6.",
+      "difficulty": "hard"
+    }
+  ]
+}

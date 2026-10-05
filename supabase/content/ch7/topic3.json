@@ -1,0 +1,1434 @@
+{
+  "parent": {
+    "id": "ch7_p3",
+    "title": "Data Models, Normalization & SQL"
+  },
+  "subtopics": [
+    {
+      "id": "ch7_t3",
+      "title": "Data Abstraction, Schemas & the E-R Model",
+      "subtitle": "DBMS vs files, three abstraction levels, data independence, data models and E-R design",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "DBMS vs File-Processing System"
+          },
+          {
+            "type": "paragraph",
+            "text": "A database is a collection of interrelated data, and a database management system (DBMS) is the software that stores, retrieves and protects it on behalf of many users and programs. Before DBMSs, organisations kept data in separate application-specific files, which led to duplication, inconsistency and programs tightly bound to file layouts. A DBMS centralises the data under one schema and provides a query language, concurrency control, recovery and security."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Issue",
+                "File system",
+                "DBMS"
+              ],
+              [
+                "Redundancy and inconsistency",
+                "Same data copied in many files; copies drift apart",
+                "Controlled redundancy under one schema"
+              ],
+              [
+                "Data access",
+                "New program needed for each new query",
+                "Declarative queries (SQL)"
+              ],
+              [
+                "Integrity",
+                "Constraints buried in application code",
+                "Constraints declared in the schema and enforced"
+              ],
+              [
+                "Atomicity and recovery",
+                "Partial updates survive crashes",
+                "Transactions with logging and recovery"
+              ],
+              [
+                "Concurrent access",
+                "Anomalies when users update together",
+                "Concurrency control (locks, timestamps)"
+              ],
+              [
+                "Security",
+                "Only OS file permissions",
+                "Fine-grained GRANT/REVOKE and views"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Levels of Abstraction, ANSI-SPARC and Data Independence"
+          },
+          {
+            "type": "bulletList",
+            "text": "The ANSI-SPARC three-schema architecture hides complexity through three levels, linked by mappings:",
+            "items": [
+              "Physical (internal) level: how data is actually stored - files, record layouts, indexes, B+-trees, hashing and block placement.",
+              "Logical (conceptual) level: what data is stored and how it is related - the tables, attributes, types and constraints of the whole database, as seen by the DBA.",
+              "View (external) level: the part of the database each user group sees; many views can exist over one logical schema, and they also restrict access for security.",
+              "Mappings: external/conceptual mapping links each view to the logical schema; conceptual/internal mapping links the logical schema to storage structures."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Data independence is the ability to change a schema at one level without rewriting the level above it:",
+            "items": [
+              "Physical data independence: change the internal schema (add an index, move files, change the file organisation) without changing the logical schema or application programs. It is easy to achieve and common.",
+              "Logical data independence: change the conceptual schema (add a column or table, split a table) without changing external views or programs. It is harder to achieve because programs depend closely on logical structure."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A schema is the overall design of the database - the relation names, attributes, types and constraints - and changes rarely. An instance (database state) is the actual data stored at a particular moment and changes with every insert, update or delete. In programming terms the schema is like a variable's type declaration and the instance is the variable's current value. Schemas exist at each level: physical schema, logical schema and several subschemas (views)."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Data model",
+                "Structure",
+                "Example / note"
+              ],
+              [
+                "Hierarchical",
+                "Tree of records; each child has one parent (1:N)",
+                "IBM IMS; navigational access"
+              ],
+              [
+                "Network",
+                "Graph of records linked by sets; M:N allowed via owner-member links",
+                "CODASYL/IDMS; navigational access"
+              ],
+              [
+                "Relational",
+                "Tables (relations) of tuples; links through key values",
+                "Oracle, MySQL, PostgreSQL; SQL"
+              ],
+              [
+                "Entity-Relationship",
+                "Entities, attributes and relationships drawn as a diagram",
+                "Conceptual design tool, mapped to tables later"
+              ],
+              [
+                "Object-based",
+                "Objects with identity, attributes, methods and inheritance",
+                "Object-oriented and object-relational DBMSs"
+              ],
+              [
+                "Semi-structured",
+                "Self-describing tagged data with a flexible schema",
+                "XML, JSON document stores"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "The Entity-Relationship Model"
+          },
+          {
+            "type": "bulletList",
+            "text": "Entities and entity sets:",
+            "items": [
+              "Entity: a distinguishable real-world object (a particular student, a course). Entity set: all entities of the same type (STUDENT) sharing the same attributes.",
+              "Strong entity set: has a primary key of its own, drawn as a single rectangle.",
+              "Weak entity set: lacks enough attributes to form a primary key; it depends on an owner (identifying) strong entity set, is drawn as a double rectangle and must have total participation in its identifying relationship.",
+              "Identifying relationship: links the weak entity to its owner, drawn as a double diamond.",
+              "Partial key (discriminator): the attribute set that distinguishes weak entities of the same owner, drawn with a dashed underline; e.g. dependent_name for DEPENDENT owned by EMPLOYEE."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Types of attributes:",
+            "items": [
+              "Simple (atomic) vs composite: roll_no cannot be divided; name can be split into first, middle and last.",
+              "Single-valued vs multivalued: date_of_birth has one value; phone_numbers may have several (double oval).",
+              "Stored vs derived: age can be derived from date_of_birth (dashed oval); total marks can be derived from subject marks.",
+              "Key attribute: uniquely identifies an entity, drawn underlined inside its oval.",
+              "Null values may appear when a value is not applicable or unknown."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A relationship is an association among entities, and a relationship set groups relationships of the same type; its degree is the number of participating entity sets (binary, ternary). Mapping cardinality for a binary relationship is 1:1, 1:N, N:1 or M:N, shown by labelling the lines or by arrows toward the 'one' side. Participation is total (every entity must take part, double line) or partial (single line). A relationship set may also carry descriptive attributes, such as grade on ENROLLS."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{PK}(W) = \\text{PK}(\\text{owner}) \\cup \\text{partial key}(W)",
+            "plainText": "PK of weak entity = PK of owner + partial key of the weak entity"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "E-R symbol",
+                "Meaning"
+              ],
+              [
+                "Rectangle / double rectangle",
+                "Strong entity set / weak entity set"
+              ],
+              [
+                "Diamond / double diamond",
+                "Relationship set / identifying relationship"
+              ],
+              [
+                "Oval / underlined name",
+                "Attribute / key attribute"
+              ],
+              [
+                "Double oval",
+                "Multivalued attribute"
+              ],
+              [
+                "Dashed oval",
+                "Derived attribute"
+              ],
+              [
+                "Oval connected to smaller ovals",
+                "Composite attribute"
+              ],
+              [
+                "Single line / double line",
+                "Partial participation / total participation"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked design: a small university has STUDENT (roll_no, name, set of phones), COURSE (course_id, title, credits) and INSTRUCTOR (inst_id, name); students ENROLL in many courses and each course has many students (M:N, with attribute grade); each course is TAUGHT_BY exactly one instructor who may teach many courses (N:1); SECTION is a weak entity identified by COURSE with partial key sec_no. Mapping rules: each strong entity becomes a table, the multivalued attribute becomes its own table, the M:N relationship becomes a table whose key is the union of both keys, the N:1 relationship becomes a foreign key on the N side, and the weak entity takes its owner's key plus its partial key."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Relation",
+                "Primary key",
+                "Mapping rule used"
+              ],
+              [
+                "Student(roll_no, name)",
+                "roll_no",
+                "Strong entity set"
+              ],
+              [
+                "Student_Phone(roll_no, phone)",
+                "(roll_no, phone)",
+                "Multivalued attribute"
+              ],
+              [
+                "Instructor(inst_id, name)",
+                "inst_id",
+                "Strong entity set"
+              ],
+              [
+                "Course(course_id, title, credits, inst_id)",
+                "course_id",
+                "N:1 TAUGHT_BY as FK inst_id"
+              ],
+              [
+                "Enroll(roll_no, course_id, grade)",
+                "(roll_no, course_id)",
+                "M:N relationship with attribute"
+              ],
+              [
+                "Section(course_id, sec_no, room)",
+                "(course_id, sec_no)",
+                "Weak entity + owner key"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{PK}(W) = \\text{PK}(\\text{owner}) \\cup \\text{partial key}(W)",
+            "plainText": "PK of weak entity = PK of owner + partial key"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{PK}(R_{M:N}) = \\text{PK}(E_1) \\cup \\text{PK}(E_2)",
+            "plainText": "Key of an M:N relationship table = union of both entity keys"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Match level to change: adding an index or changing file organisation tests physical data independence; adding a column without breaking views tests logical data independence."
+          },
+          {
+            "type": "warning",
+            "text": "A double oval means multivalued and a dashed oval means derived; a double rectangle is a weak entity, not a multivalued one. MCQs often swap these symbols."
+          },
+          {
+            "type": "note",
+            "text": "In E-R to relational mapping, a 1:N relationship needs no separate table (put the foreign key on the N side), while an M:N relationship always needs its own table."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_t3_01",
+          "title": "Weak entity key",
+          "latex": "\\text{PK}(W) = \\text{PK}(\\text{owner}) \\cup \\text{partial key}(W)",
+          "plainText": "PK of weak entity = PK of owner + partial key",
+          "description": "A weak entity is identified by its owner's primary key combined with its own discriminator."
+        },
+        {
+          "id": "f_ch7_t3_02",
+          "title": "M:N relationship key",
+          "latex": "\\text{PK}(R_{M:N}) = \\text{PK}(E_1) \\cup \\text{PK}(E_2)",
+          "plainText": "Key of an M:N relationship table = union of both entity keys",
+          "description": "An M:N relationship maps to its own table keyed by the primary keys of both participating entity sets."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_t3_01",
+          "front": "What is the difference between a schema and an instance?",
+          "back": "The schema is the logical design of the database and rarely changes; the instance is the data stored at a given moment and changes with every update.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_t3_02",
+          "front": "What is a partial key (discriminator)?",
+          "back": "The attribute set that distinguishes weak entities belonging to the same owner; combined with the owner's key it forms the weak entity's primary key.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_t3_03",
+          "front": "Which kind of data independence is harder to achieve, and why?",
+          "back": "Logical data independence, because application programs and views depend heavily on the logical structure of tables and attributes.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_t3_n01",
+          "questionText": "Adding a new column to a base table without having to rewrite existing application programs or external views is an example of:",
+          "options": [
+            "Physical data independence",
+            "Logical data independence",
+            "Referential integrity",
+            "Data redundancy"
+          ],
+          "correctIndex": 1,
+          "explanation": "Changing the conceptual (logical) schema without affecting external views or programs is logical data independence; physical independence concerns storage-level changes.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_t3_n02",
+          "questionText": "An E-R diagram has strong entity sets STUDENT and COURSE joined by an M:N relationship ENROLLS. What is the minimum number of relations needed to represent this design?",
+          "options": [
+            "2",
+            "1",
+            "4",
+            "3"
+          ],
+          "correctIndex": 3,
+          "explanation": "Each strong entity set gives one relation, and an M:N relationship needs its own relation holding both keys, so 3 relations are required.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i31",
+      "title": "Keys, Integrity Constraints & Functional Dependencies",
+      "subtitle": "Super, candidate, primary and foreign keys, constraints, FDs, Armstrong's axioms, closure",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Keys of a Relation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Keys identify tuples and link relations. Consider Student(roll_no, email, name, phone, dept_id) where both roll_no and email are unique for every student and dept_id refers to Department(dept_id, dname). A primary key must be unique and can never be NULL, and there is exactly one per relation, while a relation can have several candidate keys."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Key type",
+                "Definition",
+                "Example in Student"
+              ],
+              [
+                "Super key",
+                "Any attribute set that uniquely identifies a tuple",
+                "{roll_no}, {roll_no, name}, {email, phone}"
+              ],
+              [
+                "Candidate key",
+                "Minimal super key (no proper subset is a super key)",
+                "{roll_no}, {email}"
+              ],
+              [
+                "Primary key",
+                "Candidate key chosen by the designer; unique and NOT NULL",
+                "roll_no"
+              ],
+              [
+                "Alternate key",
+                "Candidate key not chosen as primary",
+                "email"
+              ],
+              [
+                "Foreign key",
+                "Attribute(s) referring to the primary key of another (or same) relation",
+                "dept_id -> Department.dept_id"
+              ],
+              [
+                "Composite key",
+                "Key made of two or more attributes",
+                "(roll_no, course_id) in Enroll"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\#\\text{superkeys} = 2^{n-1} \\text{ (one single-attribute candidate key, } n \\text{ attributes)}",
+            "plainText": "Number of superkeys = 2^(n-1) when there is one single-attribute candidate key among n attributes"
+          },
+          {
+            "type": "heading",
+            "text": "Integrity Constraints"
+          },
+          {
+            "type": "bulletList",
+            "text": "Integrity constraints guard the database against invalid data:",
+            "items": [
+              "Domain constraint: each value must come from the attribute's domain (type, length, range), e.g. credits INT between 1 and 6.",
+              "Key and UNIQUE constraints: no two tuples may share the same key value; UNIQUE allows one NULL in most DBMSs.",
+              "Entity integrity: no attribute of the primary key may be NULL.",
+              "Referential integrity: a foreign-key value must match an existing primary-key value in the referenced relation, or be NULL.",
+              "NOT NULL: the attribute must always have a value.",
+              "CHECK: an arbitrary predicate on each row, e.g. CHECK (salary > 0)."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "CREATE TABLE Department (\n  dept_id  INT PRIMARY KEY,\n  dname    VARCHAR(40) NOT NULL UNIQUE\n);\nCREATE TABLE Student (\n  roll_no  INT PRIMARY KEY,\n  email    VARCHAR(60) UNIQUE,\n  name     VARCHAR(50) NOT NULL,\n  age      INT CHECK (age BETWEEN 15 AND 60),\n  dept_id  INT,\n  FOREIGN KEY (dept_id) REFERENCES Department(dept_id)\n    ON DELETE SET NULL ON UPDATE CASCADE\n);"
+          },
+          {
+            "type": "paragraph",
+            "text": "Referential actions say what happens to referencing rows when a referenced row changes. ON DELETE CASCADE deletes the child rows too, ON DELETE SET NULL sets their foreign key to NULL, SET DEFAULT uses the column default, and the default NO ACTION / RESTRICT rejects the delete while children exist. ON UPDATE CASCADE propagates a changed primary-key value into all foreign keys."
+          },
+          {
+            "type": "heading",
+            "text": "Functional Dependencies and Armstrong's Axioms"
+          },
+          {
+            "type": "paragraph",
+            "text": "A functional dependency X -> Y holds on relation R if any two tuples that agree on X must also agree on Y; X is the determinant. It is trivial when Y is a subset of X. Y is fully dependent on X if it depends on no proper subset of X, partially dependent if it does, and transitively dependent when X -> Z and Z -> Y with Z not a key. A set of attributes K is a superkey exactly when K -> R."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Rule",
+                "Statement",
+                "Type"
+              ],
+              [
+                "Reflexivity",
+                "If Y is a subset of X, then X -> Y",
+                "Axiom"
+              ],
+              [
+                "Augmentation",
+                "If X -> Y, then XZ -> YZ",
+                "Axiom"
+              ],
+              [
+                "Transitivity",
+                "If X -> Y and Y -> Z, then X -> Z",
+                "Axiom"
+              ],
+              [
+                "Union",
+                "If X -> Y and X -> Z, then X -> YZ",
+                "Derived"
+              ],
+              [
+                "Decomposition",
+                "If X -> YZ, then X -> Y and X -> Z",
+                "Derived"
+              ],
+              [
+                "Pseudo-transitivity",
+                "If X -> Y and WY -> Z, then WX -> Z",
+                "Derived"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Attribute Closure and Candidate Keys"
+          },
+          {
+            "type": "paragraph",
+            "text": "The closure X+ is the set of all attributes functionally determined by X under F. Start with result = X; repeatedly, for every FD A -> B in F whose left side A is contained in result, add B; stop when nothing changes. X is a superkey if X+ contains all attributes of R, and a candidate key if in addition no proper subset of X has that property. Attributes that never appear on any right side must belong to every candidate key."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "R(A,B,C,D,E), F = {A->BC, CD->E, B->D, E->A}\nA+  : A -> ABC (A->BC) -> ABCD (B->D) -> ABCDE (CD->E)  key\nE+  : E -> AE (E->A) -> ABCE -> ABCDE                   key\nBC+ : BC -> BCD (B->D) -> BCDE (CD->E) -> ABCDE         key\nCD+ : CD -> CDE -> ACDE -> ABCDE                        key\nB+ = BD, C+ = C, D+ = D  (so BC and CD are minimal)\nCandidate keys: A, E, BC, CD"
+          },
+          {
+            "type": "paragraph",
+            "text": "A canonical (minimal) cover Fc is a simplified set equivalent to F: every right side is a single attribute (or left sides are unique after union), no FD contains an extraneous attribute on its left or right, and no FD is redundant. It is computed by splitting right sides, removing extraneous attributes by testing closures, and dropping FDs implied by the rest. Fc is used to test dependencies cheaply and to synthesise 3NF schemas."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "X^{+} = \\{A \\mid F \\vDash X \\to A\\}",
+            "plainText": "X+ = set of attributes A such that F implies X -> A"
+          },
+          {
+            "type": "formula",
+            "latex": "X \\text{ is a superkey of } R \\iff X^{+} = R",
+            "plainText": "X is a superkey iff the closure of X contains all attributes of R"
+          },
+          {
+            "type": "formula",
+            "latex": "\\#\\text{superkeys}(A \\text{ or } B \\text{ keys}) = 2^{n-1} + 2^{n-1} - 2^{n-2}",
+            "plainText": "Superkeys with two single-attribute candidate keys = 2^(n-1) + 2^(n-1) - 2^(n-2)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "To find candidate keys quickly, first collect attributes that never appear on a right side; they are in every key. Then compute closures of that core plus other attributes."
+          },
+          {
+            "type": "warning",
+            "text": "Entity integrity (primary key not NULL) and referential integrity (foreign key must match or be NULL) are different constraints; a foreign key itself may be NULL."
+          },
+          {
+            "type": "note",
+            "text": "Only reflexivity, augmentation and transitivity are Armstrong's axioms; union, decomposition and pseudo-transitivity are derived from them. The axioms are sound and complete."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i31_01",
+          "title": "Attribute closure",
+          "latex": "X^{+} = \\{A \\mid F \\vDash X \\to A\\}",
+          "plainText": "X+ = set of attributes A such that F implies X -> A",
+          "description": "The closure of X is every attribute that X determines under the given dependencies."
+        },
+        {
+          "id": "f_ch7_i31_02",
+          "title": "Superkey test",
+          "latex": "X \\text{ is a superkey of } R \\iff X^{+} = R",
+          "plainText": "X is a superkey iff X+ contains all attributes of R",
+          "description": "Compute X+ and compare it with the full attribute set to test whether X is a superkey."
+        },
+        {
+          "id": "f_ch7_i31_03",
+          "title": "Superkey count (one key)",
+          "latex": "\\#\\text{superkeys} = 2^{n-1}",
+          "plainText": "Number of superkeys = 2^(n-1)",
+          "description": "With n attributes and one single-attribute candidate key, every superset of that key is a superkey."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i31_01",
+          "front": "What is the difference between a super key and a candidate key?",
+          "back": "A super key is any attribute set that uniquely identifies tuples; a candidate key is a minimal super key with no removable attribute.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i31_02",
+          "front": "What does ON DELETE CASCADE do on a foreign key?",
+          "back": "When a referenced parent row is deleted, all child rows that refer to it are deleted automatically.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i31_03",
+          "front": "State pseudo-transitivity.",
+          "back": "If X -> Y and WY -> Z, then WX -> Z; it is derived from augmentation and transitivity.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i31_04",
+          "front": "What is a canonical cover?",
+          "back": "A minimal set of FDs equivalent to F with no extraneous attributes and no redundant dependencies.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i31_n01",
+          "questionText": "Relation R(A, B, C, D, E) has exactly two candidate keys, {A} and {B}. How many superkeys does R have?",
+          "options": [
+            "16",
+            "32",
+            "24",
+            "8"
+          ],
+          "correctIndex": 2,
+          "explanation": "Supersets of A: 2^4 = 16; supersets of B: 16; sets containing both counted twice: 2^3 = 8. Total = 16 + 16 - 8 = 24.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch7_i31_n02",
+          "questionText": "Given R(A, B, C, D) and F = {A -> B, B -> C, C -> D}, what is the closure B+?",
+          "options": [
+            "{B, C, D}",
+            "{B, C}",
+            "{A, B, C, D}",
+            "{B}"
+          ],
+          "correctIndex": 0,
+          "explanation": "Start with B; B -> C adds C; C -> D adds D. A is never implied, so B+ = {B, C, D}.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_i31_n03",
+          "questionText": "Which of the following is a derived inference rule rather than one of Armstrong's three basic axioms?",
+          "options": [
+            "Reflexivity",
+            "Augmentation",
+            "Transitivity",
+            "Pseudo-transitivity"
+          ],
+          "correctIndex": 3,
+          "explanation": "Armstrong's axioms are reflexivity, augmentation and transitivity; union, decomposition and pseudo-transitivity are derived from them.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_i31_n04",
+          "questionText": "The entity integrity constraint states that:",
+          "options": [
+            "A foreign key must match an existing primary key",
+            "No attribute of a primary key may be NULL",
+            "Every attribute value must be atomic",
+            "Every table must have a CHECK constraint"
+          ],
+          "correctIndex": 1,
+          "explanation": "Entity integrity requires primary-key attributes to be non-NULL so that every tuple can be identified; matching foreign keys is referential integrity.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i32",
+      "title": "Normalization: 1NF, 2NF, 3NF & BCNF",
+      "subtitle": "Anomalies, step-by-step decomposition, lossless join and dependency preservation",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Normalize: Update Anomalies"
+          },
+          {
+            "type": "paragraph",
+            "text": "Normalization is the process of decomposing relations, guided by functional dependencies, to remove redundancy and the anomalies it causes. A poorly designed table stores the same fact many times, so changes must be repeated and facts can be lost or impossible to record. Each normal form is a stricter condition than the previous one."
+          },
+          {
+            "type": "bulletList",
+            "text": "The three anomalies caused by redundancy:",
+            "items": [
+              "Insertion anomaly: a fact cannot be stored without an unrelated fact, e.g. a new department's head cannot be recorded until some student joins it.",
+              "Deletion anomaly: deleting one fact removes another, e.g. deleting the only student of a department loses the department head.",
+              "Update anomaly: a repeated fact must be changed in many rows; missing one leaves the data inconsistent."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Running example: StudentCourse(roll, name, dept, dept_head, course_id, title, grade) with FDs roll -> name, dept; dept -> dept_head; course_id -> title; and {roll, course_id} -> grade. In unnormalized form one row per student holds a list of courses, e.g. (101, Ram, CS, Dr. K, {DB101 Databases A, OS201 Operating Systems B+})."
+          },
+          {
+            "type": "heading",
+            "text": "1NF and 2NF"
+          },
+          {
+            "type": "paragraph",
+            "text": "First normal form requires every attribute value to be atomic: no repeating groups, lists or nested tables in a cell. We flatten the example so there is one row per student per course; the key becomes {roll, course_id}. The table is now in 1NF but Ram's name, department and head are repeated for every course he takes."
+          },
+          {
+            "type": "paragraph",
+            "text": "Second normal form requires 1NF and that no non-prime attribute is partially dependent on a candidate key (it must depend on the whole key). In the 1NF table, name, dept and dept_head depend only on roll, and title depends only on course_id. Decompose into Student(roll, name, dept, dept_head), Course(course_id, title) and Enroll(roll, course_id, grade). A relation whose candidate keys are all single attributes is automatically in 2NF."
+          },
+          {
+            "type": "heading",
+            "text": "3NF and BCNF"
+          },
+          {
+            "type": "paragraph",
+            "text": "Third normal form requires 2NF and no transitive dependency of a non-prime attribute on a key. In Student, roll -> dept and dept -> dept_head, so dept_head depends on roll transitively. Decompose into Student(roll, name, dept) and Department(dept, dept_head); the final design Student, Department, Course, Enroll is in 3NF and also in BCNF."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{3NF: } \\forall X \\to A:\\ X \\text{ is a superkey or } A \\text{ is prime}",
+            "plainText": "3NF: for every nontrivial X -> A, X is a superkey or A is a prime attribute"
+          },
+          {
+            "type": "paragraph",
+            "text": "Boyce-Codd normal form requires that for every nontrivial FD X -> Y, X is a superkey: every determinant is a candidate key. It differs from 3NF only when a non-key determinant determines a prime attribute. Extending the example, Teach(roll, subject, teacher) with {roll, subject} -> teacher and teacher -> subject has keys {roll, subject} and {roll, teacher}; it is in 3NF (subject is prime) but not BCNF because teacher is not a superkey. Decomposing into (teacher, subject) and (roll, teacher) is lossless but loses the dependency {roll, subject} -> teacher."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Step",
+                "Resulting relations",
+                "Problem removed"
+              ],
+              [
+                "UNF -> 1NF",
+                "StudentCourse(roll, course_id, name, dept, dept_head, title, grade)",
+                "Repeating group of courses"
+              ],
+              [
+                "1NF -> 2NF",
+                "Student(roll, name, dept, dept_head), Course(course_id, title), Enroll(roll, course_id, grade)",
+                "Partial dependencies on roll and course_id"
+              ],
+              [
+                "2NF -> 3NF",
+                "Student(roll, name, dept), Department(dept, dept_head)",
+                "Transitive roll -> dept -> dept_head"
+              ],
+              [
+                "3NF -> BCNF",
+                "Teach split into (teacher, subject), (roll, teacher)",
+                "Non-superkey determinant teacher"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Properties of a Good Decomposition"
+          },
+          {
+            "type": "bulletList",
+            "text": "A decomposition of R into R1 and R2 should have two properties:",
+            "items": [
+              "Lossless join: the natural join of R1 and R2 gives back exactly R, with no spurious tuples. It holds if the common attributes form a superkey of R1 or of R2.",
+              "Dependency preservation: every FD of F can be checked within a single decomposed relation, i.e. the union of the projected FDs implies F.",
+              "Decomposition to 3NF can always achieve both properties; decomposition to BCNF is always lossless but may not preserve dependencies."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "R_1 \\cap R_2 \\to R_1 \\ \\text{ or } \\ R_1 \\cap R_2 \\to R_2 \\ \\Rightarrow \\text{ lossless}",
+            "plainText": "Lossless if (R1 intersect R2) -> R1 or (R1 intersect R2) -> R2"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Normal form",
+                "Condition",
+                "Lossless + dependency preserving?"
+              ],
+              [
+                "1NF",
+                "All attribute values atomic",
+                "Yes"
+              ],
+              [
+                "2NF",
+                "1NF + no partial dependency of non-prime attributes",
+                "Yes"
+              ],
+              [
+                "3NF",
+                "2NF + no transitive dependency; X superkey or A prime",
+                "Always achievable"
+              ],
+              [
+                "BCNF",
+                "Every determinant of a nontrivial FD is a superkey",
+                "Lossless always; preservation not guaranteed"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "R_1 \\cap R_2 \\to R_1 \\ \\text{ or } \\ R_1 \\cap R_2 \\to R_2",
+            "plainText": "Lossless-join test: (R1 intersect R2) -> R1 or -> R2"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{BCNF: } \\forall X \\to Y \\text{ nontrivial},\\ X^{+} = R",
+            "plainText": "BCNF: every nontrivial FD X -> Y has X as a superkey"
+          },
+          {
+            "type": "formula",
+            "latex": "(F_1 \\cup F_2 \\cup \\dots \\cup F_n)^{+} = F^{+}",
+            "plainText": "Dependency preservation: closure of union of projected FDs = F+"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "To classify a relation, find all candidate keys first, mark prime attributes, then test each FD: partial dependency breaks 2NF, non-prime to non-prime breaks 3NF, any non-superkey determinant breaks BCNF."
+          },
+          {
+            "type": "warning",
+            "text": "Every BCNF relation is in 3NF, but not every 3NF relation is in BCNF. Any relation with only two attributes is always in BCNF."
+          },
+          {
+            "type": "note",
+            "text": "Denormalization deliberately reintroduces controlled redundancy (e.g. storing a joined column) to speed up read-heavy queries at the cost of extra update work."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i32_01",
+          "title": "Lossless-join test",
+          "latex": "R_1 \\cap R_2 \\to R_1 \\ \\text{ or } \\ R_1 \\cap R_2 \\to R_2",
+          "plainText": "(R1 intersect R2) -> R1 or (R1 intersect R2) -> R2",
+          "description": "A binary decomposition is lossless when the shared attributes are a superkey of at least one part."
+        },
+        {
+          "id": "f_ch7_i32_02",
+          "title": "3NF condition",
+          "latex": "\\forall X \\to A:\\ X \\text{ superkey or } A \\text{ prime}",
+          "plainText": "For every nontrivial X -> A, X is a superkey or A is prime",
+          "description": "3NF allows a non-superkey determinant only when the dependent attribute belongs to some candidate key."
+        },
+        {
+          "id": "f_ch7_i32_03",
+          "title": "BCNF condition",
+          "latex": "\\forall X \\to Y \\text{ nontrivial}:\\ X^{+} = R",
+          "plainText": "Every nontrivial X -> Y has X+ = R",
+          "description": "BCNF requires every determinant of a nontrivial dependency to be a superkey."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i32_01",
+          "front": "What is a deletion anomaly?",
+          "back": "Deleting one fact unintentionally removes another, such as losing a department's head when its last student row is deleted.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i32_02",
+          "front": "How can a relation be in 3NF but not in BCNF?",
+          "back": "When a non-superkey determinant determines a prime attribute, e.g. teacher -> subject where subject is part of a candidate key.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch7_i32_03",
+          "front": "Which property may be lost when decomposing to BCNF?",
+          "back": "Dependency preservation; a BCNF decomposition is always lossless but some FDs may need a join to check.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i32_n01",
+          "questionText": "Relation R(A, B, C) has FDs AB -> C and C -> B. What is the highest normal form R satisfies?",
+          "options": [
+            "1NF",
+            "2NF",
+            "3NF",
+            "BCNF"
+          ],
+          "correctIndex": 2,
+          "explanation": "Candidate keys are AB and AC, so all attributes are prime and R is in 3NF; C -> B has a non-superkey determinant, so R is not in BCNF.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch7_i32_n02",
+          "questionText": "R(A, B, C) has the single FD A -> B. Which decomposition of R is lossless?",
+          "options": [
+            "(A, B) and (B, C)",
+            "(A, B) and (A, C)",
+            "(A, C) and (B, C)",
+            "(A) and (B, C)"
+          ],
+          "correctIndex": 1,
+          "explanation": "The common attribute A determines B, so A is a key of (A, B) and the join is lossless; the other choices share B, C or nothing, none of which is a key of either part.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i33",
+      "title": "SQL: DDL, DML, Views, Assertions & Triggers",
+      "subtitle": "SQL sub-languages, SELECT with grouping, joins, subqueries, views, assertions and triggers",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "SQL Sub-languages and DDL"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Sub-language",
+                "Purpose",
+                "Commands"
+              ],
+              [
+                "DDL (Data Definition)",
+                "Define and change schema objects",
+                "CREATE, ALTER, DROP, TRUNCATE, RENAME"
+              ],
+              [
+                "DML (Data Manipulation)",
+                "Query and modify rows",
+                "SELECT, INSERT, UPDATE, DELETE"
+              ],
+              [
+                "DCL (Data Control)",
+                "Grant and remove privileges",
+                "GRANT, REVOKE"
+              ],
+              [
+                "TCL (Transaction Control)",
+                "Control transaction boundaries",
+                "COMMIT, ROLLBACK, SAVEPOINT"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "CREATE TABLE Dept (dept_id INT PRIMARY KEY, dname VARCHAR(30));\nCREATE TABLE Emp (\n  eid INT PRIMARY KEY, name VARCHAR(30),\n  dept_id INT REFERENCES Dept(dept_id),\n  mgr_id INT REFERENCES Emp(eid), salary INT\n);\nALTER TABLE Emp ADD email VARCHAR(60);\nALTER TABLE Emp DROP COLUMN email;\nTRUNCATE TABLE Emp;   -- removes all rows, keeps structure\nDROP TABLE Emp;       -- removes rows and the table definition"
+          },
+          {
+            "type": "heading",
+            "text": "Querying with SELECT"
+          },
+          {
+            "type": "paragraph",
+            "text": "A query is written SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... ORDER BY, but is logically evaluated in the order FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY. WHERE filters individual rows before grouping; HAVING filters groups after aggregation and may use aggregate functions. The aggregates are COUNT, SUM, AVG, MIN and MAX; COUNT(*) counts all rows while COUNT(col) skips NULLs, and all aggregates except COUNT(*) ignore NULL values. DISTINCT removes duplicate result rows, and ORDER BY sorts ascending by default (DESC for descending)."
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "SELECT dept_id, COUNT(*) AS n, AVG(salary) AS avg_sal\nFROM Emp\nWHERE salary > 20000\nGROUP BY dept_id\nHAVING COUNT(*) >= 2\nORDER BY avg_sal DESC;"
+          },
+          {
+            "type": "heading",
+            "text": "Joined Relations"
+          },
+          {
+            "type": "paragraph",
+            "text": "Sample data: Emp rows (1, Ram, dept 10, mgr NULL), (2, Sita, dept 20, mgr 1), (3, Hari, dept NULL, mgr 1); Dept rows (10, CS), (20, EE), (30, Civil). Joins combine these tables on matching columns, and outer joins pad non-matching rows with NULLs."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Join",
+                "Rows kept",
+                "Result on sample data"
+              ],
+              [
+                "INNER JOIN ON dept_id",
+                "Only matching pairs",
+                "2 rows: Ram-CS, Sita-EE"
+              ],
+              [
+                "LEFT OUTER JOIN",
+                "All Emp rows + matches",
+                "3 rows: Hari with NULL dname"
+              ],
+              [
+                "RIGHT OUTER JOIN",
+                "All Dept rows + matches",
+                "3 rows: Civil with NULL employee"
+              ],
+              [
+                "FULL OUTER JOIN",
+                "All rows of both",
+                "4 rows: Ram, Sita, Hari, Civil"
+              ],
+              [
+                "NATURAL JOIN",
+                "Equi-join on all same-named columns, shown once",
+                "2 rows (joins on dept_id)"
+              ],
+              [
+                "SELF JOIN Emp e, Emp m",
+                "Table joined with itself",
+                "2 rows: Sita-Ram, Hari-Ram"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "|R \\;\\text{FULL JOIN}\\; S| = |R \\bowtie S| + \\text{unmatched}(R) + \\text{unmatched}(S)",
+            "plainText": "Full outer join rows = inner join rows + unmatched R rows + unmatched S rows"
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "SELECT e.name, d.dname FROM Emp e INNER JOIN Dept d ON e.dept_id = d.dept_id;\nSELECT e.name, d.dname FROM Emp e LEFT JOIN Dept d ON e.dept_id = d.dept_id;\nSELECT e.name, d.dname FROM Emp e FULL OUTER JOIN Dept d ON e.dept_id = d.dept_id;\nSELECT * FROM Emp NATURAL JOIN Dept;\nSELECT e.name AS emp, m.name AS manager\nFROM Emp e JOIN Emp m ON e.mgr_id = m.eid;"
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "INSERT INTO Emp (eid, name, dept_id, salary) VALUES (4, 'Gita', 30, 30000);\nUPDATE Emp SET salary = salary * 1.10 WHERE dept_id = 10;\nDELETE FROM Emp WHERE salary < 10000;\n-- subquery: employees earning above the company average\nSELECT name FROM Emp WHERE salary > (SELECT AVG(salary) FROM Emp);\n-- derived relation in FROM\nSELECT t.dept_id, t.total FROM\n  (SELECT dept_id, SUM(salary) AS total FROM Emp GROUP BY dept_id) AS t\nWHERE t.total > 50000;"
+          },
+          {
+            "type": "heading",
+            "text": "Views, Assertions and Triggers"
+          },
+          {
+            "type": "paragraph",
+            "text": "A view is a virtual table defined by a stored query (CREATE VIEW v AS SELECT ...); it stores no data of its own and is recomputed when used, giving security (hide columns or rows) and simpler queries. A view is generally updatable only if it is defined on a single base table, has no aggregates, GROUP BY, DISTINCT or set operations, and includes every NOT NULL column without a default. A materialized view, by contrast, stores its result and must be refreshed. An assertion is a schema-level predicate the database must always satisfy, e.g. CREATE ASSERTION CHECK (NOT EXISTS (SELECT * FROM Emp WHERE salary < 0)); few commercial DBMSs implement it, so triggers are used instead."
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "CREATE VIEW CS_Emp AS\n  SELECT eid, name, salary FROM Emp WHERE dept_id = 10;\n\n-- MySQL syntax: keep salaries from being reduced\nCREATE TRIGGER no_pay_cut\nBEFORE UPDATE ON Emp\nFOR EACH ROW\nBEGIN\n  IF NEW.salary < OLD.salary THEN\n    SET NEW.salary = OLD.salary;   -- reject the decrease\n  END IF;\nEND;"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "|R \\times S| = |R| \\cdot |S|,\\quad \\deg(R \\times S) = \\deg R + \\deg S",
+            "plainText": "CROSS JOIN rows = |R| x |S|; columns = columns of R + columns of S"
+          },
+          {
+            "type": "formula",
+            "latex": "|R \\;\\text{FULL JOIN}\\; S| = |R \\bowtie S| + \\text{unmatched}(R) + \\text{unmatched}(S)",
+            "plainText": "Full outer join rows = inner rows + unmatched R + unmatched S"
+          },
+          {
+            "type": "formula",
+            "latex": "|R \\;\\text{LEFT JOIN}\\; S| \\ge |R|",
+            "plainText": "A left outer join returns at least as many rows as the left table"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "DELETE is DML (row by row, WHERE allowed, can be rolled back); TRUNCATE is DDL (removes all rows, keeps structure, usually cannot be rolled back); DROP removes the table definition too."
+          },
+          {
+            "type": "warning",
+            "text": "An aggregate condition such as COUNT(*) > 2 cannot go in WHERE; it belongs in HAVING because WHERE runs before grouping."
+          },
+          {
+            "type": "note",
+            "text": "A trigger follows the event-condition-action model: BEFORE triggers can inspect or change NEW values, AFTER triggers suit auditing, FOR EACH ROW fires once per affected row and a statement-level trigger fires once per statement."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i33_01",
+          "title": "Cartesian product size",
+          "latex": "|R \\times S| = |R| \\cdot |S|",
+          "plainText": "Rows of CROSS JOIN = |R| x |S|",
+          "description": "A cross join pairs every row of R with every row of S."
+        },
+        {
+          "id": "f_ch7_i33_02",
+          "title": "Full outer join size",
+          "latex": "|R \\;\\text{FULL JOIN}\\; S| = |R \\bowtie S| + \\text{unmatched}(R) + \\text{unmatched}(S)",
+          "plainText": "Full outer rows = inner rows + unmatched R + unmatched S",
+          "description": "A full outer join returns the inner-join rows plus every unmatched row of each table padded with NULLs."
+        },
+        {
+          "id": "f_ch7_i33_03",
+          "title": "Left outer join bound",
+          "latex": "|R \\;\\text{LEFT JOIN}\\; S| \\ge |R|",
+          "plainText": "Left outer join rows >= rows of R",
+          "description": "Every row of the left table appears at least once in a left outer join."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i33_01",
+          "front": "Name the four SQL sub-languages with one command each.",
+          "back": "DDL (CREATE), DML (INSERT), DCL (GRANT) and TCL (COMMIT).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i33_02",
+          "front": "What is the difference between WHERE and HAVING?",
+          "back": "WHERE filters rows before grouping and cannot use aggregates; HAVING filters groups after GROUP BY and can use aggregates.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i33_03",
+          "front": "When is a view usually updatable?",
+          "back": "When it is defined on one base table without aggregates, GROUP BY, DISTINCT or set operations and includes all required NOT NULL columns.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i33_04",
+          "front": "What is an assertion in SQL?",
+          "back": "A named schema-level condition, written CREATE ASSERTION ... CHECK (...), that the database must satisfy at all times.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i33_n01",
+          "questionText": "Which SQL command removes all rows of a table while keeping its structure, and is classified as DDL?",
+          "options": [
+            "TRUNCATE",
+            "DELETE",
+            "DROP",
+            "REVOKE"
+          ],
+          "correctIndex": 0,
+          "explanation": "TRUNCATE is a DDL command that deallocates all rows but keeps the table definition; DELETE is DML and DROP removes the table itself.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_i33_n02",
+          "questionText": "Table R has 6 rows and table S has 4 rows. An inner join on a key column gives 3 rows, involving 3 distinct R rows and 3 distinct S rows. How many rows does R FULL OUTER JOIN S return?",
+          "options": [
+            "10",
+            "6",
+            "7",
+            "24"
+          ],
+          "correctIndex": 2,
+          "explanation": "Full outer = inner rows + unmatched R + unmatched S = 3 + (6 - 3) + (4 - 3) = 7.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch7_i33_n03",
+          "questionText": "Which clause should be used to list only departments having more than five employees after GROUP BY dept_id?",
+          "options": [
+            "WHERE COUNT(*) > 5",
+            "ORDER BY COUNT(*) > 5",
+            "HAVING COUNT(*) > 5",
+            "DISTINCT COUNT(*) > 5"
+          ],
+          "correctIndex": 2,
+          "explanation": "Conditions on aggregates are applied to groups with HAVING; WHERE runs before grouping and cannot contain aggregate functions.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch7_i34",
+      "title": "Relational Algebra, Query Processing & Optimization",
+      "subtitle": "Algebra operators, query processing, cost estimation, join algorithms, optimization",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Relational Algebra Operators"
+          },
+          {
+            "type": "paragraph",
+            "text": "Relational algebra is a procedural query language: each operator takes one or two relations and produces a new relation, so operators can be composed into expressions. The fundamental operators are selection, projection, rename, union, set difference and Cartesian product; join, intersection and division can be expressed using them. Union, difference and intersection need union-compatible relations (same number of attributes with matching domains)."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Symbol",
+                "Operator",
+                "Meaning"
+              ],
+              [
+                "σ (sigma)",
+                "Selection",
+                "Rows satisfying a predicate: σ salary>50000 (Emp)"
+              ],
+              [
+                "π (pi)",
+                "Projection",
+                "Chosen columns, duplicates removed: π name (Emp)"
+              ],
+              [
+                "ρ (rho)",
+                "Rename",
+                "Renames a relation or its attributes: ρ E(Emp)"
+              ],
+              [
+                "∪",
+                "Union",
+                "Tuples in r or s (union-compatible)"
+              ],
+              [
+                "−",
+                "Set difference",
+                "Tuples in r but not in s"
+              ],
+              [
+                "×",
+                "Cartesian product",
+                "Every tuple of r paired with every tuple of s"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Symbol",
+                "Derived operator",
+                "Equivalent / meaning"
+              ],
+              [
+                "⋈",
+                "Natural / theta join",
+                "σ θ (r × s), natural join equates same-named attributes"
+              ],
+              [
+                "∩",
+                "Intersection",
+                "r − (r − s): tuples in both"
+              ],
+              [
+                "÷",
+                "Division",
+                "Tuples of r related to ALL tuples of s ('for all' queries)"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "r \\bowtie_{\\theta} s = \\sigma_{\\theta}(r \\times s), \\quad r \\cap s = r - (r - s)",
+            "plainText": "theta join = select theta over r x s; r intersect s = r - (r - s)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked query on Student(sid, name, dept), Enroll(sid, cid) and Course(cid, title): names of CS students enrolled in DB101 are π name (σ dept='CS' ∧ cid='DB101' (Student ⋈ Enroll)). Students enrolled in every course are Enroll ÷ π cid (Course): with Enroll = {(s1,c1), (s1,c2), (s2,c1)} and courses {c1, c2}, the result is {s1}. The equivalent SQL expresses division with a double NOT EXISTS."
+          },
+          {
+            "type": "code",
+            "language": "sql",
+            "text": "SELECT s.name FROM Student s JOIN Enroll e ON s.sid = e.sid\nWHERE s.dept = 'CS' AND e.cid = 'DB101';\n\n-- division: students enrolled in all courses\nSELECT s.sid FROM Student s\nWHERE NOT EXISTS (\n  SELECT c.cid FROM Course c\n  WHERE NOT EXISTS (\n    SELECT * FROM Enroll e WHERE e.sid = s.sid AND e.cid = c.cid));"
+          },
+          {
+            "type": "heading",
+            "text": "Query Processing Steps"
+          },
+          {
+            "type": "bulletList",
+            "text": "A SQL query passes through these stages before results are returned:",
+            "items": [
+              "Parsing and translation: check syntax, verify relation and attribute names against the catalog, and translate the query into an internal relational-algebra expression (parse tree).",
+              "Query decomposition: normalise the WHERE predicate (conjunctive normal form), analyse it for semantic errors, eliminate redundancy and rewrite it into an algebra tree.",
+              "Optimization: generate equivalent expressions and evaluation plans, estimate their costs from catalog statistics and pick the cheapest plan.",
+              "Evaluation: the query-execution engine runs the chosen plan using algorithms for each operation and returns the answer."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Cost Estimation and Operation Algorithms"
+          },
+          {
+            "type": "paragraph",
+            "text": "Disk access dominates query cost, so cost is measured as the number of block transfers b and disk seeks S, weighted by the time per transfer tT and per seek tS. Statistics in the catalog, such as the number of tuples n_r, blocks b_r and distinct values V(A, r), let the optimizer estimate the sizes of intermediate results. CPU cost is usually ignored in textbook estimates."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Cost} = b \\cdot t_T + S \\cdot t_S",
+            "plainText": "Cost = b x tT + S x tS (block transfers and seeks)"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Algorithm",
+                "Worst-case block transfers",
+                "Notes"
+              ],
+              [
+                "Linear scan selection",
+                "b_r",
+                "Works for any predicate"
+              ],
+              [
+                "Binary search selection",
+                "⌈log2 b_r⌉",
+                "File sorted on the selection attribute"
+              ],
+              [
+                "Nested-loop join",
+                "n_r · b_s + b_r",
+                "Any join condition; r is the outer relation"
+              ],
+              [
+                "Block nested-loop join",
+                "b_r · b_s + b_r",
+                "Scans inner once per outer block"
+              ],
+              [
+                "Indexed nested-loop join",
+                "b_r + n_r · c",
+                "c = cost of an index lookup on s"
+              ],
+              [
+                "Merge join",
+                "b_r + b_s (+ sort cost)",
+                "Equi/natural join on sorted inputs"
+              ],
+              [
+                "Hash join",
+                "3(b_r + b_s)",
+                "Equi-join; partition then probe"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "An expression tree can be evaluated by materialisation, where each operation's result is written to a temporary relation on disk and read by the parent, or by pipelining, where tuples are passed to the parent operation as soon as they are produced. Pipelining saves the cost of writing and re-reading temporaries but is impossible for blocking operations such as sorting. Pipelines can be demand-driven (the parent pulls tuples) or producer-driven (the child pushes tuples)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Equivalence rules and heuristics used by the optimizer:",
+            "items": [
+              "Cascade of selections: σ θ1∧θ2 (E) = σ θ1 (σ θ2 (E)); selections are commutative.",
+              "Push selections down: perform σ as early as possible, below joins, to shrink intermediate results.",
+              "Push and combine projections: π L1 (π L2 (E)) = π L1 (E); project out unneeded attributes early.",
+              "Join commutativity and associativity: E1 ⋈ E2 = E2 ⋈ E1 and (E1 ⋈ E2) ⋈ E3 = E1 ⋈ (E2 ⋈ E3), used to choose a good join order.",
+              "Replace a σ over a × by a join, and perform the most restrictive selections and joins first."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Cost-based optimization enumerates alternative plans produced by the equivalence rules, with different join orders and algorithms, estimates each plan's cost using catalog statistics, and picks the cheapest. Dynamic programming over subsets of relations (as in System R, often restricted to left-deep join trees) keeps this search feasible. Practical optimizers combine heuristics to prune the search with cost estimates to choose among the remaining plans."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Cost} = b \\cdot t_T + S \\cdot t_S",
+            "plainText": "Cost = block transfers x tT + seeks x tS"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{NLJ} = n_r \\cdot b_s + b_r",
+            "plainText": "Nested-loop join worst case = n_r x b_s + b_r block transfers"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{BNLJ} = b_r \\cdot b_s + b_r",
+            "plainText": "Block nested-loop join worst case = b_r x b_s + b_r block transfers"
+          },
+          {
+            "type": "formula",
+            "latex": "r \\bowtie_{\\theta} s = \\sigma_{\\theta}(r \\times s)",
+            "plainText": "Theta join = selection over Cartesian product"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For nested-loop join cost questions, put the smaller relation as the outer one; with block nested-loop the cost b_r · b_s + b_r is minimised by making the relation with fewer blocks the outer."
+          },
+          {
+            "type": "warning",
+            "text": "Projection in relational algebra removes duplicates (set semantics), but SQL SELECT keeps duplicates unless DISTINCT is written."
+          },
+          {
+            "type": "note",
+            "text": "Division answers 'for all' queries such as 'students who took every course'; in SQL it is written with a double NOT EXISTS or with GROUP BY and COUNT comparison."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch7_i34_01",
+          "title": "Query cost",
+          "latex": "\\text{Cost} = b \\cdot t_T + S \\cdot t_S",
+          "plainText": "Cost = b x tT + S x tS",
+          "description": "Query cost counts block transfers and disk seeks weighted by their times."
+        },
+        {
+          "id": "f_ch7_i34_02",
+          "title": "Nested-loop join",
+          "latex": "\\text{NLJ} = n_r \\cdot b_s + b_r",
+          "plainText": "n_r x b_s + b_r block transfers",
+          "description": "In the worst case the inner relation is scanned once for every tuple of the outer relation."
+        },
+        {
+          "id": "f_ch7_i34_03",
+          "title": "Block nested-loop join",
+          "latex": "\\text{BNLJ} = b_r \\cdot b_s + b_r",
+          "plainText": "b_r x b_s + b_r block transfers",
+          "description": "The inner relation is scanned once per block of the outer relation instead of once per tuple."
+        },
+        {
+          "id": "f_ch7_i34_04",
+          "title": "Hash join",
+          "latex": "\\text{HJ} \\approx 3(b_r + b_s)",
+          "plainText": "Hash join about 3(b_r + b_s) block transfers",
+          "description": "Both relations are read and written once when partitioning and read again when probing."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch7_i34_01",
+          "front": "Which relational algebra operators are fundamental?",
+          "back": "Selection, projection, rename, union, set difference and Cartesian product; join, intersection and division are derived.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch7_i34_02",
+          "front": "Why push selections down in a query tree?",
+          "back": "Filtering rows early shrinks intermediate results, so later joins process fewer tuples and blocks.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch7_i34_03",
+          "front": "What are the main steps of query processing?",
+          "back": "Parsing and translation, optimization, and evaluation of the chosen execution plan.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch7_i34_n01",
+          "questionText": "Relation r has 10,000 tuples in 400 blocks and s has 100 blocks. Using block nested-loop join with r as the outer relation, what is the worst-case number of block transfers?",
+          "options": [
+            "1,000,400",
+            "40,000",
+            "500",
+            "40,400"
+          ],
+          "correctIndex": 3,
+          "explanation": "Block nested-loop cost = b_r · b_s + b_r = 400 × 100 + 400 = 40,400 block transfers.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch7_i34_n02",
+          "questionText": "Which relational algebra operator is best suited to the query 'find students who have enrolled in all courses'?",
+          "options": [
+            "Union",
+            "Division",
+            "Rename",
+            "Set difference"
+          ],
+          "correctIndex": 1,
+          "explanation": "Division r ÷ s returns tuples of r associated with every tuple of s, which is exactly a 'for all' query.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch7_i34_n03",
+          "questionText": "In query evaluation, which technique passes tuples from one operation directly to the next without writing intermediate results to disk?",
+          "options": [
+            "Pipelining",
+            "Materialisation",
+            "External sorting",
+            "Checkpointing"
+          ],
+          "correctIndex": 0,
+          "explanation": "Pipelining feeds each produced tuple straight to the parent operation, avoiding temporary relations that materialisation writes to disk.",
+          "difficulty": "easy"
+        }
+      ]
+    }
+  ]
+}

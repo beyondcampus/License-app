@@ -1,0 +1,500 @@
+{
+  "topicId": "ch5_t6",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Security Goals and Attacks"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on the security goals, cleaned up and extended:",
+      "items": [
+        "Confidentiality: only authorised people can read the data; achieved by encryption and access control.",
+        "Integrity: data stays accurate and unaltered, or any change is detected; achieved by hashes, MACs and digital signatures. A plain hash only catches accidental change, because an attacker who alters the data can recompute it.",
+        "Availability: systems and data can be reached when needed; achieved by redundancy, backups, failover and DDoS protection.",
+        "Authentication (who you are): something you know (password, PIN), something you have (token, smart card, phone) or something you are (fingerprint, face). Multi-factor authentication combines two or more different kinds.",
+        "Authorisation (what you may do) comes after authentication, and accountability (who did it) traces every action to one responsible user through personal accounts and audit logs.",
+        "Non-repudiation (you cannot deny it): a digital signature gives the receiver proof of origin that a third party can check; signed, time-stamped logs support it."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Attack",
+          "Goal it threatens",
+          "Main defence"
+        ],
+        [
+          "Eavesdropping (release of message contents)",
+          "Confidentiality",
+          "Encryption (TLS, IPsec, WPA2/WPA3)"
+        ],
+        [
+          "Traffic analysis",
+          "Confidentiality of traffic patterns",
+          "Traffic padding, tunnels that hide end addresses"
+        ],
+        [
+          "Masquerade",
+          "Authenticity",
+          "Strong authentication, MFA"
+        ],
+        [
+          "Replay",
+          "Authenticity and integrity",
+          "Nonces, timestamps, sequence numbers"
+        ],
+        [
+          "Modification of messages",
+          "Integrity",
+          "MAC or digital signature on each message"
+        ],
+        [
+          "DoS / DDoS",
+          "Availability",
+          "Rate limiting, filtering, SYN cookies, scrubbing services"
+        ],
+        [
+          "Man-in-the-middle",
+          "Confidentiality and integrity",
+          "Authenticated key exchange with certificates"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Most web application attacks exploit a program that treats untrusted input as code or trusts a request too readily. In SQL injection the input changes the structure of a database query; parameterised queries (prepared statements) keep input as pure data. In cross-site scripting (XSS) the site echoes attacker-supplied script into pages that other users load; output encoding and a Content Security Policy stop it. In cross-site request forgery (CSRF) a malicious page makes a logged-in victim's browser send a request that the site accepts because the browser attaches the session cookie automatically; anti-CSRF tokens and SameSite cookies stop it. Session hijacking takes over a logged-in session by stealing or predicting its session ID, so sites use HTTPS everywhere, long random session IDs and a fresh ID at each login."
+    },
+    {
+      "type": "bulletList",
+      "text": "Spoofing, interception and low-level attacks:",
+      "items": [
+        "IP spoofing: forging the source IP address. Replies go to the forged address, so it is used mainly in floods and reflection attacks; ISPs counter it with ingress filtering (BCP 38).",
+        "ARP spoofing: forged ARP replies map the gateway's IP address to the attacker's MAC address on a LAN, a common route to a man-in-the-middle position; dynamic ARP inspection on switches counters it.",
+        "DNS spoofing (cache poisoning): a resolver caches a forged answer and sends every one of its users to the wrong IP address; random query IDs and source ports make forging harder, and DNSSEC lets resolvers detect forged records.",
+        "Buffer overflow: a program copies more data into a fixed-size buffer than it can hold and overwrites neighbouring memory, such as a saved return address; bounds checking, stack canaries, ASLR and non-executable memory are the defences.",
+        "Botnet: many compromised hosts (bots) under one controller's command-and-control channel, used for DDoS, spam and mass login attempts."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Social engineering attacks the person rather than the technology. Phishing sends mass fake e-mails or links to fake sites; spear phishing is tailored to one person or group, whaling targets senior executives, vishing uses voice calls and smishing uses SMS. Pretexting invents a believable story (such as a call from the help desk), baiting leaves an infected USB stick to be found, and tailgating follows an authorised person through a secured door. The defences are awareness training, checking any unusual request through a separate known channel, and multi-factor authentication so that a stolen password alone is not enough."
+    },
+    {
+      "type": "formula",
+      "latex": "N = C^{L}, \\quad T_{\\max} = \\frac{N}{R}, \\quad T_{\\text{avg}} = \\frac{N}{2R}",
+      "plainText": "N = C^L possible passwords (C symbols, length L); worst-case search time = N / R and average time = N / (2R) at R guesses per second"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: exhaustive-search time for three password policies\nAssume an offline attacker tests R = 10^10 guesses per second\nPolicy A: 8 lowercase letters      N = 26^8  = 2.09 x 10^11\n          worst case T = N / R = 20.9 s\nPolicy B: 8 of 94 printable chars  N = 94^8  = 6.10 x 10^15\n          worst case T = 6.10 x 10^5 s = about 7.1 days\nPolicy C: 12 lowercase letters     N = 26^12 = 9.54 x 10^16\n          worst case T = 9.54 x 10^6 s = about 110 days\nEach extra character multiplies N by C, so length adds strength fastest\nAverage time is half the worst case (the password is found halfway)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: why every password gets its own random salt\nStolen table: 1,000 users; attacker tries a list of 10^7 common passwords\nUnsalted: hash each word once = 10^7 hashes, compare with all 1,000\n          stored values at once; equal passwords give equal hashes\nSalted (unique random salt per user): hash(salt_i || word) differs\n          for each user = 10^7 x 1,000 = 10^10 hashes\nRainbow table built without salts: useless, one table per salt needed\nGuessing ONE salted hash still costs only 10^7 hashes"
+    },
+    {
+      "type": "examTip",
+      "text": "Quick classification: passive attacks are release of message contents and traffic analysis (they threaten confidentiality and are hard to detect, so the emphasis is on prevention: encryption against reading the contents, traffic padding against traffic analysis); active attacks are masquerade, replay, modification and DoS (detect them and recover). A virus needs a host file, a worm spreads by itself, and a trojan hides inside useful-looking software. DoS comes from one source, DDoS from many, usually a botnet."
+    },
+    {
+      "type": "warning",
+      "text": "Salting does not make guessing a single password slower; it only stops precomputed (rainbow) tables and cracking many accounts in one pass. Passwords must be stored with a deliberately slow, salted password-hashing function such as Argon2, scrypt, bcrypt or PBKDF2, never with one fast hash like MD5 or SHA-256, and never with reversible encryption."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_t6_m001",
+      "questionText": "What does DDoS stand for?",
+      "options": [
+        "Direct Denial of Service",
+        "Distributed Denial of Service",
+        "Data Denial of Service",
+        "Digital Denial of Service"
+      ],
+      "correctIndex": 1,
+      "explanation": "DDoS is Distributed Denial of Service: many sources, usually the hosts of a botnet, flood a target at once so it cannot serve legitimate users. Because the traffic comes from many addresses, it is much harder to block than a single-source DoS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m002",
+      "questionText": "Which attack involves secretly intercepting the communication between two parties, who believe they are talking directly to each other, so that the attacker can read or alter it?",
+      "options": [
+        "Denial of Service (DoS)",
+        "Phishing",
+        "Man-in-the-middle (MITM)",
+        "SQL injection"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a MITM attack the attacker sits on the path (for example after ARP or DNS spoofing) and relays, reads or modifies the traffic. Authenticated key exchange, such as TLS with verified certificates, defeats it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m003",
+      "questionText": "What type of security attack is phishing?",
+      "options": [
+        "A social engineering attack that uses fake e-mails or websites to trick people into revealing sensitive information",
+        "A packet-sniffing attack that captures passwords from the network",
+        "A denial-of-service attack that floods a mail server with messages",
+        "An attack that corrupts the cache of a DNS server"
+      ],
+      "correctIndex": 0,
+      "explanation": "Phishing deceives the user rather than breaking the technology: a genuine-looking message leads to a fake login page or asks for details. Awareness training, checking the real sender and link, and multi-factor authentication are the defences.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m004",
+      "questionText": "An insider changes the dosage values in a hospital's patient records without authorisation. Which security goal has been violated?",
+      "options": [
+        "Confidentiality",
+        "Availability",
+        "Authentication",
+        "Integrity"
+      ],
+      "correctIndex": 3,
+      "explanation": "Integrity means data is not altered without authorisation, or any change is detected. Nothing was disclosed (confidentiality), the records stayed usable (availability), and the insider's login itself was genuine.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m005",
+      "questionText": "Thousands of hijacked computers flood an online banking site with requests, so customers cannot log in for three hours; no account data is read or changed. Which security goal is violated?",
+      "options": [
+        "Confidentiality",
+        "Integrity",
+        "Availability",
+        "Accountability"
+      ],
+      "correctIndex": 2,
+      "explanation": "Availability means authorised users can reach the service when they need it, and a flood that locks them out breaks exactly that. No data was disclosed or altered, so confidentiality and integrity are intact.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m006",
+      "questionText": "A user enters a password and a one-time code, the system confirms who she is, and it then lets her read a shared report but not edit it. Which statement is correct?",
+      "options": [
+        "Checking the password and code is authentication; granting read-only access is authorisation",
+        "Checking the password and code is authorisation; granting read-only access is authentication",
+        "Both steps are authentication, because each one checks the user",
+        "Both steps are accountability, because each one is logged"
+      ],
+      "correctIndex": 0,
+      "explanation": "Authentication verifies identity, here with two factors (something she knows and something she has); authorisation then decides what that identity may do. Authentication always comes first.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m007",
+      "questionText": "Each administrator has a personal account, and every configuration change is written to an audit log with the account name and time. Which security principle does this chiefly support?",
+      "options": [
+        "Availability",
+        "Accountability",
+        "Confidentiality",
+        "Anonymity"
+      ],
+      "correctIndex": 1,
+      "explanation": "Accountability means every action can be traced to the entity responsible, which needs unique identities and an audit trail. With a shared admin account the log could not show who made a change.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m008",
+      "questionText": "In the ITU-T X.800 security architecture, which security service protects against a sender later falsely denying that it sent a message?",
+      "options": [
+        "Peer entity authentication",
+        "Data confidentiality",
+        "Access control",
+        "Non-repudiation with proof of origin"
+      ],
+      "correctIndex": 3,
+      "explanation": "Non-repudiation gives the receiver evidence of origin, usually a digital signature, that a third party such as a judge can check. Peer entity authentication only convinces the receiver during the exchange and leaves no transferable proof.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m009",
+      "questionText": "ITU-T X.800 separates security services from the mechanisms that implement them. Which of the following appears in X.800 only as a mechanism, not as a service?",
+      "options": [
+        "Data confidentiality",
+        "Non-repudiation",
+        "Notarization",
+        "Peer entity authentication"
+      ],
+      "correctIndex": 2,
+      "explanation": "The X.800 specific mechanisms are encipherment, digital signature, access control, data integrity, authentication exchange, traffic padding, routing control and notarization, which uses a trusted third party to vouch for an exchange. Data confidentiality, non-repudiation and authentication are services.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m010",
+      "questionText": "An observer cannot decrypt the traffic between two companies but notices that the number and size of their messages jump sharply a few days before each merger announcement. Which kind of attack is this, and which X.800 mechanism counters it?",
+      "options": [
+        "Traffic analysis, a passive attack; countered by traffic padding",
+        "Release of message contents, a passive attack; countered by stronger encryption",
+        "Masquerade, an active attack; countered by authentication exchange",
+        "Modification of messages, an active attack; countered by data integrity checks"
+      ],
+      "correctIndex": 0,
+      "explanation": "Learning from who communicates, when and how much, without reading the contents, is traffic analysis. Encryption hides the content but not the volume or timing, so traffic padding adds dummy traffic to flatten the pattern.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m011",
+      "questionText": "Using a stolen user name and password, an attacker logs in to a payroll system as a legitimate employee. In Stallings' classification of active attacks, this is:",
+      "options": [
+        "Replay",
+        "Masquerade",
+        "Traffic analysis",
+        "Modification of messages"
+      ],
+      "correctIndex": 1,
+      "explanation": "Masquerade means one entity pretends to be another, here by using stolen credentials. A replay retransmits a captured protocol message unchanged, and traffic analysis is a passive attack.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m012",
+      "questionText": "Which measure best protects an authentication protocol against replay attacks?",
+      "options": [
+        "Encrypting the password with the same fixed key at every login",
+        "Requiring passwords of at least 12 characters",
+        "Compressing the login message before it is sent",
+        "Including a fresh nonce, timestamp or sequence number in each authenticated message, so that an old copy is rejected"
+      ],
+      "correctIndex": 3,
+      "explanation": "A replayed message is genuine, only old, so the receiver needs proof of freshness. With a fixed key the encrypted password is identical every time, and an attacker can replay it without ever decrypting it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m013",
+      "questionText": "A free 'PDF converter' downloaded from an unofficial site works as advertised but also silently opens a backdoor for a remote attacker. It does not copy itself to other files or computers. This malware is a:",
+      "options": [
+        "Trojan horse",
+        "Worm",
+        "Virus",
+        "Ransomware"
+      ],
+      "correctIndex": 0,
+      "explanation": "A trojan hides a malicious function inside software that looks useful and relies on the user to install it; it does not self-replicate. A virus infects other files, a worm spreads itself across the network, and ransomware encrypts files for a ransom.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m014",
+      "questionText": "A large group of compromised computers, controlled remotely through a command-and-control server and used together to send spam or launch DDoS attacks, is called a:",
+      "options": [
+        "Rootkit",
+        "Honeynet",
+        "Botnet",
+        "Logic bomb"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each infected machine (a bot or zombie) waits for the controller's commands, so thousands can be aimed at one target. A honeynet is a decoy network run by defenders, and a logic bomb is code that fires when a condition is met.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m015",
+      "questionText": "Which type of malware is designed mainly to hide its own presence, and that of other malicious software, from the operating system and security tools while keeping privileged access to the machine?",
+      "options": [
+        "Adware",
+        "Rootkit",
+        "Worm",
+        "Keylogger"
+      ],
+      "correctIndex": 1,
+      "explanation": "A rootkit changes the operating system, or runs below it in the kernel or firmware, so that its files, processes and connections are hidden from normal tools. Removing one often needs a trusted boot medium or a full reinstall.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m016",
+      "questionText": "An attacker telephones an employee, claims to be from the IT help desk and persuades her to read out her password so that he can 'fix her account'. What kind of attack is this?",
+      "options": [
+        "Brute-force password attack",
+        "SQL injection",
+        "Buffer overflow",
+        "Social engineering (pretexting by phone, also called vishing)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The attacker manipulates a person with a false story instead of breaking any system. Staff should never reveal passwords and should verify such calls through a known number.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t6_m017",
+      "questionText": "A fake e-mail addressed by name to one finance officer mentions her current project and asks her to approve an urgent invoice through a link. Compared with ordinary phishing, this is best described as:",
+      "options": [
+        "Spear phishing",
+        "Smishing",
+        "Pharming",
+        "Vishing"
+      ],
+      "correctIndex": 0,
+      "explanation": "Spear phishing is phishing tailored to a specific person or group using researched details, which makes it more convincing. Smishing uses SMS, vishing uses voice calls, and pharming redirects users to a fake site by tampering with name resolution.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m018",
+      "questionText": "What is the most effective defence against SQL injection in a web application?",
+      "options": [
+        "Encrypting the database files on the server's disk",
+        "Serving the site only over HTTPS",
+        "Using parameterised queries (prepared statements), so that user input is always treated as data and never as SQL code",
+        "Hiding database error messages from users"
+      ],
+      "correctIndex": 2,
+      "explanation": "SQL injection works because input pasted into the text of a query changes its structure; parameterised queries send the query and the data separately. Disk encryption and HTTPS protect stored and transmitted data but do not change how the query is built, and hiding errors only makes attacks harder to notice.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m019",
+      "questionText": "Which statement correctly distinguishes cross-site scripting (XSS) from cross-site request forgery (CSRF)?",
+      "options": [
+        "XSS makes a logged-in user's browser send an unwanted request that carries the session cookie; CSRF makes a vulnerable site deliver attacker-supplied script to its visitors",
+        "XSS makes a vulnerable site deliver attacker-supplied script that runs in its visitors' browsers; CSRF makes a logged-in user's browser send an unwanted request that the site trusts because the session cookie is attached automatically",
+        "XSS and CSRF are both attacks on the database server, which executes the injected SQL statements",
+        "XSS is a passive attack that only reads the traffic, while CSRF is an active attack that floods the server"
+      ],
+      "correctIndex": 1,
+      "explanation": "XSS is stopped by output encoding and a Content Security Policy, CSRF by anti-CSRF tokens and SameSite cookies. Injected SQL describes SQL injection, which is neither of them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m020",
+      "questionText": "What is session hijacking?",
+      "options": [
+        "Filling a server's table of half-open TCP connections with SYN segments",
+        "Guessing a user's password by trying every word in a dictionary",
+        "Sending users to a wrong IP address by poisoning a resolver's cache",
+        "Taking over a user's authenticated session by stealing or predicting its session identifier, such as a session cookie"
+      ],
+      "correctIndex": 3,
+      "explanation": "Whoever presents a valid session ID is treated as the logged-in user, so the attacker never needs the password. Defences are HTTPS on every page, long random session IDs, Secure and HttpOnly cookies, and a new ID at each login.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m021",
+      "questionText": "Which statement about DNS spoofing (DNS cache poisoning) is correct?",
+      "options": [
+        "A resolver is made to cache a forged record, so users who look up the name are sent to the attacker's address; DNSSEC lets resolvers detect such forged answers",
+        "It forges the source MAC address of Ethernet frames so that a switch forwards traffic to the wrong port",
+        "It is a passive attack, because the attacker only listens to DNS queries",
+        "It misleads only the one user whose query was answered falsely, never the other users of the same resolver"
+      ],
+      "correctIndex": 0,
+      "explanation": "The forged record sits in the resolver's cache, so every client of that resolver is misdirected until it expires. Random query IDs and source ports make forging harder, and DNSSEC signatures let a validating resolver reject forged records.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m022",
+      "questionText": "In software security, what is a buffer overflow?",
+      "options": [
+        "A program keeps allocating memory without ever freeing it, until the system runs out of memory",
+        "A TCP receiver's buffer fills up, so it advertises a receive window of zero",
+        "A program writes more data into a fixed-size memory buffer than it can hold, overwriting adjacent memory, which can crash the program or let an attacker change its control flow",
+        "Too many users log in at once, so the server's CPU load reaches 100 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "It is a programming bug, typically copying input without checking its length (as with C's gets or strcpy). Bounds checking, stack canaries, ASLR and non-executable memory (NX/DEP) are the defences; the other options describe a memory leak, TCP flow control and overload.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m023",
+      "questionText": "Which pairing of an attack with its main defence is NOT correct?",
+      "options": [
+        "SQL injection: parameterised queries",
+        "Replay: nonces or timestamps in each message",
+        "Buffer overflow: bounds checking, stack canaries and ASLR",
+        "Traffic analysis: hashing the payload of each packet"
+      ],
+      "correctIndex": 3,
+      "explanation": "A hash gives integrity but hides neither the content nor the traffic pattern; traffic analysis is countered by traffic padding and by tunnels that hide the end addresses. The other three pairings are the standard defences.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m024",
+      "questionText": "In a TCP SYN flood, which server resource is exhausted, and how do SYN cookies avoid it?",
+      "options": [
+        "The CPU, by decrypting fake TLS records; SYN cookies make the server switch to a shorter key",
+        "The queue of half-open connections; the server encodes the connection details in the initial sequence number of its SYN-ACK and stores nothing until a valid final ACK arrives",
+        "The port-number space; SYN cookies give each client a second port number",
+        "The routing table; SYN cookies add a static route towards each client"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each SYN normally creates a half-open entry that waits for the final ACK; spoofed SYNs never send one, so the backlog fills and genuine clients are refused. With SYN cookies the returning ACK number (cookie + 1) lets the server rebuild the state, so the flood uses no connection memory.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m025",
+      "questionText": "How many different 6-character passwords can be formed from the 26 lowercase letters if letters may repeat?",
+      "options": [
+        "308,915,776",
+        "165,765,600",
+        "156",
+        "About 1.7 x 10^20"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each of the 6 positions independently takes any of 26 letters: N = 26^6 = 308,915,776. 165,765,600 wrongly forbids repeats (26 x 25 x 24 x 23 x 22 x 21), 156 multiplies instead of raising to a power, and 6^26 swaps base and exponent.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t6_m026",
+      "questionText": "An attacker who has stolen a password hash can test 10^9 guesses per second offline. The password has 8 characters chosen from the 62 upper-case letters, lower-case letters and digits. What is the worst-case time to try every possible password?",
+      "options": [
+        "About 30.3 hours",
+        "About 3.5 minutes",
+        "About 60.7 hours (about 2.5 days)",
+        "About 6.9 years"
+      ],
+      "correctIndex": 2,
+      "explanation": "N = 62^8 = 2.18 x 10^14; T = N / R = 2.18 x 10^14 / 10^9 = 2.18 x 10^5 s = 60.7 h. On average the password is found halfway (30.3 h); 3.5 minutes is the figure for lowercase letters only (26^8).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m027",
+      "questionText": "Policy A requires 10 lowercase letters; policy B requires 8 characters from the 62 letters (both cases) and digits. Assuming passwords are chosen uniformly at random, which policy has the larger keyspace, and by about what factor?",
+      "options": [
+        "Policy A, by a factor of about 1.55",
+        "Policy A, by a factor of about 1.25",
+        "Policy B, by a factor of about 2.38",
+        "Policy B, by a factor of about 1.55"
+      ],
+      "correctIndex": 3,
+      "explanation": "A: 26^10 = 1.41 x 10^14; B: 62^8 = 2.18 x 10^14; B / A = 1.55. Here two extra characters do not make up for the much smaller alphabet (1.25 = 10/8 and 2.38 = 62/26 compare the wrong quantities).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m028",
+      "questionText": "An attacker steals 5,000 password hashes and tries a list of 200,000 common passwords against all of them. How many hash computations are needed if the hashes are unsalted, and if each has its own random salt?",
+      "options": [
+        "10^9 unsalted; 2 x 10^5 salted",
+        "2 x 10^5 unsalted; 10^9 salted",
+        "2 x 10^5 in both cases, because the salt is stored in plain text",
+        "5,000 unsalted; 10^9 salted"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unsalted: each word is hashed once (2 x 10^5 hashes) and compared with all 5,000 stored values. With unique salts every word must be hashed again for every user: 2 x 10^5 x 5,000 = 10^9 hashes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m029",
+      "questionText": "A web server has a mean time between failures (MTBF) of 1,990 hours and a mean time to repair (MTTR) of 10 hours. What is its availability, and about how many hours of downtime does that mean in a year of 8,760 hours?",
+      "options": [
+        "99.5 %, about 43.8 hours",
+        "99.5 %, about 4.4 hours",
+        "99.0 %, about 87.6 hours",
+        "99.95 %, about 4.4 hours"
+      ],
+      "correctIndex": 0,
+      "explanation": "A = MTBF / (MTBF + MTTR) = 1,990 / 2,000 = 0.995 = 99.5 %. Downtime = (1 - 0.995) x 8,760 h = 43.8 h per year.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t6_m030",
+      "questionText": "Why does storing each password hash with its own random salt defeat rainbow tables?",
+      "options": [
+        "The salt is a secret key that encrypts the hash, so the attacker cannot read it",
+        "The salt makes every single hash computation thousands of times slower",
+        "The salt changes at every login, so a stolen hash is soon out of date",
+        "A rainbow table is precomputed from hashes of unsalted passwords, so with random salts a separate table would be needed for every possible salt value"
+      ],
+      "correctIndex": 3,
+      "explanation": "Salts are stored in plain text beside the hash and are not secret; they defeat precomputation and make identical passwords hash differently. Slowing down each guess needs a slow function such as Argon2, scrypt, bcrypt or PBKDF2.",
+      "difficulty": "medium"
+    }
+  ]
+}

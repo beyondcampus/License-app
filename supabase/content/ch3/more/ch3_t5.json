@@ -1,0 +1,667 @@
+{
+  "topicId": "ch3_t5",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: How a Virtual Call Is Resolved"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every expression that names an object has a static type, fixed by its declaration, and the object it refers to has a dynamic type, the class it was actually created as. For a call p->f() the compiler always uses the static type to find the name, check access and pick among overloads; only if the chosen function is virtual is the body finally taken from the dynamic type, through the vptr. The function that runs is the final overrider: the most-derived override on the path from the static class to the object's class. Three situations make even a virtual call run a base version when the object is really a Derived: calling through a base-class object instead of a pointer or reference, qualifying the name as Base::f(), and calling from inside a base constructor or destructor."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() { cout << \"Bf \"; }\n    void g() { cout << \"Bg \"; f(); }\n};\nstruct Der : Base {\n    void f() override { cout << \"Df \"; }\n    void g() { cout << \"Dg \"; }\n};\nint main() {\n    Der d; Base *p = &d; Base b = d;\n    p->g(); p->Base::f(); b.f(); d.g();\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: Bg Df Bf Bf Dg\n\np->g()      g is non-virtual: Base::g runs, prints Bg\n            inside it f() is this->f(), virtual: prints Df\np->Base::f() qualified name, no dispatch: prints Bf\nb.f()       b is a sliced copy whose dynamic type is Base: Bf\nd.g()       static type Der: Der::g hides Base::g, prints Dg"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Call situation",
+          "Function that runs",
+          "Reason"
+        ],
+        [
+          "p->f(), f virtual in Base",
+          "Final overrider for *p's real class",
+          "Looked up through the vptr at run time"
+        ],
+        [
+          "p->f(), f not virtual",
+          "Base::f",
+          "Bound from the static type of p"
+        ],
+        [
+          "obj.f() on a Base object",
+          "Base::f",
+          "Object's dynamic type is its declared type"
+        ],
+        [
+          "p->Base::f()",
+          "Base::f",
+          "Qualified name suppresses dispatch"
+        ],
+        [
+          "Virtual call inside ~Base or Base()",
+          "Base's version",
+          "Derived part not built yet or already destroyed"
+        ],
+        [
+          "Default argument of p->f()",
+          "Base's default value",
+          "Defaults are bound at compile time"
+        ],
+        [
+          "Derived f with different parameters or const",
+          "Base::f through the pointer",
+          "Not an override; it only hides the name"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Construction and destruction explain the constructor rule. A Robot is built base first: while Machine() runs, the vptr points to Machine's vtable, so name() gives the Machine version. Robot() then resets the vptr to Robot's table before its body runs. Destruction reverses the steps: ~Robot's body, then its members, then ~Machine, with the vptr switched back to Machine's table before ~Machine's body. A virtual destructor is what lets delete m start at ~Robot even though m is a Machine pointer."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct Part { ~Part() { cout << \"~Part \"; } };\nstruct Machine {\n    Machine() { cout << \"M:\" << name() << \" \"; }\n    virtual ~Machine() { cout << \"~M:\" << name() << \" \"; }\n    virtual const char *name() const { return \"machine\"; }\n};\nstruct Robot : Machine {\n    Part arm;\n    Robot() { cout << \"R:\" << name() << \" \"; }\n    ~Robot() { cout << \"~R \"; }\n    const char *name() const override { return \"robot\"; }\n};\nint main() { Machine *m = new Robot; delete m; }"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: M:machine R:robot ~R ~Part ~M:machine\n\nnew Robot   Machine() runs first, vptr = Machine table: M:machine\n            Robot() runs, vptr = Robot table:         R:robot\ndelete m    ~Machine is virtual, so ~Robot runs first:  ~R\n            member arm is destroyed after the body:   ~Part\n            ~Machine runs with vptr back on Machine:  ~M:machine"
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{sizeof(obj)} = \\left\\lceil \\frac{d + p}{a} \\right\\rceil \\times a",
+      "plainText": "sizeof(obj) = ceil((d + p) / a) x a, where d = bytes of data members (assuming no padding is needed between them), p = vptr size, a = the largest alignment requirement among the members and the vptr. Implementation-dependent: this assumes the usual model of one vptr per object; on a typical 64-bit system (4-byte int, 8-byte vptr with 8-byte alignment) one int plus the vptr gives ceil(12/8) x 8 = 16 bytes"
+    },
+    {
+      "type": "bulletList",
+      "text": "Checklist for a correct override, and what happens when a rule is broken:",
+      "items": [
+        "Same name, parameter types and const or ref qualifiers as the base virtual function; any difference creates a new function that hides the base one.",
+        "Return type identical, or covariant: Base* or Base& in the base may become Derived* or Derived& in the override; any other change is a compile error.",
+        "Access may differ: a private override is still called through a public base pointer, because access is checked against the static type.",
+        "Mark every override with override so mismatches become compile errors, and use final to stop further overriding or further derivation.",
+        "A pure virtual destructor, virtual ~Shape() = 0;, still needs a definition such as Shape::~Shape() {}, because every derived destructor calls it."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Three frequent bugs: a derived function missing the const of the base version (it silently stops overriding), deleting a derived object through a base pointer whose destructor is not virtual (undefined behaviour), and storing derived objects by value in a base-class array or parameter (slicing). Pointers, references and override avoid all three."
+    },
+    {
+      "type": "examTip",
+      "text": "For an output question, first note the static type of each pointer or reference and the class each object was created as. Then check three things: is the function virtual at that static level, is the call made through a pointer or reference, and is a constructor or destructor running at that moment. Only when all three favour dispatch does the derived version run."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t5_m001",
+      "questionText": "Which of the following calls is resolved at compile time (static or early binding) in C++?",
+      "options": [
+        "The destructor selected by delete on a base-class pointer when the base destructor is virtual",
+        "A virtual function called through a base-class pointer",
+        "A virtual function called through a base-class reference",
+        "A call to an overloaded function, where add(2, 3) selects add(int, int) from the argument types"
+      ],
+      "correctIndex": 3,
+      "explanation": "Overload resolution uses the static types of the arguments, so the compiler fixes the call while compiling. The other three calls go through the vtable and depend on the dynamic type of the object, which is known only at run time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m002",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() { cout << \"B\"; }\n    void g() { cout << \"B\"; }\n};\nstruct Der : Base {\n    void f() { cout << \"D\"; }\n    void g() { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->f(); p->g();\n}",
+      "options": [
+        "BB",
+        "DD",
+        "DB",
+        "BD"
+      ],
+      "correctIndex": 2,
+      "explanation": "f is virtual, so p->f() uses the dynamic type Der and prints D. g is not virtual, so p->g() is bound from the pointer type Base and prints B.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m003",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { virtual void show() const { cout << \"Base \"; } };\nstruct Derived : Base { void show() const override { cout << \"Derived \"; } };\nvoid byRef(const Base &b) { b.show(); }\nvoid byVal(Base b) { b.show(); }\nint main() {\n    Derived d;\n    byRef(d);\n    byVal(d);\n}",
+      "options": [
+        "Derived Base",
+        "Derived Derived",
+        "Base Base",
+        "Base Derived"
+      ],
+      "correctIndex": 0,
+      "explanation": "byRef receives a reference to the real Derived object, so the virtual call reaches Derived::show. byVal copies only the Base part of d into a new Base parameter (object slicing), and that object's dynamic type is Base.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m004",
+      "questionText": "A base class declares virtual void draw();. A publicly derived class declares void draw(); without the keyword virtual. What is the status of the derived draw()?",
+      "options": [
+        "It is non-virtual, so a call through a base pointer runs Base::draw",
+        "It is virtual and overrides Base::draw, because a function with the same signature inherits virtual-ness",
+        "It is a compile error, because virtual must be repeated in every derived class",
+        "It overrides Base::draw only if the override keyword is also written"
+      ],
+      "correctIndex": 1,
+      "explanation": "A derived function with the same name, parameter list and const-qualification as a base virtual function overrides it and is itself virtual, whether or not the keyword is repeated. override is optional; it only asks the compiler to check the match.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m005",
+      "questionText": "Which line of this code fragment fails to compile?\n\nstruct Base {\n    virtual void f(int) {}\n    virtual void g() const {}\n    virtual void h(double) {}\n};\nstruct Der : Base {\n    void f(int) override {}      // line A\n    void g() override {}         // line B\n    void h(double) override {}   // line C\n};",
+      "options": [
+        "Line A",
+        "Line B",
+        "Line C",
+        "None; all three lines compile"
+      ],
+      "correctIndex": 1,
+      "explanation": "Der::g lacks the const of Base::g, so it has a different signature and overrides nothing; the override specifier turns that into a compile error. Lines A and C match their base functions exactly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m006",
+      "questionText": "What happens when this program is compiled?\n\nstruct A { virtual void f() {} };\nstruct B : A { void f() final {} };\nstruct C : B { void f() {} };\nint main() { C c; }",
+      "options": [
+        "It compiles; final only stops B itself from being used as a base class",
+        "It compiles; C::f simply hides B::f",
+        "Compile error: final can be applied only to a class, not to a function",
+        "Compile error: C::f tries to override B::f, which is declared final"
+      ],
+      "correctIndex": 3,
+      "explanation": "final written after a virtual function's parameter list forbids any further overriding of that function. C::f has the same signature, so it would override B::f, and the compiler rejects it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m007",
+      "questionText": "What does the declaration class Leaf final : public Node { /* ... */ }; guarantee?",
+      "options": [
+        "Leaf cannot override any virtual function of Node",
+        "Leaf cannot be instantiated",
+        "No class can be derived from Leaf",
+        "All member functions of Leaf become virtual"
+      ],
+      "correctIndex": 2,
+      "explanation": "final after the class name forbids using Leaf as a base class. Leaf can still be instantiated and can still override the virtual functions it inherits from Node.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m008",
+      "questionText": "Which numbered line of this program causes a compile error?\n\nstruct Shape {\n    virtual double area() const = 0;\n    virtual double perim() const = 0;\n};\nstruct Sq : Shape { double area() const override { return 4; } };\nstruct Cube : Sq { double perim() const override { return 8; } };\nint main() {\n    Shape *p = nullptr;   // line 1\n    Cube c;               // line 2\n    Sq s;                 // line 3\n    Shape &r = c;         // line 4\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sq overrides area but not perim, so it still has a pure virtual function and is abstract; declaring an Sq object is an error. Cube overrides the remaining function and is concrete, and pointers or references to abstract types are always allowed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m009",
+      "questionText": "Which member declaration, written inside class X, is a compile error?",
+      "options": [
+        "virtual static void f();",
+        "virtual ~X();",
+        "virtual void g() const = 0;",
+        "virtual X *clone() const;"
+      ],
+      "correctIndex": 0,
+      "explanation": "A static member function has no this pointer and no object to dispatch on, so it cannot be virtual. Destructors, const pure virtual functions and functions returning pointers can all be virtual.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m010",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct M { ~M() { cout << \"~M \"; } };\nstruct A { virtual ~A() { cout << \"~A \"; } };\nstruct B : A { M m; ~B() { cout << \"~B \"; } };\nstruct C : B { ~C() { cout << \"~C \"; } };\nint main() {\n    A *p = new C;\n    delete p;\n}",
+      "options": [
+        "~M ~C ~B ~A",
+        "~C ~B ~A ~M",
+        "~A",
+        "~C ~B ~M ~A"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because ~A is virtual, delete p starts with the most-derived destructor ~C. Each destructor body runs before its class's members and bases are destroyed, so ~B's body is followed by the member m (~M) and then the base A (~A).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m011",
+      "questionText": "Base has a public non-virtual destructor and Derived is publicly derived from Base. According to the C++ standard, what is the result of Base *p = new Derived; delete p;?",
+      "options": [
+        "Well-defined: only ~Base runs",
+        "Undefined behaviour",
+        "Well-defined: ~Derived runs and then ~Base",
+        "A compile error, because the destructor is not virtual"
+      ],
+      "correctIndex": 1,
+      "explanation": "Deleting an object through a pointer to a base class whose destructor is not virtual is undefined behaviour. Many compilers happen to run only ~Base, but nothing is guaranteed; the fix is to declare virtual ~Base().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m012",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    Base() { hello(); }\n    virtual void hello() { cout << \"Base \"; }\n};\nstruct Der : Base {\n    Der() { hello(); }\n    void hello() override { cout << \"Der \"; }\n};\nint main() { Der d; }",
+      "options": [
+        "Base Der",
+        "Der Der",
+        "Base Base",
+        "Der Base"
+      ],
+      "correctIndex": 0,
+      "explanation": "While Base's constructor runs the object is still only a Base (its vptr refers to Base's vtable), so hello() calls Base::hello. By the time Der's constructor body runs the object is a Der, so Der::hello is called.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m013",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void id() { cout << \"B\"; }\n    virtual ~Base() { id(); }\n};\nstruct Der : Base {\n    void id() override { cout << \"D\"; }\n    ~Der() { id(); }\n};\nint main() {\n    Base *p = new Der;\n    p->id();\n    delete p;\n}",
+      "options": [
+        "DDD",
+        "DDB",
+        "DBB",
+        "BDB"
+      ],
+      "correctIndex": 1,
+      "explanation": "p->id() dispatches to Der::id and prints D, and delete p then runs ~Der, whose id() call also prints D. Once ~Der has finished the object is treated as a Base again, so the id() call inside ~Base prints B.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m014",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Animal { virtual char tag() const { return 'A'; } };\nstruct Cat : Animal { char tag() const override { return 'C'; } };\nstruct Dog : Animal { char tag() const override { return 'D'; } };\nint main() {\n    Cat c; Dog d;\n    Animal arr[2] = { c, d };\n    Animal *ptr[2] = { &c, &d };\n    for (int i = 0; i < 2; i++)\n        cout << arr[i].tag() << ptr[i]->tag() << \" \";\n}",
+      "options": [
+        "AA AA",
+        "CC DD",
+        "AC AD",
+        "CA DA"
+      ],
+      "correctIndex": 2,
+      "explanation": "arr holds Animal objects copied from c and d, so each element is sliced and calls Animal::tag. ptr holds the addresses of the original objects, so those virtual calls reach Cat::tag and Dog::tag.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m015",
+      "questionText": "Class A has a virtual function, and classes B and C are both publicly derived from A. main creates one A, two B and three C objects. In the usual implementation (one vtable per polymorphic class, one vptr per object, single inheritance), how many vtables and vptrs exist?",
+      "options": [
+        "1 vtable and 6 vptrs",
+        "6 vtables and 6 vptrs",
+        "3 vtables and 3 vptrs",
+        "3 vtables and 6 vptrs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each polymorphic class (A, B and C) has one vtable shared by all of its objects, giving 3 tables. Each of the 1 + 2 + 3 = 6 objects carries its own vptr.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m016",
+      "questionText": "Assume int is 4 bytes, pointers are 8 bytes with 8-byte alignment, and virtual functions are implemented with a vptr. What does this program print?\n\n#include <iostream>\nusing namespace std;\nclass A { int x; public: void f() {} };\nclass B { int x; public: virtual void f() {} };\nint main() {\n    cout << sizeof(A) << \" \" << sizeof(B);\n}",
+      "options": [
+        "4 16",
+        "4 12",
+        "4 8",
+        "8 16"
+      ],
+      "correctIndex": 0,
+      "explanation": "A contains only the int, so sizeof(A) = 4. B also holds a hidden 8-byte vptr: 8 + 4 = 12 bytes, rounded up to a multiple of the 8-byte alignment, gives 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m017",
+      "questionText": "In the usual vtable implementation, when does an object's hidden vptr get its value?",
+      "options": [
+        "At load time, when the linker fixes all addresses in the program",
+        "In the constructors, while the object is being built, ending with the vtable of the object's own class",
+        "On the first virtual function call made through the object",
+        "In the new operator, from the type of the pointer that receives the address"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each constructor stores its own class's vtable address in the vptr before its body runs, so after the most-derived constructor the vptr refers to that class's table. This is also why a virtual call inside a base constructor runs the base version.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m018",
+      "questionText": "In the usual implementation of virtual functions, what does a class's vtable contain?",
+      "options": [
+        "The names of all member functions, searched by name at run time",
+        "The current values of the data members of every object",
+        "The addresses of all objects created from that class",
+        "The addresses of the functions to run for each virtual function of that class"
+      ],
+      "correctIndex": 3,
+      "explanation": "A vtable is a per-class table of function pointers, one slot per virtual function, each holding the final overrider for that class. Objects reach it through their vptr; it stores no data members and no object addresses.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m019",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void show(int n = 1) { cout << \"B\" << n << \" \"; }\n};\nstruct Der : Base {\n    void show(int n = 2) override { cout << \"D\" << n << \" \"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->show();\n    d.show();\n}",
+      "options": [
+        "D1 D2",
+        "D2 D2",
+        "B1 D2",
+        "D1 D1"
+      ],
+      "correctIndex": 0,
+      "explanation": "The function body is chosen at run time (Der::show both times), but default arguments are taken at compile time from the static type of the call expression. p->show() uses Base's default 1 and prints D1, while d.show() uses Der's default 2 and prints D2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m020",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Shape {\n    virtual void draw() = 0;\n};\nvoid Shape::draw() { cout << \"outline \"; }\nstruct Box : Shape {\n    void draw() override { Shape::draw(); cout << \"box\"; }\n};\nint main() {\n    Box b;\n    Shape &s = b;\n    s.draw();\n}",
+      "options": [
+        "Compile error: a pure virtual function cannot have a body",
+        "box",
+        "outline box",
+        "box outline"
+      ],
+      "correctIndex": 2,
+      "explanation": "A pure virtual function may be defined outside the class; Shape stays abstract, but a derived class can call the definition with the qualified name Shape::draw(). s.draw() runs Box::draw, which prints outline first and then box.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m021",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { void f() { cout << \"A\"; } };\nstruct B : A { virtual void f() { cout << \"B\"; } };\nstruct C : B { void f() { cout << \"C\"; } };\nint main() {\n    C c;\n    A *pa = &c;\n    B *pb = &c;\n    pa->f();\n    pb->f();\n}",
+      "options": [
+        "AC",
+        "CC",
+        "AB",
+        "BC"
+      ],
+      "correctIndex": 0,
+      "explanation": "f is not virtual in A, so pa->f() is bound statically to A::f. f becomes virtual from B downwards, so pb->f() is dispatched to the final overrider C::f.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m022",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { virtual void f() { cout << \"A\"; } };\nstruct B : A { };\nstruct C : B { void f() override { cout << \"C\"; } };\nint main() {\n    B b;\n    C c;\n    A *p = &b;\n    p->f();\n    p = &c;\n    p->f();\n}",
+      "options": [
+        "BC",
+        "AC",
+        "AA",
+        "CC"
+      ],
+      "correctIndex": 1,
+      "explanation": "B does not override f, so it inherits A::f and a call on a B object runs A::f. C overrides f, so after p is re-pointed to c the same call runs C::f.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m023",
+      "questionText": "Which statement about function overriding in C++ is correct?",
+      "options": [
+        "Overriding can take place between two member functions of the same class",
+        "The derived function must have a different parameter list from the base function",
+        "The derived function has the same name and parameter list as a base virtual function, and the call is chosen at run time",
+        "Overriding is resolved at compile time from the argument types"
+      ],
+      "correctIndex": 2,
+      "explanation": "Overriding redefines a base-class virtual function with the same signature in a derived class and is resolved by dynamic binding. Functions with different parameter lists in the same scope are overloads, which are resolved at compile time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m024",
+      "questionText": "Which statement about an abstract class in C++ is correct?",
+      "options": [
+        "A class derived from it becomes concrete even if it overrides none of the pure virtual functions",
+        "It cannot declare any data members",
+        "All of its member functions must be pure virtual",
+        "Its constructor runs whenever an object of a concrete class derived from it is created"
+      ],
+      "correctIndex": 3,
+      "explanation": "Apart from having at least one pure virtual function, an abstract class is an ordinary base class: it may have data members, constructors and normal functions, and its constructor runs for the base part of every derived object. A derived class stays abstract until every pure virtual function has been overridden.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m025",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Shape {\n    Shape() { cout << \"S \"; }\n    virtual ~Shape() { cout << \"~S \"; }\n    virtual void draw() const = 0;\n};\nstruct Circle : Shape {\n    Circle() { cout << \"C \"; }\n    ~Circle() { cout << \"~C \"; }\n    void draw() const override { cout << \"draw \"; }\n};\nint main() {\n    Shape *p = new Circle; p->draw(); delete p;\n}",
+      "options": [
+        "C draw ~C",
+        "S C draw ~C ~S",
+        "S C draw ~S",
+        "C S draw ~S ~C"
+      ],
+      "correctIndex": 1,
+      "explanation": "Construction runs the base part first (S) and then the derived part (C), and draw() is dispatched to Circle. Because ~Shape is virtual, delete p runs ~Circle before ~Shape.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m026",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { int n = 0; virtual void f() { cout << \"B\" << n; } };\nstruct D1 : Base { void f() override { cout << \"X\" << n; } };\nstruct D2 : Base { void f() override { cout << \"Y\" << n; } };\nint main() {\n    D1 a;\n    D2 b;\n    b.n = 5;\n    Base &r = a;\n    r = b;\n    r.f();\n}",
+      "options": [
+        "X0",
+        "Y5",
+        "X5",
+        "B5"
+      ],
+      "correctIndex": 2,
+      "explanation": "A reference cannot be re-seated: r = b calls Base's copy assignment and copies only the Base part (n = 5) of b into a. The vptr is not copied, so r still refers to a D1 object and r.f() prints X5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m027",
+      "questionText": "What is object slicing in C++?",
+      "options": [
+        "Accessing only the public members of an object through a pointer",
+        "Splitting a large class into several smaller base classes",
+        "Deleting a derived object through a base pointer that has no virtual destructor",
+        "Copying a derived-class object into a base-class object, so the derived part is lost"
+      ],
+      "correctIndex": 3,
+      "explanation": "When a derived object is assigned to, or passed by value as, a base-class object, only the base subobject is copied; the extra members and the derived behaviour are sliced off. Pointers and references avoid slicing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m028",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    void run() { step(); cout << \"|\"; }\n    virtual void step() { cout << \"B\"; }\n};\nstruct Der : Base {\n    void step() override { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base b;\n    d.run();\n    b.run();\n}",
+      "options": [
+        "D|B|",
+        "B|B|",
+        "D|D|",
+        "B|D|"
+      ],
+      "correctIndex": 0,
+      "explanation": "run() is not virtual, but inside it step() means this->step(), which is a virtual call through the this pointer. For d the dynamic type is Der, printing D; for b it is Base, printing B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m029",
+      "questionText": "Base declares virtual Base *clone() const;. Which declaration inside class Der (publicly derived from Base) correctly overrides it?",
+      "options": [
+        "void *clone() const override;",
+        "Der clone() const override;",
+        "Base *clone() override;",
+        "Der *clone() const override;"
+      ],
+      "correctIndex": 3,
+      "explanation": "An override may change the return type only covariantly, to a pointer or reference to a class derived from the original, so Der * is allowed. Returning Der by value or void * conflicts with the base return type, and dropping const means the function overrides nothing, which override reports as an error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m030",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { virtual int v() const { return 1; } };\nstruct B : A { int v() const override { return 10; } };\nstruct C : B { int v() const override { return 100 + B::v(); } };\nint main() {\n    A a; B b; C c;\n    A *p[] = { &a, &b, &c, &b };\n    int s = 0;\n    for (A *q : p) s += q->v();\n    cout << s;\n}",
+      "options": [
+        "131",
+        "4",
+        "121",
+        "122"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each call dispatches on the pointed-to object: a gives 1, b gives 10, c gives 100 + B::v() = 110 (the qualified call is not virtual), and b again gives 10. s = 1 + 10 + 110 + 10 = 131.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m031",
+      "questionText": "Given the fragment below, which call runs Base::f rather than Der::f?\n\nstruct Base { virtual void f(); };\nstruct Der : Base { void f() override; };\nDer d;\nBase *p = &d;",
+      "options": [
+        "(*p).f();",
+        "p->f();",
+        "p->Base::f();",
+        "static_cast<Base &>(d).f();"
+      ],
+      "correctIndex": 2,
+      "explanation": "A call qualified with the class name, Base::f, suppresses the virtual mechanism and is bound at compile time. Calls through the pointer, through *p or through a Base reference are all virtual and reach Der::f.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m032",
+      "questionText": "Which C++11 specifier, written after a member function's parameter list, makes the compiler report an error if the function does not actually override a base-class virtual function?",
+      "options": [
+        "final",
+        "override",
+        "virtual",
+        "explicit"
+      ],
+      "correctIndex": 1,
+      "explanation": "override asks the compiler to confirm that a matching base virtual function exists, which catches typos and signature mismatches. final forbids further overriding, virtual performs no such check, and explicit applies to constructors and conversion functions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m033",
+      "questionText": "In a base class Shape, why is area() usually declared as virtual double area() const = 0; rather than virtual double area() const { return 0; }?",
+      "options": [
+        "A pure virtual function needs no vtable slot, so objects become smaller",
+        "A pure virtual call runs faster than an ordinary virtual call",
+        "Every concrete derived class is forced to provide its own area(), and Shape itself cannot be instantiated",
+        "A pure virtual function can be called without creating any object"
+      ],
+      "correctIndex": 2,
+      "explanation": "Making area() pure virtual turns Shape into an abstract class: it cannot be instantiated, and a derived class stays abstract until it overrides area(). The dummy body would silently return 0 for any class that forgot to override it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m034",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Vehicle { virtual void wheels() { cout << 4; } };\nstruct Bike : Vehicle { void wheels() override { cout << 2; } };\nvoid show(Vehicle &v) { v.wheels(); }\nint main() {\n    Vehicle car;\n    Bike bike;\n    show(car);\n    show(bike);\n}",
+      "options": [
+        "24",
+        "44",
+        "22",
+        "42"
+      ],
+      "correctIndex": 3,
+      "explanation": "v is a reference, so v.wheels() is bound at run time to the actual object: Vehicle::wheels for car (4) and Bike::wheels for bike (2).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m035",
+      "questionText": "Compared with a call to a non-virtual member function, what does a virtual function call through a base pointer typically add?",
+      "options": [
+        "A run-time search through the class's member functions by name",
+        "A hidden vptr in each object and one extra indirection through the vtable on each call",
+        "No run-time cost at all, because the compiler resolves the call",
+        "An extra copy of the object on every call"
+      ],
+      "correctIndex": 1,
+      "explanation": "The call loads the object's vptr, fetches the function address from a fixed vtable slot and calls it: constant time, but one indirection more than a direct call. The memory cost is one pointer per object plus one table per class.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m036",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nclass Base {\npublic:\n    virtual void f() { cout << \"B\"; }\n};\nclass Der : public Base {\nprivate:\n    void f() override { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->f();\n}",
+      "options": [
+        "D",
+        "B",
+        "Compile error: Der::f is private",
+        "Run-time error"
+      ],
+      "correctIndex": 0,
+      "explanation": "Access is checked at compile time against the static type, and Base::f is public, so p->f() compiles. The call is still dispatched at run time to the final overrider Der::f even though it is private in Der; writing d.f() would be the compile error.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m037",
+      "questionText": "A C++ class has no data members, a virtual destructor and only pure virtual member functions. What is such a class commonly used as?",
+      "options": [
+        "A template class",
+        "An interface that derived classes implement",
+        "A friend class",
+        "A concrete class for creating objects directly"
+      ],
+      "correctIndex": 1,
+      "explanation": "With only pure virtual functions it states which operations derived classes must provide but supplies no implementation, which is how C++ expresses an interface. It is abstract, so it cannot be instantiated directly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m038",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f(int) { cout << \"Bi \"; }\n    virtual void f(double) { cout << \"Bd \"; }\n};\nstruct Der : Base {\n    void f(int) override { cout << \"Di \"; }\n};\nint main() {\n    Der d;\n    Base &r = d;\n    r.f(2.5);\n    d.f(2.5);\n}",
+      "options": [
+        "Bd Bd",
+        "Di Di",
+        "Bd Di",
+        "Di Bd"
+      ],
+      "correctIndex": 2,
+      "explanation": "r.f(2.5) is resolved in Base, where f(double) is the best match; Der does not override it, so Base::f(double) runs. For d.f(2.5) name lookup stops in Der, whose f(int) hides both Base versions, so 2.5 is converted to 2 and Der::f(int) runs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m039",
+      "questionText": "Which is the correct way to declare a virtual destructor inside class Shape?",
+      "options": [
+        "~Shape() virtual;",
+        "~virtual Shape();",
+        "virtual Shape::~();",
+        "virtual ~Shape();"
+      ],
+      "correctIndex": 3,
+      "explanation": "The keyword virtual goes before the destructor name ~Shape, exactly as for any other virtual member function. The other three forms are not valid C++ syntax.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m040",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Animal { virtual void speak() = 0; virtual ~Animal() {} };\nstruct Dog : Animal { void speak() override { cout << \"Woof \"; } };\nstruct Cow : Animal { void speak() override { cout << \"Moo \"; } };\nint main() {\n    Animal *a[] = { new Cow, new Dog, new Cow };\n    for (Animal *p : a) {\n        p->speak();\n        delete p;\n    }\n}",
+      "options": [
+        "Moo Woof Moo",
+        "Woof Moo Woof",
+        "Moo Moo Moo",
+        "Compile error: pointers to the abstract class Animal are not allowed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Pointers to an abstract class are allowed, and each element here points to a concrete object. speak() is dispatched to each object's own class in array order: Cow, Dog, Cow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t5_m041",
+      "questionText": "Base declares three virtual functions f, g and h. Derived (public, single inheritance) overrides only g and declares two new virtual functions p and q. In the usual implementation, ignoring destructor and RTTI entries, how many slots does Derived's vtable have, and how many still point to Base's code?",
+      "options": [
+        "3 slots, 2 pointing to Base's code",
+        "5 slots, 2 pointing to Base's code",
+        "5 slots, 3 pointing to Base's code",
+        "6 slots, 1 pointing to Base's code"
+      ],
+      "correctIndex": 1,
+      "explanation": "Derived's table keeps Base's three slots in the same order and appends p and q: 3 + 2 = 5 slots. Only g's slot is replaced by Derived::g, so the slots for f and h (2 slots) still hold Base's functions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t5_m042",
+      "questionText": "Derived is publicly derived from the polymorphic class Base. After Derived d; Base b = d;, which vtable does b's vptr refer to?",
+      "options": [
+        "Derived's vtable until d is destroyed, and Base's vtable after that",
+        "Derived's vtable, copied from d together with the data members",
+        "None, because a sliced object has no vptr",
+        "Base's vtable, because b is constructed as a Base object"
+      ],
+      "correctIndex": 3,
+      "explanation": "b is created by Base's copy constructor, which sets its vptr to Base's vtable; the vptr is never copied from the source object. That is why a virtual call on a sliced object always runs the base version.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t5_m043",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() const { cout << \"B\"; }\n};\nstruct Der : Base {\n    void f() { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    const Base &r = d;\n    r.f();\n    d.f();\n}",
+      "options": [
+        "BD",
+        "DD",
+        "BB",
+        "DB"
+      ],
+      "correctIndex": 0,
+      "explanation": "Der::f lacks const, so it is a different function that hides Base::f instead of overriding it; r.f() therefore runs Base::f (B). d.f() finds Der::f by name lookup (D), and writing override on Der::f would have exposed the mistake at compile time.",
+      "difficulty": "medium"
+    }
+  ]
+}

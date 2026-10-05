@@ -1,0 +1,612 @@
+{
+  "topicId": "ch1_i43",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: BJT Biasing and the Q-Point"
+    },
+    {
+      "type": "paragraph",
+      "text": "The relation β = α/(1 − α) follows directly from I_E = I_C + I_B. Dividing by I_C gives 1/α = 1 + 1/β, which rearranges to both standard forms. Because α is so close to 1, a tiny change in α makes a large change in β: α = 0.99 gives β = 99, while α = 0.995 gives β = 199. Including the collector leakage, the complete collector current is I_C = βI_B + (1 + β)I_CBO, and it is this leakage term, doubling roughly every 10 °C, that a bias circuit must keep under control."
+    },
+    {
+      "type": "paragraph",
+      "text": "Biasing sets the DC operating point, or Q-point (I_CQ, V_CEQ), about which the signal swings. For a common-emitter stage with collector resistor R_C and emitter resistor R_E, every possible DC operating point lies on the DC load line V_CE = V_CC − I_C(R_C + R_E). Its end points are I_C(sat) = V_CC/(R_C + R_E) on the current axis and V_CE(off) = V_CC on the voltage axis. The Q-point is where this line crosses the output characteristic for the actual base current; placing it near the middle allows the largest undistorted swing."
+    },
+    {
+      "type": "formula",
+      "latex": "V_{CE} = V_{CC} - I_C\\,(R_C + R_E)",
+      "plainText": "VCE = VCC - IC (RC + RE)   (DC load line, IE ~ IC)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Bias circuit",
+          "Base current or key equation",
+          "Stability against β and temperature"
+        ],
+        [
+          "Fixed bias",
+          "I_B = (V_CC − V_BE)/R_B",
+          "Poor: I_C = βI_B changes in step with β; S = 1 + β"
+        ],
+        [
+          "Emitter-stabilised",
+          "I_B = (V_CC − V_BE)/(R_B + (β + 1)R_E)",
+          "Better: R_E gives negative feedback"
+        ],
+        [
+          "Collector feedback",
+          "I_B = (V_CC − V_BE)/(R_B + (β + 1)R_C)",
+          "Good: a rise in I_C lowers V_C and so I_B"
+        ],
+        [
+          "Voltage divider",
+          "I_B = (V_TH − V_BE)/(R_TH + (β + 1)R_E)",
+          "Best: I_C nearly independent of β when βR_E ≫ R_TH"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "V_{TH} = \\frac{V_{CC}R_2}{R_1 + R_2},\\quad R_{TH} = R_1 \\parallel R_2",
+      "plainText": "VTH = VCC R2/(R1 + R2),  RTH = R1 || R2   (voltage-divider bias)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: fixed bias, check the region\nGiven: V_CC = 12 V, R_B = 470 kΩ, R_C = 2.2 kΩ, β = 100, V_BE = 0.7 V\nStep 1  I_B = (12 − 0.7)/470 kΩ = 24.0 µA\nStep 2  I_C = βI_B = 100 × 24.0 µA = 2.40 mA\nStep 3  V_CE = 12 − 2.40 mA × 2.2 kΩ = 6.71 V\nStep 4  V_CE > V_CE(sat) ≈ 0.2 V, so the transistor is active: Q = (2.40 mA, 6.71 V)\nIf β were 250: I_C would be 6.0 mA and V_CE = 12 − 13.2 < 0, impossible,\nso the transistor saturates with I_C(sat) = (12 − 0.2)/2.2 kΩ ≈ 5.4 mA"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: voltage-divider bias, exact and approximate\nGiven: V_CC = 18 V, R_1 = 82 kΩ, R_2 = 22 kΩ, R_E = 1.2 kΩ, β = 50, V_BE = 0.7 V\nStep 1  V_TH = 18 × 22/104 = 3.81 V, R_TH = 82 × 22/104 = 17.3 kΩ\nStep 2  Exact: I_B = (3.81 − 0.7)/(17.3 k + 51 × 1.2 k) = 39.6 µA\nStep 3  I_C = 50 × 39.6 µA = 1.98 mA\nStep 4  Approximate: V_E = 3.81 − 0.7 = 3.11 V, I_E = 3.11/1.2 k = 2.59 mA\nStep 5  Check βR_E = 60 kΩ versus 10R_2 = 220 kΩ: condition fails,\n        so the approximate method is not valid here; use the exact result"
+    },
+    {
+      "type": "paragraph",
+      "text": "The stability factor S = ΔI_C/ΔI_CBO measures how much the collector current shifts when leakage rises with temperature. For fixed bias S = 1 + β, the worst case; the ideal value is 1. Adding R_E or feeding the base from the collector reduces S because any rise in I_C raises the emitter voltage, or lowers the collector voltage, and cuts the base drive. The voltage-divider circuit with a large R_E and a stiff divider (βR_E at least ten times R_2) gives S close to 1 and a Q-point almost independent of β."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in bias problems:",
+      "items": [
+        "Forgetting the (β + 1) factor when referring R_E to the base circuit.",
+        "Calculating V_CE with I_C × R_C only, and leaving out the drop I_E × R_E.",
+        "Accepting a negative V_CE instead of recognising that the transistor has saturated.",
+        "Using the approximate voltage-divider method when βR_E is not at least 10R_2.",
+        "Treating the load-line saturation current as V_CC/R_C when an emitter resistor is present."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "I_C = βI_B holds only in the active region. Always check the answer: if the calculated V_CE is below about 0.2 V, the transistor is saturated and the collector current is set by the external resistors, not by β."
+    },
+    {
+      "type": "examTip",
+      "text": "For voltage-divider bias, first find V_B from the divider, then V_E = V_B − 0.7 V, I_E = V_E/R_E and finally V_CE = V_CC − I_C(R_C + R_E). This four-step route solves most Q-point problems in under a minute."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i43_m001",
+      "questionText": "In an npn transistor operating in the active region, the current across the base region is carried mainly by:",
+      "options": [
+        "Holes injected from the collector",
+        "Holes supplied by the base terminal",
+        "Electrons generated thermally in the collector",
+        "Electrons injected from the emitter"
+      ],
+      "correctIndex": 3,
+      "explanation": "The forward-biased emitter junction injects electrons into the thin p-type base, where they are minority carriers that diffuse across to the collector.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m002",
+      "questionText": "In a BJT, the most heavily doped region is the:",
+      "options": [
+        "Base",
+        "Emitter",
+        "Collector",
+        "Base and collector equally"
+      ],
+      "correctIndex": 1,
+      "explanation": "The emitter is heavily doped so that it injects a large number of carriers into the base; the base is lightly doped and the collector moderately to lightly doped.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m003",
+      "questionText": "The region of a BJT that is physically the largest, so that it can dissipate most of the heat, is the:",
+      "options": [
+        "Collector",
+        "Emitter",
+        "Base",
+        "Emitter-base junction"
+      ],
+      "correctIndex": 0,
+      "explanation": "Most of the power V_CE × I_C is dissipated at the collector junction, so the collector is made the largest region.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m004",
+      "questionText": "In a transistor, the emitter current is 5 mA and the collector current is 4.9 mA. The base current is:",
+      "options": [
+        "9.9 mA",
+        "1.0 mA",
+        "0.1 mA",
+        "0.49 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_B = I_E − I_C = 5 − 4.9 = 0.1 mA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m005",
+      "questionText": "A transistor has a common-emitter current gain β = 150. Its common-base current gain α is about:",
+      "options": [
+        "0.980",
+        "0.993",
+        "1.007",
+        "0.900"
+      ],
+      "correctIndex": 1,
+      "explanation": "α = β/(1 + β) = 150/151 = 0.993. The value 1.007 comes from inverting the ratio; α can never exceed 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m006",
+      "questionText": "A transistor with α = 0.99 is operated in the active region with a base current of 40 µA. The collector current is:",
+      "options": [
+        "39.6 µA",
+        "0.396 mA",
+        "3.96 mA",
+        "7.92 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "β = α/(1 − α) = 0.99/0.01 = 99; I_C = βI_B = 99 × 40 µA = 3.96 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m007",
+      "questionText": "A transistor has β = 50 and a collector-base leakage current I_CBO = 10 µA. With a base current of 40 µA in the active region, the total collector current is:",
+      "options": [
+        "2.51 mA",
+        "2.00 mA",
+        "2.01 mA",
+        "0.51 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_C = βI_B + (1 + β)I_CBO = 50 × 40 µA + 51 × 10 µA = 2.00 + 0.51 = 2.51 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m008",
+      "questionText": "As the collector-base reverse voltage of a BJT is increased, the effective base width decreases. This Early effect (base-width modulation) causes:",
+      "options": [
+        "A decrease in β and in collector current",
+        "The emitter junction to become reverse biased",
+        "The collector current to become exactly independent of V_CE",
+        "A slight rise in I_C with V_CE, giving the output characteristics an upward slope"
+      ],
+      "correctIndex": 3,
+      "explanation": "The wider collector depletion layer eats into the base, so fewer carriers recombine; β and I_C rise slightly with V_CE, which gives the transistor a finite output resistance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m009",
+      "questionText": "The emitter follower is another name for which transistor configuration?",
+      "options": [
+        "Common emitter",
+        "Common collector",
+        "Common base",
+        "Darlington common base"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the common-collector stage the output is taken from the emitter and follows the base voltage less about 0.7 V, with a voltage gain close to 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m010",
+      "questionText": "Which BJT configuration has the lowest input impedance?",
+      "options": [
+        "Common emitter",
+        "Common collector",
+        "All three are equal",
+        "Common base"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the common-base stage the signal drives the emitter, which looks like the small resistance r_e (tens of ohms); the CC stage has the highest input impedance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m011",
+      "questionText": "In which BJT amplifier configuration is the output voltage 180° out of phase with the input voltage?",
+      "options": [
+        "Common base",
+        "Common collector",
+        "Common emitter",
+        "All three configurations"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the CE stage a rise in base voltage increases I_C, increasing the drop across R_C and lowering the collector voltage, so the output is inverted; the CB and CC stages give no phase inversion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m012",
+      "questionText": "A transistor with β = 80 is used in the common-collector configuration. Its current gain (emitter current divided by base current) is:",
+      "options": [
+        "81",
+        "80",
+        "0.988",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "For the CC configuration the output is I_E, so the current gain is I_E/I_B = 1 + β = 81.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m013",
+      "questionText": "For an npn silicon transistor, measurements give V_BE = 0.7 V and V_BC = 0.5 V. The transistor is operating in the:",
+      "options": [
+        "Active region",
+        "Cut-off region",
+        "Reverse active region",
+        "Saturation region"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_BE > 0 forward biases the emitter junction and V_BC > 0 forward biases the collector junction; both forward biased means saturation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m014",
+      "questionText": "A fixed-bias npn circuit has V_CC = 10 V, R_B = 100 kΩ, R_C = 2 kΩ and β = 100. Taking V_BE = 0.7 V and V_CE(sat) = 0.2 V, the actual collector current is:",
+      "options": [
+        "9.3 mA",
+        "0.093 mA",
+        "4.9 mA",
+        "4.65 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_B = 9.3/100 k = 93 µA, so βI_B = 9.3 mA would need V_CE = 10 − 18.6 < 0; the transistor is saturated and I_C = (10 − 0.2)/2 kΩ = 4.9 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m015",
+      "questionText": "A fixed-bias silicon transistor circuit has V_CC = 12 V, R_B = 470 kΩ, R_C = 2.2 kΩ and β = 100 (V_BE = 0.7 V). The collector-emitter voltage V_CE is about:",
+      "options": [
+        "6.38 V",
+        "6.71 V",
+        "5.29 V",
+        "11.3 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_B = (12 − 0.7)/470 k = 24.0 µA; I_C = 100 × 24.0 µA = 2.40 mA; V_CE = 12 − 2.40 mA × 2.2 kΩ = 6.71 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m016",
+      "questionText": "A common-emitter stage has V_CC = 15 V, R_C = 3 kΩ and no emitter resistor. The saturation end of its DC load line (ideal, V_CE(sat) = 0) is at a collector current of:",
+      "options": [
+        "5 mA",
+        "45 mA",
+        "0.2 mA",
+        "2.5 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_C(sat) = V_CC/R_C = 15/3 kΩ = 5 mA; the other end of the load line is V_CE = V_CC = 15 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m017",
+      "questionText": "A transistor stage has V_CC = 12 V, R_C = 2 kΩ and R_E = 1 kΩ. Taking I_E ≈ I_C and V_CE(sat) = 0, the DC load line meets the current axis at:",
+      "options": [
+        "6 mA",
+        "12 mA",
+        "4 mA",
+        "2 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both resistors carry the collector current, so I_C(sat) = V_CC/(R_C + R_E) = 12/3 kΩ = 4 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m018",
+      "questionText": "An emitter-stabilised bias circuit has V_CC = 15 V, R_B = 390 kΩ, R_C = 2.2 kΩ, R_E = 1 kΩ and β = 100 (V_BE = 0.7 V). The collector current is about:",
+      "options": [
+        "3.67 mA",
+        "2.91 mA",
+        "14.3 mA",
+        "0.029 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_B = (15 − 0.7)/(R_B + (β + 1)R_E) = 14.3/(390 k + 101 k) = 29.1 µA; I_C = 100 × 29.1 µA = 2.91 mA. Ignoring R_E gives 3.67 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m019",
+      "questionText": "In a voltage-divider bias circuit, V_CC = 12 V, R_1 = 39 kΩ, R_2 = 8.2 kΩ and R_E = 1 kΩ, with β large enough for the approximate method (V_BE = 0.7 V). The emitter current is about:",
+      "options": [
+        "1.38 mA",
+        "2.08 mA",
+        "0.254 mA",
+        "0.70 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_B = 12 × 8.2/47.2 = 2.08 V; V_E = 2.08 − 0.7 = 1.38 V; I_E = 1.38 V/1 kΩ = 1.38 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m020",
+      "questionText": "A voltage-divider bias circuit has V_CC = 12 V, R_1 = 39 kΩ, R_2 = 8.2 kΩ, R_C = 4.7 kΩ and R_E = 1 kΩ. Using the approximate method with V_BE = 0.7 V and I_C ≈ I_E, V_CE is about:",
+      "options": [
+        "5.49 V",
+        "0.12 V",
+        "6.51 V",
+        "4.11 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_B = 2.08 V, V_E = 1.38 V, I_E = 1.38 mA; V_CE = 12 − 1.38 mA × (4.7 k + 1 k) = 12 − 7.89 = 4.11 V. Leaving out R_E gives 5.49 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m021",
+      "questionText": "A voltage-divider bias circuit has V_CC = 18 V, R_1 = 82 kΩ, R_2 = 22 kΩ, R_E = 1.2 kΩ and β = 50 (V_BE = 0.7 V). Using the exact Thevenin method, the collector current is about:",
+      "options": [
+        "2.59 mA",
+        "3.17 mA",
+        "8.96 mA",
+        "1.98 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_TH = 18 × 22/104 = 3.81 V, R_TH = 82 k ∥ 22 k = 17.3 kΩ; I_B = (3.81 − 0.7)/(17.3 k + 51 × 1.2 k) = 39.6 µA; I_C = 50 × 39.6 µA = 1.98 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m022",
+      "questionText": "The stability factor S = ΔI_C/ΔI_CBO of a fixed-bias (base-resistor) circuit is:",
+      "options": [
+        "1",
+        "β/(1 + β)",
+        "1 + β",
+        "1/(1 + β)"
+      ],
+      "correctIndex": 2,
+      "explanation": "In fixed bias I_B is set by R_B alone, so a change in I_CBO appears in I_C multiplied by (1 + β), the worst possible value; the ideal value is 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m023",
+      "questionText": "Which biasing method gives the most stable Q-point against changes in β and temperature?",
+      "options": [
+        "Fixed bias",
+        "Voltage-divider bias with an emitter resistor",
+        "Collector-to-base bias without R_E",
+        "Base bias with the emitter grounded"
+      ],
+      "correctIndex": 1,
+      "explanation": "With a stiff divider and R_E, V_B is fixed by the divider and I_E ≈ (V_B − V_BE)/R_E, which hardly depends on β.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m024",
+      "questionText": "In a collector-feedback bias circuit, R_B = 100 kΩ is connected from collector to base, R_C = 1 kΩ, V_CC = 10 V, β = 100 and there is no emitter resistor (V_BE = 0.7 V). The collector current is about:",
+      "options": [
+        "4.63 mA",
+        "9.30 mA",
+        "46.3 µA",
+        "2.32 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "R_C carries I_C + I_B = (β + 1)I_B, so 10 = 101 I_B × 1 k + I_B × 100 k + 0.7, giving I_B = 9.3/201 k = 46.3 µA and I_C = 100 × 46.3 µA = 4.63 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m025",
+      "questionText": "Collector-to-base (collector feedback) bias improves Q-point stability because:",
+      "options": [
+        "It keeps the base voltage fixed by a resistor divider",
+        "It forces the transistor into saturation",
+        "It makes β independent of temperature",
+        "A rise in I_C lowers the collector voltage, which reduces the base current"
+      ],
+      "correctIndex": 3,
+      "explanation": "R_B is returned to the collector, so any increase in I_C increases the drop across R_C, lowers V_C and so reduces I_B: negative feedback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m026",
+      "questionText": "For a small-signal class A amplifier, the Q-point is usually placed near the middle of the DC load line in order to:",
+      "options": [
+        "Make the transistor dissipate zero power",
+        "Allow the largest symmetrical output swing without clipping",
+        "Operate the transistor in saturation",
+        "Make β as large as possible"
+      ],
+      "correctIndex": 1,
+      "explanation": "A central Q-point leaves equal room towards saturation and cut-off, so the output can swing equally in both directions without distortion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m027",
+      "questionText": "A transistor is biased at V_CE = 5 V and I_C = 10 mA. Its quiescent collector power dissipation is:",
+      "options": [
+        "0.5 mW",
+        "2 mW",
+        "50 mW",
+        "500 mW"
+      ],
+      "correctIndex": 2,
+      "explanation": "P_C = V_CE × I_C = 5 V × 10 mA = 50 mW.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m028",
+      "questionText": "A BJT is in the cut-off region when:",
+      "options": [
+        "Both the emitter-base and collector-base junctions are reverse biased",
+        "Both junctions are forward biased",
+        "The emitter-base junction is forward and the collector-base junction reverse biased",
+        "The emitter-base junction is reverse and the collector-base junction forward biased"
+      ],
+      "correctIndex": 0,
+      "explanation": "In cut-off neither junction conducts, so I_C is only the tiny leakage current and the transistor acts as an open switch.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m029",
+      "questionText": "An npn transistor switch (β = 100) has R_C = 1 kΩ to a 5 V supply and is driven by a 5 V logic input through R_B. With V_BE = 0.7 V and V_CE(sat) = 0.2 V, the largest R_B that still just saturates the transistor is about:",
+      "options": [
+        "104 kΩ",
+        "89.6 kΩ",
+        "8.96 kΩ",
+        "179 kΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_C(sat) = (5 − 0.2)/1 k = 4.8 mA; I_B(min) = 4.8 mA/100 = 48 µA; R_B(max) = (5 − 0.7)/48 µA = 89.6 kΩ.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i43_m030",
+      "questionText": "For a pnp transistor to operate in the active region:",
+      "options": [
+        "The base must be more positive than the emitter, and the collector more positive than the base",
+        "The emitter and collector must both be more negative than the base",
+        "The collector must be more positive than the emitter",
+        "The emitter must be more positive than the base, and the collector more negative than the base"
+      ],
+      "correctIndex": 3,
+      "explanation": "Active operation needs the EB junction forward biased (p emitter positive with respect to the n base) and the CB junction reverse biased (p collector negative with respect to the base).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m031",
+      "questionText": "The input characteristic of a transistor in the common-emitter configuration is a plot of:",
+      "options": [
+        "I_C against V_CE with I_B held constant",
+        "I_C against I_B with V_CE held constant",
+        "I_B against V_BE with V_CE held constant",
+        "I_E against V_CB with I_E held constant"
+      ],
+      "correctIndex": 2,
+      "explanation": "The CE input characteristic shows base current versus base-emitter voltage at fixed V_CE; it has the shape of a forward-biased diode curve.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m032",
+      "questionText": "On the common-emitter output characteristics of a BJT, each curve is drawn for a constant value of:",
+      "options": [
+        "Base current I_B",
+        "Collector current I_C",
+        "Collector-emitter voltage V_CE",
+        "Emitter current I_E"
+      ],
+      "correctIndex": 0,
+      "explanation": "The output family plots I_C against V_CE, with one curve for each fixed base current; in the common-base family the parameter is I_E.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m033",
+      "questionText": "On a transistor's output characteristics at constant V_CE, the collector current rises from 2.0 mA to 3.0 mA when the base current rises from 20 µA to 30 µA. The AC current gain β_ac is:",
+      "options": [
+        "100",
+        "150",
+        "10",
+        "1000"
+      ],
+      "correctIndex": 0,
+      "explanation": "β_ac = ΔI_C/ΔI_B = (3.0 − 2.0) mA/(30 − 20) µA = 1 mA/10 µA = 100.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m034",
+      "questionText": "A transistor has α = 0.995 and is operated with a base current of 15 µA in the active region. Its emitter current is:",
+      "options": [
+        "0.015 mA",
+        "3.0 mA",
+        "0.3 mA",
+        "30 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "β = 0.995/0.005 = 199; I_E = (1 + β)I_B = 200 × 15 µA = 3.0 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m035",
+      "questionText": "In a fixed-bias circuit operating in the active region, the transistor is replaced by one whose β is twice as large, with all resistors and V_CC unchanged. Provided it stays in the active region, the collector current:",
+      "options": [
+        "Stays almost the same",
+        "Halves",
+        "Doubles",
+        "Falls to zero"
+      ],
+      "correctIndex": 2,
+      "explanation": "In fixed bias I_B = (V_CC − V_BE)/R_B does not depend on β, so I_C = βI_B doubles; this sensitivity is the main weakness of fixed bias.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m036",
+      "questionText": "A BJT is called a bipolar device because:",
+      "options": [
+        "It has two terminals",
+        "It can be operated from positive and negative supplies",
+        "It has two collector regions",
+        "Both electrons and holes take part in conduction"
+      ],
+      "correctIndex": 3,
+      "explanation": "Current in a BJT involves both majority and minority carriers, that is both electrons and holes, unlike the unipolar FET.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m037",
+      "questionText": "Punch-through (reach-through) in a BJT occurs when:",
+      "options": [
+        "The collector depletion region spreads across the whole base and meets the emitter depletion region",
+        "The base current exceeds the collector current",
+        "The emitter-base junction is forward biased by more than 0.7 V",
+        "The collector is heavily doped"
+      ],
+      "correctIndex": 0,
+      "explanation": "At very high collector voltage the depletion layer widens through the thin base until it reaches the emitter junction, and a large current flows that is no longer controlled by the base.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m038",
+      "questionText": "Which statement about the BJT is NOT correct?",
+      "options": [
+        "The base is thin and lightly doped",
+        "The collector current in the active region is controlled mainly by the base-emitter junction",
+        "The emitter and collector can be interchanged without any change in performance",
+        "β varies with temperature and collector current"
+      ],
+      "correctIndex": 2,
+      "explanation": "The emitter and collector differ in doping and size, so reversing them gives a much smaller current gain; the other statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i43_m039",
+      "questionText": "In an emitter follower, the base is held at 5 V DC and the emitter resistor is 1 kΩ to ground. Taking V_BE = 0.7 V, the emitter current is:",
+      "options": [
+        "5.0 mA",
+        "5.7 mA",
+        "0.43 mA",
+        "4.3 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_E = V_B − V_BE = 5 − 0.7 = 4.3 V; I_E = 4.3 V/1 kΩ = 4.3 mA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i43_m040",
+      "questionText": "In a common-base amplifier the emitter current is 2 mA and α = 0.98. The collector current is:",
+      "options": [
+        "2.04 mA",
+        "1.96 mA",
+        "0.04 mA",
+        "1.00 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_C = αI_E = 0.98 × 2 mA = 1.96 mA; the base carries the remaining 0.04 mA.",
+      "difficulty": "easy"
+    }
+  ]
+}

@@ -1,0 +1,695 @@
+{
+  "topicId": "ch4_i12",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Field Sizing, Expanding Opcodes and Flags"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every field of an instruction must be wide enough for the largest value it has to name. An opcode that distinguishes N operations needs ⌈log2 N⌉ bits, a register field for R registers needs ⌈log2 R⌉ bits, a mode field for M addressing modes needs ⌈log2 M⌉ bits, and a direct address into a word-addressable memory of 2^n words needs n bits. The instruction length is the sum of its fields; when the length is fixed (say one 32-bit word) the fields compete, so whatever is left after the others decides the number of opcodes or the range of an immediate or displacement. A k-bit two's-complement field covers −2^(k−1) to 2^(k−1) − 1."
+    },
+    {
+      "type": "formula",
+      "latex": "L = \\lceil \\log_2 N_{op} \\rceil + \\lceil \\log_2 M \\rceil + r\\lceil \\log_2 R \\rceil + a\\,n",
+      "plainText": "Length = ceil(log2 N_op) + ceil(log2 M) + r × ceil(log2 R) + a × n, for r register fields and a address fields of n bits"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: one-word 32-bit instruction, fields opcode | mode | reg | address\nMemory 128K x 32, word-addressable: 128K = 2^17  -> address field 17 bits\n40 registers: 2^5 = 32 < 40 <= 64 = 2^6         -> register field  6 bits\n5 addressing modes: 4 < 5 <= 8                    -> mode field      3 bits\nOpcode = 32 - 17 - 6 - 3                          -> opcode field    6 bits\nOperations available = 2^6 = 64\nFormat: | opcode 6 | mode 3 | reg 6 | address 17 |"
+    },
+    {
+      "type": "paragraph",
+      "text": "Expanding opcodes exploit the fact that an instruction with fewer address fields has spare bits. The designer leaves some patterns of the short opcode unused; each unused pattern, followed by the bits of an address field that the next format no longer needs, opens a whole block of longer opcodes. If a k-bit opcode field has U patterns in use and the next format releases an a-bit address field, 2^k − U patterns remain and each expands into 2^a new opcodes. Giving the commonest instructions the short opcodes also brings the average opcode length down, much like a variable-length code."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{next} = (2^{k} - U) \\times 2^{a}",
+      "plainText": "Opcodes available at the next level = (2^k − U) × 2^a"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 16-bit instructions with 6-bit address fields\nTwo-address : opcode = 16 - 2 x 6 = 4 bits -> 16 patterns; 12 used, 4 free\nOne-address : 4 free x 2^6 = 256 opcodes;  250 used, 6 free\nZero-address: 6 free x 2^6 = 384 opcodes available\nCheck       : 12 x 2^12 + 250 x 2^6 + 384 x 1\n            = 49152 + 16000 + 384 = 65536 = 2^16 bit patterns"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: two-word LOAD at 300-301, address field 250 in word 301\nPC = 302 after fetch, R1 = 1200, XR = 40, M[250] = 700 (word-addressable)\nDirect            EA = 250\nImmediate         operand = 250 itself (read with word 301, no extra access)\nIndirect          EA = M[250] = 700 (two data accesses)\nRelative          EA = PC + 250 = 302 + 250 = 552\nIndexed           EA = XR + 250 = 40 + 250 = 290\nRegister          operand = R1 = 1200 (no EA)\nRegister indirect EA = R1 = 1200\nAutoincrement     EA = 1200, then R1 = 1201\nAutodecrement     R1 = 1199 first, then EA = 1199"
+    },
+    {
+      "type": "paragraph",
+      "text": "The ALU sets the status bits after every data manipulation instruction. For an n-bit result, C is the carry out of the most significant position, S is the most significant bit of the result, Z is 1 when every result bit is 0, and V is 1 when a signed result has overflowed, which happens exactly when two operands of the same sign produce a result of the other sign. A compare instruction forms A − B as A + B' + 1, sets the flags and throws the difference away; with this convention C = 1 means no borrow, that is A ≥ B for unsigned numbers. Unsigned branch conditions therefore test C and Z, while signed conditions test S ⊕ V and Z, because S alone gives the wrong answer whenever overflow occurs."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 4: 8-bit flags\nADD 0111 1010 (+122) + 0100 0110 (+70)\n    carry into bit 7 = 1, carry out of bit 7 = 0\n    result 1100 0000 -> S = 1, Z = 0, C = 0, V = 1 xor 0 = 1\n    (+192 is outside -128..+127, so the signed result is wrong)\nCMP A = 0011 0000 (48), B = 0101 0000 (80)\n    A + B' + 1 = 0011 0000 + 1010 1111 + 1 = 1110 0000, carry out 0\n    C = 0 (A < B unsigned); S = 1, V = 0, S xor V = 1 (A < B signed)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "After CMP A, B",
+          "Unsigned test",
+          "Signed test"
+        ],
+        [
+          "A > B",
+          "C = 1 and Z = 0",
+          "Z = 0 and S ⊕ V = 0"
+        ],
+        [
+          "A ≥ B",
+          "C = 1",
+          "S ⊕ V = 0"
+        ],
+        [
+          "A < B",
+          "C = 0",
+          "S ⊕ V = 1"
+        ],
+        [
+          "A ≤ B",
+          "C = 0 or Z = 1",
+          "Z = 1 or S ⊕ V = 1"
+        ],
+        [
+          "A = B",
+          "Z = 1",
+          "Z = 1"
+        ],
+        [
+          "A ≠ B",
+          "Z = 0",
+          "Z = 0"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: adding the relative offset to the address of the branch instead of the updated PC; incrementing an autoincrement register by 1 instead of by the operand size (4 for a 32-bit word in byte-addressable memory); counting an immediate operand as a memory access; sizing an opcode with ⌊log2 N⌋ instead of ⌈log2 N⌉; multiplying by the opcode width instead of the released address-field width in expanding-opcode problems; and testing S alone for a signed less-than. The C-flag test in the table assumes C = 1 means no borrow; some processors, such as x86, store the borrow instead."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i12_m001",
+      "questionText": "A processor must support 100 distinct operations. What is the minimum width of its opcode field?",
+      "options": [
+        "6 bits",
+        "7 bits",
+        "8 bits",
+        "10 bits"
+      ],
+      "correctIndex": 1,
+      "explanation": "The opcode needs ⌈log2 100⌉ bits: 2^6 = 64 is too few and 2^7 = 128 ≥ 100, so 7 bits are required.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m002",
+      "questionText": "A register-to-register instruction names one of 120 operations and three operands chosen from a file of 32 registers. What is the minimum instruction length?",
+      "options": [
+        "21 bits",
+        "17 bits",
+        "22 bits",
+        "25 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "Opcode = ⌈log2 120⌉ = 7 bits and each register field = log2 32 = 5 bits, so the length is 7 + 3 × 5 = 22 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m003",
+      "questionText": "A word-addressable memory holds 1M words of 32 bits (1M = 2^20). Each instruction occupies one word and has four fields: an opcode, a mode field selecting one of 5 addressing modes, a register field naming one of 30 registers, and a direct memory address. How wide is the opcode field, and how many opcodes can it encode?",
+      "options": [
+        "7 bits, 128 opcodes",
+        "5 bits, 32 opcodes",
+        "2 bits, 4 opcodes",
+        "4 bits, 16 opcodes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Address = 20 bits, mode = ⌈log2 5⌉ = 3 bits, register = ⌈log2 30⌉ = 5 bits. Opcode = 32 − 20 − 3 − 5 = 4 bits, which encodes 2^4 = 16 operations.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m004",
+      "questionText": "A 16-bit fixed-length register-immediate instruction has a 5-bit opcode, one register field for a file of 8 registers, and a two's-complement immediate that uses all the remaining bits. What range of constants can the immediate hold?",
+      "options": [
+        "−128 to +127",
+        "0 to 255",
+        "−256 to +255",
+        "−64 to +63"
+      ],
+      "correctIndex": 0,
+      "explanation": "Register field = log2 8 = 3 bits, so the immediate has 16 − 5 − 3 = 8 bits. An 8-bit two's-complement field covers −2^7 to 2^7 − 1, i.e. −128 to +127.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m005",
+      "questionText": "A computer has 20-bit instructions and 7-bit memory address fields. Two-address instructions use all the remaining bits as their opcode, and 50 two-address instructions are defined. Using expanding opcodes, what is the maximum number of one-address instructions?",
+      "options": [
+        "896",
+        "8142",
+        "1792",
+        "8192"
+      ],
+      "correctIndex": 2,
+      "explanation": "Two-address opcode = 20 − 2 × 7 = 6 bits = 64 patterns, of which 64 − 50 = 14 are free. Each free pattern is extended by the released 7-bit address field: 14 × 2^7 = 1792 one-address instructions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m006",
+      "questionText": "A computer has 16-bit instructions and 4-bit address fields; three-address instructions have a 4-bit opcode. With expanding opcodes it defines 14 three-address, 30 two-address and 20 one-address instructions. What is the maximum number of zero-address instructions?",
+      "options": [
+        "12",
+        "192",
+        "3072",
+        "256"
+      ],
+      "correctIndex": 1,
+      "explanation": "Three-address: 16 − 14 = 2 free patterns give 2 × 2^4 = 32 two-address codes; 32 − 30 = 2 free give 32 one-address codes; 32 − 20 = 12 free give 12 × 2^4 = 192 zero-address instructions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m007",
+      "questionText": "What is the main idea of an expanding-opcode scheme?",
+      "options": [
+        "Instructions that need fewer address bits use the freed bits to extend the opcode, so more operations fit in a fixed instruction length",
+        "Every instruction has the same opcode width, and extra operations are supplied by a second instruction word",
+        "The opcode is expanded at run time by the microprogram into several microinstructions",
+        "The opcode grows with the size of main memory so that more addresses can be reached"
+      ],
+      "correctIndex": 0,
+      "explanation": "An instruction with fewer address fields has spare bits; unused short-opcode patterns act as escapes that are extended by those bits, giving many more opcodes without lengthening the instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m008",
+      "questionText": "In a single-accumulator CPU, how many explicit address fields does an ADD instruction need?",
+      "options": [
+        "None; both operands are on a stack",
+        "Two; one for each source operand",
+        "Three; two sources and a result",
+        "One; the accumulator is an implied source and destination"
+      ],
+      "correctIndex": 3,
+      "explanation": "An accumulator machine executes ADD X as AC ← AC + M[X]: the accumulator is implied, so only the memory address X is written in the instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m009",
+      "questionText": "Which CPU organisation allows arithmetic instructions with no address field at all?",
+      "options": [
+        "Single-accumulator organisation",
+        "General-register organisation",
+        "Memory-to-memory organisation",
+        "Stack organisation"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a stack machine ADD, MUL and similar instructions take their operands from the top of the stack and push the result, so they are zero-address; only PUSH and POP carry an address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m010",
+      "questionText": "Which statement about three-address instructions is correct?",
+      "options": [
+        "They give the shortest programs for arithmetic expressions but need long instruction words to hold three addresses",
+        "They give the longest programs because each instruction does less work",
+        "They need no temporary registers or locations for any expression",
+        "They are the format used by stack machines for PUSH and POP"
+      ],
+      "correctIndex": 0,
+      "explanation": "Naming two sources and a destination lets each instruction finish a whole operation, so programs are short, but three address fields make the binary instruction long.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m011",
+      "questionText": "An accumulator machine provides LOAD M, STORE M, ADD M, SUB M and MUL M, each with one memory address; AC is the implied operand and destination. What is the minimum number of instructions that computes X = (A − B) × (C + D), with all five variables in memory?",
+      "options": [
+        "5",
+        "6",
+        "7",
+        "8"
+      ],
+      "correctIndex": 2,
+      "explanation": "One partial result must be parked in memory because AC cannot hold both A − B and C + D: LOAD A, SUB B, STORE T, LOAD C, ADD D, MUL T, STORE X is 7 instructions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m012",
+      "questionText": "X = (A + B) × (C + D) is coded four ways, with A, B, C, D and X in memory: three-address using R1 and R2 (3 instructions), two-address using R1 and R2 (6), one-address using a temporary T (7), and zero-address with the stack held in CPU registers (8). Counting only operand accesses to memory, not instruction fetches, which program makes the most?",
+      "options": [
+        "The zero-address program, with 8 accesses",
+        "The one-address program, with 7 accesses",
+        "The three-address program, with 5 accesses",
+        "None; all four programs make exactly 5 accesses"
+      ],
+      "correctIndex": 1,
+      "explanation": "The three-, two- and zero-address programs each read A, B, C, D once and write X once (5 accesses). The one-address program also stores and reloads T, so each of its 7 instructions touches memory once: 7 accesses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m013",
+      "questionText": "A stack machine has 8-bit opcodes and 16-bit memory addresses; PUSH and POP carry one address while ADD and MUL carry none. What is the size of the program PUSH A; PUSH B; ADD; PUSH C; PUSH D; ADD; MUL; POP X?",
+      "options": [
+        "144 bits (18 bytes)",
+        "192 bits (24 bytes)",
+        "168 bits (21 bytes)",
+        "64 bits (8 bytes)"
+      ],
+      "correctIndex": 0,
+      "explanation": "The four PUSH and one POP are 8 + 16 = 24 bits each and the three arithmetic instructions are 8 bits each: 5 × 24 + 3 × 8 = 120 + 24 = 144 bits = 18 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m014",
+      "questionText": "Which postfix (reverse Polish) sequence does a stack computer evaluate for X = (A + B) × (C − D) / E, with × and / of equal precedence applied left to right?",
+      "options": [
+        "A B C D + − × E /",
+        "A B + C − D × E /",
+        "A B + C D E / − ×",
+        "A B + C D − × E /"
+      ],
+      "correctIndex": 3,
+      "explanation": "A + B and C − D become A B + and C D −; their product is A B + C D − ×, and dividing it by E appends E /. The other strings compute different expressions, e.g. (A + B) × (C − D / E).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m015",
+      "questionText": "X = A + B × (C − D × E) is converted to postfix by the standard algorithm, keeping the operands in their original order, and run on a zero-address machine (one PUSH per operand, one instruction per operator, then POP X). How many instructions does the program have, and what is the largest number of entries on the stack at any moment?",
+      "options": [
+        "10 instructions; 3 entries",
+        "10 instructions; 5 entries",
+        "9 instructions; 5 entries",
+        "11 instructions; 4 entries"
+      ],
+      "correctIndex": 1,
+      "explanation": "The postfix form is A B C D E × − × +: 5 PUSH + 4 operators + POP X = 10 instructions. All five operands are pushed before the first operator (D × E) can run, so the stack reaches 5 entries.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m016",
+      "questionText": "On a stack machine, SUB and MUL pop the top two entries and push (second entry op top entry). With A = 10, B = 4 and C = 3 in memory, what value does this program store in X?\nPUSH A\nPUSH B\nSUB\nPUSH C\nMUL\nPOP X",
+      "options": [
+        "−18",
+        "−2",
+        "18",
+        "42"
+      ],
+      "correctIndex": 2,
+      "explanation": "The stack holds 10, 4; SUB leaves 10 − 4 = 6; PUSH C gives 6, 3; MUL leaves 18; POP X stores 18, i.e. X = (A − B) × C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m017",
+      "questionText": "In a two-address machine the first operand is both a source and the destination (ADD R1, B means R1 ← R1 + M[B], and MOV copies the second operand into the first). With A = 2, B = 3 and C = 4, what does this program leave in X?\nMOV R1, A\nADD R1, B\nMOV R2, R1\nMUL R1, C\nSUB R1, R2\nMOV X, R1",
+      "options": [
+        "−15",
+        "20",
+        "15",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "R1 = 2, then 2 + 3 = 5; R2 = 5; R1 = 5 × 4 = 20; R1 = 20 − 5 = 15; X ← 15. The program computes (A + B) × C − (A + B).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m018",
+      "questionText": "A two-word instruction occupies addresses 600 and 601 of a word-addressable memory, and its second word holds the address field 350. The PC is incremented after each word is fetched. What is the effective address in relative mode?",
+      "options": [
+        "952",
+        "950",
+        "951",
+        "350"
+      ],
+      "correctIndex": 0,
+      "explanation": "After both words are fetched PC = 602, so EA = PC + address field = 602 + 350 = 952.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m019",
+      "questionText": "The address field of a LOAD instruction is 300, and memory holds M[300] = 450 and M[450] = 900. What value is loaded into the accumulator if the instruction uses indirect addressing?",
+      "options": [
+        "450",
+        "300",
+        "750",
+        "900"
+      ],
+      "correctIndex": 3,
+      "explanation": "Indirect: EA = M[300] = 450 and the operand is M[450] = 900. Direct mode would load 450 and immediate mode would load 300.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m020",
+      "questionText": "A two-word LOAD AC instruction is stored at 250–251 (word-addressable) with address field 500 in word 251; after the fetch PC = 252. R1 = 400 and the index register XR = 100. Memory holds M[400] = 700, M[500] = 800, M[600] = 900, M[752] = 650 and M[800] = 300. Which addressing mode loads the value 900 into AC?",
+      "options": [
+        "Relative",
+        "Indexed",
+        "Indirect",
+        "Register indirect"
+      ],
+      "correctIndex": 1,
+      "explanation": "Indexed: EA = XR + 500 = 600, operand M[600] = 900. Relative gives EA = 752 (650), indirect gives EA = M[500] = 800 (300), register indirect gives EA = 400 (700), and direct would load M[500] = 800.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m021",
+      "questionText": "Memory is byte-addressable and operands are 4-byte words. R3 = 1000 before LOAD R1, (R3)+ (autoincrement) is executed twice in succession. What effective address does the second execution use, and what does R3 hold afterwards?",
+      "options": [
+        "EA = 1001; R3 = 1002",
+        "EA = 1000; R3 = 1004",
+        "EA = 1008; R3 = 1008",
+        "EA = 1004; R3 = 1008"
+      ],
+      "correctIndex": 3,
+      "explanation": "Autoincrement uses the register as the EA and then adds the operand size, 4. First execution: EA = 1000, R3 → 1004; second: EA = 1004, R3 → 1008.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m022",
+      "questionText": "A stack grows toward lower addresses in a byte-addressable memory with 4-byte words, and SP points to the top item. PUSH is MOV −(SP), Rx (autodecrement) and POP is MOV Rx, (SP)+ (autoincrement). Starting with SP = 5000, the program performs three pushes and then one pop. What is SP at the end?",
+      "options": [
+        "4998",
+        "5008",
+        "4988",
+        "4992"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each push subtracts 4 before writing and each pop adds 4 after reading: SP = 5000 − 3 × 4 + 4 = 4992.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m023",
+      "questionText": "A program assembled as if it started at address 0 is loaded at address 24000, and its base register is set to 24000. An instruction in base-register mode has displacement 1350. What is its effective address?",
+      "options": [
+        "25350",
+        "1350",
+        "22650",
+        "24000"
+      ],
+      "correctIndex": 0,
+      "explanation": "EA = base register + displacement = 24000 + 1350 = 25350. Only the base register changes when the program is relocated.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m024",
+      "questionText": "A loop body contains LOAD R1, 2000(XR) (indexed mode) in a byte-addressable memory. XR starts at 0 and is increased by 4 at the end of every iteration. What effective address does the instruction use in the 6th iteration?",
+      "options": [
+        "2020",
+        "2024",
+        "2005",
+        "2006"
+      ],
+      "correctIndex": 0,
+      "explanation": "Before the 6th iteration XR has been increased 5 times, so XR = 5 × 4 = 20 and EA = 2000 + 20 = 2020.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m025",
+      "questionText": "An x86-style memory operand uses EA = base + index × scale + displacement. With base register = 1000, index register = 6, scale = 4 and displacement = 20, what is the effective address?",
+      "options": [
+        "1026",
+        "1044",
+        "1024",
+        "1104"
+      ],
+      "correctIndex": 1,
+      "explanation": "EA = 1000 + 6 × 4 + 20 = 1000 + 24 + 20 = 1044. Only the index is scaled; the displacement is added unscaled.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m026",
+      "questionText": "A 3-byte PC-relative branch instruction starts at address 750 in a byte-addressable memory and must jump to address 700. The offset is added to the PC after the whole instruction has been fetched. What signed offset must the assembler place in the instruction?",
+      "options": [
+        "−50",
+        "−51",
+        "+53",
+        "−53"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the offset is added, PC = 750 + 3 = 753, so offset = target − PC = 700 − 753 = −53.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m027",
+      "questionText": "In a byte-addressable RISC with 32-bit instructions, a branch computes target = (PC + 4) + 4 × offset, where PC is the address of the branch and offset is a signed count of words. A branch at address 40000 has offset −3. What is its target address?",
+      "options": [
+        "39988",
+        "40001",
+        "39992",
+        "39997"
+      ],
+      "correctIndex": 2,
+      "explanation": "Target = 40000 + 4 + 4 × (−3) = 40004 − 12 = 39992.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m028",
+      "questionText": "A one-word instruction LOAD @A uses indirect addressing. Counting the instruction fetch, how many memory accesses does it make in total?",
+      "options": [
+        "1",
+        "3",
+        "2",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "One access fetches the instruction, one reads M[A] to obtain the effective address, and one reads the operand at that address: 3 accesses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m029",
+      "questionText": "Once the instruction has been fetched, which addressing mode needs no further memory access to obtain its operand?",
+      "options": [
+        "Register mode",
+        "Direct mode",
+        "Register indirect mode",
+        "Indexed mode"
+      ],
+      "correctIndex": 0,
+      "explanation": "In register mode the operand is already in a CPU register. Direct, register indirect and indexed modes all form an effective address in memory and must read it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m030",
+      "questionText": "Which addressing mode lets a branch work unchanged wherever the program is loaded in memory (position-independent code)?",
+      "options": [
+        "Direct (absolute) addressing",
+        "PC-relative addressing",
+        "Indirect addressing",
+        "Immediate addressing"
+      ],
+      "correctIndex": 1,
+      "explanation": "A PC-relative branch stores the distance from the current PC, which stays the same when the whole program moves; absolute addresses would all need patching.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m031",
+      "questionText": "Which statement about immediate addressing is NOT correct?",
+      "options": [
+        "The operand is part of the instruction itself",
+        "No memory access beyond the instruction fetch is needed for the operand",
+        "The largest constant is limited by the width of the operand field",
+        "The effective address is the value in the address field"
+      ],
+      "correctIndex": 3,
+      "explanation": "EA = address field describes direct addressing. In immediate mode the field is the operand itself, so no extra access is needed, but the constant's range is limited by the field width.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m032",
+      "questionText": "Which of the following is a program control instruction?",
+      "options": [
+        "XCHG (exchange)",
+        "ROL (rotate left)",
+        "CALL (subroutine call)",
+        "PUSH"
+      ],
+      "correctIndex": 2,
+      "explanation": "Program control instructions change the PC or test conditions for doing so: branch, jump, call, return, compare and test. XCHG and PUSH are data transfer, and ROL is a data manipulation (shift) instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m033",
+      "questionText": "How does CMP R1, R2 differ from SUB R1, R2?",
+      "options": [
+        "CMP subtracts R1 from R2 instead of R2 from R1",
+        "CMP changes R1 but does not affect the flags",
+        "CMP performs R1 − R2 only to set the status flags and discards the difference, leaving R1 unchanged",
+        "CMP performs a logical AND instead of a subtraction"
+      ],
+      "correctIndex": 2,
+      "explanation": "Compare subtracts so that C, S, Z and V are ready for a following conditional branch, but it stores no result; TEST does the same with a logical AND.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m034",
+      "questionText": "An 8-bit register holds 1100 1010. What does it hold after an exclusive-OR with the mask 1111 0000?",
+      "options": [
+        "0011 1010",
+        "1100 0000",
+        "1111 1010",
+        "0011 0101"
+      ],
+      "correctIndex": 0,
+      "explanation": "XOR with 1 complements a bit and XOR with 0 leaves it unchanged, so the high nibble 1100 becomes 0011 and the low nibble 1010 is kept: 0011 1010.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m035",
+      "questionText": "Which single operation sets bits 7 and 0 of an 8-bit register to 1 while leaving bits 6 to 1 unchanged?",
+      "options": [
+        "AND with 1000 0001",
+        "OR with 1000 0001",
+        "XOR with 1000 0001",
+        "AND with 0111 1110"
+      ],
+      "correctIndex": 1,
+      "explanation": "OR with 1 forces a bit to 1 and OR with 0 keeps it. AND with 1000 0001 would clear bits 6 to 1, and XOR would clear bits 7 and 0 if they were already 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m036",
+      "questionText": "An 8-bit register holds the signed value 1011 0100 (−76). What does it hold after one arithmetic shift right?",
+      "options": [
+        "0101 1010",
+        "0110 1000",
+        "1110 1101",
+        "1101 1010"
+      ],
+      "correctIndex": 3,
+      "explanation": "SHRA moves every bit one place right and copies the sign bit into the MSB: 1101 1010 = −38 = −76 / 2. A logical shift right would insert 0 and give 0101 1010.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m037",
+      "questionText": "An 8-bit register holds 0110 0101 (+101). After one arithmetic shift left, what are the register contents and the overflow condition?",
+      "options": [
+        "1100 1010; no overflow, the result is −54",
+        "1100 1010; overflow, because the sign bit changed",
+        "0100 1010; no overflow, because the sign bit is kept",
+        "0011 0010; no overflow"
+      ],
+      "correctIndex": 1,
+      "explanation": "SHLA shifts left and inserts 0 at the LSB: 1100 1010. The sign bit changed from 0 to 1 because 2 × 101 = 202 exceeds +127, so overflow is set.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m038",
+      "questionText": "The carry flag is C = 1 and an 8-bit register holds R = 0100 0001. What are R and C after one rotate right through carry (RORC)?",
+      "options": [
+        "R = 1010 0000, C = 1",
+        "R = 0010 0000, C = 1",
+        "R = 1010 0000, C = 0",
+        "R = 1010 0001, C = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "RORC shifts right, moves the old carry (1) into the MSB and the old LSB (1) into C, giving R = 1010 0000 and C = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m039",
+      "questionText": "An 8-bit ALU adds 0110 0100 and 0011 0010. C is the carry out of bit 7, Z is set for a zero result, S is bit 7 of the result and V flags signed overflow. Which flag values result?",
+      "options": [
+        "C = 0, Z = 0, S = 1, V = 1",
+        "C = 1, Z = 0, S = 1, V = 0",
+        "C = 0, Z = 0, S = 1, V = 0",
+        "C = 1, Z = 0, S = 0, V = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "0110 0100 + 0011 0010 = 1001 0110 (100 + 50 = 150). No carry leaves bit 7 (C = 0), bit 7 is 1 (S = 1), two positive operands gave a negative result (V = 1), and the result is non-zero (Z = 0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m040",
+      "questionText": "With the same flag definitions (C = carry out of bit 7, Z = zero, V = signed overflow), an 8-bit ALU adds 1111 0000 and 0001 0000. Which flags are set, and is the 8-bit result correct as an unsigned sum and as a signed sum?",
+      "options": [
+        "C = 1, Z = 1, V = 1: wrong both as unsigned and as signed",
+        "C = 0, Z = 1, V = 0: correct both as unsigned and as signed",
+        "C = 1, Z = 1, V = 0: wrong as unsigned (240 + 16 = 256 does not fit), correct as signed (−16 + 16 = 0)",
+        "C = 1, Z = 0, V = 0: correct as unsigned, wrong as signed"
+      ],
+      "correctIndex": 2,
+      "explanation": "1111 0000 + 0001 0000 = 1 0000 0000, so the register holds 0000 0000 with C = 1 and Z = 1. Unsigned 240 + 16 = 256 overflows 8 bits (C = 1), but signed −16 + 16 = 0 is exact, so V = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m041",
+      "questionText": "After CMP A, B on signed two's-complement numbers, which flag condition means A < B?",
+      "options": [
+        "C = 0",
+        "S ⊕ V = 1",
+        "S = 1",
+        "Z = 0 and C = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "A − B is negative when A < B, but overflow inverts the sign bit, so the reliable test is S ⊕ V = 1. C = 0 is the unsigned 'lower' test when C = 1 means no borrow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m042",
+      "questionText": "A CPU performs CMP A, B by forming A + B' + 1 in 8 bits, with A = 0110 0100 (+100) and B = 1100 1110 (−50). Which flags result, and is 'branch if less than (signed)', which tests S ⊕ V = 1, taken?",
+      "options": [
+        "S = 1, V = 0; the branch is taken",
+        "S = 1, V = 1; the branch is taken",
+        "S = 0, V = 0; the branch is not taken",
+        "S = 1, V = 1; the branch is not taken"
+      ],
+      "correctIndex": 3,
+      "explanation": "A + B' + 1 = 0110 0100 + 0011 0001 + 1 = 1001 0110, so S = 1; two positive addends gave a negative result, so V = 1 (+150 does not fit). S ⊕ V = 0, so A ≥ B and the branch is not taken, which is right because +100 > −50.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i12_m043",
+      "questionText": "Two unsigned 8-bit numbers, 200 and 100, are added. Which status flag shows that the true sum does not fit in 8 bits?",
+      "options": [
+        "V (overflow)",
+        "S (sign)",
+        "C (carry)",
+        "Z (zero)"
+      ],
+      "correctIndex": 2,
+      "explanation": "300 exceeds 255, so a carry leaves bit 7 and C = 1 while the register keeps 300 − 256 = 44. V reports signed overflow, a different condition (here −56 + 100 = 44, so V = 0).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m044",
+      "questionText": "A CPU keeps a memory stack that grows toward lower addresses, with SP pointing to the top item. Which microoperation sequence correctly implements CALL to a subroutine at effective address EA?",
+      "options": [
+        "PC ← EA; SP ← SP − 1; M[SP] ← PC",
+        "M[SP] ← PC; SP ← SP + 1; PC ← EA",
+        "PC ← M[SP]; SP ← SP + 1",
+        "SP ← SP − 1; M[SP] ← PC; PC ← EA"
+      ],
+      "correctIndex": 3,
+      "explanation": "The return address (the PC, already pointing at the next instruction) must be pushed before PC is overwritten, and a push onto a downward-growing stack decrements SP first. PC ← M[SP]; SP ← SP + 1 is the RETURN sequence.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i12_m045",
+      "questionText": "Which of the following is a difference between a program interrupt and a subroutine call?",
+      "options": [
+        "An interrupt is started by a hardware or internal signal rather than by an instruction, and the CPU saves its status (PSW) as well as the return address",
+        "An interrupt always returns to the instruction that caused it, while a call returns to the next instruction",
+        "A subroutine call saves every CPU register automatically, while an interrupt saves nothing",
+        "An interrupt transfers control to the address in the current instruction's address field"
+      ],
+      "correctIndex": 0,
+      "explanation": "A subroutine call is an instruction whose address field gives the target and which saves only the PC. An interrupt is triggered by a signal, its service-routine address comes from hardware, and the CPU state (PSW) is saved too.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i12_m046",
+      "questionText": "An accumulator machine has 3-byte instructions (1-byte opcode, 2-byte address) and 4-byte data words. It runs LOAD A; ADD B; STORE T; LOAD C; ADD D; MUL T; STORE X. Counting both instruction fetches and data transfers, how many bytes move between the CPU and memory?",
+      "options": [
+        "41 bytes",
+        "28 bytes",
+        "49 bytes",
+        "21 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Code: 7 instructions × 3 bytes = 21 bytes fetched. Data: each instruction reads or writes one 4-byte word, 7 × 4 = 28 bytes. Total = 21 + 28 = 49 bytes.",
+      "difficulty": "hard"
+    }
+  ]
+}

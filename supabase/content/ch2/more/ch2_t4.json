@@ -1,0 +1,695 @@
+{
+  "topicId": "ch2_t4",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Memory Sizing, Instruction Timing and Performance"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why do n address lines give exactly 2^n locations? Each line carries one bit, so the address is an n-bit binary number, and an n-bit number has 2^n distinct patterns from all zeros to all ones. The first address is therefore 0 and the last is 2^n − 1, which in hex is simply n/4 digits of F when n is a multiple of 4 (16 lines → FFFFH, 20 lines → FFFFFH). If each location holds a word wider than one byte, the capacity in bytes is the number of locations multiplied by the word width in bytes."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Capacity (bytes)} = 2^{n} \\times \\frac{w}{8},\\qquad \\text{last address} = 2^{n} - 1",
+      "plainText": "Capacity in bytes = 2^n × w/8 (w = bits per location); last address = 2^n − 1"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: memory sizing\nGiven: 20 address lines, each location 16 bits wide\nLocations      = 2^20 = 1,048,576 = 1 M\nBytes/location = 16 / 8 = 2\nCapacity       = 1 M x 2 = 2 MB\nAddress range  = 00000H to FFFFFH (2^20 - 1)\nReverse: lines needed for 256 KB bytes\n256 KB = 2^8 x 2^10 = 2^18  ->  18 address lines"
+    },
+    {
+      "type": "paragraph",
+      "text": "The fetch–decode–execute loop can be written as a short sequence of register transfers. The program counter drives the address bus, memory returns the opcode on the data bus into the instruction register, and the PC is incremented so it already points to the next byte. The decoder then decides how many more machine cycles are needed: none for a register-to-register operation, one or two memory reads to collect an operand or address, and a memory or I/O write if a result must leave the chip."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Instruction cycle as register transfers\nFETCH:   address bus <- PC\n         IR <- memory[PC]        (read strobe active)\n         PC <- PC + 1\nDECODE:  control unit examines IR, plans remaining cycles\nOPERAND: (if needed) read further bytes, PC <- PC + 1 each\nEXECUTE: ALU operates, flags updated\nSTORE:   (if needed) memory or I/O write of the result"
+    },
+    {
+      "type": "formula",
+      "latex": "t_{CPU} = \\frac{IC \\times CPI}{f_{clk}},\\qquad CPI_{avg} = \\sum_{i} p_i \\, CPI_i",
+      "plainText": "CPU time = instruction count × CPI / f_clk; average CPI = sum of (fraction × CPI) over instruction classes"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: timing and performance\nClock 2 MHz  ->  T = 1 / 2 MHz = 0.5 us\nProgram: 20 instr x 4T + 10 x 7T + 5 x 10T\nTotal T-states = 80 + 70 + 50 = 200\nTime = 200 x 0.5 us = 100 us\nMix: 50% CPI 1, 30% CPI 3, 20% CPI 2 at 900 MHz\nCPI_avg = 0.5 + 0.9 + 0.4 = 1.8\nMIPS = 900 / 1.8 = 500"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity",
+          "Formula",
+          "Example"
+        ],
+        [
+          "T-state",
+          "1 / f",
+          "4 MHz gives 250 ns"
+        ],
+        [
+          "Instruction time",
+          "T-states × T",
+          "10 T at 4 MHz = 2.5 µs"
+        ],
+        [
+          "MIPS",
+          "f / (CPI × 10^6)",
+          "200 MHz, CPI 4 gives 50"
+        ],
+        [
+          "Bus bandwidth",
+          "(f / clocks per bus cycle) × bytes per transfer",
+          "8 MHz, 4 clocks, 2 bytes = 4 MB/s"
+        ],
+        [
+          "Pipeline cycles",
+          "k + (n − 1)",
+          "5 stages, 100 instructions = 104"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Special cases and common mistakes:",
+      "items": [
+        "The 8085 clock generator divides the crystal by 2, so always halve the crystal frequency before computing T; the 8086 with an 8284 clock generator divides by 3.",
+        "4000H is the number of locations for 14 lines, not the last address; the last address is 3FFFH.",
+        "A wider data bus moves more bits per transfer but does not add any addressable locations.",
+        "Pipelining reduces the average time per instruction, not the time of a single instruction; the first instruction still needs all k stages."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "When a memory is word-addressable, 2^n gives words, not bytes. Multiply by the word width in bytes before quoting KB or MB, and keep bits (Kbit) and bytes (KB) apart."
+    },
+    {
+      "type": "examTip",
+      "text": "For timing problems write three lines every time: T = 1/f, total T-states = sum over instructions, time = total × T. For performance problems, find the average CPI first, then MIPS = f in MHz divided by CPI."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t4_m001",
+      "questionText": "A byte-addressable microprocessor has 18 address lines. The maximum memory it can address directly is:",
+      "options": [
+        "256 KB",
+        "128 KB",
+        "512 KB",
+        "64 KB"
+      ],
+      "correctIndex": 0,
+      "explanation": "Locations = 2^18 = 262,144 bytes = 256 KB. Each extra address line doubles the capacity, so 17 lines would give 128 KB and 19 lines 512 KB.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m002",
+      "questionText": "How many address lines are needed to address 512 KB of byte-addressable memory directly?",
+      "options": [
+        "18",
+        "19",
+        "20",
+        "9"
+      ],
+      "correctIndex": 1,
+      "explanation": "512 KB = 2^9 × 2^10 = 2^19 bytes, so n = log2(2^19) = 19 address lines.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m003",
+      "questionText": "A processor has 14 address lines A0–A13. The highest memory address it can generate is:",
+      "options": [
+        "4000H",
+        "1FFFH",
+        "7FFFH",
+        "3FFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Addresses run from 0 to 2^14 − 1 = 16383 = 3FFFH. 4000H (= 2^14) is the number of locations, not the last address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m004",
+      "questionText": "A memory is organised as 16-bit words and has 22 address lines, each address selecting one word. Its total capacity in bytes is:",
+      "options": [
+        "4 MB",
+        "16 MB",
+        "8 MB",
+        "2 MB"
+      ],
+      "correctIndex": 2,
+      "explanation": "Words = 2^22 = 4 M words; each word is 2 bytes, so capacity = 4 M × 2 = 8 MB. Stopping at 2^22 gives 4 MB, which forgets the word size.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m005",
+      "questionText": "A processor has 16 address lines, but in a particular board design A15 is permanently tied to 0 and A14 is used only to select I/O ports (memory is selected when A14 = 0). The maximum memory the board can use is:",
+      "options": [
+        "32 KB",
+        "64 KB",
+        "16 KB",
+        "8 KB"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only A13–A0 remain free to address memory, so memory = 2^14 = 16,384 bytes = 16 KB. Losing only A15 would leave 32 KB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m006",
+      "questionText": "A memory chip is specified as 4096 × 8. How many address and data lines does it need?",
+      "options": [
+        "8 address lines and 12 data lines",
+        "12 address lines and 8 data lines",
+        "4096 address lines and 8 data lines",
+        "12 address lines and 12 data lines"
+      ],
+      "correctIndex": 1,
+      "explanation": "4096 = 2^12 locations need 12 address lines; each location is 8 bits wide, so 8 data lines.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m007",
+      "questionText": "A 64 KB memory space is divided into equal blocks of 8 KB each. How many blocks are there, and how many of the 16 address lines select the block?",
+      "options": [
+        "8 blocks, 3 lines",
+        "8 blocks, 13 lines",
+        "16 blocks, 4 lines",
+        "4 blocks, 2 lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "Blocks = 64 KB / 8 KB = 8 = 2^3, so the top 3 address lines (A15–A13) select the block and the remaining 13 lines (A12–A0) address a byte inside it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m008",
+      "questionText": "A 4 KB ROM is placed in a memory map starting at address 8000H. Its address range is:",
+      "options": [
+        "8000H to 9000H",
+        "8000H to 83FFH",
+        "8000H to BFFFH",
+        "8000H to 8FFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "4 KB = 4096 = 1000H locations, so the last address = 8000H + 1000H − 1 = 8FFFH. 83FFH would be only 1 KB and BFFFH 16 KB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m009",
+      "questionText": "A processor with a 16-bit data bus must read a 1 KB block of memory. If every bus transfer moves one full data-bus width, the number of transfers needed is:",
+      "options": [
+        "1024",
+        "512",
+        "256",
+        "64"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each transfer moves 16 bits = 2 bytes, so transfers = 1024 / 2 = 512. 1024 assumes an 8-bit bus; 64 divides by 16 bits as if they were bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m010",
+      "questionText": "A 3-byte instruction is stored in memory starting at address 3000H. After the processor has fetched all of its bytes, the program counter points to:",
+      "options": [
+        "3003H",
+        "3002H",
+        "3000H",
+        "3001H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The instruction occupies 3000H, 3001H and 3002H, and the PC is incremented after every byte fetched, so it ends at 3000H + 3 = 3003H, the first byte of the next instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m011",
+      "questionText": "A Harvard-architecture microcontroller has a 12-bit program address bus and 16-bit wide instruction words. The size of its program memory is:",
+      "options": [
+        "4 KB",
+        "64 KB",
+        "16 KB",
+        "8 KB"
+      ],
+      "correctIndex": 3,
+      "explanation": "Program memory = 2^12 words × 16 bits = 4096 × 2 bytes = 8192 bytes = 8 KB. 4 KB counts locations only; 64 KB confuses the 64 Kbit total with bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m012",
+      "questionText": "A processor runs at 5 MHz. An instruction that takes 7 T-states executes in:",
+      "options": [
+        "0.2 µs",
+        "35 µs",
+        "1.4 µs",
+        "0.7 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "T = 1 / 5 MHz = 0.2 µs, so time = 7 × 0.2 µs = 1.4 µs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m013",
+      "questionText": "An 8085A-2 uses a 10 MHz crystal, which the on-chip clock generator divides by 2. An instruction of 10 T-states takes:",
+      "options": [
+        "1 µs",
+        "4 µs",
+        "0.2 µs",
+        "2 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Operating clock = 10 MHz / 2 = 5 MHz, so T = 0.2 µs and time = 10 × 0.2 µs = 2 µs. Using the crystal frequency directly gives the wrong answer of 1 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m014",
+      "questionText": "A program executes 20 instructions of 4 T-states, 10 of 7 T-states and 5 of 10 T-states on a processor clocked at 2 MHz. Its execution time is:",
+      "options": [
+        "50 µs",
+        "100 µs",
+        "400 µs",
+        "200 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Total T-states = 20×4 + 10×7 + 5×10 = 80 + 70 + 50 = 200. T = 1 / 2 MHz = 0.5 µs, so time = 200 × 0.5 µs = 100 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m015",
+      "questionText": "An instruction cycle consists of three machine cycles of 4, 3 and 3 T-states. At a clock frequency of 4 MHz the instruction takes:",
+      "options": [
+        "2.5 µs",
+        "0.75 µs",
+        "40 µs",
+        "3 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "Total = 4 + 3 + 3 = 10 T-states; T = 1 / 4 MHz = 0.25 µs; time = 10 × 0.25 µs = 2.5 µs. 0.75 µs wrongly counts one T-state per machine cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m016",
+      "questionText": "What clock frequency gives a T-state of 250 ns?",
+      "options": [
+        "2.5 MHz",
+        "8 MHz",
+        "4 MHz",
+        "250 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f = 1 / T = 1 / (250 × 10^-9 s) = 4 × 10^6 Hz = 4 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m017",
+      "questionText": "A processor has a clock period of 0.5 µs. How many T-states are needed to produce a software delay of exactly 1 ms?",
+      "options": [
+        "2000",
+        "500",
+        "200",
+        "20000"
+      ],
+      "correctIndex": 0,
+      "explanation": "Number of T-states = delay / T = 1 ms / 0.5 µs = 1000 µs / 0.5 µs = 2000.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m018",
+      "questionText": "A processor runs at 200 MHz with an average of 4 clock cycles per instruction (CPI). Its MIPS rating is:",
+      "options": [
+        "800",
+        "200",
+        "50",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "MIPS = f / (CPI × 10^6) = 200 × 10^6 / (4 × 10^6) = 50.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m019",
+      "questionText": "An 8-bit processor runs at 3 MHz and its instructions take 5 T-states on average. Its speed in MIPS is:",
+      "options": [
+        "15",
+        "1.67",
+        "6",
+        "0.6"
+      ],
+      "correctIndex": 3,
+      "explanation": "MIPS = f / (CPI × 10^6) = 3 × 10^6 / (5 × 10^6) = 0.6. 15 multiplies instead of dividing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m020",
+      "questionText": "A program of 2 × 10^6 instructions runs on a 500 MHz processor with an average CPI of 2.5. The CPU execution time is:",
+      "options": [
+        "4 ms",
+        "10 ms",
+        "1.6 ms",
+        "25 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "CPU time = instruction count × CPI / f = 2 × 10^6 × 2.5 / (500 × 10^6) = 0.01 s = 10 ms. Ignoring CPI gives 4 ms; dividing by CPI gives 1.6 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m021",
+      "questionText": "A program mix is 50% ALU instructions (CPI 1), 30% load/store (CPI 3) and 20% branches (CPI 2). On a 900 MHz processor the MIPS rating is:",
+      "options": [
+        "900",
+        "500",
+        "1620",
+        "450"
+      ],
+      "correctIndex": 1,
+      "explanation": "Average CPI = 0.5×1 + 0.3×3 + 0.2×2 = 0.5 + 0.9 + 0.4 = 1.8. MIPS = 900 / 1.8 = 500. 1620 multiplies by CPI; 450 uses a CPI of 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m022",
+      "questionText": "A system bus is 16 bits wide and one bus cycle takes 4 clock periods at 8 MHz. The maximum data transfer rate is:",
+      "options": [
+        "16 MB/s",
+        "2 MB/s",
+        "32 MB/s",
+        "4 MB/s"
+      ],
+      "correctIndex": 3,
+      "explanation": "Bus cycles per second = 8 × 10^6 / 4 = 2 × 10^6; each moves 2 bytes, so rate = 2 × 10^6 × 2 = 4 × 10^6 bytes/s = 4 MB/s (decimal megabytes). Forgetting the 2 bytes gives 2 MB/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m023",
+      "questionText": "An ideal 5-stage instruction pipeline (one clock per stage, no stalls) executes 100 instructions. The number of clock cycles required is:",
+      "options": [
+        "104",
+        "500",
+        "100",
+        "105"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cycles = k + (n − 1) = 5 + 99 = 104: the first instruction needs 5 cycles to fill the pipeline, then one instruction completes every cycle. 500 is the unpipelined count.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m024",
+      "questionText": "Which of the following devices integrates a CPU, RAM, ROM, timers and I/O ports on a single chip?",
+      "options": [
+        "8085",
+        "8086",
+        "8051",
+        "80386"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8051 is a microcontroller with on-chip memory, timers, serial port and I/O ports. The 8085, 8086 and 80386 are microprocessors that need external memory and I/O chips.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m025",
+      "questionText": "Which statement about microprocessors and microcontrollers is NOT correct?",
+      "options": [
+        "A microprocessor needs external memory and I/O chips to form a working system",
+        "A microcontroller has on-chip memory, timers and I/O ports",
+        "A microcontroller is preferred for general-purpose personal computers because of its large external memory",
+        "Microcontrollers are preferred in embedded products where cost, size and power matter"
+      ],
+      "correctIndex": 2,
+      "explanation": "General-purpose computers use microprocessors with large external memory; microcontrollers are built for dedicated embedded control with limited on-chip memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m026",
+      "questionText": "Which bus of a microprocessor system is bidirectional?",
+      "options": [
+        "Address bus",
+        "Both address and data buses",
+        "Neither; all buses are unidirectional",
+        "Data bus"
+      ],
+      "correctIndex": 3,
+      "explanation": "The data bus carries data from memory/I/O to the processor during a read and from the processor to them during a write, so it is bidirectional. The address bus is driven only by the processor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m027",
+      "questionText": "Why is the address bus of a simple microprocessor system called unidirectional?",
+      "options": [
+        "It carries data in one direction during reads and the other during writes",
+        "Only the processor places addresses on it; memory and I/O only receive them",
+        "It can address only one memory chip at a time",
+        "It is used only for the instruction fetch operation"
+      ],
+      "correctIndex": 1,
+      "explanation": "The processor alone generates the address of the memory location or port it wants; memory and I/O devices decode it but never drive it (DMA controllers aside, which take over the bus only after the processor releases it).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m028",
+      "questionText": "The word length of a microprocessor refers to:",
+      "options": [
+        "the number of bits it can process in one operation, set by its ALU and data-bus width",
+        "the number of address lines it provides",
+        "the number of instructions in its instruction set",
+        "the number of bytes in its longest instruction"
+      ],
+      "correctIndex": 0,
+      "explanation": "Word length is the size of the data the processor handles at once; an 8085 is an 8-bit processor even though it has 16 address lines.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m029",
+      "questionText": "If a microprocessor's data bus is widened from 8 to 16 bits while its address bus stays at 16 bits, what changes?",
+      "options": [
+        "The number of addressable locations doubles to 2^17",
+        "The number of addressable locations halves",
+        "Neither the transfer width nor the number of locations changes",
+        "The number of bits moved per bus transfer doubles; the number of addressable locations stays 2^16"
+      ],
+      "correctIndex": 3,
+      "explanation": "Address lines alone fix the number of locations (2^n); data lines fix how many bits move per transfer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m030",
+      "questionText": "In the fetch–decode–execute cycle, which step immediately follows fetching the opcode into the instruction register?",
+      "options": [
+        "Writing the result to memory",
+        "Incrementing the stack pointer",
+        "Decoding the opcode in the control unit",
+        "Executing the ALU operation"
+      ],
+      "correctIndex": 2,
+      "explanation": "After the opcode is fetched it must be decoded so the control unit knows which operation and which further machine cycles are required; execution comes after decoding.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m031",
+      "questionText": "During the fetch phase of an instruction, which sequence of events is correct?",
+      "options": [
+        "The PC is placed on the address bus, the opcode is read into the IR and the PC is incremented",
+        "The SP is placed on the address bus, the opcode is read into the accumulator and the SP is decremented",
+        "The IR is placed on the address bus, the opcode is read into the PC and the PC is decremented",
+        "The accumulator is placed on the address bus and the opcode is written to memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "The program counter supplies the address of the next instruction, the memory returns the opcode on the data bus into the instruction register, and the PC is incremented to point to the next byte.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m032",
+      "questionText": "Which register holds the opcode of the current instruction while it is being decoded?",
+      "options": [
+        "Program counter",
+        "Instruction register",
+        "Stack pointer",
+        "Flag register"
+      ],
+      "correctIndex": 1,
+      "explanation": "The fetched opcode is latched into the instruction register (IR), whose output feeds the instruction decoder. The PC already points to the next byte.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m033",
+      "questionText": "The program counter of a microprocessor holds:",
+      "options": [
+        "the address of the next instruction byte to be fetched",
+        "the opcode of the instruction being executed",
+        "the number of instructions executed since reset",
+        "the address of the top of the stack"
+      ],
+      "correctIndex": 0,
+      "explanation": "The PC is a 16-bit pointer (in the 8085) that always addresses the next byte of the program; it is incremented after each fetch and reloaded by jumps, calls and returns.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m034",
+      "questionText": "What does the flag (status) register of a microprocessor record?",
+      "options": [
+        "The address of the next instruction",
+        "The operand of the current instruction",
+        "The number of pending interrupts",
+        "Conditions of the result of the last arithmetic or logic operation, such as zero, sign and carry"
+      ],
+      "correctIndex": 3,
+      "explanation": "Flag bits are set or reset by the ALU to describe the result (zero, negative, carry, parity and so on); conditional jumps test them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m035",
+      "questionText": "Which of the following is NOT a function of the ALU?",
+      "options": [
+        "Adding two binary numbers",
+        "Performing a logical AND",
+        "Decoding the opcode of the fetched instruction",
+        "Shifting or rotating a data byte"
+      ],
+      "correctIndex": 2,
+      "explanation": "Opcode decoding is done by the instruction decoder in the control unit. The ALU performs arithmetic, logic, shift and rotate operations on data.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m036",
+      "questionText": "Which of the following is NOT a control-bus signal of a microprocessor system?",
+      "options": [
+        "RD",
+        "AD7",
+        "WR",
+        "ALE"
+      ],
+      "correctIndex": 1,
+      "explanation": "RD, WR and ALE are control/timing signals. AD7 is a multiplexed address/data line, part of the address and data buses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m037",
+      "questionText": "Why are bus lines driven through tri-state buffers in a microprocessor system?",
+      "options": [
+        "To increase the clock frequency of the processor",
+        "To convert the data bus into an address bus",
+        "So that a device can electrically disconnect itself (high impedance) and let another device drive the shared bus",
+        "To store data when the power fails"
+      ],
+      "correctIndex": 2,
+      "explanation": "Tri-state outputs have 0, 1 and high-impedance states; only one device drives a shared line at a time while the others float, which also lets a DMA controller take over the bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m038",
+      "questionText": "One T-state of a microprocessor is:",
+      "options": [
+        "one period of the processor clock",
+        "the time for one complete bus operation",
+        "the time to fetch and execute one instruction",
+        "the time for one memory write"
+      ],
+      "correctIndex": 0,
+      "explanation": "A T-state is the basic timing unit, equal to one clock period (1/f). A machine cycle is one bus operation and an instruction cycle is the complete fetch and execute of one instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t4_m039",
+      "questionText": "Which ordering of timing units, from shortest to longest, is correct?",
+      "options": [
+        "Machine cycle < T-state < instruction cycle",
+        "T-state < machine cycle < instruction cycle",
+        "Instruction cycle < machine cycle < T-state",
+        "T-state < instruction cycle < machine cycle"
+      ],
+      "correctIndex": 1,
+      "explanation": "A machine cycle is made of several T-states, and an instruction cycle is made of one or more machine cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m040",
+      "questionText": "A machine cycle is best defined as:",
+      "options": [
+        "one period of the system clock",
+        "the time needed to execute the longest instruction",
+        "the time between two interrupts",
+        "the time required to complete one operation of accessing memory or an I/O device"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each machine cycle (opcode fetch, memory read, memory write, I/O read, I/O write, interrupt acknowledge) is one bus operation lasting several T-states.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m041",
+      "questionText": "Which of the following is NOT a characteristic of a RISC processor?",
+      "options": [
+        "Fixed-length instructions that are easy to pipeline",
+        "Many variable-length instructions with complex memory addressing modes",
+        "Only load and store instructions access memory",
+        "A large set of general-purpose registers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Variable-length instructions with rich memory addressing modes are the hallmark of CISC designs such as the x86. RISC keeps instructions simple, fixed-length and register-to-register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m042",
+      "questionText": "The control unit of a typical CISC processor is implemented as ___, while a typical RISC processor uses ___.",
+      "options": [
+        "hardwired control; microprogrammed control",
+        "microprogrammed control in both",
+        "microprogrammed control; hardwired control",
+        "hardwired control in both"
+      ],
+      "correctIndex": 2,
+      "explanation": "Complex, variable instructions are easier to implement as microcode sequences stored in a control ROM; simple RISC instructions are decoded by fast hardwired logic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m043",
+      "questionText": "Why are RISC processors particularly well suited to pipelining?",
+      "options": [
+        "Their instructions are of uniform length and similar execution time, so each stage takes about one clock",
+        "They have fewer registers, so less data has to be saved",
+        "They allow memory operands in every instruction",
+        "They use microcode for every instruction"
+      ],
+      "correctIndex": 0,
+      "explanation": "Uniform, simple instructions let fetch, decode, execute and write-back be divided into equal stages; variable-length CISC instructions make stage timing irregular.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m044",
+      "questionText": "The \"von Neumann bottleneck\" refers to:",
+      "options": [
+        "the small number of registers in RISC processors",
+        "the delay caused by interrupt handling",
+        "the heat generated by high clock speeds",
+        "the limit on throughput because instructions and data share one memory and one bus"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a von Neumann machine an instruction fetch and a data access cannot use the single bus at the same time, so the bus limits performance; Harvard architecture removes this by using separate buses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t4_m045",
+      "questionText": "Which statement about von Neumann and Harvard architectures is correct?",
+      "options": [
+        "The 8085 follows the Harvard model because it has separate RD and WR lines",
+        "A Harvard processor cannot store constant data in program memory in any form",
+        "Von Neumann processors always have separate instruction and data caches",
+        "The 8085 and 8086 follow the von Neumann model, whereas many DSPs and the 8051 follow the Harvard model"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8085/8086 fetch instructions and data from one memory over one bus. Separate RD and WR strobes do not make separate memories; DSPs and the 8051 have separate program and data spaces.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t4_m046",
+      "questionText": "The first commercial microprocessor, the Intel 4004, was a ___ processor.",
+      "options": [
+        "4-bit",
+        "8-bit",
+        "16-bit",
+        "2-bit"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 4004 (1971) had a 4-bit data path and a 12-bit address range; the 8008/8080/8085 were 8-bit and the 8086 16-bit.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,720 @@
+{
+  "topicId": "ch4_t1",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Datapath, Hardwired Control and Stacks"
+    },
+    {
+      "type": "paragraph",
+      "text": "A common bus for k registers of n bits can be built in two ways. With multiplexers, bit i of every register goes to multiplexer i, so the bus needs n multiplexers of size k × 1 that share ceil(log2 k) select lines. With three-state buffers, every register bit gets its own buffer (k × n buffers) and a log2 k × k decoder enables exactly one register at a time, because two drivers on one bus line would conflict. Either way only one source can use the bus in a clock, but paths that bypass the bus still work in parallel: in Mano's basic computer AC ← DR (through the adder and logic circuit) can happen in the same clock as DR ← AC (over the bus), and the INR and CLR inputs change a register without using the bus at all."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{mux} = n,\\ \\text{size} = k \\times 1,\\ s = \\lceil \\log_{2} k \\rceil,\\ N_{buf} = k\\,n",
+      "plainText": "Bus for k registers of n bits: n multiplexers of size k × 1 with s = ceil(log2 k) select lines, or k × n three-state buffers plus a log2 k × k decoder"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "S1 S0 and Y input",
+          "Cin = 0",
+          "Cin = 1"
+        ],
+        [
+          "0 0 (Y = B)",
+          "D = A + B, add",
+          "D = A + B + 1, add with carry"
+        ],
+        [
+          "0 1 (Y = B')",
+          "D = A + B', subtract with borrow",
+          "D = A + B' + 1 = A − B, subtract"
+        ],
+        [
+          "1 0 (Y = all 0s)",
+          "D = A, transfer A",
+          "D = A + 1, increment A"
+        ],
+        [
+          "1 1 (Y = all 1s)",
+          "D = A − 1, decrement A",
+          "D = A, transfer A"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Mano's arithmetic circuit computes D = A + Y + Cin (table above); logic micro-operations manipulate bits and shifts move them sideways:",
+      "items": [
+        "Selective set A ← A ∨ B sets the bits of A where B has 1s; selective complement A ← A ⊕ B inverts them; selective clear A ← A ∧ B' clears them.",
+        "Mask A ← A ∧ B keeps the bits of A only where B has 1s; insert first masks the target bits to 0 and then ORs in the new pattern; the clear (compare) operation A ← A ⊕ B gives all 0s exactly when A and B are equal.",
+        "Example with A = 1001 0110 and B = 0000 1111: selective set gives 1001 1111, selective complement 1001 1001, selective clear 1001 0000 and mask 0000 0110.",
+        "Logical shifts insert 0 and circular shifts feed the bit that falls out back into the other end. Arithmetic shift right copies the sign bit (a signed divide by 2); arithmetic shift left multiplies by 2 and overflows when R(n−1) and R(n−2) differ before the shift, Vs = R(n−1) ⊕ R(n−2)."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: clock cycles in Mano's basic computer, 100 ns clock (10 MHz)\nEvery instruction: T0-T2 fetch and decode, T3 indirect check\nLDA X (I = 1) : D2T4 DR <- M[AR]; D2T5 AC <- DR, SC <- 0      T0..T5 = 6\nADD Y (I = 0) : D1T4 DR <- M[AR]; D1T5 AC <- AC + DR           T0..T5 = 6\nISZ C         : D6T4 read; D6T5 DR <- DR + 1; D6T6 write, skip  T0..T6 = 7\nBUN L         : D4T4 PC <- AR, SC <- 0                         T0..T4 = 5\nCMA (reg-ref) : D7 I' T3 B9: AC <- AC'                          T0..T3 = 4\nTotal = 6 + 6 + 7 + 5 + 4 = 28 cycles\nTime  = 28 x 100 ns = 2.8 µs\nI = 1 costs no extra cycle: every memory-reference instruction spends T3 anyway"
+    },
+    {
+      "type": "paragraph",
+      "text": "Designing a hardwired control unit is careful bookkeeping. List every micro-operation that changes a register, note the control function (decoder output D, timing signal T, mode bit I, flags) under which it occurs, and OR those functions to drive that register's LD, INR or CLR input. For Mano's PC, PC ← AR occurs in BUN (D4T4) and BSA (D5T5), so LD(PC) = D4T4 + D5T5, while PC ← 0 in the interrupt cycle gives CLR(PC) = RT1. The timing signals come from a binary counter plus decoder (log2 k flip-flops for k signals), a ring counter (k flip-flops, no decoder) or a Johnson counter (k/2 flip-flops, each state decoded by a 2-input AND gate), and only as many signals are needed as the longest instruction uses."
+    },
+    {
+      "type": "bulletList",
+      "text": "Mano's interrupt cycle replaces the next fetch when flip-flop R is 1:",
+      "items": [
+        "R is set by T0'T1'T2'(IEN)(FGI + FGO): R ← 1, that is outside the fetch and decode steps, with interrupts enabled and a device flag raised.",
+        "RT0: AR ← 0, TR ← PC. The return address is parked in TR while AR is cleared.",
+        "RT1: M[AR] ← TR, PC ← 0. The return address is stored in memory word 0.",
+        "RT2: PC ← PC + 1, IEN ← 0, R ← 0, SC ← 0. The next fetch comes from word 1, which holds a BUN to the service routine; IEN stays 0 until the routine executes ION.",
+        "The service routine ends with an indirect BUN 0, which jumps back through the address saved in word 0."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A stack is either a set of fast registers or a region of main memory, addressed by the stack pointer SP. Mano's 64-word register stack has a 6-bit SP and flags FULL and EMTY: PUSH is SP ← SP + 1, M[SP] ← DR (FULL ← 1 if SP has wrapped to 0, EMTY ← 0), and POP is DR ← M[SP], SP ← SP − 1 (EMTY ← 1 if SP = 0, FULL ← 0). Because SP is incremented before the write, the first item goes into word 1 and the 64th wraps into word 0. A memory stack usually grows toward lower addresses (PUSH: SP ← SP − 1, M[SP] ← DR; POP: DR ← M[SP], SP ← SP + 1), and limit registers compared with SP catch overflow and underflow. Stack machines evaluate expressions in reverse Polish notation, so zero-address instructions find their operands on the top of the stack."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: evaluate (4 + 6) x (7 - 2) on a stack\nPostfix: 4 6 + 7 2 - x\nToken  Action                       Stack (top at right)\n4      PUSH 4                       4\n6      PUSH 6                       4 6\n+      POP 6, POP 4, PUSH 10        10\n7      PUSH 7                       10 7\n2      PUSH 2                       10 7 2\n-      POP 2, POP 7, PUSH 7 - 2     10 5\nx      POP 5, POP 10, PUSH 50       50\nResult 50; maximum depth 3 (after PUSH 2)\nFor - and /, the item popped first is the RIGHT operand"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Organisation",
+          "Steps for R3 ← R1 + R2",
+          "Extra hardware",
+          "Trade-off"
+        ],
+        [
+          "Single bus",
+          "3: R1 → Y; R2 + Y → Z; Z → R3",
+          "Temporary registers Y and Z at the ALU",
+          "Least wiring, slowest"
+        ],
+        [
+          "Two bus (one source bus into the ALU, one result bus)",
+          "2: R1 → Y; R2 + Y → R3",
+          "Register Y",
+          "Middle cost and speed"
+        ],
+        [
+          "Three bus (sources A and B, result bus C)",
+          "1: R1 on A, R2 on B, sum on C into R3",
+          "Register file with 2 read ports and 1 write port",
+          "Fastest, most wiring"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: the number of bus multiplexers equals the word length, not the number of registers; an arithmetic shift right copies the sign bit while a logical shift inserts 0; in postfix evaluation the item popped first is the right operand of − and /; whether SP changes before or after the write depends on whether it points to the top item or to the next free word; and in Mano's timing an indirect memory-reference instruction takes no more clock cycles than a direct one."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t1_m001",
+      "questionText": "In the standard CPU organisation described by Mano and Stallings, which register is connected to the memory address lines and holds the address of the word being read or written?",
+      "options": [
+        "Program counter (PC)",
+        "Memory buffer register (MBR)",
+        "Memory address register (MAR)",
+        "Instruction register (IR)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Memory is addressed only through MAR (AR in Mano's basic computer); at the start of fetch the PC value is first copied into MAR. MBR holds the data word and IR the current instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m002",
+      "questionText": "In Stallings's classification of processor registers, which of the following is a control and status register rather than a user-visible register?",
+      "options": [
+        "General-purpose register R3",
+        "Memory buffer register (MBR)",
+        "Index register",
+        "Stack pointer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Stallings lists PC, IR, MAR and MBR as the registers essential to instruction execution, which programs do not name directly. General-purpose, data, index and stack-pointer registers are user-visible because instructions refer to them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m003",
+      "questionText": "In a single-accumulator CPU, what does the one-address instruction ADD X (X is a direct memory address) do?",
+      "options": [
+        "M[X] ← M[X] + AC",
+        "AC ← M[X]",
+        "AC ← AC + X",
+        "AC ← AC + M[X]"
+      ],
+      "correctIndex": 3,
+      "explanation": "The accumulator is the implied second operand and the destination, so the word at address X is added to AC and the sum stays in AC. AC ← AC + X would be immediate addressing, and AC ← M[X] is a load.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m004",
+      "questionText": "An 8-bit ALU adds the 2's-complement numbers 0111 1111 and 0000 0001. Which flag values result? (C = carry out, Z = zero, S = sign, V = overflow)",
+      "options": [
+        "C = 1, Z = 0, S = 1, V = 0",
+        "C = 0, Z = 0, S = 1, V = 0",
+        "C = 0, Z = 0, S = 1, V = 1",
+        "C = 0, Z = 1, S = 0, V = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "127 + 1 = 128 gives 1000 0000. No carry leaves bit 7 (C = 0), the result is non-zero (Z = 0) with MSB 1 (S = 1), and two positive operands produced a negative result, so V = 1 (carry into the sign bit 1, carry out 0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m005",
+      "questionText": "What does the register-transfer statement P: R2 ← R1 mean?",
+      "options": [
+        "The contents of R1 are moved into R2 and R1 is then cleared",
+        "When P is 1, the contents of R2 are copied into R1",
+        "When the control condition P is 1, the contents of R1 are copied into R2 at the clock edge; R1 is unchanged",
+        "The contents of R1 and R2 are exchanged whenever P is 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "A transfer copies the source into the destination without altering the source, and the control function before the colon enables it only when it equals 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m006",
+      "questionText": "A common bus for 32 registers of 64 bits each is built from multiplexers. What does it need?",
+      "options": [
+        "64 multiplexers of size 32 × 1, each with 5 select lines",
+        "32 multiplexers of size 64 × 1, each with 6 select lines",
+        "64 multiplexers of size 32 × 1, each with 32 select lines",
+        "5 multiplexers of size 64 × 1, each with 6 select lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "One multiplexer is needed per bus bit (64), each choosing among the 32 registers (32 × 1), and log2 32 = 5 select lines, shared by all the multiplexers, pick the source register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m007",
+      "questionText": "A common bus for 8 registers of 16 bits each is built with three-state buffers instead of multiplexers. How many buffers and what decoder does it need?",
+      "options": [
+        "16 buffers and one 4 × 16 decoder",
+        "128 buffers and one 3 × 8 decoder",
+        "24 buffers and one 3 × 8 decoder",
+        "128 buffers and one 4 × 16 decoder"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every bit of every register needs its own buffer: 8 × 16 = 128. Only one register may drive the bus at a time, so a 3 × 8 decoder (log2 8 = 3 inputs) enables one group of 16 buffers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m008",
+      "questionText": "Which of the following is a logic micro-operation?",
+      "options": [
+        "R1 ← R1 + R2 + 1",
+        "R1 ← shl R1",
+        "DR ← M[AR]",
+        "R1 ← R1 ⊕ R2"
+      ],
+      "correctIndex": 3,
+      "explanation": "XOR works bit by bit with no carries, which makes it a logic micro-operation. The other three are an arithmetic, a shift and a memory-transfer micro-operation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m009",
+      "questionText": "Register A = 1100 1010 and B = 1111 0000. The selective-complement micro-operation inverts the bits of A in the positions where B has 1s. What is the new value of A?",
+      "options": [
+        "1111 1010",
+        "0011 1010",
+        "1100 0000",
+        "0000 1010"
+      ],
+      "correctIndex": 1,
+      "explanation": "Selective complement is A ← A ⊕ B: 1100 1010 ⊕ 1111 0000 = 0011 1010. OR would give 1111 1010 (selective set) and AND would give 1100 0000 (mask).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m010",
+      "questionText": "Which logic micro-operation clears the bits of A in exactly the positions where B has 1s and leaves the other bits of A unchanged?",
+      "options": [
+        "A ← A ∧ B",
+        "A ← A ∧ B'",
+        "A ← A ∨ B",
+        "A ← A ⊕ B"
+      ],
+      "correctIndex": 1,
+      "explanation": "ANDing with the complement of B forces 0 wherever B is 1 and passes A wherever B is 0 (selective clear). A ∧ B is the mask operation, which clears the bits where B has 0s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m011",
+      "questionText": "A 4-bit arithmetic circuit computes D = A + Y + Cin, where multiplexers supply Y = B for S1S0 = 00, B' for 01, all 0s for 10 and all 1s for 11. With A = 0110 and B = 0011, what are D and the carry out when S1 S0 Cin = 0 1 1?",
+      "options": [
+        "D = 0011, Cout = 1",
+        "D = 0010, Cout = 1",
+        "D = 1001, Cout = 0",
+        "D = 1101, Cout = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "S1S0 = 01 selects Y = B' = 1100 and Cin = 1, so D = 0110 + 1100 + 1 = 1 0011: D = 0011 (6 − 3 = 3) with Cout = 1, meaning no borrow. Without the carry-in (S1 S0 Cin = 010) the result would be 0010.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m012",
+      "questionText": "In Mano's basic computer the interrupt cycle saves the return address in memory word 0 and clears IEN. Which two instructions, in order, end a typical interrupt service routine?",
+      "options": [
+        "BUN 0 I (indirect branch through word 0), then ION",
+        "ION, then BUN 0 I (indirect branch through word 0)",
+        "IOF, then BUN 0 (direct branch to word 0)",
+        "BSA 0, then ION"
+      ],
+      "correctIndex": 1,
+      "explanation": "The interrupt cycle cleared IEN, so the routine re-enables interrupts with ION and then returns with BUN 0 I, which loads PC with the return address saved in M[0]. ION must come first because nothing placed after the BUN is ever executed. A new interrupt is entered only after BUN 0 I completes, when PC already holds the return address. A direct BUN 0 would jump to word 0 itself, and BSA 0 would overwrite the saved address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m013",
+      "questionText": "Stallings writes the fetch cycle as t1: MAR ← (PC); t2: MBR ← Memory, PC ← (PC) + I; t3: IR ← (MBR). Why is IR ← (MBR) placed in t3 rather than in t2?",
+      "options": [
+        "PC must be incremented before IR can be loaded",
+        "IR can be loaded only after decoding of the opcode has begun",
+        "MBR is being loaded from memory in t2, and a register must not be written and read in the same time unit",
+        "Loading IR and reading memory need the same ALU"
+      ],
+      "correctIndex": 2,
+      "explanation": "Micro-operations grouped in one time unit must not conflict: reading MBR while it is being written would give an unpredictable (old) value. PC ← (PC) + I and MBR ← Memory use different registers, so they can share t2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m014",
+      "questionText": "With registers built from edge-triggered flip-flops, what does the statement T: R1 ← R2, R2 ← R1 do when T = 1?",
+      "options": [
+        "R1 and R2 exchange their contents at the same clock edge",
+        "Both registers end up with the original contents of R2",
+        "Both registers end up with the original contents of R1",
+        "Nothing, because an exchange is illegal in RTL and always needs a third register"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both registers sample their inputs at the same clock edge, when each input still carries the other register's old value, so the contents swap in one clock pulse. Both registers would end up equal only if the two transfers were done one after the other.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m015",
+      "questionText": "Mano's basic computer has one 16-bit common bus, and its adder and logic circuit takes inputs directly from AC and DR and loads its result into AC. Which pair of micro-operations can be executed in the same clock cycle?",
+      "options": [
+        "DR ← AC and AC ← DR",
+        "AR ← PC and TR ← AC",
+        "PC ← AR and DR ← M[AR]",
+        "IR ← M[AR] and TR ← PC"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only one source can drive the bus in a clock. DR ← AC uses the bus with AC as the source, while AC ← DR goes through the adder and logic circuit without the bus, so both fit in one clock. Each other pair needs two different bus sources (PC and AC, AR and memory, memory and PC).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m016",
+      "questionText": "An 8-bit register holds 1011 0010. What does it hold after one arithmetic shift right?",
+      "options": [
+        "0101 1001",
+        "0110 0100",
+        "1101 1001",
+        "0110 0101"
+      ],
+      "correctIndex": 2,
+      "explanation": "An arithmetic shift right moves every bit one place right and keeps the sign bit, so 1011 0010 (−78) becomes 1101 1001 (−39). A logical shift right would insert 0 and give 0101 1001.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m017",
+      "questionText": "An arithmetic shift left is applied to an 8-bit 2's-complement register R. For which initial value does the shift overflow?",
+      "options": [
+        "0100 0000",
+        "1100 0000",
+        "0011 1111",
+        "1110 0001"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overflow occurs when bits R7 and R6 differ before the shift (Vs = R7 ⊕ R6), because the sign would change. 0100 0000 is +64 and +128 does not fit in 8 bits; the others become −128, +126 and −62, which are all in range.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m018",
+      "questionText": "Each stage of an arithmetic circuit adds a bit of A, a multiplexer output Y and a carry; Y is B, B', all 0s or all 1s for S1S0 = 00, 01, 10 and 11 respectively, and Cin is the carry into the first stage. What operation results from S1 = 1, S0 = 1 and Cin = 0?",
+      "options": [
+        "D = A + 1 (increment A)",
+        "D = A (transfer A)",
+        "D = A − B (subtract)",
+        "D = A − 1 (decrement A)"
+      ],
+      "correctIndex": 3,
+      "explanation": "S1S0 = 11 makes Y all 1s, which is −1 in 2's complement, and with Cin = 0 the circuit computes D = A + 11…1 = A − 1. With Cin = 1 the same selection gives A − 1 + 1 = A (transfer).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m019",
+      "questionText": "In Mano's basic computer, which kind of instruction is indicated after decoding when D7 = 1 and I = 0?",
+      "options": [
+        "An input-output instruction",
+        "An indirect memory-reference instruction",
+        "The start of the interrupt cycle",
+        "A register-reference instruction"
+      ],
+      "correctIndex": 3,
+      "explanation": "Opcode 111 (D7 = 1) is not a memory-reference instruction; the mode bit then distinguishes register-reference (I = 0) from input-output (I = 1) instructions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m020",
+      "questionText": "In a register-reference instruction of Mano's basic computer (hex 7xxx), how is the particular operation (CLA, CMA, INC, HLT and so on) identified?",
+      "options": [
+        "The opcode field IR(12–14) is decoded a second time",
+        "Each of bits IR(0)–IR(11) stands for one operation, and the bit that is 1 selects it",
+        "The 12-bit field IR(0–11) is a binary code for up to 4096 operations",
+        "The I bit and the address field together form a 13-bit operation code"
+      ],
+      "correctIndex": 1,
+      "explanation": "The low 12 bits are not an address here: one bit position is set per instruction (for example CLA = 7800 uses bit 11 and HLT = 7001 uses bit 0), and the control unit uses the signals B0–B11 taken from those bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m021",
+      "questionText": "In Mano's basic computer, what does the instruction word B1A4 (hex) specify?",
+      "options": [
+        "STA with indirect addressing; address field 1A4",
+        "LDA with direct addressing; address field 1A4",
+        "STA with direct addressing; address field B1A",
+        "BUN with indirect addressing; address field 1A4"
+      ],
+      "correctIndex": 0,
+      "explanation": "B = 1011: bit 15 is I = 1 (indirect) and bits 14–12 = 011 are the STA opcode; bits 11–0 give the address 1A4. A direct STA would be 31A4, and an indirect BUN would be C1A4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m022",
+      "questionText": "In Mano's basic computer the instruction BSA 135 (direct) is stored at address 020 (all values hex). What do M[135] and PC contain after it executes?",
+      "options": [
+        "M[135] = 020 and PC = 135",
+        "M[136] = 021 and PC = 135",
+        "M[135] = 021 and PC = 135",
+        "M[135] = 021 and PC = 136"
+      ],
+      "correctIndex": 3,
+      "explanation": "PC has already been incremented to 021 during fetch. BSA executes D5T4: M[AR] ← PC, AR ← AR + 1 and D5T5: PC ← AR, so the return address 021 is stored at 135 and execution continues at 136, the first instruction of the subroutine.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m023",
+      "questionText": "In Mano's basic computer (16-bit words), the instruction ISZ X at address 050 (hex) is executed when M[X] = FFFF (hex). What are M[X] and PC afterwards?",
+      "options": [
+        "M[X] = 0000 and PC = 051",
+        "M[X] = 0000 and PC = 052",
+        "M[X] = FFFF and PC = 052",
+        "M[X] = FFFE and PC = 051"
+      ],
+      "correctIndex": 1,
+      "explanation": "ISZ reads the word, increments it (FFFF + 1 wraps to 0000 in 16 bits), writes it back and, because the result is zero, increments PC once more. PC was 051 after fetch, so the next instruction is skipped and PC = 052.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m024",
+      "questionText": "In Mano's basic computer PC = 020, AC = 0010, M[020] = 9123, M[123] = 0456 and M[456] = 00F0 (all hex). What does AC hold (hex) after the instruction at 020 is executed?",
+      "options": [
+        "0100",
+        "0466",
+        "0133",
+        "00F0"
+      ],
+      "correctIndex": 0,
+      "explanation": "9123 = 1001 0001 0010 0011: I = 1, opcode 001 (ADD), address 123. Indirect addressing takes the effective address from M[123] = 0456, and the operand M[456] = 00F0 is added: AC = 0010 + 00F0 = 0100.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m025",
+      "questionText": "Mano's basic computer has a 20 ns clock and runs LDA 100 (direct), ADD 101 (indirect), STA 102 (direct) and HLT. With Mano's timing (fetch and decode in T0–T2, T3 always used for the indirect check by memory-reference instructions, register-reference instructions executed in T3), how long does it take from the first T0 until HLT has executed?",
+      "options": [
+        "440 ns",
+        "420 ns",
+        "480 ns",
+        "340 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "LDA ends at T5 (6 cycles), ADD at T5 (6; the indirect read uses the T3 that every memory-reference instruction spends anyway), STA at T4 (5) and HLT at T3 (4): 21 cycles × 20 ns = 420 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m026",
+      "questionText": "In Mano's basic computer an interrupt is recognised when PC = 255 (hex). Where is the return address, and what is PC, at the end of the interrupt cycle?",
+      "options": [
+        "M[1] = 255 and PC = 0",
+        "M[0] = 256 and PC = 1",
+        "M[0] = 255 and PC = 1",
+        "M[0] = 255 and PC = 256"
+      ],
+      "correctIndex": 2,
+      "explanation": "The interrupt cycle is RT0: AR ← 0, TR ← PC; RT1: M[AR] ← TR, PC ← 0; RT2: PC ← PC + 1, IEN ← 0, R ← 0, SC ← 0. The return address 255 is saved in word 0 and the next fetch is from word 1, which holds a branch to the service routine.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m027",
+      "questionText": "In Mano's basic computer, under what condition is the interrupt flip-flop R set to 1?",
+      "options": [
+        "IEN = 0 and FGI = 1, at any timing signal",
+        "FGI or FGO is 1 at T0, whatever the value of IEN",
+        "IEN = 1 and both FGI and FGO are 1, only at T2",
+        "IEN = 1 and FGI or FGO is 1, while the timing signal is not T0, T1 or T2"
+      ],
+      "correctIndex": 3,
+      "explanation": "The control function is T0'T1'T2'(IEN)(FGI + FGO): R ← 1. Excluding T0–T2 keeps the fetch and decode steps intact; the interrupt cycle then starts in place of the next fetch.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m028",
+      "questionText": "During the interrupt cycle of Mano's basic computer, which register briefly holds the return address before it is written into memory?",
+      "options": [
+        "DR (data register)",
+        "AR (address register)",
+        "TR (temporary register)",
+        "IR (instruction register)"
+      ],
+      "correctIndex": 2,
+      "explanation": "At RT0 the computer executes AR ← 0 and TR ← PC in the same clock, and at RT1 the value in TR is written to M[0]. AR cannot hold it because it must carry the address 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m029",
+      "questionText": "Why does the last micro-operation of every instruction in Mano's basic computer include SC ← 0?",
+      "options": [
+        "To clear the accumulator before the next instruction",
+        "So that the next timing signal is T0 and the fetch of the next instruction begins",
+        "To disable interrupts until the next instruction is fetched",
+        "To reset the program counter to address 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The sequence counter SC drives the 4 × 16 timing decoder; clearing it makes T0 active in the next clock, which restarts the fetch sequence with AR ← PC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m030",
+      "questionText": "In Mano's basic computer, AR is loaded from the bus by the micro-operations AR ← PC, AR ← IR(0–11) and AR ← M[AR]. Which Boolean function drives the LD (load) input of AR?",
+      "options": [
+        "LD(AR) = R'T0 + R'T1 + D7'IT3",
+        "LD(AR) = R'T0 + R'T2 + D7'IT3",
+        "LD(AR) = R'T0 + R'T2 + D7'I'T3",
+        "LD(AR) = RT0 + R'T2 + D7IT3"
+      ],
+      "correctIndex": 1,
+      "explanation": "AR ← PC occurs at R'T0, AR ← IR(0–11) at R'T2 and the indirect read AR ← M[AR] at D7'IT3, and ORing these control functions gives the gate. AR ← 0 at RT0 uses CLR(AR), and AR ← AR + 1 at D5T4 uses INR(AR).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m031",
+      "questionText": "A hardwired control unit needs 12 distinct timing signals T0–T11. How many flip-flops are needed if they are generated by a Johnson (twisted-ring) counter with decoding gates?",
+      "options": [
+        "6",
+        "12",
+        "4",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Johnson counter with n flip-flops passes through 2n states, so 12 states need 12 / 2 = 6 flip-flops, each state decoded by a 2-input AND gate. A ring counter would need 12 flip-flops, and a binary counter with a 4 × 16 decoder needs 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m032",
+      "questionText": "In Mano's basic computer the longest instruction, ISZ, finishes at T6. If the sequence counter and its decoder had to provide only the timing signals that are actually used, what is the minimum width of SC?",
+      "options": [
+        "3 bits",
+        "4 bits",
+        "7 bits",
+        "2 bits"
+      ],
+      "correctIndex": 0,
+      "explanation": "T0 to T6 are 7 distinct states, and ceil(log2 7) = 3 bits (with a 3 × 8 decoder) covers them. Mano uses a 4-bit SC and a 4 × 16 decoder, which leaves spare timing signals.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m033",
+      "questionText": "Adding a new machine instruction to a CPU with a hardwired control unit normally requires:",
+      "options": [
+        "Only writing a new routine into the control memory",
+        "Redesigning the control logic (gates, decoders and their wiring)",
+        "Only adding an entry to the opcode mapping ROM",
+        "Only enlarging the general-purpose register file"
+      ],
+      "correctIndex": 1,
+      "explanation": "In a hardwired unit every control signal is a fixed Boolean function of the decoded opcode, timing signals and flags, so a new instruction changes those functions and therefore the circuit. Rewriting control memory is how a microprogrammed unit is changed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m034",
+      "questionText": "In Stallings's model of the control unit, which of the following is NOT an input to the control unit?",
+      "options": [
+        "The opcode in the instruction register",
+        "The condition flags",
+        "The clock",
+        "The memory address held in MAR"
+      ],
+      "correctIndex": 3,
+      "explanation": "The control unit's inputs are the clock, the instruction register, the flags and control signals from the control bus (such as interrupt requests). MAR receives control signals; its address is not information the control unit uses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m035",
+      "questionText": "According to Stallings, which of the following is NOT one of the things the CPU must do when executing instructions?",
+      "options": [
+        "Interpret the instruction to determine the action required",
+        "Fetch data from memory or an I/O module when the instruction needs it",
+        "Write the result to memory or I/O when the instruction requires it",
+        "Translate high-level-language statements into machine instructions"
+      ],
+      "correctIndex": 3,
+      "explanation": "Stallings's list is fetch instruction, interpret instruction, fetch data, process data and write data. Translation into machine code is done by a compiler before execution, not by the CPU.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m036",
+      "questionText": "Why can a stack-organised computer use zero-address arithmetic instructions such as ADD?",
+      "options": [
+        "The operands are always held in AC and DR",
+        "The operand values are embedded in the instruction as immediate data",
+        "The operands are implicitly the top two stack items, and the result replaces them on the top",
+        "The ALU reads its operands directly from I/O ports"
+      ],
+      "correctIndex": 2,
+      "explanation": "ADD pops the two top items, adds them and pushes the sum, so no address field is needed; SP implies where the operands are.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m037",
+      "questionText": "In a memory stack that grows toward lower addresses and whose SP points to the current top item, how is a PUSH performed?",
+      "options": [
+        "M[SP] ← DR, then SP ← SP − 1",
+        "SP ← SP + 1, then M[SP] ← DR",
+        "DR ← M[SP], then SP ← SP + 1",
+        "SP ← SP − 1, then M[SP] ← DR"
+      ],
+      "correctIndex": 3,
+      "explanation": "SP must first move to the free word below the current top, and the new item is then written there. Writing before decrementing would overwrite the current top, incrementing suits a stack that grows upward, and the last option is a POP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m038",
+      "questionText": "A memory stack grows toward lower addresses and SP = 2000 when it is empty. PUSH is SP ← SP − 1, M[SP] ← DR, and POP is DR ← M[SP], SP ← SP + 1. After PUSH X, PUSH Y, PUSH Z and one POP, which item is on top and what is SP?",
+      "options": [
+        "Y is on top and SP = 1998",
+        "Y is on top and SP = 2002",
+        "Z is on top and SP = 1997",
+        "X is on top and SP = 1999"
+      ],
+      "correctIndex": 0,
+      "explanation": "The pushes store X at 1999, Y at 1998 and Z at 1997, leaving SP = 1997. The POP reads Z and returns SP to 1998, so Y at address 1998 is now the top.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m039",
+      "questionText": "Mano's 64-word register stack starts empty with SP = 0. PUSH is SP ← SP + 1, M[SP] ← DR, and POP is DR ← M[SP], SP ← SP − 1. After PUSH A, PUSH B, PUSH C, PUSH D, POP, POP and PUSH E, what is SP and in which word is E stored?",
+      "options": [
+        "SP = 5 and E is in word 5",
+        "SP = 3 and E is in word 4",
+        "SP = 2 and E is in word 2",
+        "SP = 3 and E is in word 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The four pushes fill words 1–4 (SP = 4). The two pops read D and then C, leaving SP = 2. PUSH E increments SP to 3 and writes E into word 3, the word that held C.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m040",
+      "questionText": "What is the reverse Polish (postfix) form of A × (B + C) − D / E?",
+      "options": [
+        "A B C + × D E / −",
+        "A B + C × D E / −",
+        "A B C + D E / − ×",
+        "A B C × + D − E /"
+      ],
+      "correctIndex": 0,
+      "explanation": "B + C becomes B C +, multiplying by A gives A B C + ×, D / E becomes D E /, and the final subtraction comes last. The other strings evaluate (A + B) × C − D / E, A × (B + C − D / E) and (A + B × C − D) / E.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m041",
+      "questionText": "A stack computer evaluates the postfix expression 8 2 3 × + 6 2 / −. What is the result, and what is the largest number of items on the stack at any moment?",
+      "options": [
+        "11, maximum depth 3",
+        "11, maximum depth 5",
+        "−11, maximum depth 3",
+        "11, maximum depth 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Trace: 8; 8 2; 8 2 3 (depth 3); × leaves 8 6; + leaves 14; 14 6; 14 6 2 (depth 3); / leaves 14 3; − leaves 14 − 3 = 11. The item popped first is the right operand; reversing it for the final − gives −11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m042",
+      "questionText": "In which CPU bus organisation can R3 ← R1 + R2 be completed in a single clock period without temporary registers at the ALU?",
+      "options": [
+        "Single-bus organisation with Y and Z registers",
+        "Single-accumulator organisation",
+        "Stack organisation with zero-address instructions",
+        "Three-bus organisation (two source buses and one destination bus)"
+      ],
+      "correctIndex": 3,
+      "explanation": "With two source buses both operands reach the ALU at once, and the third bus carries the result straight into R3, so the transfer and the addition take one clock. A single bus can carry only one word per clock.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t1_m043",
+      "questionText": "In a single-bus CPU (Hamacher's organisation), why are the temporary registers Y and Z placed at the ALU?",
+      "options": [
+        "Y and Z hold the opcode and address fields during decoding",
+        "They buffer memory data to match the slower memory speed",
+        "The bus carries only one word per clock, so one operand waits in Y and the result waits in Z until the bus is free",
+        "They save the return address during interrupts"
+      ],
+      "correctIndex": 2,
+      "explanation": "The ALU needs two inputs and produces an output, but a single bus holds only one value at a time. R3 ← R1 + R2 therefore takes three steps: R1 → Y; R2 + Y → Z; Z → R3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t1_m044",
+      "questionText": "A register-to-register ADD needs 3 execution steps on a single-bus CPU and 1 step on a three-bus CPU, and instruction fetch takes 3 steps on both. The single-bus CPU is clocked at 1 GHz and the three-bus CPU at 800 MHz, one step per clock. How long does each take to execute 1000 such instructions?",
+      "options": [
+        "3 µs (single-bus) and 1.25 µs (three-bus)",
+        "6 µs (single-bus) and 5 µs (three-bus)",
+        "6 µs (single-bus) and 3.2 µs (three-bus)",
+        "6 µs (single-bus) and 4 µs (three-bus)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Single-bus: (3 + 3) steps × 1 ns × 1000 = 6 µs. Three-bus: (3 + 1) steps × 1.25 ns (1 / 800 MHz) × 1000 = 5 µs. Leaving out the fetch steps, or using 0.8 ns as the period, gives the other figures.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m045",
+      "questionText": "An 8-bit ALU computes A − B as A + B' + 1 with A = 0011 1100 and B = 0110 0100 (2's complement). What is the result, and what are the raw adder carry-out C, the sign S and the overflow V?",
+      "options": [
+        "1101 1000 with C = 1, S = 1, V = 0",
+        "0010 1000 with C = 1, S = 0, V = 0",
+        "1101 1000 with C = 0, S = 1, V = 0",
+        "1101 1000 with C = 0, S = 1, V = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "B' + 1 = 1001 1100, and 0011 1100 + 1001 1100 = 1101 1000 with no carry out of bit 7 (C = 0, a borrow because A < B unsigned). The result is 60 − 100 = −40 (S = 1), which fits in 8 bits, so V = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t1_m046",
+      "questionText": "Register A = 0110 1010. To insert the pattern 1001 into its upper four bits, A is first ANDed with 0000 1111 and then ORed with 1001 0000. What is the final value of A?",
+      "options": [
+        "1111 1010",
+        "0000 1010",
+        "1001 1010",
+        "1001 0000"
+      ],
+      "correctIndex": 2,
+      "explanation": "The mask step clears the upper half: 0110 1010 ∧ 0000 1111 = 0000 1010. ORing with 1001 0000 then sets the new bits, giving 1001 1010. Skipping the mask would give 1111 1010.",
+      "difficulty": "medium"
+    }
+  ]
+}

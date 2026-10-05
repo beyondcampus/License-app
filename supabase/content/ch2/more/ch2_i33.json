@@ -1,0 +1,720 @@
+{
+ "topicId": "ch2_i33",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Counter Design and Timing"
+  },
+  {
+   "type": "paragraph",
+   "text": "Whether a ripple counter counts up or down depends on which edge triggers each stage and which output feeds the next clock. Stage i+1 must toggle when the lower bits roll over: for up counting that is when Q_i falls from 1 to 0, and for down counting when Q_i rises from 0 to 1. So a negative-edge flip-flop driven from Q, or a positive-edge flip-flop driven from Q-bar, gives an up counter; swapping the output used gives a down counter."
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Flip-flop trigger",
+     "Next clock taken from",
+     "Counts"
+    ],
+    [
+     "Negative edge",
+     "Q of previous stage",
+     "Up"
+    ],
+    [
+     "Negative edge",
+     "Q-bar of previous stage",
+     "Down"
+    ],
+    [
+     "Positive edge",
+     "Q of previous stage",
+     "Down"
+    ],
+    [
+     "Positive edge",
+     "Q-bar of previous stage",
+     "Up"
+    ]
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: MOD-6 ripple counter, NAND(Q2, Q1) -> active-low CLEAR\nClock  Q2 Q1 Q0\n  0     0  0  0\n  1     0  0  1\n  2     0  1  0\n  3     0  1  1\n  4     1  0  0\n  5     1  0  1\n  6     1  1  0  <- lasts a few ns, NAND goes low\n        0  0  0  <- cleared; stable states are 0..5\nThe detected state is 6 (first unwanted), not 5 (last wanted)."
+  },
+  {
+   "type": "paragraph",
+   "text": "A synchronous counter is designed from its state table. Write the present state and the required next state for every count, pick a flip-flop type, fill in the inputs from its excitation table, then minimise each input with a K-map, using the unused states as don't cares. Finally check where every unused state goes: if any unused state leads only to other unused states, the counter can lock out, and those states must be given explicit next states that lead back into the sequence."
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Q → Q+",
+     "J K",
+     "D",
+     "T"
+    ],
+    [
+     "0 → 0",
+     "0 X",
+     "0",
+     "0"
+    ],
+    [
+     "0 → 1",
+     "1 X",
+     "1",
+     "1"
+    ],
+    [
+     "1 → 0",
+     "X 1",
+     "0",
+     "1"
+    ],
+    [
+     "1 → 1",
+     "X 0",
+     "1",
+     "0"
+    ]
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: synchronous MOD-5 counter with D flip-flops\nQ2Q1Q0 -> next     D2 D1 D0\n 000   -> 001       0  0  1\n 001   -> 010       0  1  0\n 010   -> 011       0  1  1\n 011   -> 100       1  0  0\n 100   -> 000       0  0  0\n 101, 110, 111: don't care\nK-maps: D2 = Q1 Q0,  D1 = Q1 XOR Q0,  D0 = Q2' Q0'\nUnused: 101 -> 010, 110 -> 010, 111 -> 100 (all re-enter: self-starting)"
+  },
+  {
+   "type": "formula",
+   "latex": "T = Q \\oplus Q^{+}, \\qquad D = Q^{+}, \\qquad T_{i}^{down} = \\overline{Q_{0}}\\,\\overline{Q_{1}} \\cdots \\overline{Q_{i-1}}",
+   "plainText": "T = Q XOR Q+, D = Q+; synchronous down counter: T_i = Q0' · Q1' · ... · Q(i-1)'"
+  },
+  {
+   "type": "paragraph",
+   "text": "Truncating a count with a clear input depends on whether the clear is asynchronous or synchronous. An asynchronous clear (7490, 7493 or discrete flip-flops) acts immediately, so the gate must detect N, the first unwanted state, which appears briefly. A synchronous clear (74163) acts only on the next clock edge, so the gate must detect N - 1, the last wanted state, and no glitch state appears. A presettable counter can instead be loaded with a starting value K at each overflow of a 4-bit counter, giving MOD-(16 - K)."
+  },
+  {
+   "type": "formula",
+   "latex": "\\text{MOD}_{cascade} = N_{1} \\times N_{2}, \\qquad \\text{duty}(Q) = \\frac{\\text{states with } Q = 1}{N}",
+   "plainText": "Cascaded counters: MOD = N1 × N2; duty cycle of an output = (states in which it is 1) / N"
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes with counters:",
+   "items": [
+    "Detecting N - 1 with an asynchronous clear (gives MOD-(N - 1)) or N with a synchronous clear (gives MOD-(N + 1)).",
+    "Assuming the MSB of a MOD-N counter has 50% duty: in a decade counter Q3 is high only for counts 8 and 9, so its duty cycle is 20%.",
+    "Adding moduli of cascaded counters instead of multiplying them: MOD-5 followed by MOD-8 is MOD-40, not MOD-13.",
+    "Using the ripple formula for a synchronous counter: its f_max does not shrink with more stages."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "To find the modulus from a given reset gate, find the first count in which all the gate inputs are 1; with an asynchronous clear that count is the modulus. For a synchronous design given as equations, simulate state by state from 000 and count the states until the sequence repeats."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i33_m001",
+   "questionText": "The minimum number of flip-flops needed to build a MOD-50 counter is:",
+   "options": [
+    "5",
+    "6",
+    "7",
+    "50"
+   ],
+   "correctIndex": 1,
+   "explanation": "2^5 = 32 < 50 ≤ 2^6 = 64, so 6 flip-flops are needed and 14 of the 64 states are skipped.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m002",
+   "questionText": "A 3-bit binary ripple up counter starts at 000. After 11 clock pulses its output Q2 Q1 Q0 is:",
+   "options": [
+    "101",
+    "100",
+    "011",
+    "110"
+   ],
+   "correctIndex": 2,
+   "explanation": "A 3-bit counter is MOD-8, so it shows 11 mod 8 = 3 = 011.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m003",
+   "questionText": "A 4-bit binary ripple down counter starts at 0000. After 5 clock pulses its output Q3 Q2 Q1 Q0 is:",
+   "options": [
+    "0101",
+    "1011",
+    "1010",
+    "1100"
+   ],
+   "correctIndex": 1,
+   "explanation": "Counting down from 0 wraps to 15: 1111, 1110, 1101, 1100, 1011, i.e. (0 - 5) mod 16 = 11 = 1011.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m004",
+   "questionText": "A ripple counter is built from positive-edge-triggered T flip-flops (T = 1), with the clock driving the first stage and the Q output of each stage driving the clock of the next. It counts:",
+   "options": [
+    "Up",
+    "Up for the first half cycle and then down",
+    "Down",
+    "In Gray code"
+   ],
+   "correctIndex": 2,
+   "explanation": "Stage i+1 toggles on a rising edge of Q_i, i.e. when Q_i goes 0 → 1, which happens when the lower bits roll over from all 0s to all 1s, so the count decreases; positive-edge flip-flops need Q-bar as the clock for an up counter.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m005",
+   "questionText": "A 4-bit ripple counter uses flip-flops with a propagation delay of 20 ns each, and its outputs feed a decoder with a 10 ns delay. The maximum clock frequency is about:",
+   "options": [
+    "12.5 MHz",
+    "50 MHz",
+    "33.3 MHz",
+    "11.1 MHz"
+   ],
+   "correctIndex": 3,
+   "explanation": "The clock period must cover the full ripple plus the decoder: 4 × 20 + 10 = 90 ns, so f_max = 1 / 90 ns ≈ 11.1 MHz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m006",
+   "questionText": "A 6-bit counter uses flip-flops with t_pd = 12 ns. Built as a ripple counter (no decoding) and as a synchronous parallel-carry counter with AND gates of 8 ns delay, the maximum clock frequencies are about:",
+   "options": [
+    "Ripple 83.3 MHz, synchronous 50 MHz",
+    "Ripple 13.9 MHz, synchronous 83.3 MHz",
+    "Ripple 12.5 MHz, synchronous 8.3 MHz",
+    "Ripple 13.9 MHz, synchronous 50 MHz"
+   ],
+   "correctIndex": 3,
+   "explanation": "Ripple: 1 / (6 × 12 ns) = 1 / 72 ns ≈ 13.9 MHz. Synchronous: 1 / (12 + 8) ns = 1 / 20 ns = 50 MHz, independent of the number of stages.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m007",
+   "questionText": "A 3-bit ripple up counter (negative-edge flip-flops, Q of each stage clocking the next) changes from 011 to 100. The false intermediate states that appear briefly on Q2 Q1 Q0 during the ripple are:",
+   "options": [
+    "001 and then 000",
+    "111 and then 101",
+    "No intermediate states appear",
+    "010 and then 000"
+   ],
+   "correctIndex": 3,
+   "explanation": "Q0 falls first (011 → 010), its falling edge toggles Q1 (010 → 000), and that falling edge toggles Q2 (000 → 100).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m008",
+   "questionText": "A binary ripple counter uses flip-flops with t_pd = 10 ns and is clocked at 20 MHz with no decoding. What is the largest number of stages it can have so that every stage settles within one clock period?",
+   "options": [
+    "5",
+    "4",
+    "6",
+    "2"
+   ],
+   "correctIndex": 0,
+   "explanation": "T_clk = 1 / 20 MHz = 50 ns; the ripple takes n × 10 ns, so n × 10 ≤ 50 gives n ≤ 5.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m009",
+   "questionText": "A decoder connected to the outputs of a ripple counter produces narrow unwanted spikes (glitches). The cause is:",
+   "options": [
+    "The flip-flops change one after another, so the outputs pass briefly through false intermediate states",
+    "The flip-flops are all clocked at the same instant",
+    "The decoder gates are too slow to respond",
+    "The counter skips states when its clock is too slow"
+   ],
+   "correctIndex": 0,
+   "explanation": "In a ripple counter each stage changes only after the previous one, so a transition such as 0111 → 1000 briefly shows 0110, 0100 and 0000, which the decoder may detect.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m010",
+   "questionText": "A 32 kHz clock drives a 4-bit binary counter with outputs Q3 Q2 Q1 Q0 (Q0 = LSB). The frequency of the waveform at Q2 is:",
+   "options": [
+    "8 kHz",
+    "4 kHz",
+    "2 kHz",
+    "10.67 kHz"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each stage halves the frequency: Q0 = 16 kHz, Q1 = 8 kHz, Q2 = 4 kHz, i.e. f_clk / 2^3.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m011",
+   "questionText": "A single binary counter must divide a 1 MHz clock down to about 1 Hz or less at its last stage. The minimum number of flip-flops is:",
+   "options": [
+    "6",
+    "19",
+    "20",
+    "24"
+   ],
+   "correctIndex": 2,
+   "explanation": "A division ratio of at least 1,000,000 is needed; 2^19 = 524,288 is too small and 2^20 = 1,048,576 is enough, so 20 flip-flops.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m012",
+   "questionText": "A MOD-5 counter is followed by a MOD-8 counter, and the first is clocked at 10 MHz. The overall modulus and the frequency at the final output are:",
+   "options": [
+    "MOD-40, 250 kHz",
+    "MOD-13, 769 kHz",
+    "MOD-40, 400 kHz",
+    "MOD-13, 250 kHz"
+   ],
+   "correctIndex": 0,
+   "explanation": "Cascaded moduli multiply: 5 × 8 = 40, so f_out = 10 MHz / 40 = 250 kHz.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m013",
+   "questionText": "A MOD-6 counter counts 000 to 101 and is clocked at 12 kHz. The waveform at its MSB Q2 has a frequency and duty cycle of:",
+   "options": [
+    "2 kHz, 50%",
+    "2 kHz, 33.3%",
+    "4 kHz, 33.3%",
+    "3 kHz, 25%"
+   ],
+   "correctIndex": 1,
+   "explanation": "Q2 goes through one cycle per count cycle, so f = 12 kHz / 6 = 2 kHz; it is high only in 100 and 101, 2 of 6 states, a duty cycle of 33.3%.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m014",
+   "questionText": "A 60 Hz mains-derived pulse train is to be converted into 1 Hz pulses for a digital clock. The counter modulus and the minimum number of flip-flops are:",
+   "options": [
+    "MOD-60, 6 flip-flops",
+    "MOD-60, 5 flip-flops",
+    "MOD-30, 5 flip-flops",
+    "MOD-64, 7 flip-flops"
+   ],
+   "correctIndex": 0,
+   "explanation": "Dividing 60 Hz to 1 Hz needs MOD-60; 2^5 = 32 < 60 ≤ 2^6 = 64, so 6 flip-flops.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m015",
+   "questionText": "A MOD-12 counter is made from a 4-bit ripple up counter by driving the active-low asynchronous CLEAR of all flip-flops from a 2-input NAND gate. The NAND inputs should be:",
+   "options": [
+    "Q3 and Q1",
+    "Q3 and Q2",
+    "Q2 and Q1",
+    "Q3 and Q0"
+   ],
+   "correctIndex": 1,
+   "explanation": "The counter must clear as soon as it reaches 1100 (12); 1100 is the first count in which both Q3 and Q2 are 1, so NAND(Q3, Q2) suffices.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m016",
+   "questionText": "A 4-bit ripple up counter has a 2-input NAND gate on Q2 and Q0 driving the active-low asynchronous CLEAR of all its flip-flops. Starting from 0000, its modulus is:",
+   "options": [
+    "MOD-6",
+    "MOD-4",
+    "MOD-10",
+    "MOD-5"
+   ],
+   "correctIndex": 3,
+   "explanation": "The first count with Q2 = Q0 = 1 is 0101 (5); on reaching it the counter clears at once, so the stable states are 0 to 4, giving MOD-5.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m017",
+   "questionText": "A MOD-13 counter uses asynchronous clearing when the count reaches 13. The highest count that remains stable on the outputs Q3 Q2 Q1 Q0 is:",
+   "options": [
+    "1101",
+    "1011",
+    "1110",
+    "1100"
+   ],
+   "correctIndex": 3,
+   "explanation": "A MOD-13 counter's stable states are 0 to 12; state 1101 (13) exists only for a few nanoseconds before the clear acts, so the highest stable count is 12 = 1100.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m018",
+   "questionText": "A MOD-10 counter is to be made from a 74163, a 4-bit synchronous counter whose CLEAR is synchronous (it acts on the next clock edge). The gate driving CLEAR should detect the count:",
+   "options": [
+    "1001",
+    "1010",
+    "1011",
+    "0000"
+   ],
+   "correctIndex": 0,
+   "explanation": "With a synchronous clear the counter resets on the clock edge after the detected state, so detecting 9 (1001) makes the next state 0000; detecting 1010 would give MOD-11.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m019",
+   "questionText": "A 4-bit synchronous presettable counter counts up; when it reaches 1111, the next clock loads 0110 instead of letting it roll over to 0000. Its modulus is:",
+   "options": [
+    "10",
+    "9",
+    "6",
+    "16"
+   ],
+   "correctIndex": 0,
+   "explanation": "The states are 0110 (6) to 1111 (15), i.e. 15 - 6 + 1 = 10 states.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m020",
+   "questionText": "A binary counter built from 6 flip-flops can have at most:",
+   "options": [
+    "63 states, counting 0 to 63",
+    "64 states, counting 0 to 63",
+    "64 states, counting 1 to 64",
+    "36 states, counting 0 to 35"
+   ],
+   "correctIndex": 1,
+   "explanation": "n flip-flops give 2^n = 2^6 = 64 states, numbered 0 to 2^n - 1 = 63.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m021",
+   "questionText": "A decade (BCD) counter starts at 0000. After 27 clock pulses its output Q3 Q2 Q1 Q0 is:",
+   "options": [
+    "1011",
+    "0010",
+    "1001",
+    "0111"
+   ],
+   "correctIndex": 3,
+   "explanation": "A decade counter is MOD-10, so it shows 27 mod 10 = 7 = 0111; the tens are carried out to the next decade.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m022",
+   "questionText": "Two cascaded decade counters (units and tens, BCD outputs) start at 00. After 147 clock pulses the tens and units outputs read:",
+   "options": [
+    "1001 0011",
+    "0100 0111",
+    "0010 1111",
+    "0001 0100"
+   ],
+   "correctIndex": 1,
+   "explanation": "Two decades form a MOD-100 counter, so the display is 147 mod 100 = 47, i.e. tens 0100 and units 0111; 1001 0011 is 147 in hexadecimal.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m023",
+   "questionText": "The 7490 decade ripple counter IC is made internally of:",
+   "options": [
+    "Two divide-by-5 sections",
+    "A divide-by-8 section and a divide-by-2 section",
+    "Ten flip-flops forming a ring",
+    "A divide-by-2 section and a divide-by-5 section"
+   ],
+   "correctIndex": 3,
+   "explanation": "The 7490 contains one flip-flop (÷2) and a three-flip-flop ÷5 counter; joining them gives ÷10.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m024",
+   "questionText": "The MSB output Q3 of a decade (BCD) counter 0000–1001 is fed by a 50 kHz clock. The frequency and duty cycle of Q3 are:",
+   "options": [
+    "5 kHz, 20%",
+    "5 kHz, 50%",
+    "6.25 kHz, 50%",
+    "10 kHz, 20%"
+   ],
+   "correctIndex": 0,
+   "explanation": "Q3 completes one cycle per 10 clocks, f = 50 kHz / 10 = 5 kHz; it is 1 only in the counts 8 and 9, 2 of 10 states, so the duty cycle is 20%.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m025",
+   "questionText": "The main advantage of a synchronous counter over a ripple counter is that:",
+   "options": [
+    "It needs no logic gates besides the flip-flops",
+    "It uses fewer flip-flops for the same modulus",
+    "All flip-flops change together, so there is no cumulative delay and the counter can run faster",
+    "Only the first flip-flop needs a clock connection"
+   ],
+   "correctIndex": 2,
+   "explanation": "A common clock makes the settling time one flip-flop delay (plus gating) regardless of the number of stages.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m026",
+   "questionText": "In a 3-bit synchronous binary DOWN counter built from T flip-flops (Q0 = LSB), the T input of the Q2 flip-flop must be:",
+   "options": [
+    "T2 = Q0 · Q1",
+    "T2 = Q0-bar · Q1-bar",
+    "T2 = Q0-bar + Q1-bar",
+    "T2 = Q0 ⊕ Q1"
+   ],
+   "correctIndex": 1,
+   "explanation": "When counting down a bit toggles only when all lower bits are 0 (a borrow), for example 100 → 011, so T2 = Q0-bar · Q1-bar; Q0 · Q1 is the up-counter condition.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m027",
+   "questionText": "For a JK flip-flop that must go from Q = 1 to Q+ = 0 on the next clock, the excitation table requires:",
+   "options": [
+    "J = 0, K = X",
+    "J = X, K = 1",
+    "J = 1, K = X",
+    "J = X, K = 0"
+   ],
+   "correctIndex": 1,
+   "explanation": "Either reset (J = 0, K = 1) or toggle (J = 1, K = 1) takes Q from 1 to 0, so J is a don't care and K must be 1.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m028",
+   "questionText": "In designing a synchronous counter with D flip-flops, the D input needed for each flip-flop is:",
+   "options": [
+    "The complement of the present state Q",
+    "1 whenever the flip-flop must change state, otherwise 0",
+    "Equal to that flip-flop's desired next state Q+",
+    "Always a don't care for unused states only"
+   ],
+   "correctIndex": 2,
+   "explanation": "A D flip-flop copies D on the clock edge, so its excitation is simply D = Q+; the 'change / no change' rule describes a T flip-flop.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m029",
+   "questionText": "For a T flip-flop, the T values needed for the transitions 0 → 1 and 1 → 1 are respectively:",
+   "options": [
+    "0 and 1",
+    "1 and 1",
+    "0 and 0",
+    "1 and 0"
+   ],
+   "correctIndex": 3,
+   "explanation": "T = 1 makes the flip-flop toggle (0 → 1) and T = 0 holds it (1 → 1); in general T = Q ⊕ Q+.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m030",
+   "questionText": "A 2-bit synchronous counter with D flip-flops must follow the Gray-code sequence Q1 Q0 = 00 → 01 → 11 → 10 → 00. The required input equations are:",
+   "options": [
+    "D1 = Q1-bar, D0 = Q0",
+    "D1 = Q0, D0 = Q1-bar",
+    "D1 = Q1 ⊕ Q0, D0 = Q0-bar",
+    "D1 = Q0-bar, D0 = Q1"
+   ],
+   "correctIndex": 1,
+   "explanation": "From the state table, Q1+ is 0, 1, 1, 0 for Q1Q0 = 00, 01, 11, 10, which equals Q0; Q0+ is 1, 1, 0, 0, which equals Q1-bar. D = Q+ for D flip-flops.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m031",
+   "questionText": "A synchronous counter has JK flip-flops Q2 Q1 Q0 with J0 = Q2-bar, K0 = 1; J1 = K1 = Q0; J2 = Q1 · Q0, K2 = 1. Starting from Q2 Q1 Q0 = 000, its modulus is:",
+   "options": [
+    "8",
+    "6",
+    "4",
+    "5"
+   ],
+   "correctIndex": 3,
+   "explanation": "Applying the JK rules gives 000 → 001 → 010 → 011 → 100 → 000 (from 100, J0 = 0 and J2 = 0, K2 = 1 reset everything), so there are 5 states.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m032",
+   "questionText": "A counter is said to suffer from lock-out when:",
+   "options": [
+    "It stops counting because the clock frequency is too high",
+    "Its reset input is held permanently active",
+    "After entering an unused state it keeps cycling among unused states and never returns to the intended sequence",
+    "Two flip-flops change state at the same clock edge"
+   ],
+   "correctIndex": 2,
+   "explanation": "Lock-out is avoided by specifying the next states of the unused states (instead of leaving them all as don't cares) so that each leads back into the main sequence.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m033",
+   "questionText": "A 3-bit Johnson counter (Q0 ← Q2-bar, Q1 ← Q0, Q2 ← Q1) normally counts Q2 Q1 Q0 = 000, 001, 011, 111, 110, 100. If noise puts it into 010, it will:",
+   "options": [
+    "Alternate between 010 and 101 indefinitely, a lock-out condition",
+    "Return to 000 on the next clock",
+    "Go to 011 and then continue in the normal sequence",
+    "Remain in 010 permanently"
+   ],
+   "correctIndex": 0,
+   "explanation": "From 010 the next state is Q2 = Q1 = 1, Q1 = Q0 = 0, Q0 = Q2-bar = 1, i.e. 101, and from 101 it returns to 010, so the counter is locked out of its main sequence.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m034",
+   "questionText": "A state diagram for a 2-bit synchronous up/down counter with one mode input M is drawn. How many transition arrows does it contain in total?",
+   "options": [
+    "4",
+    "16",
+    "6",
+    "8"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each of the 4 states has one outgoing arrow for M = 0 (down) and one for M = 1 (up), giving 4 × 2 = 8 arrows.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m035",
+   "questionText": "A 3-bit synchronous up/down counter holds 101. It counts down for 3 clock pulses and then up for 1 clock pulse. Its final state is:",
+   "options": [
+    "111",
+    "010",
+    "011",
+    "001"
+   ],
+   "correctIndex": 2,
+   "explanation": "Down 3: 101 → 100 → 011 → 010; up 1: 010 → 011, i.e. 5 - 3 + 1 = 3.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m036",
+   "questionText": "In a 4-bit synchronous binary up counter with parallel carry (T0 = 1, T1 = Q0, T2 = Q0 Q1, T3 = Q0 Q1 Q2), how many AND gates are needed?",
+   "options": [
+    "2",
+    "3",
+    "4",
+    "1"
+   ],
+   "correctIndex": 0,
+   "explanation": "T0 is tied to 1 and T1 is wired straight to Q0; only T2 (a 2-input AND) and T3 (a 3-input AND) need gates.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m037",
+   "questionText": "Which statement about counters is NOT correct?",
+   "options": [
+    "The maximum clock frequency of a ripple counter does not depend on the number of stages",
+    "A synchronous counter applies the clock to all flip-flops at the same time",
+    "A ripple counter needs no steering logic between its stages",
+    "Designing a synchronous counter uses a state table and flip-flop excitation tables"
+   ],
+   "correctIndex": 0,
+   "explanation": "A ripple counter's settling time is n × t_pd, so its maximum frequency falls as stages are added; the other statements are correct.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m038",
+   "questionText": "The modulus of a counter is:",
+   "options": [
+    "The highest count it can display",
+    "The number of flip-flops in the counter",
+    "The ratio of its maximum clock frequency to its output frequency",
+    "The number of distinct states it passes through before the sequence repeats"
+   ],
+   "correctIndex": 3,
+   "explanation": "A MOD-N counter has N states; its highest count is N - 1, which is a common confusion.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m039",
+   "questionText": "A ripple counter is classed as asynchronous because:",
+   "options": [
+    "It has no clock input at all",
+    "Its flip-flops are not all clocked by the same clock signal",
+    "Its flip-flops use asynchronous preset inputs to count",
+    "Its output is not related to the clock frequency"
+   ],
+   "correctIndex": 1,
+   "explanation": "Only the first stage sees the external clock; every other stage is clocked by the output of the stage before it.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m040",
+   "questionText": "A MOD-6 up counter starts at 000. After 20 clock pulses it reads Q2 Q1 Q0 =",
+   "options": [
+    "100",
+    "011",
+    "010",
+    "101"
+   ],
+   "correctIndex": 2,
+   "explanation": "The counter repeats every 6 pulses, so it reads 20 mod 6 = 2 = 010.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m041",
+   "questionText": "A decade (MOD-10) down counter starts at 0000 and receives 13 clock pulses. Its output Q3 Q2 Q1 Q0 is:",
+   "options": [
+    "0011",
+    "1101",
+    "0111",
+    "0110"
+   ],
+   "correctIndex": 2,
+   "explanation": "Counting down from 0 goes 9, 8, 7, …; after 13 pulses it shows (0 - 13) mod 10 = 7 = 0111.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m042",
+   "questionText": "A synchronous counter that follows a Gray-code sequence is preferred when its outputs drive a decoder because:",
+   "options": [
+    "It needs fewer flip-flops than a binary counter",
+    "Only one flip-flop changes per clock, so no false intermediate codes can reach the decoder",
+    "It can run with no clock",
+    "It counts twice as fast as a binary counter"
+   ],
+   "correctIndex": 1,
+   "explanation": "In binary, several bits may change at once and slightly different delays can produce momentary wrong codes; Gray code changes one bit per step.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m043",
+   "questionText": "A MOD-6 synchronous counter (000 to 101) is clocked at 12 kHz. The frequency of the waveform at its LSB Q0 is:",
+   "options": [
+    "2 kHz",
+    "3 kHz",
+    "6 kHz",
+    "4 kHz"
+   ],
+   "correctIndex": 2,
+   "explanation": "Q0 alternates 0, 1, 0, 1, 0, 1 through the six states and the pattern continues without a break at the recycle, so it toggles every clock: 12 kHz / 2 = 6 kHz.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i33_m044",
+   "questionText": "A counter must count from 0 to 99. The number of flip-flops needed as a pure binary counter and as two cascaded BCD decade counters is respectively:",
+   "options": [
+    "7 and 8",
+    "7 and 7",
+    "8 and 8",
+    "6 and 8"
+   ],
+   "correctIndex": 0,
+   "explanation": "Binary: 100 states need 2^7 = 128 ≥ 100, so 7; BCD: each decade needs 4 flip-flops, so 2 × 4 = 8.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i33_m045",
+   "questionText": "A 4-bit binary up counter holds 1111 and receives one more clock pulse. Its next state is:",
+   "options": [
+    "1111",
+    "10000",
+    "0000",
+    "1110"
+   ],
+   "correctIndex": 2,
+   "explanation": "A 4-bit counter is MOD-16, so 15 + 1 wraps to 0 = 0000 (a carry-out is produced).",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i33_m046",
+   "questionText": "In an asynchronous (ripple) binary counter, the external clock pulses are applied to:",
+   "options": [
+    "Only the first (LSB) flip-flop",
+    "Every flip-flop at the same time",
+    "Only the last (MSB) flip-flop",
+    "The CLEAR inputs of all flip-flops"
+   ],
+   "correctIndex": 0,
+   "explanation": "The clock drives only the LSB stage; each following stage is clocked by the output of the stage before it.",
+   "difficulty": "easy"
+  }
+ ]
+}

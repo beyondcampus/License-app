@@ -1,0 +1,1516 @@
+{
+  "parent": {
+    "id": "ch9_p6",
+    "title": "Neural Networks"
+  },
+  "subtopics": [
+    {
+      "id": "ch9_t6",
+      "title": "Biological vs Artificial Neurons, McCulloch–Pitts & the ANN Model",
+      "subtitle": "From dendrites and synapses to weighted sums, bias and threshold logic units",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What an Artificial Neural Network Is"
+          },
+          {
+            "type": "paragraph",
+            "text": "An artificial neural network (ANN) is a computing model made of many simple, highly interconnected processing elements called neurons or nodes. Each connection carries a numeric weight, and the network stores its knowledge in these weights rather than in explicit rules. Knowledge is acquired through a learning process that adjusts the weights from examples. ANNs are loosely inspired by the brain, which contains roughly 10^11 neurons joined by about 10^14 to 10^15 synapses."
+          },
+          {
+            "type": "heading",
+            "text": "The Biological Neuron"
+          },
+          {
+            "type": "bulletList",
+            "text": "A biological neuron has four main parts, each with an ANN counterpart:",
+            "items": [
+              "Dendrites: tree-like fibres that receive electrochemical signals from other neurons; in an ANN they are the inputs x_i.",
+              "Soma (cell body): sums the incoming signals and decides whether the neuron fires; in an ANN this is the summation unit plus the activation function.",
+              "Axon: a long fibre that carries the output spike to other neurons; in an ANN it is the output y.",
+              "Synapse: the junction between the axon of one neuron and a dendrite of another; its strength corresponds to the connection weight w_i, and learning changes synaptic strength."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A biological neuron fires (produces an action potential) when the combined input raises its membrane potential above a threshold. Synapses may be excitatory, making firing more likely, or inhibitory, making it less likely. In the artificial model these become positive and negative weights."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Biological neural network",
+                "Artificial neural network"
+              ],
+              [
+                "Processing element",
+                "Neuron (soma)",
+                "Node / unit"
+              ],
+              [
+                "Speed",
+                "Slow switching, about milliseconds",
+                "Fast switching, about nanoseconds"
+              ],
+              [
+                "Scale",
+                "About 10^11 neurons, massively parallel",
+                "Far fewer units, often simulated serially"
+              ],
+              [
+                "Knowledge storage",
+                "Synaptic strengths, adaptable",
+                "Numeric weights, adjusted by training"
+              ],
+              [
+                "Fault tolerance",
+                "High; damage degrades performance gracefully",
+                "Moderate; distributed weights give some tolerance"
+              ],
+              [
+                "Learning",
+                "Continuous, self-organising",
+                "Explicit algorithm (perceptron rule, backpropagation)"
+              ],
+              [
+                "Power",
+                "About 20 W for the whole brain",
+                "Can require large amounts of energy"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "The McCulloch–Pitts Neuron (1943)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Warren McCulloch and Walter Pitts proposed the first mathematical neuron model in 1943. Its inputs and output are binary (0 or 1), its weights are fixed (not learned), and it fires when the weighted sum of its inputs reaches a fixed threshold θ. An active inhibitory input can veto firing absolutely in the original model. Networks of such threshold logic units can compute any Boolean function, which linked neural activity to logic."
+          },
+          {
+            "type": "formula",
+            "latex": "y = 1 \\text{ if } \\sum_i w_i x_i \\ge \\theta,\\quad \\text{else } y = 0",
+            "plainText": "y = 1 if sum(w_i x_i) >= theta, else y = 0"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "McCulloch-Pitts gates (binary inputs, weights and threshold theta)\nAND (2 inputs): w1 = 1, w2 = 1, theta = 2  -> fires only for (1,1)\nOR  (2 inputs): w1 = 1, w2 = 1, theta = 1  -> fires if any input is 1\nNOT (1 input):  w  = -1, theta = 0         -> x=0 gives 0>=0 fire; x=1 gives -1 no\nMajority of 3:  w = 1,1,1, theta = 2        -> fires if at least 2 inputs are 1\nXOR: impossible with one unit; needs two layers of units"
+          },
+          {
+            "type": "heading",
+            "text": "The General Mathematical Model of a Neuron"
+          },
+          {
+            "type": "paragraph",
+            "text": "The modern artificial neuron generalises the McCulloch–Pitts unit to real-valued inputs and learnable weights. It first computes the net input (induced local field) as the weighted sum of the inputs plus a bias, then passes it through an activation function f to produce the output. In vector form the net input is the dot product w · x plus b."
+          },
+          {
+            "type": "formula",
+            "latex": "net = \\sum_{i=1}^{n} w_i x_i + b = \\mathbf{w}\\cdot\\mathbf{x} + b,\\quad y = f(net)",
+            "plainText": "net = sum(w_i x_i) + b = w . x + b; y = f(net)"
+          },
+          {
+            "type": "bulletList",
+            "text": "Roles of the model parameters:",
+            "items": [
+              "Weights w_i: strength and sign of each input connection; a large positive weight makes that input strongly excitatory, a negative weight makes it inhibitory.",
+              "Bias b: a constant added to the net input that shifts the decision boundary away from the origin; it can be treated as a weight w_0 on a fixed input x_0 = 1.",
+              "Threshold θ: firing when Σ w_i x_i ≥ θ is the same as firing when Σ w_i x_i + b ≥ 0 with b = −θ.",
+              "Activation function f: maps the net input to the output (step, sign, sigmoid, tanh, ReLU and others)."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example: inputs x = (1, 0, 1), weights w = (0.5, −0.3, 0.8) and bias b = −0.2 give net = 0.5 + 0 + 0.8 − 0.2 = 1.1. With a binary step activation (fire when net ≥ 0) the output is y = 1; with a sigmoid the output would be 1/(1 + e^−1.1) ≈ 0.75."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "y = f\\left(\\sum_{i=1}^{n} w_i x_i + b\\right)",
+            "plainText": "y = f(sum over i of w_i x_i + b)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\sum_i w_i x_i \\ge \\theta \\iff \\sum_i w_i x_i + b \\ge 0,\\ b = -\\theta",
+            "plainText": "sum(w_i x_i) >= theta is equivalent to sum(w_i x_i) + b >= 0 with b = -theta"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Memorise the mapping dendrite → input, soma → summation and activation, axon → output, synapse → weight. MCQs often ask which biological part corresponds to the weight (the synapse)."
+          },
+          {
+            "type": "note",
+            "text": "The McCulloch–Pitts neuron has fixed weights and no learning rule; learning was added later by Hebb (1949) and Rosenblatt's perceptron (1958)."
+          },
+          {
+            "type": "warning",
+            "text": "Check whether a question uses 'net ≥ θ' or 'net > θ' and whether the bias is already included in the sum; boundary cases such as net exactly equal to the threshold change the answer."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_t6_01",
+          "title": "Neuron output",
+          "latex": "y = f\\left(\\sum_{i=1}^{n} w_i x_i + b\\right)",
+          "plainText": "y = f(sum(w_i x_i) + b)",
+          "description": "An artificial neuron applies an activation function to the weighted sum of its inputs plus a bias."
+        },
+        {
+          "id": "f_ch9_t6_02",
+          "title": "McCulloch–Pitts threshold rule",
+          "latex": "y = 1 \\text{ if } \\sum_i w_i x_i \\ge \\theta,\\ \\text{else } 0",
+          "plainText": "y = 1 if sum(w_i x_i) >= theta, else 0",
+          "description": "A McCulloch–Pitts unit fires when its binary weighted input sum reaches the fixed threshold."
+        },
+        {
+          "id": "f_ch9_t6_03",
+          "title": "Bias–threshold equivalence",
+          "latex": "b = -\\theta",
+          "plainText": "b = -theta",
+          "description": "A threshold θ can be replaced by a bias of −θ so that the neuron fires when net ≥ 0."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_t6_01",
+          "front": "Which part of a biological neuron corresponds to the weight in an ANN?",
+          "back": "The synapse; its strength determines how much an incoming signal influences the receiving neuron, just as a weight does.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_t6_02",
+          "front": "What are the weights and threshold of a 2-input McCulloch–Pitts AND gate?",
+          "back": "w1 = w2 = 1 with threshold θ = 2, so the unit fires only when both inputs are 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_t6_03",
+          "front": "What does the bias do in the neuron model y = f(w · x + b)?",
+          "back": "It shifts the decision boundary away from the origin and acts like a negative threshold (b = −θ).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_t6_04",
+          "front": "Name three key differences between biological and artificial neural networks.",
+          "back": "Biological neurons switch in milliseconds but are massively parallel with about 10^11 units; artificial units switch in nanoseconds, are far fewer and learn by explicit algorithms.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_t6_n01",
+          "questionText": "A neuron has inputs x = (1, 0, 1), weights w = (0.5, −0.3, 0.8) and bias b = −0.2. What is its net input?",
+          "options": [
+            "0.8",
+            "1.3",
+            "1.1",
+            "0.3"
+          ],
+          "correctIndex": 2,
+          "explanation": "net = 0.5(1) + (−0.3)(0) + 0.8(1) − 0.2 = 1.1.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t6_n02",
+          "questionText": "A two-input McCulloch–Pitts neuron has both weights equal to 1 and a threshold θ = 2. Which logic function does it implement?",
+          "options": [
+            "OR",
+            "AND",
+            "NAND",
+            "XOR"
+          ],
+          "correctIndex": 1,
+          "explanation": "The weighted sum reaches 2 only when both inputs are 1, so the unit fires only for (1, 1), which is AND.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t6_n03",
+          "questionText": "In the analogy between a biological neuron and an artificial neuron, the adjustable connection weight corresponds to the:",
+          "options": [
+            "Synapse",
+            "Dendrite",
+            "Axon",
+            "Soma"
+          ],
+          "correctIndex": 0,
+          "explanation": "The synapse is the junction whose strength controls signal transmission between neurons; learning changes it, exactly as training changes a weight.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t6_n04",
+          "questionText": "A three-input McCulloch–Pitts neuron with all weights equal to 1 must fire only when at least two of its inputs are 1 (majority function). What threshold θ is required?",
+          "options": [
+            "1",
+            "3",
+            "0",
+            "2"
+          ],
+          "correctIndex": 3,
+          "explanation": "With unit weights the sum equals the number of active inputs, so θ = 2 makes it fire for two or three active inputs only.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_t6_n05",
+          "questionText": "A neuron fires when Σ w_i x_i ≥ 0.7. If the same neuron is rewritten to fire when Σ w_i x_i + b ≥ 0, the bias b must be:",
+          "options": [
+            "0.7",
+            "−0.7",
+            "1.7",
+            "0"
+          ],
+          "correctIndex": 1,
+          "explanation": "Σ w_i x_i ≥ θ is equivalent to Σ w_i x_i − θ ≥ 0, so b = −θ = −0.7.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i61",
+      "title": "Activation Functions & Neural Network Architectures",
+      "subtitle": "Step, sign, sigmoid, tanh, ReLU and softmax; feedforward, recurrent and competitive nets",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Activation Functions Matter"
+          },
+          {
+            "type": "paragraph",
+            "text": "The activation (transfer) function f maps a neuron's net input to its output. A non-linear activation is what lets a multilayer network represent non-linear decision boundaries; if every layer used a linear activation, the whole network would collapse into a single linear map. Gradient-based training additionally needs an activation that is differentiable, which is why smooth functions such as the sigmoid replaced the hard step in backpropagation networks."
+          },
+          {
+            "type": "heading",
+            "text": "Threshold and Linear Functions"
+          },
+          {
+            "type": "bulletList",
+            "text": "The simplest activation functions:",
+            "items": [
+              "Binary step (Heaviside): f(x) = 1 if x ≥ θ, else 0; range {0, 1}; used in McCulloch–Pitts units and the perceptron; derivative zero everywhere except undefined at the threshold.",
+              "Sign (bipolar step): f(x) = +1 if x ≥ 0, else −1; range {−1, +1}; used with bipolar data in perceptrons, Adaline output and Hopfield networks.",
+              "Linear (identity): f(x) = x; range (−∞, ∞); derivative 1; used in output units for regression and in Adaline's training stage.",
+              "Piecewise linear (saturating ramp): linear in a middle region and clipped to fixed limits outside it."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Sigmoid and Tanh"
+          },
+          {
+            "type": "paragraph",
+            "text": "The logistic sigmoid squashes any real input into (0, 1), is smooth and has a derivative expressible through its own output, which makes backpropagation cheap. Its largest slope is 0.25 at x = 0. The hyperbolic tangent is a scaled, shifted sigmoid with range (−1, 1); being zero-centred, it often trains faster in hidden layers. Both saturate for large |x|, where their derivatives approach zero."
+          },
+          {
+            "type": "formula",
+            "latex": "\\sigma(x) = \\frac{1}{1+e^{-x}},\\quad \\sigma'(x) = \\sigma(x)\\,(1-\\sigma(x))",
+            "plainText": "sigma(x) = 1 / (1 + e^-x); sigma'(x) = sigma(x)(1 - sigma(x))"
+          },
+          {
+            "type": "formula",
+            "latex": "\\tanh(x) = \\frac{e^{x}-e^{-x}}{e^{x}+e^{-x}} = 2\\sigma(2x)-1,\\quad \\tanh'(x) = 1-\\tanh^2(x)",
+            "plainText": "tanh(x) = (e^x - e^-x)/(e^x + e^-x) = 2 sigma(2x) - 1; tanh'(x) = 1 - tanh^2(x)"
+          },
+          {
+            "type": "heading",
+            "text": "ReLU, Leaky ReLU and Softmax"
+          },
+          {
+            "type": "bulletList",
+            "text": "Activations common in modern deep networks:",
+            "items": [
+              "ReLU: f(x) = max(0, x); range [0, ∞); derivative 1 for x > 0 and 0 for x < 0; cheap and reduces vanishing gradients, but units stuck at negative input can 'die'.",
+              "Leaky ReLU: f(x) = max(αx, x) with a small α such as 0.01; keeps a small gradient for negative inputs.",
+              "Softmax: converts a vector of scores z_1 … z_K into probabilities that are positive and sum to 1; used in the output layer for multi-class classification."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{softmax}(z)_k = \\frac{e^{z_k}}{\\sum_{j=1}^{K} e^{z_j}}",
+            "plainText": "softmax(z)_k = e^(z_k) / sum over j of e^(z_j)"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Function",
+                "Range",
+                "Derivative"
+              ],
+              [
+                "Binary step",
+                "{0, 1}",
+                "0 (undefined at threshold)"
+              ],
+              [
+                "Sign",
+                "{−1, +1}",
+                "0 (undefined at 0)"
+              ],
+              [
+                "Linear",
+                "(−∞, ∞)",
+                "1"
+              ],
+              [
+                "Sigmoid",
+                "(0, 1)",
+                "σ(1 − σ), maximum 0.25"
+              ],
+              [
+                "Tanh",
+                "(−1, 1)",
+                "1 − tanh², maximum 1"
+              ],
+              [
+                "ReLU",
+                "[0, ∞)",
+                "1 if x > 0, 0 if x < 0"
+              ],
+              [
+                "Softmax",
+                "(0, 1), outputs sum to 1",
+                "p_k(δ_kj − p_j)"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Network Architectures"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Architecture",
+                "Structure",
+                "Examples"
+              ],
+              [
+                "Single-layer feedforward",
+                "Input nodes connect directly to one layer of output neurons; no cycles",
+                "Perceptron, Adaline"
+              ],
+              [
+                "Multilayer feedforward",
+                "One or more hidden layers between input and output; signals flow forward only",
+                "MLP trained by backpropagation"
+              ],
+              [
+                "Recurrent (feedback)",
+                "At least one feedback loop, so outputs feed back as inputs; has memory of state",
+                "Hopfield network, Elman and Jordan nets"
+              ],
+              [
+                "Competitive / lateral",
+                "Output neurons linked by lateral inhibitory connections; winner-take-all",
+                "Kohonen SOM, MAXNET, ART"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Architectures are also described by connectivity: fully connected layers link every neuron in one layer to every neuron in the next, while partially connected layers do not. The input layer only distributes signals and is usually not counted when a network is called 'single-layer'."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\sigma'(x) = \\sigma(x)\\,(1-\\sigma(x))",
+            "plainText": "sigma'(x) = sigma(x)(1 - sigma(x))"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{ReLU}(x) = \\max(0, x),\\quad \\text{LeakyReLU}(x) = \\max(\\alpha x, x)",
+            "plainText": "ReLU(x) = max(0, x); LeakyReLU(x) = max(alpha x, x)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{softmax}(z)_k = \\frac{e^{z_k}}{\\sum_{j} e^{z_j}}",
+            "plainText": "softmax(z)_k = e^(z_k) / sum_j e^(z_j)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Know each function's range: sigmoid (0, 1), tanh (−1, 1), ReLU [0, ∞), step {0, 1}, sign {−1, +1}. The sigmoid derivative peaks at 0.25 when x = 0 (σ = 0.5)."
+          },
+          {
+            "type": "warning",
+            "text": "The step and sign functions are not differentiable at the threshold and have zero gradient elsewhere, so they cannot be used with gradient-descent backpropagation."
+          },
+          {
+            "type": "note",
+            "text": "A recurrent network is defined by feedback loops, not by the number of layers; the Hopfield network is single-layer yet recurrent."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i61_01",
+          "title": "Sigmoid and its derivative",
+          "latex": "\\sigma(x) = \\frac{1}{1+e^{-x}},\\ \\sigma' = \\sigma(1-\\sigma)",
+          "plainText": "sigma(x) = 1/(1 + e^-x); sigma' = sigma(1 - sigma)",
+          "description": "The logistic sigmoid maps inputs to (0, 1) and its derivative is computed from its output."
+        },
+        {
+          "id": "f_ch9_i61_02",
+          "title": "Tanh and its derivative",
+          "latex": "\\tanh(x) = \\frac{e^{x}-e^{-x}}{e^{x}+e^{-x}},\\ \\tanh' = 1-\\tanh^2",
+          "plainText": "tanh(x) = (e^x - e^-x)/(e^x + e^-x); tanh' = 1 - tanh^2",
+          "description": "Tanh is a zero-centred squashing function with range (−1, 1)."
+        },
+        {
+          "id": "f_ch9_i61_03",
+          "title": "ReLU",
+          "latex": "f(x) = \\max(0, x)",
+          "plainText": "f(x) = max(0, x)",
+          "description": "ReLU passes positive inputs unchanged and outputs zero for negative inputs."
+        },
+        {
+          "id": "f_ch9_i61_04",
+          "title": "Softmax",
+          "latex": "p_k = \\frac{e^{z_k}}{\\sum_{j} e^{z_j}}",
+          "plainText": "p_k = e^(z_k) / sum_j e^(z_j)",
+          "description": "Softmax turns K output scores into a probability distribution that sums to 1."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i61_01",
+          "front": "Why must hidden layers use a non-linear activation function?",
+          "back": "Stacking linear layers gives just another linear function, so without non-linearity a multilayer network could not model non-linear boundaries such as XOR.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i61_02",
+          "front": "What is the maximum value of the sigmoid derivative, and where does it occur?",
+          "back": "0.25, at x = 0 where σ(0) = 0.5 so σ' = 0.5 × 0.5.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i61_03",
+          "front": "Which activation is used in the output layer for multi-class classification?",
+          "back": "Softmax, because it produces positive outputs that sum to 1 and can be read as class probabilities.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i61_04",
+          "front": "What distinguishes a recurrent network from a feedforward one?",
+          "back": "A recurrent network has at least one feedback loop so outputs are fed back as inputs; a feedforward network has no cycles.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i61_n01",
+          "questionText": "What is the value of the derivative of the logistic sigmoid σ(x) = 1/(1 + e^−x) at x = 0?",
+          "options": [
+            "0",
+            "0.5",
+            "0.25",
+            "1"
+          ],
+          "correctIndex": 2,
+          "explanation": "σ(0) = 0.5 and σ'(x) = σ(x)(1 − σ(x)), so σ'(0) = 0.5 × 0.5 = 0.25.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i61_n02",
+          "questionText": "An output layer produces scores z = (2, 1, 0). Applying softmax, the probability assigned to the first class is approximately:",
+          "options": [
+            "0.665",
+            "0.500",
+            "0.245",
+            "0.090"
+          ],
+          "correctIndex": 0,
+          "explanation": "e^2 = 7.389, e^1 = 2.718, e^0 = 1; sum = 11.107, so p_1 = 7.389 / 11.107 ≈ 0.665.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i61_n03",
+          "questionText": "In which network architecture are output neurons joined by lateral inhibitory connections so that only one neuron (the winner) remains active?",
+          "options": [
+            "Multilayer feedforward network",
+            "Single-layer feedforward network",
+            "Hopfield recurrent network",
+            "Competitive network"
+          ],
+          "correctIndex": 3,
+          "explanation": "Competitive (winner-take-all) networks such as MAXNET and Kohonen maps use lateral inhibition so that neurons compete and one wins.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i62",
+      "title": "The Perceptron: Learning Rate, Gradient Descent & the Delta Rule",
+      "subtitle": "Rosenblatt's perceptron rule, convergence, XOR, learning rate and gradient descent",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "The Perceptron Model"
+          },
+          {
+            "type": "paragraph",
+            "text": "The perceptron, introduced by Frank Rosenblatt in 1958, is a single-layer feedforward network of threshold neurons with adjustable weights. Each output unit computes net = w · x + b and applies a step (or sign) function, so it divides the input space with a hyperplane w · x + b = 0. Unlike the McCulloch–Pitts unit, its weights are learned from labelled examples, making it a supervised learning model for binary classification."
+          },
+          {
+            "type": "heading",
+            "text": "The Perceptron Learning Rule"
+          },
+          {
+            "type": "paragraph",
+            "text": "For each training pair (x, t) the perceptron computes its output y. If y equals the target t, nothing changes. If it is wrong, each weight moves by η(t − y)x_i, which pushes the hyperplane toward classifying that example correctly. The bias is updated the same way with a constant input of 1. Training repeats over the data in epochs until an epoch produces no errors."
+          },
+          {
+            "type": "formula",
+            "latex": "w_i \\leftarrow w_i + \\eta\\,(t-y)\\,x_i,\\quad b \\leftarrow b + \\eta\\,(t-y)",
+            "plainText": "w_i <- w_i + eta (t - y) x_i; b <- b + eta (t - y)"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Perceptron training algorithm\n1. Initialise weights and bias to 0 or small random values; choose eta\n2. repeat (one epoch)\n3.   for each training pair (x, t):\n4.     net = w . x + b ; y = step(net)\n5.     if y != t:  w = w + eta*(t - y)*x ;  b = b + eta*(t - y)\n6. until no weight changes during a whole epoch (or max epochs reached)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example: η = 0.5, w = (0.2, −0.5), b = 0, x = (1, 1), t = 1, output 1 when net ≥ 0. Then net = 0.2 − 0.5 = −0.3, so y = 0 and the error t − y = 1. Δw = 0.5 × 1 × (1, 1) = (0.5, 0.5), giving new weights w = (0.7, 0.0) and b = 0.5. Now net = 1.2 and the example is classified correctly."
+          },
+          {
+            "type": "heading",
+            "text": "Convergence and Linear Separability"
+          },
+          {
+            "type": "bulletList",
+            "text": "What the perceptron can and cannot learn:",
+            "items": [
+              "Perceptron convergence theorem: if the training data are linearly separable, the learning rule finds a separating set of weights in a finite number of updates, for any positive learning rate.",
+              "AND, OR, NAND and NOT are linearly separable, so a single perceptron learns them.",
+              "XOR is not linearly separable: no single straight line separates (0,1) and (1,0) from (0,0) and (1,1), so the rule never converges.",
+              "Minsky and Papert's book Perceptrons (1969) highlighted this limitation, contributing to reduced neural-network funding until multilayer training (backpropagation) became popular in 1986."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Learning Rate"
+          },
+          {
+            "type": "paragraph",
+            "text": "The learning rate η (0 < η ≤ 1 typically) scales every weight change. A small η gives slow but stable, fine-grained learning; a large η takes big steps that may overshoot the minimum, oscillate or diverge. Practical training often starts with a moderate rate and decays it over time."
+          },
+          {
+            "type": "heading",
+            "text": "Gradient Descent and the Delta Rule"
+          },
+          {
+            "type": "paragraph",
+            "text": "Gradient descent minimises an error (loss) function E(w) by repeatedly stepping in the direction of the negative gradient. For a linear or differentiable unit trained on squared error, taking the derivative of E = ½ Σ (t − y)² gives the delta rule, also called the Widrow–Hoff or LMS rule. Unlike the perceptron rule, it uses the continuous output, so it keeps reducing the error even when data are not separable and converges toward the least-squares solution."
+          },
+          {
+            "type": "formula",
+            "latex": "E = \\tfrac{1}{2}\\sum_{p}(t_p - y_p)^2,\\quad w \\leftarrow w - \\eta\\,\\frac{\\partial E}{\\partial w}",
+            "plainText": "E = 1/2 sum_p (t_p - y_p)^2; w <- w - eta dE/dw"
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,(t - y)\\,f'(net)\\,x_i \\quad (f \\text{ linear: } \\Delta w_i = \\eta\\,(t - net)\\,x_i)",
+            "plainText": "Delta w_i = eta (t - y) f'(net) x_i; for linear f: Delta w_i = eta (t - net) x_i"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Variant",
+                "Weights updated after",
+                "Characteristics"
+              ],
+              [
+                "Batch gradient descent",
+                "The whole training set",
+                "Smooth, exact gradient; slow per update on large data"
+              ],
+              [
+                "Stochastic gradient descent (SGD)",
+                "Each single example",
+                "Noisy but fast; can escape shallow minima"
+              ],
+              [
+                "Mini-batch gradient descent",
+                "A small batch of examples",
+                "Compromise; standard in practice"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,(t-y)\\,x_i",
+            "plainText": "Delta w_i = eta (t - y) x_i"
+          },
+          {
+            "type": "formula",
+            "latex": "w_{new} = w_{old} - \\eta\\,\\frac{\\partial E}{\\partial w}",
+            "plainText": "w_new = w_old - eta dE/dw"
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,(t - net)\\,x_i",
+            "plainText": "Delta w_i = eta (t - net) x_i"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For perceptron update questions: compute net, apply the step to get y, then Δw = η(t − y)x. If y already equals t, the weights do not change at all."
+          },
+          {
+            "type": "warning",
+            "text": "The perceptron rule uses the thresholded output y, while the delta rule uses the continuous output (net for a linear unit). Mixing the two gives wrong numeric answers."
+          },
+          {
+            "type": "note",
+            "text": "The convergence theorem guarantees termination only for linearly separable data; for data such as XOR the perceptron rule cycles forever unless an epoch limit is imposed."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i62_01",
+          "title": "Perceptron learning rule",
+          "latex": "w_i \\leftarrow w_i + \\eta\\,(t-y)\\,x_i",
+          "plainText": "w_i <- w_i + eta (t - y) x_i",
+          "description": "Weights change only when the thresholded output y differs from the target t."
+        },
+        {
+          "id": "f_ch9_i62_02",
+          "title": "Gradient descent step",
+          "latex": "w \\leftarrow w - \\eta\\,\\frac{\\partial E}{\\partial w}",
+          "plainText": "w <- w - eta dE/dw",
+          "description": "Each weight moves against the gradient of the error, scaled by the learning rate."
+        },
+        {
+          "id": "f_ch9_i62_03",
+          "title": "Sum-of-squares error",
+          "latex": "E = \\tfrac{1}{2}\\sum_{p}(t_p - y_p)^2",
+          "plainText": "E = 1/2 sum_p (t_p - y_p)^2",
+          "description": "The squared-error loss minimised by the delta rule and backpropagation; the ½ simplifies the derivative."
+        },
+        {
+          "id": "f_ch9_i62_04",
+          "title": "Delta rule",
+          "latex": "\\Delta w_i = \\eta\\,(t - y)\\,f'(net)\\,x_i",
+          "plainText": "Delta w_i = eta (t - y) f'(net) x_i",
+          "description": "Gradient-descent weight update for a single differentiable unit; for a linear unit f' = 1 and y = net."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i62_01",
+          "front": "What does the perceptron convergence theorem state?",
+          "back": "If the training data are linearly separable, the perceptron learning rule finds a separating weight vector in a finite number of steps.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i62_02",
+          "front": "Why can a single perceptron not learn XOR?",
+          "back": "XOR is not linearly separable; no single line (hyperplane) separates the inputs with output 1 from those with output 0.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i62_03",
+          "front": "How do batch, stochastic and mini-batch gradient descent differ?",
+          "back": "Batch updates after the whole training set, stochastic after every single example, and mini-batch after each small group of examples.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i62_04",
+          "front": "What is the key difference between the perceptron rule and the delta rule?",
+          "back": "The perceptron rule uses the error of the thresholded output; the delta rule uses the error of the continuous output and follows the gradient of squared error.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i62_n01",
+          "questionText": "A perceptron with step output (y = 1 if net ≥ 0, else 0) has w = (0.2, −0.5), b = 0 and η = 0.5. It is shown x = (1, 1) with target t = 1. What are the weights after one perceptron-rule update?",
+          "options": [
+            "(0.2, −0.5)",
+            "(0.7, −0.5)",
+            "(−0.3, −1.0)",
+            "(0.7, 0.0)"
+          ],
+          "correctIndex": 3,
+          "explanation": "net = 0.2 − 0.5 = −0.3 so y = 0 and t − y = 1; Δw = 0.5 × 1 × (1, 1) = (0.5, 0.5), giving (0.7, 0.0).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i62_n02",
+          "questionText": "Gradient descent minimises E(w) = (w − 3)² starting from w = 1 with learning rate η = 0.1. What is w after one step?",
+          "options": [
+            "1.4",
+            "0.6",
+            "1.2",
+            "3.0"
+          ],
+          "correctIndex": 0,
+          "explanation": "dE/dw = 2(w − 3) = −4 at w = 1, so w_new = 1 − 0.1 × (−4) = 1.4.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i62_n03",
+          "questionText": "The perceptron convergence theorem guarantees that the perceptron learning rule will:",
+          "options": [
+            "Always reach zero error on any training set",
+            "Find a separating weight vector in finitely many steps if the classes are linearly separable",
+            "Find the global minimum of the squared error for any data",
+            "Converge only when the learning rate is below 0.01"
+          ],
+          "correctIndex": 1,
+          "explanation": "Convergence is guaranteed only for linearly separable data, and it holds for any positive learning rate.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_i62_n04",
+          "questionText": "During gradient-descent training the error oscillates wildly and then grows from epoch to epoch. The most likely cause is:",
+          "options": [
+            "The learning rate is too small",
+            "The network has too few input features",
+            "The learning rate is too large",
+            "The training set is linearly separable"
+          ],
+          "correctIndex": 2,
+          "explanation": "A large η makes each step overshoot the minimum, causing oscillation and divergence; a small η would only make learning slow.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i63",
+      "title": "Hebbian Learning & the Adaline Network",
+      "subtitle": "Hebb's postulate, the bipolar AND example, Adaline with LMS and a glance at Madaline",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Hebb's Postulate"
+          },
+          {
+            "type": "paragraph",
+            "text": "Donald Hebb proposed in 1949 (The Organization of Behavior) that when an axon of cell A repeatedly takes part in firing cell B, the efficiency of A in firing B increases. This is summarised as 'neurons that fire together, wire together'. Hebbian learning is the oldest and simplest learning rule: a connection is strengthened when the neurons on both sides are active at the same time."
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,x_i\\,y,\\quad \\Delta b = \\eta\\,y",
+            "plainText": "Delta w_i = eta x_i y; Delta b = eta y"
+          },
+          {
+            "type": "bulletList",
+            "text": "Properties of the Hebb rule:",
+            "items": [
+              "It is local: each weight change depends only on the activities of the two connected neurons.",
+              "In its basic form it is unsupervised (uses the actual output y); a supervised version for training a Hebb net sets y equal to the target t.",
+              "Bipolar values (+1, −1) work much better than binary (1, 0), because with binary data a 0 input or target produces no change, so the net cannot learn from 'off' cases.",
+              "Weights can grow without bound; variants such as Oja's rule add normalisation or decay to keep them bounded.",
+              "The Hebb rule is used to store patterns in associative memories and Hopfield networks."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Worked Example: Hebb Net for AND (Bipolar)"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Start w1 = w2 = b = 0, eta = 1, update dw_i = x_i * t, db = t\nx1  x2   t | dw1 dw2  db | w1 w2  b\n 1   1   1 |  1   1   1  |  1  1  1\n 1  -1  -1 | -1   1  -1  |  0  2  0\n-1   1  -1 |  1  -1  -1  |  1  1 -1\n-1  -1  -1 |  1   1  -1  |  2  2 -2\nFinal: w1 = 2, w2 = 2, b = -2  -> boundary x1 + x2 - 1 = 0"
+          },
+          {
+            "type": "paragraph",
+            "text": "With the final weights, net = 2x1 + 2x2 − 2 is +2 for (1, 1) and −2, −2, −6 for the other three inputs, so the sign function reproduces bipolar AND after a single pass. The same procedure with binary 0/1 data fails, because rows with t = 0 or x = 0 contribute nothing."
+          },
+          {
+            "type": "heading",
+            "text": "The Adaline Network"
+          },
+          {
+            "type": "paragraph",
+            "text": "Adaline (ADAptive LINear Element or ADAptive LINear NEuron) was developed by Bernard Widrow and Ted Hoff in 1960. It is a single neuron with bipolar inputs, adjustable weights and bias, a linear summation, and a bipolar quantiser (sign function) at the output. During training the error is measured on the linear net input before quantisation, and the weights are adjusted by the least mean squares (LMS) rule, which is gradient descent on squared error."
+          },
+          {
+            "type": "formula",
+            "latex": "w_i \\leftarrow w_i + \\eta\\,(t - net)\\,x_i,\\quad b \\leftarrow b + \\eta\\,(t - net)",
+            "plainText": "w_i <- w_i + eta (t - net) x_i; b <- b + eta (t - net)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked LMS example: w = (0.5, 0.2), b = 0, η = 0.1, x = (1, 2), t = 1. The net input is 0.5 + 0.4 = 0.9, so the error t − net = 0.1. Δw = 0.1 × 0.1 × (1, 2) = (0.01, 0.02), giving w = (0.51, 0.22). Even though sign(0.9) already equals the target, Adaline still updates because the linear error is not zero."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Adaline (LMS / Widrow-Hoff) training\n1. Initialise weights and bias to small random values; choose eta (e.g. 0.1)\n2. repeat\n3.   for each pair (x, t):  net = w . x + b\n4.     w = w + eta*(t - net)*x ;  b = b + eta*(t - net)\n5. until the total squared error falls below a tolerance\n6. Recall: y = sign(net)"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "Perceptron",
+                "Adaline"
+              ],
+              [
+                "Proposed by",
+                "Rosenblatt, 1958",
+                "Widrow and Hoff, 1960"
+              ],
+              [
+                "Error used for learning",
+                "t − y, after the step function",
+                "t − net, before the quantiser"
+              ],
+              [
+                "Learning rule",
+                "Perceptron rule",
+                "LMS / delta / Widrow–Hoff rule"
+              ],
+              [
+                "Updates when output is correct",
+                "No",
+                "Yes, until net matches t"
+              ],
+              [
+                "Non-separable data",
+                "Does not converge; weights keep cycling",
+                "Converges to the minimum squared-error weights"
+              ],
+              [
+                "Objective",
+                "Zero misclassifications",
+                "Least mean squared error"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Madaline"
+          },
+          {
+            "type": "paragraph",
+            "text": "Madaline (Many Adalines) combines several Adaline units in a hidden layer whose bipolar outputs feed a fixed logic unit such as AND, OR or majority vote. Because it has more than one adaptive unit, it can form non-linear decision regions and solve problems such as XOR. It is trained with Madaline rules (MRI, MRII) that adjust the Adaline whose net input is closest to zero, since flipping it changes the output with the least disturbance."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,x_i\\,y",
+            "plainText": "Delta w_i = eta x_i y"
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w_i = \\eta\\,(t - net)\\,x_i",
+            "plainText": "Delta w_i = eta (t - net) x_i"
+          },
+          {
+            "type": "formula",
+            "latex": "E = \\tfrac{1}{2}\\sum_{p}(t_p - net_p)^2",
+            "plainText": "E = 1/2 sum_p (t_p - net_p)^2"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For a Hebb net trial, add x_i t to each weight and t to the bias for every training pair in order; for bipolar AND starting from zero the result is w = (2, 2), b = −2."
+          },
+          {
+            "type": "warning",
+            "text": "Do not confuse the Hebb rule (Δw = η x y, no error term) with the LMS rule (Δw = η (t − net) x, driven by error). MCQs often place them side by side."
+          },
+          {
+            "type": "note",
+            "text": "The names delta rule, LMS rule and Widrow–Hoff rule all describe the same gradient-descent update for a linear unit trained on squared error."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i63_01",
+          "title": "Hebb rule",
+          "latex": "\\Delta w_i = \\eta\\,x_i\\,y",
+          "plainText": "Delta w_i = eta x_i y",
+          "description": "A weight grows in proportion to the product of pre-synaptic input and post-synaptic output."
+        },
+        {
+          "id": "f_ch9_i63_02",
+          "title": "LMS (Widrow–Hoff) rule",
+          "latex": "\\Delta w_i = \\eta\\,(t - net)\\,x_i",
+          "plainText": "Delta w_i = eta (t - net) x_i",
+          "description": "Adaline adjusts each weight in proportion to the error of its linear net input."
+        },
+        {
+          "id": "f_ch9_i63_03",
+          "title": "Adaline recall output",
+          "latex": "y = \\text{sign}(\\mathbf{w}\\cdot\\mathbf{x} + b)",
+          "plainText": "y = sign(w . x + b)",
+          "description": "After training, Adaline outputs the bipolar sign of its linear net input."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i63_01",
+          "front": "State Hebb's postulate in one line.",
+          "back": "When two connected neurons are active together, the strength of the connection between them increases: neurons that fire together wire together.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i63_02",
+          "front": "Why is bipolar representation preferred for training a Hebb net?",
+          "back": "With binary 0/1 data, any pair with x = 0 or t = 0 produces no weight change, so the net cannot learn from those cases; bipolar ±1 values always update.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i63_03",
+          "front": "What error does Adaline use during training?",
+          "back": "The difference between the target and the linear net input (t − net), measured before the output quantiser.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i63_04",
+          "front": "What is Madaline?",
+          "back": "A network of many Adaline units feeding a fixed logic unit (such as majority or AND), able to form non-linear regions and solve XOR.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i63_n01",
+          "questionText": "A Hebb net is trained for AND with bipolar inputs and targets, starting from w1 = w2 = b = 0, using Δw_i = x_i t and Δb = t for the pairs (1,1→1), (1,−1→−1), (−1,1→−1), (−1,−1→−1). What are the final (w1, w2, b)?",
+          "options": [
+            "(1, 1, −1)",
+            "(2, 2, −2)",
+            "(2, 2, 2)",
+            "(0, 0, −2)"
+          ],
+          "correctIndex": 1,
+          "explanation": "Summing x_i t over the four pairs gives w1 = 1 − 1 + 1 + 1 = 2, w2 = 1 + 1 − 1 + 1 = 2 and b = 1 − 1 − 1 − 1 = −2.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i63_n02",
+          "questionText": "An Adaline has w = (0.5, 0.2), b = 0 and η = 0.1. It is trained with the LMS rule on x = (1, 2), t = 1. What are the weights after one update?",
+          "options": [
+            "(0.50, 0.20)",
+            "(0.60, 0.40)",
+            "(0.51, 0.21)",
+            "(0.51, 0.22)"
+          ],
+          "correctIndex": 3,
+          "explanation": "net = 0.5 + 0.4 = 0.9, error = 1 − 0.9 = 0.1, so Δw = 0.1 × 0.1 × (1, 2) = (0.01, 0.02) and w = (0.51, 0.22).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i63_n03",
+          "questionText": "Which statement correctly distinguishes Adaline from the perceptron?",
+          "options": [
+            "Adaline computes its training error from the linear net input before the quantiser, whereas the perceptron uses the thresholded output",
+            "Adaline uses no bias, whereas the perceptron needs one",
+            "Adaline can only use binary 0/1 inputs, whereas the perceptron uses bipolar inputs",
+            "Adaline is a multilayer network, whereas the perceptron is single-layer"
+          ],
+          "correctIndex": 0,
+          "explanation": "Adaline's LMS rule uses t − net before quantisation, so it minimises squared error; the perceptron rule uses t − y after the step function.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i63_n04",
+          "questionText": "A known weakness of the basic Hebbian learning rule Δw = η x y is that:",
+          "options": [
+            "It needs the derivative of the activation function",
+            "Weights can grow without bound because there is no error term or decay",
+            "It can only be used in multilayer networks",
+            "It requires a separate target output for every neuron in hidden layers"
+          ],
+          "correctIndex": 1,
+          "explanation": "Correlated activity keeps increasing the weight with nothing to stop it, so normalised variants such as Oja's rule are used to bound the weights.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i64",
+      "title": "Multilayer Perceptron & Backpropagation",
+      "subtitle": "Hidden layers, solving XOR, backpropagation deltas, momentum, local minima and epochs",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Multilayer Perceptron Architecture"
+          },
+          {
+            "type": "paragraph",
+            "text": "A multilayer perceptron (MLP) is a fully connected feedforward network with an input layer, one or more hidden layers and an output layer. Hidden and output neurons use differentiable non-linear activations such as sigmoid, tanh or ReLU. With enough hidden neurons, a network with a single hidden layer can approximate any continuous function to arbitrary accuracy (the universal approximation theorem)."
+          },
+          {
+            "type": "heading",
+            "text": "Why Hidden Layers Solve XOR"
+          },
+          {
+            "type": "paragraph",
+            "text": "Each hidden neuron draws one line (hyperplane) in input space, and the output neuron combines the half-planes. XOR can be written as (x1 OR x2) AND NOT (x1 AND x2), so two hidden units can form the regions and one output unit can combine them. The hidden layer re-maps the inputs into a new space where the classes become linearly separable."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "XOR with step units (fire when net >= 0)\nh1 = OR  : net = x1 + x2 - 0.5\nh2 = NAND: net = -x1 - x2 + 1.5\ny  = AND : net = h1 + h2 - 1.5\nx1 x2 | h1 h2 | y\n 0  0 |  0  1 | 0\n 0  1 |  1  1 | 1\n 1  0 |  1  1 | 1\n 1  1 |  1  0 | 0"
+          },
+          {
+            "type": "heading",
+            "text": "The Backpropagation Algorithm"
+          },
+          {
+            "type": "paragraph",
+            "text": "Backpropagation (popularised by Rumelhart, Hinton and Williams in 1986) is gradient descent on the network error E = ½ Σ (t_k − y_k)², using the chain rule to compute the gradient for every weight, including those feeding hidden units. It has two phases: a forward pass that computes all activations, and a backward pass that propagates error terms (deltas) from the output layer back toward the input layer."
+          },
+          {
+            "type": "bulletList",
+            "text": "Steps for one training example:",
+            "items": [
+              "Forward pass: compute each hidden output h_j = f(Σ_i v_ij x_i + b_j) and each output y_k = f(Σ_j w_jk h_j + b_k).",
+              "Error: compare outputs with targets, E = ½ Σ_k (t_k − y_k)².",
+              "Output deltas: δ_k = (t_k − y_k) f'(net_k); for sigmoid units f' = y_k(1 − y_k).",
+              "Hidden deltas: δ_j = f'(net_j) Σ_k w_jk δ_k; each hidden unit receives a share of the output errors through its outgoing weights.",
+              "Weight update: Δw_jk = η δ_k h_j and Δv_ij = η δ_j x_i (biases use an input of 1).",
+              "Repeat for all examples and many epochs until the error is acceptably small."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\delta_k = (t_k - y_k)\\,y_k(1-y_k)",
+            "plainText": "delta_k = (t_k - y_k) y_k (1 - y_k)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\delta_j = h_j(1-h_j)\\sum_k w_{jk}\\,\\delta_k,\\quad \\Delta w_{jk} = \\eta\\,\\delta_k\\,h_j",
+            "plainText": "delta_j = h_j(1 - h_j) sum_k w_jk delta_k; Delta w_jk = eta delta_k h_j"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example: a sigmoid output neuron has output y = 0.6, target t = 1, and receives hidden activation h = 0.8; η = 0.5. Then δ = (1 − 0.6) × 0.6 × 0.4 = 0.096 and Δw = 0.5 × 0.096 × 0.8 = 0.0384. If that hidden unit (h = 0.5 in another example) connects to one output with weight 0.4 and δ_k = 0.1, its delta is 0.5 × 0.5 × 0.4 × 0.1 = 0.01."
+          },
+          {
+            "type": "heading",
+            "text": "Momentum, Local Minima and Vanishing Gradients"
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w(t) = -\\eta\\,\\frac{\\partial E}{\\partial w} + \\alpha\\,\\Delta w(t-1),\\quad 0 \\le \\alpha < 1",
+            "plainText": "Delta w(t) = -eta dE/dw + alpha Delta w(t-1), 0 <= alpha < 1"
+          },
+          {
+            "type": "bulletList",
+            "text": "Practical issues when training an MLP:",
+            "items": [
+              "Local minima: the error surface is non-convex, so gradient descent can settle in a local minimum; random restarts, momentum and stochastic updates help.",
+              "Momentum: adding a fraction α (often 0.9) of the previous weight change speeds progress along consistent directions, damps oscillation and can carry the search past small local minima and plateaux.",
+              "Vanishing gradients: sigmoid derivatives are at most 0.25, so deltas shrink layer by layer in deep networks; ReLU activations and careful initialisation reduce this.",
+              "Overfitting: too many hidden units or epochs fit noise; early stopping on validation data and regularisation help.",
+              "Weights must be initialised to small random values; initialising all to equal values makes hidden units learn identical features (symmetry problem)."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Term",
+                "Meaning"
+              ],
+              [
+                "Epoch",
+                "One full pass of the entire training set through the network"
+              ],
+              [
+                "Online (stochastic) training",
+                "Weights updated after each individual example"
+              ],
+              [
+                "Batch training",
+                "Error gradients accumulated over all examples, then one update per epoch"
+              ],
+              [
+                "Mini-batch training",
+                "One update per small group of examples"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\delta_k = (t_k - y_k)\\,y_k(1-y_k)",
+            "plainText": "delta_k = (t_k - y_k) y_k (1 - y_k)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\delta_j = h_j(1-h_j)\\sum_k w_{jk}\\,\\delta_k",
+            "plainText": "delta_j = h_j(1 - h_j) sum_k w_jk delta_k"
+          },
+          {
+            "type": "formula",
+            "latex": "\\Delta w_{jk} = \\eta\\,\\delta_k\\,h_j + \\alpha\\,\\Delta w_{jk}(t-1)",
+            "plainText": "Delta w_jk = eta delta_k h_j + alpha Delta w_jk(t-1)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For a sigmoid output neuron, compute δ = (t − y) y(1 − y) first, then multiply by η and by the activation feeding that weight. Missing the y(1 − y) factor is the most common numeric mistake."
+          },
+          {
+            "type": "warning",
+            "text": "Backpropagation is not guaranteed to find the global minimum; it can stop in local minima or on plateaux, which is why momentum and multiple random initialisations are used."
+          },
+          {
+            "type": "note",
+            "text": "An MLP with no hidden non-linearity is equivalent to a single-layer network; the power of the MLP comes from non-linear hidden units trained by backpropagation."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i64_01",
+          "title": "Output-layer delta (sigmoid)",
+          "latex": "\\delta_k = (t_k - y_k)\\,y_k(1-y_k)",
+          "plainText": "delta_k = (t_k - y_k) y_k (1 - y_k)",
+          "description": "The error term of a sigmoid output unit is the output error times the sigmoid derivative."
+        },
+        {
+          "id": "f_ch9_i64_02",
+          "title": "Hidden-layer delta (sigmoid)",
+          "latex": "\\delta_j = h_j(1-h_j)\\sum_k w_{jk}\\,\\delta_k",
+          "plainText": "delta_j = h_j(1 - h_j) sum_k w_jk delta_k",
+          "description": "A hidden unit's error term is its sigmoid derivative times the weighted sum of downstream deltas."
+        },
+        {
+          "id": "f_ch9_i64_03",
+          "title": "Backprop weight update",
+          "latex": "\\Delta w_{jk} = \\eta\\,\\delta_k\\,h_j",
+          "plainText": "Delta w_jk = eta delta_k h_j",
+          "description": "Each weight changes by learning rate times the receiving unit's delta times the sending unit's activation."
+        },
+        {
+          "id": "f_ch9_i64_04",
+          "title": "Momentum update",
+          "latex": "\\Delta w(t) = -\\eta\\,\\frac{\\partial E}{\\partial w} + \\alpha\\,\\Delta w(t-1)",
+          "plainText": "Delta w(t) = -eta dE/dw + alpha Delta w(t-1)",
+          "description": "Momentum adds a fraction of the previous weight change to smooth and accelerate learning."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i64_01",
+          "front": "What are the two passes of backpropagation?",
+          "back": "A forward pass that computes all neuron outputs and the error, and a backward pass that propagates deltas from output to input layers to update weights.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i64_02",
+          "front": "How does a hidden layer let an MLP solve XOR?",
+          "back": "Hidden units (e.g. OR and NAND) re-map the inputs into a space where the two classes become linearly separable, and the output unit (AND) combines them.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i64_03",
+          "front": "What does the momentum term do in backpropagation?",
+          "back": "It adds a fraction α of the previous weight change, speeding progress in consistent directions, damping oscillations and helping escape shallow local minima.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i64_04",
+          "front": "What is the vanishing gradient problem?",
+          "back": "In deep networks with saturating activations like sigmoid (derivative ≤ 0.25), deltas shrink layer by layer so early layers learn very slowly.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i64_n01",
+          "questionText": "A sigmoid output neuron gives y = 0.6 for target t = 1. The weight into it comes from a hidden unit with activation 0.8, and η = 0.5. Using backpropagation, what is the change in that weight?",
+          "options": [
+            "0.0960",
+            "0.1600",
+            "0.0384",
+            "0.0480"
+          ],
+          "correctIndex": 2,
+          "explanation": "δ = (1 − 0.6)(0.6)(1 − 0.6) = 0.096, and Δw = η δ h = 0.5 × 0.096 × 0.8 = 0.0384.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i64_n02",
+          "questionText": "A sigmoid hidden unit has activation h = 0.5 and connects to a single output unit through weight 0.4. The output unit's delta is 0.1. What is the hidden unit's delta?",
+          "options": [
+            "0.010",
+            "0.040",
+            "0.020",
+            "0.025"
+          ],
+          "correctIndex": 0,
+          "explanation": "δ_h = h(1 − h) × w × δ_k = 0.5 × 0.5 × 0.4 × 0.1 = 0.01.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i64_n03",
+          "questionText": "In backpropagation, the update Δw(t) = −η ∂E/∂w + α Δw(t − 1) is used mainly to:",
+          "options": [
+            "Guarantee that the global minimum is always found",
+            "Remove the need for a learning rate",
+            "Convert the network into a recurrent network",
+            "Smooth weight changes, damp oscillations and help pass shallow local minima"
+          ],
+          "correctIndex": 3,
+          "explanation": "The momentum term α Δw(t − 1) keeps the weights moving in consistent directions; it improves speed and stability but does not guarantee a global minimum.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i65",
+      "title": "Hopfield Neural Network",
+      "subtitle": "Recurrent associative memory: outer-product storage, energy descent and capacity",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Architecture of the Hopfield Network"
+          },
+          {
+            "type": "paragraph",
+            "text": "The Hopfield network, introduced by John Hopfield in 1982, is a single-layer, fully connected recurrent network in which every neuron is connected to every other neuron. Each neuron is both an input and an output unit, and its state is fed back to all others. The discrete version uses bipolar states s_i ∈ {−1, +1} (or binary 0/1) and a sign/threshold activation."
+          },
+          {
+            "type": "bulletList",
+            "text": "Defining conditions on the weights:",
+            "items": [
+              "Symmetric weights: w_ij = w_ji for all pairs of neurons.",
+              "No self-connections: w_ii = 0 (zero diagonal of the weight matrix).",
+              "Weights are fixed after storage; there is no iterative error-driven training.",
+              "Together with asynchronous updating, these conditions guarantee that the network always settles into a stable state."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Storing Patterns (Outer-Product / Hebbian Rule)"
+          },
+          {
+            "type": "paragraph",
+            "text": "To store P bipolar patterns s^(1) … s^(P), the weights are set in one step by summing their outer products and zeroing the diagonal. This is the Hebb rule applied to every pair of neurons: two neurons that have the same sign in a pattern get a positive connection, and opposite signs give a negative connection."
+          },
+          {
+            "type": "formula",
+            "latex": "w_{ij} = \\sum_{p=1}^{P} s_i^{(p)} s_j^{(p)}\\ (i \\ne j),\\quad w_{ii} = 0",
+            "plainText": "w_ij = sum over p of s_i^(p) s_j^(p) for i != j; w_ii = 0"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Store s = (1, -1, 1):  W = s s^T - I\n        n1   n2   n3\n  n1 [   0   -1    1 ]\n  n2 [  -1    0   -1 ]\n  n3 [   1   -1    0 ]\nRecall from (1, 1, 1), update n2: net2 = w21*1 + w23*1 = -2 -> s2 = -1\nState becomes (1, -1, 1) = stored pattern (stable)"
+          },
+          {
+            "type": "heading",
+            "text": "Recall by Asynchronous Update"
+          },
+          {
+            "type": "paragraph",
+            "text": "Recall starts by clamping a probe pattern (possibly noisy or incomplete) as the initial state. Neurons are then updated one at a time in random or fixed order: each computes its net input from all others and takes the sign of it, keeping its old state if the net is exactly zero. Updating continues until no neuron changes, at which point the network has reached a stable state (attractor), ideally the stored pattern closest to the probe."
+          },
+          {
+            "type": "formula",
+            "latex": "s_i \\leftarrow \\text{sgn}\\left(\\sum_{j \\ne i} w_{ij}\\,s_j - \\theta_i\\right)",
+            "plainText": "s_i <- sgn(sum over j != i of w_ij s_j - theta_i)"
+          },
+          {
+            "type": "heading",
+            "text": "The Energy Function"
+          },
+          {
+            "type": "paragraph",
+            "text": "Hopfield defined a Lyapunov (energy) function for the network. With symmetric weights, zero diagonal and asynchronous updates, each state change can only lower the energy or leave it unchanged, so the network must eventually reach a local energy minimum. Stored patterns are designed to be these minima, which is why the network behaves as a content-addressable memory."
+          },
+          {
+            "type": "formula",
+            "latex": "E = -\\tfrac{1}{2}\\sum_{i}\\sum_{j} w_{ij}\\,s_i\\,s_j + \\sum_i \\theta_i s_i",
+            "plainText": "E = -1/2 sum_i sum_j w_ij s_i s_j + sum_i theta_i s_i"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example: for the pattern s = (1, −1, 1) stored alone, every term w_ij s_i s_j with i ≠ j equals (s_i s_j)² = 1. There are 6 ordered pairs, so the double sum is 6 and E = −½ × 6 = −3, the lowest energy this network can reach."
+          },
+          {
+            "type": "heading",
+            "text": "Associative Memory, Capacity and Spurious States"
+          },
+          {
+            "type": "bulletList",
+            "text": "Uses and limitations:",
+            "items": [
+              "Auto-associative memory and pattern completion: a corrupted or partial version of a stored pattern is restored to the full pattern.",
+              "Optimisation: the continuous Hopfield network has been applied to problems such as the travelling salesman problem by encoding the cost in the energy function.",
+              "Capacity: with Hebbian storage, a network of N neurons can reliably store about 0.138N random patterns (roughly 0.15N); beyond that, recall errors rise sharply.",
+              "Spurious states: the complement −s of every stored pattern is also stable, and mixtures of odd numbers of stored patterns can create extra false minima.",
+              "Synchronous (parallel) updating of all neurons can make the network oscillate between two states instead of converging."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "W = \\sum_{p=1}^{P} \\mathbf{s}^{(p)}\\mathbf{s}^{(p)T} - P\\,I",
+            "plainText": "W = sum over p of s^(p) s^(p)^T - P I"
+          },
+          {
+            "type": "formula",
+            "latex": "E = -\\tfrac{1}{2}\\sum_{i}\\sum_{j} w_{ij}\\,s_i\\,s_j",
+            "plainText": "E = -1/2 sum_i sum_j w_ij s_i s_j"
+          },
+          {
+            "type": "formula",
+            "latex": "P_{max} \\approx 0.138\\,N",
+            "plainText": "P_max ≈ 0.138 N"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Remember the three structural facts: single layer and fully recurrent, symmetric weights w_ij = w_ji, and zero self-connections w_ii = 0. Energy never increases under asynchronous updates."
+          },
+          {
+            "type": "warning",
+            "text": "Subtract the diagonal when building W from outer products: for bipolar patterns each s s^T has 1s on the diagonal, so W = Σ s s^T − P I."
+          },
+          {
+            "type": "note",
+            "text": "Because E(s) = E(−s), storing a pattern automatically makes its complement a stable state too; this is one source of spurious memories."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i65_01",
+          "title": "Hopfield weight storage",
+          "latex": "w_{ij} = \\sum_{p} s_i^{(p)} s_j^{(p)},\\ w_{ii} = 0",
+          "plainText": "w_ij = sum_p s_i^(p) s_j^(p); w_ii = 0",
+          "description": "Weights are the sum of outer products of the stored bipolar patterns with the diagonal set to zero."
+        },
+        {
+          "id": "f_ch9_i65_02",
+          "title": "Hopfield energy",
+          "latex": "E = -\\tfrac{1}{2}\\sum_{i}\\sum_{j} w_{ij}\\,s_i\\,s_j",
+          "plainText": "E = -1/2 sum_i sum_j w_ij s_i s_j",
+          "description": "The energy never increases under asynchronous updates, so the network settles in a minimum."
+        },
+        {
+          "id": "f_ch9_i65_03",
+          "title": "Asynchronous update rule",
+          "latex": "s_i \\leftarrow \\text{sgn}\\left(\\sum_{j \\ne i} w_{ij}\\,s_j\\right)",
+          "plainText": "s_i <- sgn(sum over j != i of w_ij s_j)",
+          "description": "One neuron at a time takes the sign of its net input from all other neurons."
+        },
+        {
+          "id": "f_ch9_i65_04",
+          "title": "Storage capacity",
+          "latex": "P_{max} \\approx 0.138\\,N",
+          "plainText": "P_max ≈ 0.138 N",
+          "description": "A Hebbian Hopfield network of N neurons reliably stores about 0.138N random patterns."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i65_01",
+          "front": "What two conditions on the weights define a Hopfield network?",
+          "back": "Symmetric weights (w_ij = w_ji) and no self-connections (w_ii = 0).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i65_02",
+          "front": "Why does a Hopfield network always converge under asynchronous updates?",
+          "back": "With symmetric weights and zero diagonal, each single-neuron update can only decrease or keep the energy, and the energy is bounded below, so a stable state is reached.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch9_i65_03",
+          "front": "What is pattern completion in a Hopfield network?",
+          "back": "Given a noisy or partial probe, the network evolves to the nearest stored pattern, acting as a content-addressable (associative) memory.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i65_04",
+          "front": "What are spurious states?",
+          "back": "Stable states that were not stored, such as the complement −s of a stored pattern or mixtures of stored patterns.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i65_n01",
+          "questionText": "The single bipolar pattern s = (1, −1, 1) is stored in a 3-neuron Hopfield network using w_ij = s_i s_j with w_ii = 0. What are (w12, w13, w23)?",
+          "options": [
+            "(−1, 1, −1)",
+            "(1, −1, 1)",
+            "(−1, −1, 1)",
+            "(1, 1, −1)"
+          ],
+          "correctIndex": 0,
+          "explanation": "w12 = (1)(−1) = −1, w13 = (1)(1) = 1, w23 = (−1)(1) = −1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i65_n02",
+          "questionText": "For the network storing s = (1, −1, 1) with weights w12 = −1, w13 = 1, w23 = −1 and zero thresholds, what is the energy E = −½ Σ_i Σ_j w_ij s_i s_j of the stored state?",
+          "options": [
+            "−6",
+            "0",
+            "−3",
+            "3"
+          ],
+          "correctIndex": 2,
+          "explanation": "Each of the 6 ordered pairs gives w_ij s_i s_j = 1, so the double sum is 6 and E = −½ × 6 = −3.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i65_n03",
+          "questionText": "Using the same weights (w12 = −1, w13 = 1, w23 = −1), the network starts in state (1, 1, 1) and neuron 2 is updated asynchronously with s_i = sgn(net). What is the new state?",
+          "options": [
+            "(1, 1, 1)",
+            "(−1, 1, −1)",
+            "(1, 1, −1)",
+            "(1, −1, 1)"
+          ],
+          "correctIndex": 3,
+          "explanation": "net2 = w21 s1 + w23 s3 = (−1)(1) + (−1)(1) = −2, so s2 becomes −1, giving the stored pattern (1, −1, 1).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i65_n04",
+          "questionText": "A Hopfield network stores pattern s using the outer-product rule. Which other state is then automatically a stable state as well?",
+          "options": [
+            "The all-ones vector",
+            "The complement −s",
+            "Every state at Hamming distance 1 from s",
+            "No other state can be stable"
+          ],
+          "correctIndex": 1,
+          "explanation": "The energy depends on products s_i s_j, so E(−s) = E(s) and the complement is an equally deep minimum, a spurious state.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

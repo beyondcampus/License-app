@@ -1,0 +1,1181 @@
+{
+  "parent": {
+    "id": "ch8_p5",
+    "title": "Object-Oriented Design"
+  },
+  "subtopics": [
+    {
+      "id": "ch8_t5",
+      "title": "From Analysis to Design: Describing & Elaborating Use Cases",
+      "subtitle": "From what the system does to how objects do it: use cases, SSDs, contracts, layers",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Moving from Analysis to Design"
+          },
+          {
+            "type": "paragraph",
+            "text": "Object-oriented analysis (OOA) asks what the problem is: it identifies the concepts of the domain, the requirements and the behaviour the system must show at its boundary. Object-oriented design (OOD) asks how software objects will collaborate to meet those requirements: it assigns responsibilities to classes, decides message flows and fixes the attributes, methods and visibility of each class. In the Unified Process the two activities are iterative, so each iteration takes a few use cases from analysis through design to tested code rather than finishing all analysis first."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Object-oriented analysis",
+                "Object-oriented design"
+              ],
+              [
+                "Main question",
+                "What must the system do?",
+                "How will software objects do it?"
+              ],
+              [
+                "Key artefacts",
+                "Use cases, domain model, SSDs, operation contracts",
+                "Interaction diagrams, design class diagrams, package/layer diagrams"
+              ],
+              [
+                "Classes shown",
+                "Conceptual classes (real-world ideas)",
+                "Software classes with methods and types"
+              ],
+              [
+                "Behaviour shown",
+                "System as a black box",
+                "Messages between internal objects"
+              ],
+              [
+                "Technology",
+                "Independent of language and platform",
+                "Takes language, frameworks and platform into account"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Describing Use Cases"
+          },
+          {
+            "type": "paragraph",
+            "text": "A use case is a text story of an actor using the system to achieve a goal, such as Process Sale or Withdraw Cash. Larman distinguishes three levels of detail: brief (one paragraph for the main success scenario), casual (several informal paragraphs covering variations) and fully dressed (a structured template with every step and alternative). A use case diagram only summarises the names of use cases and actors; the real requirement lives in the text."
+          },
+          {
+            "type": "bulletList",
+            "text": "Sections of a fully dressed use case template:",
+            "items": [
+              "Use case name, scope (system under design) and level (user-goal or subfunction).",
+              "Primary actor, plus stakeholders and their interests.",
+              "Preconditions (what must be true before) and success guarantee or postconditions (what is true after).",
+              "Main success scenario: numbered steps of the typical 'happy path'.",
+              "Extensions (alternate flows): numbered against the step they branch from, e.g. 3a, 7b.",
+              "Special requirements (non-functional), technology and data variations, frequency of occurrence, open issues."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Essential vs Real Use Cases"
+          },
+          {
+            "type": "paragraph",
+            "text": "An essential use case is written in an abstract, technology-free style that records only the actor's intention and the system's responsibility, e.g. 'Cashier identifies item; System records item'. A real (concrete) use case describes the process in terms of a specific design and user interface, e.g. 'Cashier scans barcode with laser scanner; System shows price in window A'. Essential use cases belong to early requirements work because they keep design options open; real use cases appear later, when UI and hardware decisions have been taken."
+          },
+          {
+            "type": "heading",
+            "text": "Elaborating Use Cases into Design"
+          },
+          {
+            "type": "bulletList",
+            "text": "Larman's path from a use case to design objects:",
+            "items": [
+              "System sequence diagram (SSD): for one scenario, shows the external actor, the system as a single black-box lifeline and the system events (e.g. enterItem(itemID, qty), endSale(), makePayment(amount)).",
+              "System operations: each input system event becomes a system operation that the design must handle.",
+              "Operation contracts: for complex operations, state preconditions and postconditions in terms of domain objects (instance created/deleted, attribute modified, association formed/broken).",
+              "Interaction diagrams: design how objects inside the system collaborate to satisfy each system operation, applying GRASP.",
+              "Design class diagram: summarise the classes, attributes, methods and associations discovered in the interaction diagrams."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{System operations} = \\text{distinct input events on the SSDs}",
+            "plainText": "System operations = distinct input system events drawn on the SSDs"
+          },
+          {
+            "type": "heading",
+            "text": "Design Model Artefacts and Logical Architecture"
+          },
+          {
+            "type": "paragraph",
+            "text": "The design model in the Unified Process contains interaction diagrams (sequence and communication), design class diagrams and package diagrams showing the logical architecture. Logical architecture is the large-scale organisation of software classes into packages, subsystems and layers, independent of how they are deployed to machines. A common layering is UI (presentation) at the top, then application or domain logic, then technical services such as persistence, logging and security."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Layer",
+                "Responsibility",
+                "Typical examples"
+              ],
+              [
+                "UI / Presentation",
+                "Show information, capture user input",
+                "Windows, web pages, controllers of the view"
+              ],
+              [
+                "Application / Domain",
+                "Business rules and use-case logic",
+                "Sale, Register, Payment classes"
+              ],
+              [
+                "Technical services",
+                "General-purpose infrastructure",
+                "Persistence, logging, security, messaging"
+              ],
+              [
+                "Foundation",
+                "Low-level utilities",
+                "Data structures, threads, math libraries"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Guidelines for layered design:",
+            "items": [
+              "Model-view separation: domain objects must not know about UI objects; the UI calls the domain, not the reverse.",
+              "Strict layering lets a layer call only the one directly below; relaxed layering allows calls to any lower layer.",
+              "Upward notification, where needed, is done with the Observer pattern so that lower layers stay independent of upper ones.",
+              "A controller object in the domain layer receives system operations from the UI layer (GRASP Controller)."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Contract} = \\text{Operation} + \\text{Cross refs} + \\text{Pre} + \\text{Post}",
+            "plainText": "Operation contract = Operation + Cross references + Preconditions + Postconditions"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{System operations} = \\text{distinct input events on the SSDs}",
+            "plainText": "System operations = distinct input system events drawn on the SSDs"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Contract} = \\text{Operation} + \\text{Cross refs} + \\text{Pre} + \\text{Post}",
+            "plainText": "Operation contract = Operation + Cross references + Preconditions + Postconditions"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Use case text} \\rightarrow \\text{SSD} \\rightarrow \\text{Contracts} \\rightarrow \\text{Interaction} \\rightarrow \\text{DCD}",
+            "plainText": "Use case text -> SSD -> operation contracts -> interaction diagrams -> design class diagram"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "If an MCQ describes a use case that mentions barcode scanners, screens or buttons, it is a real (concrete) use case; if it states only intentions and responsibilities, it is essential."
+          },
+          {
+            "type": "warning",
+            "text": "An SSD treats the whole system as one black-box lifeline and shows only events crossing the system boundary. Internal object messages belong to design-level sequence diagrams, not the SSD."
+          },
+          {
+            "type": "note",
+            "text": "Operation contract postconditions describe state changes of domain objects (instances created or deleted, attributes modified, links formed or broken), not the actions or UI output that produced them."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_t5_01",
+          "title": "System operations from SSDs",
+          "latex": "\\text{System operations} = \\text{distinct input events on the SSDs}",
+          "plainText": "System operations = distinct input system events drawn on the SSDs",
+          "description": "Every input event an actor sends to the black-box system on an SSD becomes a system operation that the design must implement."
+        },
+        {
+          "id": "f_ch8_t5_02",
+          "title": "Operation contract sections",
+          "latex": "\\text{Contract} = \\text{Operation} + \\text{Cross refs} + \\text{Pre} + \\text{Post}",
+          "plainText": "Operation contract = Operation + Cross references + Preconditions + Postconditions",
+          "description": "A Larman operation contract names the operation and its use cases, then states what must hold before and what state changes hold after."
+        },
+        {
+          "id": "f_ch8_t5_03",
+          "title": "Analysis-to-design pipeline",
+          "latex": "\\text{Use case text} \\rightarrow \\text{SSD} \\rightarrow \\text{Contracts} \\rightarrow \\text{Interaction} \\rightarrow \\text{DCD}",
+          "plainText": "Use case text -> SSD -> operation contracts -> interaction diagrams -> design class diagram",
+          "description": "The order in which use cases are elaborated into design artefacts within one iteration."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_t5_01",
+          "front": "What is the difference between an essential and a real use case?",
+          "back": "An essential use case is abstract and technology-free, recording only intentions and responsibilities; a real use case describes the interaction in terms of a concrete UI and hardware design.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_t5_02",
+          "front": "What does a system sequence diagram show?",
+          "back": "For one use-case scenario, the external actors, the system as a single black box, and the ordered system events (with parameters) crossing the system boundary.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t5_03",
+          "front": "What kinds of postconditions does an operation contract state?",
+          "back": "Instance creation or deletion, attribute modification, and association formation or breaking among domain objects.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_t5_04",
+          "front": "What is model-view separation?",
+          "back": "Domain (model) objects must not directly know or call UI (view) objects; the UI depends on the domain layer, keeping business logic reusable and testable.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_t5_n01",
+          "questionText": "Which statement best distinguishes object-oriented design from object-oriented analysis?",
+          "options": [
+            "Design identifies the conceptual classes of the problem domain",
+            "Design defines how software objects collaborate by assigning responsibilities and messages",
+            "Design writes the use cases and identifies the actors",
+            "Design is always completed before any analysis begins"
+          ],
+          "correctIndex": 1,
+          "explanation": "Analysis investigates what the problem and requirements are; design decides how software objects will collaborate to fulfil them, assigning responsibilities and message flows.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t5_n02",
+          "questionText": "A use case step reads: 'Cashier scans the barcode with the laser scanner and the system displays the price in the upper-right window.' This step is written in which style?",
+          "options": [
+            "Essential use case",
+            "Brief use case",
+            "Real (concrete) use case",
+            "Abstract use case"
+          ],
+          "correctIndex": 2,
+          "explanation": "A real use case describes the interaction in terms of a specific UI and hardware design; an essential use case would only say 'Cashier identifies item; System records item'.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_t5_n03",
+          "questionText": "In Larman's approach, which artefact shows, for one scenario, the external actor, the system as a single black box and the events that cross the system boundary?",
+          "options": [
+            "Design class diagram",
+            "Communication diagram",
+            "Domain model",
+            "System sequence diagram"
+          ],
+          "correctIndex": 3,
+          "explanation": "The system sequence diagram (SSD) treats the system as one black-box lifeline and shows the ordered system events generated by actors.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t5_n04",
+          "questionText": "In Larman's operation contracts, which section states the expected state changes of domain objects after the system operation completes?",
+          "options": [
+            "Preconditions",
+            "Cross references",
+            "Postconditions",
+            "Operation signature"
+          ],
+          "correctIndex": 2,
+          "explanation": "Postconditions describe the changes in the domain model: instances created or deleted, associations formed or broken, and attributes modified.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t5_n05",
+          "questionText": "In a layered logical architecture that follows model-view separation, which dependency is acceptable?",
+          "options": [
+            "A Sale domain object directly updates a text field in the UI window",
+            "A persistence service class calls methods of the UI layer",
+            "A UI window calls a controller object in the domain layer",
+            "The domain layer imports classes from the presentation layer to format output"
+          ],
+          "correctIndex": 2,
+          "explanation": "Upper layers may depend on lower ones: the UI calls the domain controller. Domain and service layers must not depend on the UI; upward notification uses Observer instead.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i51",
+      "title": "Interaction Diagrams: Collaboration & Sequence",
+      "subtitle": "Lifelines, messages, fragments and numbering in sequence and communication diagrams",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What Interaction Diagrams Show"
+          },
+          {
+            "type": "paragraph",
+            "text": "Interaction diagrams model how a group of objects collaborate by exchanging messages to carry out one behaviour, typically one system operation or one use-case scenario. UML 2 has two main forms: the sequence diagram, which emphasises the time ordering of messages, and the communication diagram (called the collaboration diagram in UML 1.x), which emphasises the links between objects. Both are semantically equivalent for simple interactions and are the main tool for assigning responsibilities during design."
+          },
+          {
+            "type": "heading",
+            "text": "Sequence Diagram Elements"
+          },
+          {
+            "type": "bulletList",
+            "text": "Basic notation of a UML sequence diagram:",
+            "items": [
+              "Lifeline: a participant box at the top, written name : Class (e.g. s : Sale or :Register), with a vertical dashed line running down the page; time flows top to bottom.",
+              "Activation bar (execution specification): a thin rectangle on the lifeline showing the period during which the object is executing an operation.",
+              "Found message: the first message whose sender is not shown, drawn from a filled dot or the diagram edge.",
+              "Self message: an arrow looping back to the same lifeline, often with a nested activation bar.",
+              "Object creation: a message labelled create (or <<create>>) pointing at the participant box, which is drawn lower down where it comes into existence.",
+              "Object destruction: a large X at the end of the lifeline, usually after a <<destroy>> message."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Message kind",
+                "Arrow notation",
+                "Meaning"
+              ],
+              [
+                "Synchronous call",
+                "Solid line, filled arrowhead",
+                "Sender waits until the receiver finishes"
+              ],
+              [
+                "Asynchronous signal",
+                "Solid line, open (stick) arrowhead",
+                "Sender continues without waiting"
+              ],
+              [
+                "Reply / return",
+                "Dashed line, open arrowhead",
+                "Returns control or a value to the caller"
+              ],
+              [
+                "Create",
+                "Dashed or solid line to the object box, <<create>>",
+                "Instantiates a new participant"
+              ],
+              [
+                "Lost / found",
+                "Arrow to or from a filled dot",
+                "Receiver or sender unknown"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The full syntax of a message label is return = message(parameter : Type) : ReturnType, for example total = getTotal() : Money. Guards written in square brackets, such as [qty > 0], make a message conditional. A replicated message sent to each element of a collection is shown by iterating over a multiobject or by placing the message inside a loop fragment."
+          },
+          {
+            "type": "heading",
+            "text": "Combined Fragments"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Operator",
+                "Meaning",
+                "Typical use"
+              ],
+              [
+                "alt",
+                "Alternative: exactly one operand whose guard is true runs (if-else)",
+                "[paid] print receipt / [else] show error"
+              ],
+              [
+                "opt",
+                "Optional: the single operand runs only if its guard is true (if without else)",
+                "[customer has card] apply discount"
+              ],
+              [
+                "loop",
+                "Repeat the operand while the guard holds or for min..max times",
+                "loop [more items] enterItem"
+              ],
+              [
+                "par",
+                "Operands run in parallel, interleaving allowed",
+                "Send email and update stock concurrently"
+              ],
+              [
+                "ref",
+                "Reference to another interaction diagram",
+                "ref Authenticate User"
+              ],
+              [
+                "break / critical / neg",
+                "Exit enclosing fragment / atomic region / invalid trace",
+                "Error exits, locks, forbidden sequences"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": ":Register           :Sale              :Payment\n    |  makePayment(cash) |                  |\n    |------------------->|                  |\n    |                    | create(cash)     |\n    |                    |----------------->|\n    |                    |<- - - - - - - - -|\n    |<- - - - - - - - - -|                  |\n alt [cash >= total]  : issue change\n     [else]           : reject payment"
+          },
+          {
+            "type": "heading",
+            "text": "Communication (Collaboration) Diagrams"
+          },
+          {
+            "type": "paragraph",
+            "text": "A communication diagram draws the participating objects as boxes anywhere on the page, joined by links (instances of associations or other visibility). Messages are written as arrows alongside the links, each with a sequence number that fixes the order because there is no time axis. Iteration is shown with an asterisk, e.g. 1*: [i = 1..n] li = next(), and conditions with a guard, e.g. 2 [isComplete]: print()."
+          },
+          {
+            "type": "bulletList",
+            "text": "Sequence numbering rules in communication diagrams:",
+            "items": [
+              "The first (found) message is often left unnumbered; messages it causes are numbered 1, 2, 3 in order.",
+              "Nested (Dewey decimal) numbering shows calls made while handling another message: 1 calls 1.1 and 1.2; 1.1 calls 1.1.1.",
+              "Mutually exclusive conditional paths use letters: 1a [test]: msg() and 1b [not test]: other().",
+              "Concurrent threads can be marked with letter suffixes on the thread, e.g. A1 and B1."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Nesting depth} = \\text{number of dots in the sequence number} + 1",
+            "plainText": "Nesting depth of message = number of dots in its sequence number + 1 (1.2.3 is depth 3)"
+          },
+          {
+            "type": "heading",
+            "text": "Sequence vs Communication Diagram"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Criterion",
+                "Sequence diagram",
+                "Communication diagram"
+              ],
+              [
+                "Emphasis",
+                "Time ordering of messages",
+                "Structural links between objects"
+              ],
+              [
+                "Ordering shown by",
+                "Vertical position on lifelines",
+                "Sequence numbers such as 1.2.1"
+              ],
+              [
+                "Space use",
+                "Grows to the right with each new object",
+                "Compact; objects can be placed anywhere"
+              ],
+              [
+                "Strengths",
+                "Easy to read call order, fragments, activations",
+                "Shows which objects must have visibility of each other"
+              ],
+              [
+                "Weakness",
+                "Wide diagrams with many objects",
+                "Harder to follow order in long interactions"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Messages for a synchronous call shown with reply} = 2",
+            "plainText": "A synchronous call drawn with its reply uses 2 arrows: the call and the dashed return"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Nesting depth} = \\text{number of dots in the sequence number} + 1",
+            "plainText": "Nesting depth of message = number of dots in its sequence number + 1 (1.2.3 is depth 3)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Messages for a synchronous call shown with reply} = 2",
+            "plainText": "A synchronous call drawn with its reply uses 2 arrows: the call and the dashed return"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Max links among } n \\text{ objects} = \\frac{n(n-1)}{2}",
+            "plainText": "Maximum links among n objects in a communication diagram = n(n - 1) / 2"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Remember the fragment operators by programming analogues: alt = if-else, opt = if with no else, loop = while/for, par = concurrent threads, ref = function call to another diagram."
+          },
+          {
+            "type": "warning",
+            "text": "A filled arrowhead on a solid line is a synchronous call; an open arrowhead on a solid line is asynchronous; a dashed line with an open arrowhead is a reply. MCQs often swap these."
+          },
+          {
+            "type": "note",
+            "text": "UML 1.x called it a collaboration diagram; UML 2 renamed it the communication diagram. The syllabus uses the older name, but both refer to the same link-and-numbered-message diagram."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i51_01",
+          "title": "Message nesting depth",
+          "latex": "\\text{Nesting depth} = \\text{number of dots in the sequence number} + 1",
+          "plainText": "Nesting depth of message = number of dots in its sequence number + 1 (1.2.3 is depth 3)",
+          "description": "In Dewey-decimal numbering each extra dot means the message was sent while handling the message numbered by the prefix."
+        },
+        {
+          "id": "f_ch8_i51_02",
+          "title": "Call plus reply arrows",
+          "latex": "\\text{Messages for a synchronous call shown with reply} = 2",
+          "plainText": "A synchronous call drawn with its reply uses 2 arrows: the call and the dashed return",
+          "description": "A synchronous call is drawn with a filled arrowhead and, when the return is shown explicitly, a dashed reply arrow back to the caller."
+        },
+        {
+          "id": "f_ch8_i51_03",
+          "title": "Maximum object links",
+          "latex": "\\text{Max links among } n \\text{ objects} = \\frac{n(n-1)}{2}",
+          "plainText": "Maximum links among n objects in a communication diagram = n(n - 1) / 2",
+          "description": "The upper bound on distinct links if every pair of n participating objects needed visibility of each other, which good design avoids."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i51_01",
+          "front": "What is the difference between the alt and opt combined fragments?",
+          "back": "alt has two or more guarded operands and exactly one runs (if-else); opt has a single operand that runs only if its guard is true (if with no else).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i51_02",
+          "front": "How is message order shown in a communication diagram?",
+          "back": "By sequence numbers on the messages, with nested Dewey-decimal numbers (1, 1.1, 1.2) showing calls made while handling an earlier message.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i51_03",
+          "front": "What does an activation bar on a lifeline mean?",
+          "back": "The period during which that object is executing an operation, either directly or through operations it has called.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i51_04",
+          "front": "How is object destruction shown in a sequence diagram?",
+          "back": "With a large X at the bottom of the object's lifeline, typically after a <<destroy>> message.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i51_n01",
+          "questionText": "In a UML 2 sequence diagram, a solid line ending in an open (stick) arrowhead denotes which kind of message?",
+          "options": [
+            "Synchronous call",
+            "Reply message",
+            "Asynchronous message",
+            "Object creation"
+          ],
+          "correctIndex": 2,
+          "explanation": "Asynchronous messages use a solid line with an open arrowhead; synchronous calls use a filled arrowhead, and replies use a dashed line.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i51_n02",
+          "questionText": "Which combined fragment in a sequence diagram represents behaviour that executes only if a guard is true and has no alternative branch?",
+          "options": [
+            "opt",
+            "alt",
+            "par",
+            "loop"
+          ],
+          "correctIndex": 0,
+          "explanation": "opt is the if-without-else fragment with a single guarded operand; alt chooses among several guarded operands.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i51_n03",
+          "questionText": "In a communication diagram, message 2 is received by a Sale object, which then sends two messages while handling it. How should those two messages be numbered?",
+          "options": [
+            "3 and 4",
+            "2a and 2b",
+            "2.1 and 2.2",
+            "2* and 2**"
+          ],
+          "correctIndex": 2,
+          "explanation": "Nested Dewey-decimal numbering shows messages sent while processing message 2 as 2.1 and 2.2; letter suffixes are reserved for mutually exclusive conditional paths.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i51_n04",
+          "questionText": "What is the main advantage of a communication (collaboration) diagram compared with a sequence diagram?",
+          "options": [
+            "It shows the exact time ordering of messages more clearly",
+            "It shows the links between objects and uses space compactly",
+            "It is the only diagram that can show loops and conditions",
+            "It shows the deployment of objects onto hardware nodes"
+          ],
+          "correctIndex": 1,
+          "explanation": "Communication diagrams emphasise object links and allow objects to be placed anywhere; sequence diagrams show time ordering more clearly. Both can show conditions and iteration.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i52",
+      "title": "Objects, Responsibilities & Design Patterns",
+      "subtitle": "Responsibility-driven design, the nine GRASP patterns and the 23 Gang of Four patterns",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Responsibility-Driven Design"
+          },
+          {
+            "type": "paragraph",
+            "text": "Responsibility-driven design (RDD) views a software object as a member of a community that has responsibilities, meaning obligations or contracts it must fulfil, and that collaborates with others to meet them. Design becomes the act of deciding which class should take each responsibility, which is done while drawing interaction diagrams. A responsibility is not the same as a method: a large responsibility may be carried out by many methods across several classes."
+          },
+          {
+            "type": "bulletList",
+            "text": "Larman's two kinds of responsibility:",
+            "items": [
+              "Doing responsibilities: doing something itself (creating an object, calculating a total), initiating action in other objects, and controlling or coordinating activities of other objects.",
+              "Knowing responsibilities: knowing about its own private encapsulated data, knowing about related objects, and knowing about things it can derive or calculate.",
+              "Example: a Sale is responsible for knowing its total (knowing) and for creating SalesLineItems (doing)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "GRASP: General Responsibility Assignment Software Patterns"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "GRASP pattern",
+                "Problem it answers",
+                "Solution"
+              ],
+              [
+                "Information Expert",
+                "Who should do a job needing some data?",
+                "The class that has the information needed"
+              ],
+              [
+                "Creator",
+                "Who should create an instance of A?",
+                "B if B contains, aggregates, records, closely uses or has init data for A"
+              ],
+              [
+                "Controller",
+                "Who first handles a system event from the UI?",
+                "A facade (whole system) or use-case controller object"
+              ],
+              [
+                "Low Coupling",
+                "How to reduce impact of change?",
+                "Assign responsibilities so dependencies stay low"
+              ],
+              [
+                "High Cohesion",
+                "How to keep objects focused and manageable?",
+                "Keep each class's responsibilities strongly related"
+              ],
+              [
+                "Polymorphism",
+                "How to handle behaviour that varies by type?",
+                "Give the varying behaviour to the types via polymorphic operations"
+              ],
+              [
+                "Pure Fabrication",
+                "Where to put a job no domain class fits?",
+                "Invent a convenience class, e.g. PersistentStorage"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "The remaining two GRASP patterns:",
+            "items": [
+              "Indirection: assign the responsibility to an intermediate object that mediates between components so they are not directly coupled (e.g. an adapter to a tax calculator).",
+              "Protected Variations: identify points of predicted variation or instability and wrap them behind a stable interface, so changes do not ripple through the system.",
+              "Low Coupling and High Cohesion are evaluative patterns used to judge the other seven choices."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Gang of Four Design Patterns"
+          },
+          {
+            "type": "paragraph",
+            "text": "Gamma, Helm, Johnson and Vlissides (the Gang of Four) catalogued 23 design patterns in 1994. A design pattern is a named, reusable solution to a recurring design problem in a context, described by its name, problem, solution and consequences. The patterns are grouped by purpose into creational (object creation), structural (composition of classes and objects) and behavioural (algorithms and assignment of responsibility among interacting objects)."
+          },
+          {
+            "type": "formula",
+            "latex": "23_{GoF} = 5_{creational} + 7_{structural} + 11_{behavioural}",
+            "plainText": "23 GoF patterns = 5 creational + 7 structural + 11 behavioural"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Category",
+                "Pattern",
+                "Intent in one line"
+              ],
+              [
+                "Creational",
+                "Singleton",
+                "Ensure a class has one instance with a global access point"
+              ],
+              [
+                "Creational",
+                "Factory Method / Abstract Factory",
+                "Let subclasses decide the class to create / create families of related objects"
+              ],
+              [
+                "Creational",
+                "Builder, Prototype",
+                "Construct complex objects step by step / clone a prototype"
+              ],
+              [
+                "Structural",
+                "Adapter, Facade",
+                "Convert one interface into another / give one simple interface to a subsystem"
+              ],
+              [
+                "Structural",
+                "Composite, Decorator, Proxy",
+                "Tree of part-whole objects / add duties dynamically / surrogate controlling access"
+              ],
+              [
+                "Behavioural",
+                "Observer, Strategy",
+                "Notify dependents of state change / interchangeable algorithms"
+              ],
+              [
+                "Behavioural",
+                "Command, Iterator, Template Method",
+                "Request as object / sequential access / algorithm skeleton with overridable steps"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "interface DiscountStrategy { Money apply(Sale s); }\nclass PercentOff implements DiscountStrategy {\n  public Money apply(Sale s) { return s.getTotal().times(0.9); }\n}\nclass Sale {\n  private DiscountStrategy strategy; // Strategy + Polymorphism\n  void setStrategy(DiscountStrategy d) { strategy = d; }\n  Money getTotalAfterDiscount() { return strategy.apply(this); }\n}"
+          },
+          {
+            "type": "paragraph",
+            "text": "GoF and GRASP are related: Adapter and Facade are applications of Indirection and Protected Variations, Strategy relies on Polymorphism, and a Factory class is a Pure Fabrication that keeps creation logic out of domain classes. Patterns are also classified by scope: class patterns use inheritance and are fixed at compile time (Factory Method, class Adapter, Template Method), while object patterns use composition and can change at run time."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Coupling pairs among } n \\text{ classes} \\le \\frac{n(n-1)}{2}",
+            "plainText": "Possible coupling pairs among n classes <= n(n - 1) / 2"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "23_{GoF} = 5_{creational} + 7_{structural} + 11_{behavioural}",
+            "plainText": "23 GoF patterns = 5 creational + 7 structural + 11 behavioural"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{GRASP} = 9 \\text{ patterns}",
+            "plainText": "GRASP = 9 patterns: Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Coupling pairs among } n \\text{ classes} \\le \\frac{n(n-1)}{2}",
+            "plainText": "Possible coupling pairs among n classes <= n(n - 1) / 2"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Creational = how objects are made (Singleton, Factory Method, Abstract Factory, Builder, Prototype). Structural = how they are assembled (Adapter, Bridge, Composite, Decorator, Facade, Flyweight, Proxy). Everything else, such as Observer, Strategy, Command, Iterator, Template Method and State, is behavioural."
+          },
+          {
+            "type": "warning",
+            "text": "Controller in GRASP is not the UI window: it is a non-UI object in the domain layer that receives system events from the UI and delegates work. A bloated controller that does everything itself violates High Cohesion."
+          },
+          {
+            "type": "note",
+            "text": "Decorator and Proxy both wrap an object with the same interface; Decorator adds behaviour, Proxy controls access (remote, virtual/lazy, protection). Adapter wraps to change the interface."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i52_01",
+          "title": "GoF pattern count",
+          "latex": "23_{GoF} = 5_{creational} + 7_{structural} + 11_{behavioural}",
+          "plainText": "23 GoF patterns = 5 creational + 7 structural + 11 behavioural",
+          "description": "The Gang of Four catalogue of 23 patterns split by purpose into three categories."
+        },
+        {
+          "id": "f_ch8_i52_02",
+          "title": "GRASP pattern count",
+          "latex": "\\text{GRASP} = 9 \\text{ patterns}",
+          "plainText": "GRASP = 9 patterns: Expert, Creator, Controller, Low Coupling, High Cohesion, Polymorphism, Pure Fabrication, Indirection, Protected Variations",
+          "description": "Larman's nine principles for assigning responsibilities to classes while drawing interaction diagrams."
+        },
+        {
+          "id": "f_ch8_i52_03",
+          "title": "Coupling pairs bound",
+          "latex": "\\text{Coupling pairs among } n \\text{ classes} \\le \\frac{n(n-1)}{2}",
+          "plainText": "Possible coupling pairs among n classes <= n(n - 1) / 2",
+          "description": "Low Coupling aims to keep actual dependencies far below this maximum number of class pairs."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i52_01",
+          "front": "What does the GRASP Information Expert pattern say?",
+          "back": "Assign a responsibility to the class that has the information needed to fulfil it, e.g. Sale computes its own total because it knows its line items.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i52_02",
+          "front": "When does GRASP Creator say class B should create instances of A?",
+          "back": "When B contains or aggregates A, records A, closely uses A, or has the initialising data for A.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i52_03",
+          "front": "What is Pure Fabrication?",
+          "back": "A made-up class that does not represent a domain concept, created to achieve high cohesion and low coupling, such as a PersistentStorage or Factory class.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i52_04",
+          "front": "Which GoF pattern provides one simplified interface to a complex subsystem?",
+          "back": "Facade, a structural pattern that places a single front object before a set of subsystem classes.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i52_n01",
+          "questionText": "In a POS design, a Sale object contains SalesLineItem objects. According to GRASP, which class should create a new SalesLineItem?",
+          "options": [
+            "Register, because it handles system events",
+            "ProductCatalog, because it knows product descriptions",
+            "Store, because it is the root object",
+            "Sale, because it contains (aggregates) SalesLineItems"
+          ],
+          "correctIndex": 3,
+          "explanation": "The Creator pattern assigns creation of A to a class that contains or aggregates A; Sale aggregates SalesLineItems, so Sale creates them.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i52_n02",
+          "questionText": "Which of the following Gang of Four patterns is classified as a structural pattern?",
+          "options": [
+            "Strategy",
+            "Builder",
+            "Decorator",
+            "Iterator"
+          ],
+          "correctIndex": 2,
+          "explanation": "Decorator composes objects to add responsibilities dynamically and is structural. Strategy and Iterator are behavioural; Builder is creational.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i52_n03",
+          "questionText": "A designer needs to save Sale objects to a database but does not want to reduce the cohesion of Sale by adding SQL code to it, so a new PersistentStorage class is invented. Which GRASP pattern is being applied?",
+          "options": [
+            "Pure Fabrication",
+            "Information Expert",
+            "Polymorphism",
+            "Controller"
+          ],
+          "correctIndex": 0,
+          "explanation": "Pure Fabrication invents a class that does not represent a domain concept to keep domain classes highly cohesive and loosely coupled.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i53",
+      "title": "Determining Visibility & Design Class Diagrams",
+      "subtitle": "Attribute, parameter, local and global visibility; DCD notation, navigability, interfaces",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Visibility Matters"
+          },
+          {
+            "type": "paragraph",
+            "text": "For object A to send a message to object B, B must be visible to A: A must hold some kind of reference or pointer to B. When interaction diagrams are drawn, every message arrow implies a visibility requirement, and the designer must decide how that reference is obtained. Larman identifies four ways that object B can be visible to object A."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Visibility type",
+                "How A reaches B",
+                "Permanence"
+              ],
+              [
+                "Attribute visibility",
+                "B is an attribute (field) of A",
+                "Relatively permanent, lasts as long as A and B exist"
+              ],
+              [
+                "Parameter visibility",
+                "B is passed as a parameter to a method of A",
+                "Temporary, only during the method"
+              ],
+              [
+                "Local visibility",
+                "B is a local variable in a method of A (created or returned by a call)",
+                "Temporary, only during the method"
+              ],
+              [
+                "Global visibility",
+                "B is globally accessible, e.g. a Singleton or global variable",
+                "Relatively permanent while the program runs"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Visibility in practice:",
+            "items": [
+              "Attribute visibility is the most common in OO design and is what an association arrow in a DCD usually implies.",
+              "Parameter visibility is often converted to attribute visibility, e.g. a constructor parameter stored in a field.",
+              "Local visibility arises from assigning a returned object to a local variable, e.g. ProductDescription desc = catalog.getDescription(id).",
+              "Global visibility is the least desirable; the preferred way to achieve it is the Singleton pattern rather than a raw global variable."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "class Register {\n  private ProductCatalog catalog;        // attribute visibility\n  private Sale currentSale;\n  public void enterItem(ItemID id, int qty) {  // id: parameter visibility\n    ProductDescription desc = catalog.getProductDescription(id); // local\n    currentSale.makeLineItem(desc, qty);\n    Logger.getInstance().log(\"item\");  // global via Singleton\n  }\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Design Class Diagram vs Domain Model"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "Domain model (analysis)",
+                "Design class diagram (design)"
+              ],
+              [
+                "Represents",
+                "Real-world conceptual classes",
+                "Software classes in the solution"
+              ],
+              [
+                "Operations",
+                "None",
+                "Method signatures with parameters and return types"
+              ],
+              [
+                "Attributes",
+                "Names, maybe simple types",
+                "Full types, visibility, defaults"
+              ],
+              [
+                "Associations",
+                "Undirected, with names and multiplicity",
+                "Navigability arrows showing attribute visibility"
+              ],
+              [
+                "Extra elements",
+                "None",
+                "Interfaces, dependencies, stereotypes, pure fabrications"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "DCD Notation"
+          },
+          {
+            "type": "bulletList",
+            "text": "Elements drawn in a design class diagram:",
+            "items": [
+              "Class box with three compartments: name, attributes, operations. Abstract classes and methods are shown in italics or with {abstract}.",
+              "Attribute syntax: visibility name : type [multiplicity] = default {property}, e.g. - total : Money.",
+              "Operation syntax: visibility name(parameter : Type, ...) : ReturnType, e.g. + makeLineItem(desc : ProductDescription, qty : Integer). Static members are underlined.",
+              "Visibility markers: + public, - private, # protected, ~ package.",
+              "Multiplicity on association ends: 1 exactly one, 0..1 zero or one, * or 0..* zero or more, 1..* one or more, m..n a range."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Navigability is shown by an open arrowhead on an association line pointing from the class that holds the reference to the class it references, e.g. Register to Sale, meaning Register has an attribute of type Sale. Navigability is derived from interaction diagrams: if A sends a message to B and needs lasting visibility, draw A to B. Associations without arrows in a DCD are ambiguous and are best avoided."
+          },
+          {
+            "type": "bulletList",
+            "text": "Other relationships in a DCD:",
+            "items": [
+              "Dependency: dashed line with open arrowhead, for parameter, local or global visibility or other non-attribute use, optionally with a stereotype such as <<use>> or <<create>>.",
+              "Generalisation: solid line with a hollow triangle pointing to the superclass.",
+              "Interface realisation: dashed line with a hollow triangle to the interface, or the lollipop (ball) notation; a required interface uses the socket notation.",
+              "Interfaces are drawn as a class box with the <<interface>> stereotype and only operation signatures."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+            "plainText": "Weighted methods per class WMC = sum of complexities c_i of its n methods (c_i = 1 gives the method count)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Links in a 1..* to 1..* association} \\le m \\times n",
+            "plainText": "Links between m objects of A and n objects of B in a many-to-many association <= m × n"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+            "plainText": "Weighted methods per class WMC = sum of complexities c_i of its n methods (c_i = 1 gives the method count)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Links in a 1..* to 1..* association} \\le m \\times n",
+            "plainText": "Links between m objects of A and n objects of B in a many-to-many association <= m × n"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Visibility} \\in \\{\\text{attribute},\\ \\text{parameter},\\ \\text{local},\\ \\text{global}\\}",
+            "plainText": "Visibility of B to A is one of: attribute, parameter, local, global"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Attribute and global visibility are relatively permanent; parameter and local visibility are temporary, lasting only for the scope of one method call."
+          },
+          {
+            "type": "warning",
+            "text": "Do not confuse UML visibility markers (+ - # ~, about access to a member) with Larman's visibility types (attribute, parameter, local, global, about how one object can reference another)."
+          },
+          {
+            "type": "note",
+            "text": "A navigable association arrow in a DCD normally means attribute visibility; parameter, local and global visibility are shown with dashed dependency arrows instead."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i53_01",
+          "title": "Weighted methods per class",
+          "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+          "plainText": "Weighted methods per class WMC = sum of complexities c_i of its n methods (c_i = 1 gives the method count)",
+          "description": "A Chidamber-Kemerer metric computed from a design class diagram; a high WMC suggests a class with too many responsibilities."
+        },
+        {
+          "id": "f_ch8_i53_02",
+          "title": "Many-to-many link bound",
+          "latex": "\\text{Links in a 1..* to 1..* association} \\le m \\times n",
+          "plainText": "Links between m objects of A and n objects of B in a many-to-many association <= m × n",
+          "description": "Each object of A can be linked to every object of B at most once, giving at most m times n links."
+        },
+        {
+          "id": "f_ch8_i53_03",
+          "title": "Four visibility types",
+          "latex": "\\text{Visibility} \\in \\{\\text{attribute},\\ \\text{parameter},\\ \\text{local},\\ \\text{global}\\}",
+          "plainText": "Visibility of B to A is one of: attribute, parameter, local, global",
+          "description": "Larman's four ways an object can hold a reference to another object so that it can send it a message."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i53_01",
+          "front": "Name the four kinds of visibility between objects.",
+          "back": "Attribute (B is a field of A), parameter (B passed to A's method), local (B is a local variable in A's method) and global (B is globally reachable, e.g. Singleton).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i53_02",
+          "front": "What does a navigability arrow from Register to Sale mean in a DCD?",
+          "back": "Register holds a reference (attribute visibility) to Sale and can send it messages; Sale does not necessarily know Register.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i53_03",
+          "front": "What does the UML visibility marker ~ mean?",
+          "back": "Package visibility: the member is accessible to any class in the same package.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i53_04",
+          "front": "What does a DCD add that a domain model does not have?",
+          "back": "Method signatures, full attribute types and visibility, navigability arrows, dependencies, interfaces and software-only classes.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i53_n01",
+          "questionText": "Inside Register.enterItem(), the statement desc = catalog.getProductDescription(id) assigns the returned object to a variable declared in the method. What kind of visibility does Register have of desc?",
+          "options": [
+            "Attribute visibility",
+            "Local visibility",
+            "Global visibility",
+            "Parameter visibility"
+          ],
+          "correctIndex": 1,
+          "explanation": "An object assigned to a local variable within a method, e.g. as a return value, is locally visible for the duration of that method.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i53_n02",
+          "questionText": "Which element appears in a design class diagram but NOT in a domain model?",
+          "options": [
+            "Conceptual class names",
+            "Association multiplicities",
+            "Method signatures with parameter and return types",
+            "Real-world attributes such as date and time"
+          ],
+          "correctIndex": 2,
+          "explanation": "Domain models show conceptual classes, attributes and associations but no operations; DCDs add software method signatures, navigability, types and interfaces.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i53_n03",
+          "questionText": "In a design class diagram, what does an open arrowhead on a solid association line from class A to class B indicate?",
+          "options": [
+            "A inherits from B",
+            "A realises the interface B",
+            "A temporarily uses B as a method parameter",
+            "A has attribute visibility of B and can send messages to it"
+          ],
+          "correctIndex": 3,
+          "explanation": "Navigability from A to B means A holds a reference to B as an attribute. Inheritance uses a hollow triangle, realisation a dashed line with hollow triangle, and temporary use a dashed dependency arrow.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i53_n04",
+          "questionText": "A class has five methods whose complexity weights are 1, 2, 3, 1 and 4. What is its Weighted Methods per Class (WMC)?",
+          "options": [
+            "11",
+            "5",
+            "4",
+            "24"
+          ],
+          "correctIndex": 0,
+          "explanation": "WMC is the sum of method complexities: 1 + 2 + 3 + 1 + 4 = 11.",
+          "difficulty": "easy"
+        }
+      ]
+    }
+  ]
+}

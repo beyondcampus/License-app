@@ -1,0 +1,557 @@
+{
+ "topicId": "ch5_t4",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: TCP and UDP in Detail"
+  },
+  {
+   "type": "paragraph",
+   "text": "A handy way to picture the two protocols: TCP is like registered mail, where every item is tracked and the sender learns that it arrived, while UDP is like dropping an ordinary letter in a post box and hoping it gets there. TCP is connection-oriented, reliable and ordered, and it controls both its sending rate and the load it puts on the network, so it is slower to start and carries more overhead. UDP skips all of this, which makes it fast and light but leaves loss, duplication and reordering for the application to handle. Choose TCP when every byte must arrive correctly (web pages, e-mail, file transfer, remote login) and UDP when a late packet is worse than a lost one or when the exchange is one short query (voice and video calls, online games, live broadcasts, DNS lookups)."
+  },
+  {
+   "type": "bulletList",
+   "text": "Corrections and updates to common study-note claims:",
+   "items": [
+    "TCP 'error correction' does not mean that TCP repairs bits. A segment that fails the checksum is discarded silently; the sender notices the missing acknowledgement and retransmits, so recovery is by retransmission (ARQ), not by an error-correcting code.",
+    "UDP does detect errors: its 16-bit checksum over the pseudo-header, header and data lets the receiver throw away a damaged datagram. What UDP never does is retransmit it.",
+    "On-demand streaming such as Netflix and YouTube is mostly delivered over HTTP, that is over TCP or over QUIC, because the player buffers several seconds ahead and hides retransmissions. UDP with RTP is the usual choice for interactive, real-time media: VoIP, video calls and fast online games.",
+    "TCP is now specified by RFC 9293 (2022), which replaced RFC 793, and SCTP (IP protocol number 132) by RFC 9260, which replaced RFC 4960; the header layouts and behaviour taught in textbooks are unchanged.",
+    "QUIC (RFC 9000), the transport under HTTP/3, runs on top of UDP but adds its own reliability, congestion control and TLS 1.3 encryption, so 'runs over UDP' does not always mean 'unreliable'."
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "How TCP builds a reliable, ordered byte stream on top of best-effort IP:",
+   "items": [
+    "Sequence numbers: every byte has a 32-bit number, so the receiver can put segments back in order and discard duplicates. The initial sequence number (ISN) is chosen randomly for each connection (RFC 6528).",
+    "Cumulative acknowledgements: the acknowledgement number names the next byte expected, which confirms everything before it in one value.",
+    "Checksum: it covers the pseudo-header, header and data, so damaged or misdelivered segments are dropped.",
+    "Retransmission: a retransmission timer (RTO) resends data that stays unacknowledged, and fast retransmit resends a segment as soon as three duplicate ACKs show it is missing.",
+    "Receive buffer and window: out-of-order data is held until the gap is filled, and the advertised window stops the sender from overrunning that buffer.",
+    "Connection state: the handshake agrees on both ISNs before data flows, and the FIN exchange makes sure all data has been delivered before the connection is closed."
+   ]
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: 2,500 bytes, MSS = 1,000, client ISN = 5,000\nThe SYN uses sequence number 5,000, so the first data byte is 5,001\nSegment 1: seq 5,001   1,000 bytes = bytes 5,001..6,000  -> ACK 6,001\nSegment 2: seq 6,001   1,000 bytes = bytes 6,001..7,000  -> ACK 7,001\nSegment 3: seq 7,001     500 bytes = bytes 7,001..7,500  -> ACK 7,501\nIf segment 2 is lost and the receiver buffers out-of-order data:\n  segment 3 arrives        -> duplicate ACK 6,001 (still waiting for byte 6,001)\n  retransmitted segment 2  -> ACK 7,501 (the gap is filled)\nThe client's FIN would then carry sequence number 7,501"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: UDP checksum, 192.168.0.1:8080 -> 192.168.0.2:53, data \"OK\"\nPseudo-header : C0A8 0001 C0A8 0002 0011 000A  (zero + protocol 17, UDP length 10)\nUDP header    : 1F90 0035 000A 0000            (ports 8080 and 53, length 10, checksum 0)\nData          : 4F4B                           (\"O\" = 4F, \"K\" = 4B)\nAdd all 11 words      : 1F088 (17 bits)\nFold the carry        : F088 + 1 = F089\nChecksum              : ones' complement of F089 = 0F76\nReceiver adds all 11 words with 0F76 in place: F089 + 0F76 = FFFF -> accepted"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Option",
+     "Kind and length",
+     "Purpose"
+    ],
+    [
+     "End of option list / No-operation",
+     "Kinds 0 and 1, 1 byte each",
+     "Mark the end of the options / pad so the next option starts on a 4-byte boundary"
+    ],
+    [
+     "Maximum segment size (MSS)",
+     "Kind 2, 4 bytes",
+     "Largest data block the sender of the option can receive in one segment; SYN only"
+    ],
+    [
+     "Window scale",
+     "Kind 3, 3 bytes",
+     "Shift count S (0 to 14) applied to the 16-bit window field; SYN only"
+    ],
+    [
+     "SACK permitted",
+     "Kind 4, 2 bytes",
+     "Offers selective acknowledgement; SYN only"
+    ],
+    [
+     "SACK",
+     "Kind 5, 10 to 34 bytes",
+     "Reports up to 4 blocks of data received beyond a gap (3 when timestamps are also used)"
+    ],
+    [
+     "Timestamps",
+     "Kind 8, 10 bytes",
+     "RTT measurement and PAWS protection against wrapped sequence numbers"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "The 16-bit window field lets a sender have at most 65,535 bytes unacknowledged, so its throughput can never exceed 65,535 bytes per RTT. On a 100 Mbps path with an 80 ms RTT that is only about 6.6 Mbps, because keeping the pipe full needs a window equal to the bandwidth-delay product, 10^8 × 0.08 / 8 = 1,000,000 bytes. The window scale option (RFC 7323) solves this: both SYNs carry a shift count S, and every later window value is multiplied by 2^S, so S = 4 gives 65,535 × 16 = 1,048,560 bytes here, and the maximum S = 14 allows about 1 GiB. The MSS option solves a different problem: it keeps each segment small enough to fit in one IP packet on the path, so that no fragmentation is needed."
+  },
+  {
+   "type": "formula",
+   "latex": "W_{\\text{eff}} = W \\times 2^{S} \\ge B \\times \\text{RTT}, \\quad 0 \\le S \\le 14",
+   "plainText": "Effective window = window field W x 2^S, which must be at least bandwidth B x RTT (converted to bytes) to keep the pipe full; S = 0 to 14"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Feature",
+     "TCP",
+     "UDP",
+     "SCTP"
+    ],
+    [
+     "Service",
+     "Reliable, ordered byte stream",
+     "Unreliable datagrams",
+     "Reliable messages in one or more streams"
+    ],
+    [
+     "Setup",
+     "Three-way handshake",
+     "None",
+     "Four-way handshake with a state cookie"
+    ],
+    [
+     "Header",
+     "20 to 60 bytes",
+     "8 bytes",
+     "12-byte common header plus chunks"
+    ],
+    [
+     "Checksum",
+     "16-bit ones' complement, mandatory",
+     "16-bit ones' complement, optional over IPv4",
+     "32-bit CRC32c, mandatory"
+    ],
+    [
+     "Numbering",
+     "Every byte (32-bit)",
+     "None",
+     "Every data chunk (TSN) plus a per-stream number"
+    ],
+    [
+     "Multi-streaming / multi-homing",
+     "No / no",
+     "No / no",
+     "Yes / yes"
+    ],
+    [
+     "Closing",
+     "FIN exchange; half-close allowed",
+     "Nothing to close",
+     "Three-way SHUTDOWN; no half-close"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes and special cases:",
+   "items": [
+    "The ACK number is the next byte expected, not the last byte received: after bytes 1 to 1,000 the ACK is 1,001.",
+    "SYN and FIN each use up one sequence number although they carry no data; a pure ACK uses none, so ACKs are never themselves acknowledged.",
+    "HLEN (data offset) counts 4-byte words, but the UDP length field counts bytes and includes the 8-byte header.",
+    "The MSS excludes both headers: MSS = MTU − 40 for IPv4 without options, which is 1,460 bytes on Ethernet. A host that receives no MSS option must assume 536 bytes (IPv4) or 1,220 bytes (IPv6).",
+    "TCP does not keep message boundaries: three 100-byte writes may be read as one 300-byte block, so applications must frame their own messages, while UDP delivers each datagram whole or not at all.",
+    "The pseudo-header is used only to compute the checksum and is never sent; because it contains the IP addresses, a NAT router that rewrites an address must also fix the TCP or UDP checksum.",
+    "Since RFC 3168 the TCP header has 4 reserved bits and 8 flags: CWR and ECE (for Explicit Congestion Notification) were added to URG, ACK, PSH, RST, SYN and FIN."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For any sequence-number question, write each segment as first byte..last byte: the next segment starts at last + 1, and that same value is the ACK for it. Add one extra number for a SYN or a FIN and none for a pure ACK, and remember that header-length fields are in 4-byte words while length fields are in bytes."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch5_t4_m001",
+   "questionText": "UDP (User Datagram Protocol) is best described as:",
+   "options": [
+    "Reliable and connection-oriented",
+    "Unreliable and connectionless",
+    "Reliable and connectionless",
+    "Unreliable and connection-oriented"
+   ],
+   "correctIndex": 1,
+   "explanation": "UDP sends each datagram on its own without setting up a connection, and it has no acknowledgements or retransmission, so delivery is not guaranteed. 'Unreliable' means no delivery guarantee; UDP still has a checksum to detect damaged datagrams.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m002",
+   "questionText": "Which field in the TCP header lets the receiver put arriving data back into the correct order?",
+   "options": [
+    "Acknowledgement number",
+    "Window size",
+    "Sequence number",
+    "Source port"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each segment's sequence number is the number of its first data byte, so the receiver can place segments that arrive out of order and discard duplicates. The acknowledgement number reports the next byte expected, and the window is used for flow control.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m003",
+   "questionText": "Why is UDP called a connectionless protocol?",
+   "options": [
+    "It encrypts every datagram at the transport layer",
+    "It communicates only with broadcast packets",
+    "It uses a different IP address for each datagram",
+    "It sends data without first setting up a connection, and handles every datagram independently"
+   ],
+   "correctIndex": 3,
+   "explanation": "UDP has no handshake and keeps no connection state: an application can send a datagram at once, and each datagram is handled on its own. It does not encrypt data, and it works with unicast as well as broadcast and multicast.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m004",
+   "questionText": "Real-time applications such as VoIP normally carry their voice packets over UDP rather than TCP. What is the main reason?",
+   "options": [
+    "A retransmitted voice packet would arrive too late to be played, so TCP's retransmission and in-order waiting only add delay",
+    "UDP retransmits lost voice packets faster than TCP does",
+    "TCP cannot send in both directions at once, which a phone call needs",
+    "UDP's header is larger, so it can carry the timing information that voice needs"
+   ],
+   "correctIndex": 0,
+   "explanation": "In a live conversation a packet that arrives late is useless, and TCP would also hold back later packets until the lost one is resent (head-of-line blocking). UDP, usually with RTP on top, never retransmits and accepts a little loss in exchange for low, steady delay; TCP is full duplex, and UDP's 8-byte header is smaller than TCP's.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m005",
+   "questionText": "Which pair of protocols are both connection-oriented transport protocols?",
+   "options": [
+    "TCP and UDP",
+    "UDP and SCTP",
+    "TCP and SCTP",
+    "UDP and ICMP"
+   ],
+   "correctIndex": 2,
+   "explanation": "TCP sets up a connection with a three-way handshake, and SCTP sets up an association with a four-way handshake, before any data flows. UDP is connectionless, and ICMP is a network-layer helper protocol, not a transport protocol.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m006",
+   "questionText": "Which set of mechanisms does TCP use to give reliable delivery over IP's best-effort service?",
+   "options": [
+    "Forward error-correcting codes added to every segment",
+    "Sequence numbers, acknowledgements, checksums and retransmission of lost or damaged segments",
+    "TLS encryption of every segment",
+    "Sending every segment twice over different routes"
+   ],
+   "correctIndex": 1,
+   "explanation": "TCP numbers every byte, acknowledges what arrives, detects damage with a checksum and retransmits anything not acknowledged in time, which is error recovery by retransmission (ARQ). It does not add error-correcting codes, and encryption is the job of TLS, not TCP.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m007",
+   "questionText": "The network layer delivers an IP datagram to the correct host. What additional delivery does the transport layer provide?",
+   "options": [
+    "Hop-to-hop delivery between neighbouring routers",
+    "Node-to-node delivery across a single link using MAC addresses",
+    "Conversion of domain names into IP addresses",
+    "Process-to-process delivery, using port numbers to reach the right application"
+   ],
+   "correctIndex": 3,
+   "explanation": "IP gets the datagram to the host; the transport layer then uses the destination port to hand the data to the correct process, such as a web server on port 80. Link-by-link delivery with MAC addresses is the data link layer's job, and name resolution is done by DNS.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m008",
+   "questionText": "Which statement about where transport-layer protocols such as TCP and UDP run is correct?",
+   "options": [
+    "They run only in the end hosts; routers normally process packets only up to the network layer",
+    "They run in every router along the path",
+    "They run only in layer-2 switches",
+    "They run only in the destination host, not in the source host"
+   ],
+   "correctIndex": 0,
+   "explanation": "Transport protocols are end-to-end: the TCP or UDP entities live in the two end systems, while routers forward packets using the IP header. Middleboxes such as NAT routers and firewalls may read port numbers, but they do not run the transport protocol on the hosts' behalf.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m009",
+   "questionText": "A client calls send() three times on a TCP socket, with 100 bytes each time. Which statement about what the receiving application sees is correct?",
+   "options": [
+    "It always reads exactly three separate 100-byte messages",
+    "It may read the three messages in a different order",
+    "It reads the 300 bytes in order, but in any grouping (for example one 300-byte read), because TCP does not preserve message boundaries",
+    "It can read the bytes only after the connection has been closed"
+   ],
+   "correctIndex": 2,
+   "explanation": "TCP delivers a reliable, ordered byte stream, so the bytes come out in the order they were sent, but how they are grouped into reads depends on segmenting and buffering. Applications over TCP must mark their own message boundaries; UDP, by contrast, delivers each datagram as a whole.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m010",
+   "questionText": "Which of the following fields is NOT part of the UDP header?",
+   "options": [
+    "Sequence number",
+    "Source port",
+    "Length",
+    "Checksum"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 8-byte UDP header has only four 16-bit fields: source port, destination port, length and checksum. UDP has no sequence numbers because it neither orders nor retransmits data.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m011",
+   "questionText": "A UDP datagram carries 1,000 bytes of application data. What value does its UDP length field contain?",
+   "options": [
+    "1,000",
+    "1,020",
+    "1,028",
+    "1,008"
+   ],
+   "correctIndex": 3,
+   "explanation": "The UDP length covers the 8-byte header plus the data: 8 + 1,000 = 1,008 bytes. 1,028 would also add the 20-byte IPv4 header, which belongs in the IP total length, not in the UDP length.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m012",
+   "questionText": "What is the largest amount of application data that a single UDP datagram can carry over IPv4, assuming a 20-byte IP header with no options?",
+   "options": [
+    "65,507 bytes",
+    "65,515 bytes",
+    "65,527 bytes",
+    "65,535 bytes"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 16-bit IPv4 total length allows at most 65,535 bytes, from which the 20-byte IP header and the 8-byte UDP header are taken: 65,535 − 20 − 8 = 65,507 bytes. 65,527 forgets the IP header and 65,515 forgets the UDP header.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m013",
+   "questionText": "Which statement about the UDP checksum is correct?",
+   "options": [
+    "It is mandatory over IPv4 but not used over IPv6",
+    "It can detect and correct single-bit errors",
+    "It covers only the 8-byte UDP header",
+    "It is optional over IPv4, where a value of 0 means that no checksum was computed, but it is required by default over IPv6"
+   ],
+   "correctIndex": 3,
+   "explanation": "Over IPv4 a sender may leave the checksum field as 0 (a computed result of 0 is sent as FFFF instead); IPv6 has no header checksum, so RFC 8200 makes the UDP checksum required by default. It covers the pseudo-header, the header and the data, and it only detects errors.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m014",
+   "questionText": "Which of the following is NOT part of the IPv4 pseudo-header used in the TCP and UDP checksum?",
+   "options": [
+    "Time to live (TTL)",
+    "Source IP address",
+    "Destination IP address",
+    "Protocol number"
+   ],
+   "correctIndex": 0,
+   "explanation": "The pseudo-header holds the source and destination IP addresses, a zero byte, the protocol number (6 for TCP, 17 for UDP) and the TCP/UDP length. TTL is left out because routers change it at every hop, which would make the end-to-end checksum fail.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m015",
+   "questionText": "Which TCP flag asks the receiving TCP to pass the data to the application immediately instead of waiting for its buffer to fill?",
+   "options": [
+    "URG",
+    "RST",
+    "PSH",
+    "FIN"
+   ],
+   "correctIndex": 2,
+   "explanation": "PSH (push) tells the receiver to deliver the data without further buffering. URG marks urgent data, RST aborts the connection and FIN starts closing it.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m016",
+   "questionText": "Compute the UDP checksum of a datagram sent from 10.0.0.1, port 1234 (04D2 hex), to 10.0.0.5, port 69 (0045 hex), carrying the 2 data bytes \"Hi\" (4869 hex). Include the IPv4 pseudo-header (protocol 17 = 0011 hex) and treat the checksum field as 0000 during the calculation.",
+   "options": [
+    "61AB",
+    "9E54",
+    "B275",
+    "E6BD"
+   ],
+   "correctIndex": 1,
+   "explanation": "The UDP length is 8 + 2 = 10 (000A). Adding 0A00 + 0001 + 0A00 + 0005 + 0011 + 000A (pseudo-header) + 04D2 + 0045 + 000A + 0000 (header) + 4869 (data) gives 61AB with no carry, and its ones' complement is 9E54. 61AB is the uncomplemented sum, B275 leaves out the pseudo-header and E6BD leaves out the data.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t4_m017",
+   "questionText": "An IPv4 datagram has a total length of 1,500 bytes and an IHL field of 6. It carries a TCP segment whose header length (data offset) field is 8. How many bytes of application data does the segment carry?",
+   "options": [
+    "1,460",
+    "1,448",
+    "1,476",
+    "1,444"
+   ],
+   "correctIndex": 3,
+   "explanation": "IP header = IHL × 4 = 6 × 4 = 24 bytes and TCP header = 8 × 4 = 32 bytes, so the data is 1,500 − 24 − 32 = 1,444 bytes. 1,460 assumes 20-byte headers with no options, and 1,448 ignores the 4 bytes of IP options.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t4_m018",
+   "questionText": "A TCP receiver has just received a segment holding bytes 5,001 to 6,000, and all earlier bytes have already arrived. Which acknowledgement number does it send?",
+   "options": [
+    "5,001",
+    "6,000",
+    "6,001",
+    "7,001"
+   ],
+   "correctIndex": 2,
+   "explanation": "TCP acknowledges cumulatively with the number of the next byte it expects: after byte 6,000 that is 6,001. ACK 6,000 would say that byte 6,000 itself has not arrived yet.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_t4_m019",
+   "questionText": "A TCP sender transmits three segments: sequence number 1,000 (400 bytes), 1,400 (600 bytes) and 2,000 (500 bytes). The second segment is lost, and the receiver buffers out-of-order data. Which ACK does the receiver send when the third segment arrives, and which ACK does it send when the retransmitted second segment arrives?",
+   "options": [
+    "2,500 and 2,500",
+    "1,400 and 2,500",
+    "1,400 and 2,000",
+    "2,000 and 2,500"
+   ],
+   "correctIndex": 1,
+   "explanation": "Segment 1 covers bytes 1,000 to 1,399, so the receiver expects 1,400; segment 3 (bytes 2,000 to 2,499) is buffered and the receiver repeats ACK 1,400 as a duplicate ACK. When the retransmitted bytes 1,400 to 1,999 fill the gap, everything up to byte 2,499 is present and the ACK jumps to 2,500.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t4_m020",
+   "questionText": "A client's SYN carries the initial sequence number 7,000. After the handshake the client sends three data segments of 500 bytes each. What is the sequence number of the third data segment?",
+   "options": [
+    "8,000",
+    "7,003",
+    "8,501",
+    "8,001"
+   ],
+   "correctIndex": 3,
+   "explanation": "The SYN uses sequence number 7,000, so the first data byte is 7,001, and the third segment starts at 7,001 + 2 × 500 = 8,001. 8,000 forgets that the SYN consumes one number, and 7,003 wrongly numbers segments instead of bytes.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m021",
+   "questionText": "A TCP sender transmits continuously at 10 Gbps (10^10 bit/s). About how long does its 32-bit sequence number space take to wrap around, and what follows, given a maximum segment lifetime (MSL) of 2 minutes?",
+   "options": [
+    "About 0.43 s, so the timestamps option (PAWS) is needed",
+    "About 3.4 s, so an old duplicate segment could still be in the network after the numbers wrap, and the timestamps option (PAWS) is needed",
+    "About 34 s, so wrap-around is not a concern",
+    "About 3.4 s, but wrap-around is harmless because every segment has a checksum"
+   ],
+   "correctIndex": 1,
+   "explanation": "2^32 bytes × 8 = 3.44 × 10^10 bits, and 3.44 × 10^10 / 10^10 bit/s ≈ 3.4 s, far less than the 120 s MSL, so a delayed old segment could carry a sequence number that is valid again. PAWS (RFC 7323) uses TCP timestamps to reject such segments; 0.43 s forgets that sequence numbers count bytes, not bits.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t4_m022",
+   "questionText": "An Ethernet link has an MTU of 1,500 bytes. With 20-byte IPv4 and 20-byte TCP headers (no options), what MSS should a host announce?",
+   "options": [
+    "1,480 bytes",
+    "1,460 bytes",
+    "1,472 bytes",
+    "1,500 bytes"
+   ],
+   "correctIndex": 1,
+   "explanation": "The MSS counts only TCP data: MSS = MTU − IP header − TCP header = 1,500 − 20 − 20 = 1,460 bytes. 1,480 subtracts only the IP header, and 1,472 is the largest UDP payload (1,500 − 20 − 8).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m023",
+   "questionText": "Which statement about the TCP maximum segment size (MSS) option is correct?",
+   "options": [
+    "It is sent only in SYN segments and announces the largest amount of data, excluding the TCP and IP headers, that its sender is willing to receive in one segment",
+    "It is sent in every segment and gives the current receive window",
+    "It limits the total number of segments in the connection",
+    "It includes the IP and TCP headers, so it always equals the link MTU"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each side may state its MSS once, in its SYN, and the other side must not send segments with more data than that; if no MSS option arrives, an IPv4 host assumes 536 bytes. The receive window is a separate header field that changes throughout the connection.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m024",
+   "questionText": "During the handshake a host announced a window scale shift count of 7, and both sides used the option. A later segment from that host has 65,535 in its 16-bit window field. What receive window does it advertise?",
+   "options": [
+    "65,535 bytes",
+    "458,745 bytes",
+    "8,388,480 bytes",
+    "16,776,960 bytes"
+   ],
+   "correctIndex": 2,
+   "explanation": "The true window is the field value shifted left by S bits: 65,535 × 2^7 = 65,535 × 128 = 8,388,480 bytes (about 8 MB). 458,745 multiplies by 7 instead of 2^7, and 16,776,960 uses 2^8.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m025",
+   "questionText": "A path has a bandwidth of 1 Gbps (10^9 bit/s) and an RTT of 100 ms. The 16-bit window field holds at most 65,535. What is the smallest window scale shift count S the receiver must announce so that its advertised window can cover the bandwidth-delay product and keep the pipe full?",
+   "options": [
+    "7",
+    "8",
+    "11",
+    "14"
+   ],
+   "correctIndex": 1,
+   "explanation": "BDP = 10^9 bit/s × 0.1 s = 10^8 bits = 12,500,000 bytes, and 12,500,000 / 65,535 ≈ 190.7, so 2^S must be at least 190.7, giving S = 8 (2^7 = 128 is too small). S = 11 comes from forgetting to convert bits to bytes, and 14 is only the largest shift allowed.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_t4_m026",
+   "questionText": "Which SCTP feature avoids TCP's head-of-line blocking, in which one lost segment delays the delivery of all later data?",
+   "options": [
+    "Multi-homing",
+    "The four-way handshake with a state cookie",
+    "Multi-streaming",
+    "The CRC32c checksum"
+   ],
+   "correctIndex": 2,
+   "explanation": "SCTP can carry several independent streams in one association, each with its own ordering, so a loss on one stream does not hold back messages on the others. Multi-homing gives failover between IP addresses, and the cookie handshake protects against SYN-flood style attacks.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m027",
+   "questionText": "Which statement comparing TCP and UDP is NOT correct?",
+   "options": [
+    "UDP can be used for broadcast and multicast, while TCP cannot",
+    "The minimum TCP header is 20 bytes, while the UDP header is always 8 bytes",
+    "TCP provides congestion control, while UDP leaves it to the application",
+    "UDP provides flow control through a window field in its header"
+   ],
+   "correctIndex": 3,
+   "explanation": "The UDP header has only ports, length and checksum, with no window field, so UDP has no flow control. The other three statements are true: TCP is point-to-point only, its header is 20 to 60 bytes, and it runs congestion control.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m028",
+   "questionText": "On-demand video services such as Netflix commonly stream over HTTP on TCP, whereas video calls use RTP over UDP. Why is TCP acceptable for on-demand streaming?",
+   "options": [
+    "A UDP datagram cannot carry more than 512 bytes, which is too small for video",
+    "TCP never needs to retransmit video data",
+    "The player buffers several seconds of video ahead, so occasional retransmission delays are hidden, and HTTP over TCP passes easily through firewalls, NAT and web caches",
+    "TCP always has lower delay than UDP"
+   ],
+   "correctIndex": 2,
+   "explanation": "Because playback runs seconds behind the download, a retransmitted segment still arrives before it is needed, so reliability costs nothing visible, and ordinary HTTP delivery works well with CDNs and middleboxes. A live call has no such buffer, which is why it uses UDP.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m029",
+   "questionText": "A TCP receiver finds that an arriving segment fails its checksum. What happens?",
+   "options": [
+    "The receiver discards the segment; because it is not acknowledged, the sender retransmits it after a timeout or duplicate ACKs",
+    "The receiver corrects the damaged bits using the checksum",
+    "The receiver passes the data to the application with an error flag",
+    "The receiver immediately resets the connection with RST"
+   ],
+   "correctIndex": 0,
+   "explanation": "The Internet checksum can only detect errors, so the damaged segment is silently dropped. The missing acknowledgement makes the sender resend the data, which is how TCP recovers from errors: by retransmission.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_t4_m030",
+   "questionText": "An application writes 4,000 bytes to a TCP connection whose next data byte is numbered 10,001. The MSS is 1,460 bytes and the sender uses full-sized segments. What are the sequence numbers of the segments, and which ACK number acknowledges all of the data?",
+   "options": [
+    "10,001, 11,461 and 12,921; ACK 14,001",
+    "10,001, 11,461 and 12,921; ACK 14,000",
+    "10,000, 11,460 and 12,920; ACK 14,000",
+    "10,001, 10,002 and 10,003; ACK 10,004"
+   ],
+   "correctIndex": 0,
+   "explanation": "The segments carry 1,460, 1,460 and 1,080 bytes (bytes 10,001 to 11,460, 11,461 to 12,920 and 12,921 to 14,000), so they start at 10,001, 11,461 and 12,921, and the final ACK is the next byte expected, 14,001. Numbering the segments 10,001, 10,002 and 10,003 is the classic mistake: TCP numbers bytes.",
+   "difficulty": "hard"
+  }
+ ]
+}

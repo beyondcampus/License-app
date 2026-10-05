@@ -1,0 +1,503 @@
+{
+ "topicId": "ch5_i42",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Opening and Closing a TCP Connection"
+  },
+  {
+   "type": "paragraph",
+   "text": "A TCP connection opens like a telephone call: you dial (SYN, \"Hi, I want to connect\"), the other person answers (SYN-ACK, \"OK, I am ready, are you?\"), and you confirm that you can hear them (ACK, \"Yes, let's go\"). Only after these three steps does data flow. Closing is often called the four-way handshake: a FIN from the side that has finished, an ACK from the other side, then that side's own FIN and a final ACK. Either side may start the close, not only the client, and the middle ACK and FIN are often sent together in one segment, so a release can also take three segments."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: client ISN 3000, server ISN 8000 (seq/ack count bytes)\n#  Dir   Flags     seq   ack   data  Notes\n1  C->S  SYN       3000  -     0     client SYN_SENT; the SYN uses 3000\n2  S->C  SYN,ACK   8000  3001  0     server SYN_RCVD; the SYN uses 8000\n3  C->S  ACK       3001  8001  0     both ESTABLISHED; a pure ACK uses no number\n4  C->S  ACK       3001  8001  300   request = bytes 3001-3300\n5  S->C  ACK       8001  3301  700   reply = bytes 8001-8700\n6  C->S  FIN,ACK   3301  8701  0     client FIN_WAIT_1; the FIN uses 3301\n7  S->C  FIN,ACK   8701  3302  0     server LAST_ACK; its FIN uses 8701\n8  C->S  ACK       3302  8702  0     client TIME_WAIT (skips FIN_WAIT_2); server CLOSED\nNumbers used by the client: 1 (SYN) + 300 (data) + 1 (FIN) = 302"
+  },
+  {
+   "type": "paragraph",
+   "text": "Timing follows from the same picture. The client receives the SYN-ACK one RTT after sending its SYN and may send data at once, even inside the third segment, while the server becomes ESTABLISHED only when that ACK arrives, 1.5 RTT after the SYN left. A request and its reply therefore cost 2 RTT before the first reply byte arrives, plus transmission times. TCP Fast Open (RFC 7413) lets a returning client put data into the SYN itself, saving one RTT."
+  },
+  {
+   "type": "formula",
+   "latex": "\\text{ack}_{\\text{FIN}} = \\text{ISN} + 1 + D + 1 = \\text{ISN} + D + 2",
+   "plainText": "ACK number that acknowledges a side's FIN = its ISN + 1 (SYN) + D data bytes + 1 (FIN) = ISN + D + 2; pure ACKs add nothing"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: how many spoofed SYNs does it take to fill a backlog?\nBacklog B = 256 half-open (SYN_RCVD) entries\nServer sends a SYN-ACK, then retries 3 times after waits of 3 s, 6 s and 12 s,\nand gives up 24 s after the last retry\nHold time per spoofed SYN  T = 3 + 6 + 12 + 24 = 45 s\nRate that keeps the queue full  R = B / T = 256 / 45 = 5.7 SYNs per second\nWith SYN cookies nothing is stored: the server's ISN y is the cookie,\nand only an ACK carrying ack = y + 1 with a valid cookie creates a connection"
+  },
+  {
+   "type": "bulletList",
+   "text": "SYN cookies and other defences against SYN flooding:",
+   "items": [
+    "In Bernstein's original design the 32-bit cookie is made of a 5-bit counter that steps once every 64 seconds, a 3-bit code for the client's MSS, and a 24-bit keyed hash of the two IP addresses, the two ports and that counter.",
+    "The cost is that options needing stored state, such as window scaling and SACK, are lost unless they are hidden elsewhere (Linux encodes them in the timestamp option), so Linux sends cookies only when the SYN queue overflows.",
+    "Other defences: a larger backlog, fewer SYN-ACK retries (a shorter hold time), a SYN proxy or firewall that completes the handshake on the server's behalf, and ingress filtering by ISPs (BCP 38) so that packets with spoofed source addresses are dropped.",
+    "A SYN flood exhausts the memory for half-open connections; TIME_WAIT, which concerns connections that are closing, plays no part in it."
+   ]
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Situation",
+     "Segments exchanged",
+     "States passed through"
+    ],
+    [
+     "Normal open",
+     "SYN, SYN+ACK, ACK (3)",
+     "Client SYN_SENT → ESTABLISHED; server LISTEN → SYN_RCVD → ESTABLISHED"
+    ],
+    [
+     "Simultaneous open",
+     "Two crossing SYNs, then two SYN+ACKs (4)",
+     "Each side SYN_SENT → SYN_RCVD → ESTABLISHED; one connection results"
+    ],
+    [
+     "Normal close",
+     "FIN, ACK, FIN, ACK (4)",
+     "Active FIN_WAIT_1 → FIN_WAIT_2 → TIME_WAIT; passive CLOSE_WAIT → LAST_ACK"
+    ],
+    [
+     "Close with combined FIN+ACK",
+     "FIN, FIN+ACK, ACK (3)",
+     "Active FIN_WAIT_1 → TIME_WAIT, skipping FIN_WAIT_2"
+    ],
+    [
+     "Simultaneous close",
+     "Two crossing FINs, then two ACKs (4)",
+     "Each side FIN_WAIT_1 → CLOSING → TIME_WAIT"
+    ],
+    [
+     "Abort",
+     "One RST, never acknowledged",
+     "Any synchronised state → CLOSED at once, with no TIME_WAIT"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "Why exactly 2 MSL? The final ACK may take up to one MSL to reach the peer, and if it is lost the peer's retransmitted FIN may take up to another MSL to come back, so waiting 2 MSL keeps the active closer ready to answer it; the same wait lets every segment of the old connection still in the network expire. RFC 793 defined MSL as 2 minutes (a 4-minute TIME_WAIT), while Linux uses a fixed 60 s. Because TIME_WAIT stays with whichever side closes first, busy servers try to let their clients close first."
+  },
+  {
+   "type": "bulletList",
+   "text": "RST, half-close and release styles in practice:",
+   "items": [
+    "A host sends RST when a segment arrives for a connection that does not exist (a SYN to a port with no listener shows up at the client as 'connection refused') and when an application aborts, for example close() with SO_LINGER set to 0 or close() while received data is still unread.",
+    "An RST is accepted only if its sequence number lies in the receive window; RFC 5961 tightens this to an exact match with the next expected number and otherwise answers with a challenge ACK, which defeats blind reset attacks.",
+    "shutdown(SHUT_WR) sends a FIN but keeps the receive direction open: the peer's recv() returns 0 bytes (end of file), and the peer can still send its reply before closing.",
+    "Tanenbaum contrasts asymmetric release (one side hangs up and the whole connection is gone, so data still travelling towards it is lost) with symmetric release (each direction closed separately), which is what TCP's FINs provide."
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes:",
+   "items": [
+    "A pure ACK consumes no sequence number, so the first data segment carries the same seq as the third handshake segment.",
+    "TIME_WAIT belongs to the side that sends the first FIN, whether it is the client or the server, and it is kept per connection (4-tuple); a listening socket keeps accepting new clients meanwhile.",
+    "SYN_RCVD is the server's half-open state (the target of SYN floods); CLOSE_WAIT means the peer has closed but the local application has not called close() yet.",
+    "FIN_WAIT_2 can last as long as the peer keeps its side open; Linux limits it for orphaned sockets with tcp_fin_timeout (60 s by default).",
+    "RST is an abort, not a polite close: data not yet sent or read is thrown away."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For a handshake or release trace, keep one counter per direction. Add 1 for each SYN or FIN, add the length of any data, add nothing for a pure ACK, and remember that the other side's ACK is always your counter's next value. Then decide the states from who sent the first FIN: that side goes through FIN_WAIT_1, FIN_WAIT_2 (unless the FIN and ACK come together) and TIME_WAIT."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch5_i42_m001",
+   "questionText": "TCP establishes a connection using a _____ handshake.",
+   "options": [
+    "2-way",
+    "3-way",
+    "4-way",
+    "5-way"
+   ],
+   "correctIndex": 1,
+   "explanation": "The client sends SYN, the server answers SYN-ACK and the client confirms with ACK: three segments. The four-segment FIN/ACK exchange is used for releasing a connection, not for opening it.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m002",
+   "questionText": "A TCP segment arrives with the SYN flag set and the ACK flag clear. What is this segment?",
+   "options": [
+    "A request to close the sender's direction of the connection",
+    "The server's reply accepting a connection",
+    "The first segment of a new connection: a connection request carrying the sender's initial sequence number",
+    "An immediate abort of the connection"
+   ],
+   "correctIndex": 2,
+   "explanation": "SYN = 1 with ACK = 0 appears only in the opening SYN of a connection request (in a simultaneous open, both sides send one). The server's reply has both SYN and ACK set, a close uses FIN and an abort uses RST.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m003",
+   "questionText": "Assuming TCP Fast Open is not used, which of these messages can be sent only after a TCP three-way handshake has set up a connection?",
+   "options": [
+    "An HTTP/1.1 GET request to a web server",
+    "A DHCP DISCOVER message",
+    "A RIP routing update",
+    "A TFTP read request"
+   ],
+   "correctIndex": 0,
+   "explanation": "HTTP/1.1 runs over TCP (port 80), so the browser must first complete SYN, SYN-ACK, ACK. DHCP (ports 67/68), RIP (port 520) and TFTP (port 69) all run over connectionless UDP and need no handshake.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m004",
+   "questionText": "What happens during the normal connection-release phase of TCP?",
+   "options": [
+    "The connection is terminated abruptly without any acknowledgement",
+    "Only the side that opened the connection sends a FIN, and no acknowledgement is needed",
+    "The receiver immediately resets the connection with an RST segment",
+    "Each side sends a FIN to close its own direction, and the other side acknowledges each FIN with an ACK"
+   ],
+   "correctIndex": 3,
+   "explanation": "TCP is full duplex, so each direction is closed separately: FIN, ACK, then the other side's FIN and a final ACK (the middle two may be combined). RST is an abort used for errors, not the normal release.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m005",
+   "questionText": "A client with ISN 2,000 connects to a server whose ISN is 7,500. Which values does the third segment of the handshake carry?",
+   "options": [
+    "SYN = 1 and ACK = 1, seq = 2,001, ack = 7,501",
+    "Only ACK = 1, seq = 2,001, ack = 7,501",
+    "Only ACK = 1, seq = 2,000, ack = 7,500",
+    "Only ACK = 1, seq = 7,501, ack = 2,001"
+   ],
+   "correctIndex": 1,
+   "explanation": "SYN is set only in the first two segments, so the third is a pure ACK. Its seq is the client's next number, 2,000 + 1 = 2,001 (the SYN used 2,000), and it acknowledges the server's SYN with ack = 7,500 + 1 = 7,501.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m006",
+   "questionText": "A client (ISN 1,000) and a server (ISN 5,000) complete the three-way handshake. The client then sends one segment with 200 bytes of request data, and the server answers with one segment carrying 100 bytes of response data that also acknowledges the request. What are the sequence and acknowledgement numbers of the server's response segment?",
+   "options": [
+    "seq = 5,001, ack = 1,201",
+    "seq = 5,000, ack = 1,201",
+    "seq = 5,001, ack = 1,200",
+    "seq = 1,201, ack = 5,001"
+   ],
+   "correctIndex": 0,
+   "explanation": "The server's SYN used 5,000, so its first data byte is 5,001. The client's SYN used 1,000 and its data occupied bytes 1,001 to 1,200, so the server acknowledges the next byte it expects: 1,201.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m007",
+   "questionText": "A client's ISN is 10,000. During the connection it sends 1,500 bytes of data and then closes its side of the connection. What acknowledgement number does the server's ACK of the client's FIN carry?",
+   "options": [
+    "11,500",
+    "11,501",
+    "11,502",
+    "11,503"
+   ],
+   "correctIndex": 2,
+   "explanation": "The SYN uses 10,000, the data uses 10,001 to 11,500 and the FIN uses 11,501, so the server acknowledges the next number, 11,502 (= ISN + D + 2). The pure ACK of the handshake consumes no number, so 11,503 is wrong.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m008",
+   "questionText": "A TCP connection is opened with the normal three-way handshake, carries no data, and is then closed. The passive closer combines its ACK and its own FIN into a single segment. How many segments are exchanged in total, assuming no losses?",
+   "options": [
+    "5",
+    "6",
+    "7",
+    "8"
+   ],
+   "correctIndex": 1,
+   "explanation": "Opening takes SYN, SYN-ACK and ACK (3 segments). Closing takes FIN, FIN+ACK and ACK (3 segments) instead of four, so the total is 3 + 3 = 6; with a separate ACK and FIN it would be 7.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m009",
+   "questionText": "Which of the following is NOT a reason for the TIME_WAIT state in TCP?",
+   "options": [
+    "It lets the active closer re-send the final ACK if that ACK is lost and the peer retransmits its FIN",
+    "It lets delayed duplicate segments of the old connection expire before the same 4-tuple can be reused",
+    "Without it, a retransmitted FIN from the peer could be answered with an RST, so the peer would see an error instead of a clean close",
+    "It keeps the server's listening socket from accepting any new client until the old connection has fully closed"
+   ],
+   "correctIndex": 3,
+   "explanation": "TIME_WAIT applies to one connection (one 4-tuple); a listening socket keeps accepting new clients, which use other client ports, while it lasts. The other three statements describe its two real purposes: finishing the close reliably and letting old duplicates die out.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m010",
+   "questionText": "A client opens a TCP connection to a server with an RTT of 40 ms and puts its short HTTP request into the same segment as the handshake's final ACK. The server replies at once. Ignoring transmission and processing times, how long after sending its SYN does the client receive the first byte of the reply?",
+   "options": [
+    "40 ms",
+    "60 ms",
+    "80 ms",
+    "120 ms"
+   ],
+   "correctIndex": 2,
+   "explanation": "The SYN and the SYN-ACK take one RTT (40 ms); the request travels with the ACK and the reply comes back in a second RTT, so 2 x 40 = 80 ms. 60 ms is when the server receives the request, not when the reply reaches the client.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m011",
+   "questionText": "The one-way delay between a client and a server is 25 ms, and processing time is negligible. The client sends its SYN at t = 0. At what times do the client and the server enter the ESTABLISHED state?",
+   "options": [
+    "Both at 75 ms",
+    "Client at 50 ms, server at 75 ms",
+    "Client at 75 ms, server at 50 ms",
+    "Client at 25 ms, server at 50 ms"
+   ],
+   "correctIndex": 1,
+   "explanation": "The SYN reaches the server at 25 ms (SYN_RCVD) and the SYN-ACK reaches the client at 50 ms, which enters ESTABLISHED and sends its ACK. The server becomes ESTABLISHED when that ACK arrives, at 50 + 25 = 75 ms.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m012",
+   "questionText": "A server's backlog can hold 1,024 half-open (SYN_RCVD) connections. For each one it sends a SYN-ACK and then retransmits it 5 times, waiting 1, 2, 4, 8 and 16 s before the successive retransmissions, and it gives up 32 s after the last one. What is the lowest rate of spoofed, never-answered SYNs that keeps the backlog permanently full?",
+   "options": [
+    "About 16 SYNs per second",
+    "About 33 SYNs per second",
+    "About 205 SYNs per second",
+    "About 1,024 SYNs per second"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each half-open entry is held for 1 + 2 + 4 + 8 + 16 + 32 = 63 s, so 1,024 entries must be replaced every 63 s: 1,024 / 63 = 16.3 SYNs per second. Forgetting the final 32 s wait gives 1,024 / 31 = 33.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m013",
+   "questionText": "A server is using SYN cookies. How does it accept a legitimate client's final ACK when it kept no record of the client's SYN?",
+   "options": [
+    "It looks the client up in its queue of half-open connections",
+    "It checks that the acknowledgement number minus one is a valid cookie, recomputed from the addresses, ports, a time counter and a secret, and rebuilds the connection state from it",
+    "It asks the client to send its SYN again with the cookie in a TCP option",
+    "It accepts any ACK that arrives within one RTT of its SYN-ACK"
+   ],
+   "correctIndex": 1,
+   "explanation": "With SYN cookies the server's ISN is itself the cookie: a keyed hash of the connection's addresses, ports and a coarse time counter, plus an encoded MSS, so nothing is stored. A genuine client's ACK carries ack = cookie + 1, which the server verifies before creating the connection.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m014",
+   "questionText": "Two hosts, each knowing the other's port, send SYNs to each other at the same moment (a simultaneous open). Which statement is correct?",
+   "options": [
+    "One SYN is rejected with RST, and the other host's handshake continues normally",
+    "Two separate connections are created, one for each SYN",
+    "Four segments are exchanged (two SYNs, then two SYN-ACKs), and each side goes SYN_SENT, SYN_RCVD, ESTABLISHED, forming one connection",
+    "Two segments are enough: each SYN acts as the other's acknowledgement, so both go straight to ESTABLISHED"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each side receives a SYN while in SYN_SENT, moves to SYN_RCVD and sends a SYN-ACK; receiving the other side's SYN-ACK takes it to ESTABLISHED. The result is a single connection built from four segments.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m015",
+   "questionText": "Which statement about a TCP segment with the RST flag set is correct?",
+   "options": [
+    "The receiver must acknowledge the RST before the connection is closed",
+    "It puts the host that sends it into TIME_WAIT for 2 MSL",
+    "It closes only one direction of the connection, like a FIN, so the peer may keep sending",
+    "It aborts the connection at once in both directions; queued data is discarded and the RST is not acknowledged"
+   ],
+   "correctIndex": 3,
+   "explanation": "An accepted RST moves the connection straight to CLOSED: buffers are flushed, the applications see 'connection reset', no TIME_WAIT follows and no segment is sent in reply. A FIN, by contrast, closes one direction gracefully and is acknowledged.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m016",
+   "questionText": "Under the original RFC 793 rule, a host accepts an RST whose sequence number lies anywhere inside its current receive window. An off-path attacker knows a connection's IP addresses and ports and knows that the receive window is 1,048,576 bytes (2^20, using window scaling), but not the current sequence number. What is the smallest number of spoofed RSTs, with evenly spaced sequence numbers, that is certain to include one that is accepted?",
+   "options": [
+    "512",
+    "4,096",
+    "1,048,576",
+    "4,294,967,296"
+   ],
+   "correctIndex": 1,
+   "explanation": "The 32-bit sequence space holds 2^32 values and each RST can hit a window of 2^20 of them, so 2^32 / 2^20 = 2^12 = 4,096 RSTs spaced one window apart cover it; 512 wrongly counts the window in bits. RFC 5961 now demands an exact match (otherwise a challenge ACK), which defeats this attack.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m017",
+   "questionText": "A server in ESTABLISHED receives the client's FIN. Its application reads the remaining data and then calls close(). Which states does the server pass through until the connection no longer exists?",
+   "options": [
+    "CLOSE_WAIT, LAST_ACK, CLOSED",
+    "FIN_WAIT_1, FIN_WAIT_2, TIME_WAIT, CLOSED",
+    "CLOSING, TIME_WAIT, CLOSED",
+    "CLOSE_WAIT, TIME_WAIT, CLOSED"
+   ],
+   "correctIndex": 0,
+   "explanation": "Receiving the first FIN makes the server the passive closer: it ACKs and waits in CLOSE_WAIT for its application, sends its own FIN on close() and waits in LAST_ACK, and is CLOSED when the final ACK arrives. The FIN_WAIT and TIME_WAIT states belong to the active closer.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m018",
+   "questionText": "A client has sent its FIN and received the server's ACK for it, but the server has not yet sent its own FIN. Which state is the client in?",
+   "options": [
+    "FIN_WAIT_1",
+    "FIN_WAIT_2",
+    "CLOSE_WAIT",
+    "TIME_WAIT"
+   ],
+   "correctIndex": 1,
+   "explanation": "FIN_WAIT_1 means the FIN is sent but not yet acknowledged; once the ACK arrives the client moves to FIN_WAIT_2 and waits for the server's FIN. It enters TIME_WAIT only after receiving and acknowledging that FIN.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m019",
+   "questionText": "A client in FIN_WAIT_1 receives one segment that carries the server's FIN and also acknowledges the client's FIN. After sending its ACK, which state does the client enter?",
+   "options": [
+    "FIN_WAIT_2",
+    "CLOSING",
+    "TIME_WAIT",
+    "CLOSED"
+   ],
+   "correctIndex": 2,
+   "explanation": "Its own FIN is acknowledged and the peer's FIN has arrived in the same segment, so the client skips FIN_WAIT_2 and goes straight to TIME_WAIT. This is the three-segment release (FIN, FIN+ACK, ACK).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m020",
+   "questionText": "Both ends of a connection call close() at the same moment, so their FINs cross in the network. Each end receives the other's FIN before its own FIN has been acknowledged. Which state does each end enter at that point, and which state follows once its own FIN is acknowledged?",
+   "options": [
+    "CLOSE_WAIT, then LAST_ACK",
+    "FIN_WAIT_2, then CLOSED",
+    "LAST_ACK, then CLOSED",
+    "CLOSING, then TIME_WAIT"
+   ],
+   "correctIndex": 3,
+   "explanation": "In a simultaneous close each side goes from FIN_WAIT_1 to CLOSING when the peer's FIN arrives (and ACKs it), then to TIME_WAIT when the ACK of its own FIN arrives. Both ends therefore spend time in TIME_WAIT.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m021",
+   "questionText": "What does this Python program print?\n\nimport socket, threading\nsrv = socket.create_server((\"127.0.0.1\", 0))\nport = srv.getsockname()[1]\ndef serve():\n    conn, _ = srv.accept()\n    data = b\"\"\n    while chunk := conn.recv(100):\n        data += chunk\n    conn.sendall(str(len(data)).encode())\n    conn.close()\nthreading.Thread(target=serve).start()\nc = socket.create_connection((\"127.0.0.1\", port))\nc.sendall(b\"x\" * 250)\nc.shutdown(socket.SHUT_WR)\nprint(c.recv(100))",
+   "options": [
+    "b''",
+    "b'100'",
+    "Nothing: it waits forever, because the server never sees the end of the data",
+    "b'250'"
+   ],
+   "correctIndex": 3,
+   "explanation": "shutdown(SHUT_WR) sends a FIN but keeps the client's receiving direction open (a half-close). The server's loop reads all 250 bytes, then recv() returns b'' at the FIN, so it sends back '250' and closes, and the client prints b'250'.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i42_m022",
+   "questionText": "What does the two-army problem show about releasing a connection?",
+   "options": [
+    "No protocol over an unreliable channel can guarantee that both sides know the other has agreed to close, so TCP lets each side close its own direction and relies on timers",
+    "A three-way handshake is always enough to release a connection safely",
+    "The side with the larger window must always close first",
+    "A connection can be released reliably only with RST segments"
+   ],
+   "correctIndex": 0,
+   "explanation": "Whoever sends the last message of any agreement protocol cannot know it arrived, so another acknowledgement is always needed. TCP accepts this and closes each direction separately, with TIME_WAIT and retransmission limits to finish.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m023",
+   "questionText": "Why can an abrupt (asymmetric) release, in which one side disconnects as soon as it has finished sending, lose data?",
+   "options": [
+    "The disconnecting side must retransmit every segment it has sent",
+    "The routers on the path delete the buffered segments of both sides",
+    "Data that the other side sent before it learned of the disconnect arrives after the connection is gone and is discarded",
+    "The receiving side's checksum no longer matches after the disconnect"
+   ],
+   "correctIndex": 2,
+   "explanation": "Asymmetric release works like hanging up a phone: the connection is gone for both directions at once, so data still on its way towards the side that hung up is lost. Symmetric release, which TCP's FINs give, closes each direction only when its sender has finished.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m024",
+   "questionText": "Why does TCP choose a hard-to-predict initial sequence number for each new connection instead of always starting at 0?",
+   "options": [
+    "Because sequence number 0 is reserved for SYN segments",
+    "So that the receiver can use the ISN as an encryption key",
+    "Because the ISN tells the receiver how large the sender's buffer is",
+    "So that delayed segments of an earlier connection with the same addresses and ports are not accepted as new data, and so that an attacker cannot easily guess sequence numbers to spoof or hijack a connection"
+   ],
+   "correctIndex": 3,
+   "explanation": "Starting every connection at 0 would let old duplicates from a previous connection with the same 4-tuple fall inside the new sequence range, and would let attackers predict valid numbers. RFC 6528 therefore builds the ISN from a clock plus a keyed hash of the 4-tuple.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m025",
+   "questionText": "The third segment of a handshake (the client's pure ACK) is lost, but the client, now ESTABLISHED, immediately sends a data segment, which arrives. What happens at the server?",
+   "options": [
+    "The data segment also has ACK = 1 with ack = server ISN + 1, so the server moves from SYN_RCVD to ESTABLISHED and accepts the data",
+    "The server discards the data and replies with an RST",
+    "The server stays in SYN_RCVD until the client retransmits the lost pure ACK on a timer",
+    "Both sides must repeat the whole handshake"
+   ],
+   "correctIndex": 0,
+   "explanation": "Every segment after the SYN carries ACK = 1 with the same acknowledgement number, so the data segment completes the handshake by itself. Pure ACKs are never retransmitted on a timer.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m026",
+   "questionText": "An old duplicate SYN from a connection that ended long ago reaches a server, which replies with a SYN-ACK. The client has no connection attempt in progress. What happens next?",
+   "options": [
+    "The client sends an ACK, and an unwanted connection is opened",
+    "The client ignores the SYN-ACK, and the server keeps the half-open connection forever",
+    "The client answers with an RST, so the server abandons the half-open connection",
+    "The client sends a FIN, which closes the connection normally"
+   ],
+   "correctIndex": 2,
+   "explanation": "The SYN-ACK acknowledges a SYN that the client is not waiting for, so the client rejects it with an RST and the server deletes the half-open entry. This is why TCP needs the third step: after a two-way handshake the server would already have opened the unwanted connection.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m027",
+   "questionText": "Which of the following does NOT help a server resist a SYN flood attack?",
+   "options": [
+    "Enabling SYN cookies",
+    "Enlarging the half-open backlog and retransmitting the SYN-ACK fewer times",
+    "Ingress filtering at ISPs so that packets with spoofed source addresses are dropped",
+    "Increasing the TIME_WAIT duration"
+   ],
+   "correctIndex": 3,
+   "explanation": "A SYN flood fills the queue of half-open (SYN_RCVD) connections; TIME_WAIT concerns connections that are closing and has no effect on it. Cookies, a bigger backlog with a shorter hold time, and anti-spoofing filters all reduce the damage.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i42_m028",
+   "questionText": "A server program creates a TCP socket, binds it to port 80 and calls listen(). In which TCP state is that socket, and what kind of open has it performed?",
+   "options": [
+    "SYN_SENT, an active open",
+    "LISTEN, a passive open",
+    "ESTABLISHED, a passive open",
+    "SYN_RCVD, an active open"
+   ],
+   "correctIndex": 1,
+   "explanation": "listen() performs a passive open: the socket waits in LISTEN for incoming SYNs. The client's connect() is the active open that sends the SYN and enters SYN_SENT.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m029",
+   "questionText": "Which TCP flag does a host set to show that it has no more data to send on a connection?",
+   "options": [
+    "FIN",
+    "SYN",
+    "RST",
+    "PSH"
+   ],
+   "correctIndex": 0,
+   "explanation": "FIN (finish) closes the sender's direction gracefully and uses one sequence number. SYN opens a connection, RST aborts it, and PSH asks the receiver to deliver data to the application promptly.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i42_m030",
+   "questionText": "A capture of a short TCP connection shows the segments below (C = client, S = server). The server sends no data, and its segment 7 both acknowledges the client's FIN and carries its own FIN. Exactly one segment has a wrong number. Which one?\n\n1  C->S  SYN        seq=100\n2  S->C  SYN, ACK   seq=300  ack=101\n3  C->S  ACK        seq=101  ack=301\n4  C->S  ACK, 50 B  seq=101  ack=301\n5  S->C  ACK        seq=301  ack=151\n6  C->S  FIN, ACK   seq=151  ack=301\n7  S->C  FIN, ACK   seq=301  ack=151\n8  C->S  ACK        seq=152  ack=302",
+   "options": [
+    "Segment 4: its seq should be 102, because the third segment used up 101",
+    "Segment 5: its ack should be 150",
+    "Segment 7: its ack should be 152, because the client's FIN used sequence number 151",
+    "Segment 8: its seq should be 151"
+   ],
+   "correctIndex": 2,
+   "explanation": "The pure ACK in segment 3 uses no number, so the 50 data bytes are 101 to 150 and segment 5 correctly acknowledges 151. The client's FIN in segment 6 takes 151, so segment 7 must carry ack = 152; segment 8 is then correct with seq 152 and ack 302.",
+   "difficulty": "hard"
+  }
+ ]
+}

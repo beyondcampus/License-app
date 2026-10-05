@@ -1,0 +1,752 @@
+{
+  "topicId": "ch3_i52",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: File Streams in Practice"
+    },
+    {
+      "type": "paragraph",
+      "text": "The state bits change only when an input operation actually tries to read. eofbit is set when a read runs into the end of the file. In a file that ends with a newline this happens one attempt after the last item has been taken, not at the moment the last item is read. When an extraction with >> finds nothing but whitespace before the end, its sentry fails, failbit and eofbit are set and the target variable is left unchanged; getline() instead empties its string first. That is why a loop controlled by !in.eof() processes the last word or number twice (or an extra empty line with getline), while a loop controlled by the read itself, while (in >> x), stops at exactly the right moment."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <fstream>\n#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    { ofstream out(\"colours.txt\"); out << \"red green\\nblue\\n\"; }\n    ifstream in(\"colours.txt\");\n    string w;\n    while (!in.eof()) {          // wrong test: eof is still clear after \"blue\"\n        in >> w;\n        cout << w << ',';\n    }\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: red,green,blue,blue,\n\npass 1  in >> w reads \"red\"            prints red,\npass 2  in >> w reads \"green\"          prints green,\npass 3  in >> w reads \"blue\" and stops before the final '\\n';\n        no read has failed yet, so eof() is still false: prints blue,\npass 4  in >> w skips '\\n', meets end of file, sets eofbit + failbit,\n        w keeps \"blue\": prints blue, a second time\nnow eof() is true and the loop ends\nFix:    while (in >> w) cout << w << ',';   prints red,green,blue,"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Call",
+          "What it reads",
+          "At end of file",
+          "Left in the stream"
+        ],
+        [
+          "in >> x",
+          "Skips leading whitespace, then one word or number",
+          "eofbit + failbit; x unchanged",
+          "The whitespace or newline after the token"
+        ],
+        [
+          "in.get(ch)",
+          "Exactly one character, whitespace included",
+          "eofbit + failbit",
+          "Everything after that character"
+        ],
+        [
+          "getline(in, s)",
+          "Characters up to '\\n'; the newline is removed and discarded",
+          "eofbit, plus failbit if nothing was read; s is emptied",
+          "Nothing of that line"
+        ],
+        [
+          "in.getline(buf, n)",
+          "At most n - 1 characters into a char array, then '\\0'",
+          "As getline; failbit also if the line is longer than n - 1",
+          "The unread rest of a long line"
+        ],
+        [
+          "in.read(buf, n)",
+          "Exactly n raw bytes, no formatting",
+          "eofbit + failbit; gcount() gives the bytes that did arrive",
+          "Everything after the bytes read"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The standard defines every legal combination of open-mode flags by the C fopen() mode it behaves like, which explains the rules that look arbitrary. ios::ate plays no part in that choice: it only moves to the end once the file is open, so ofstream f(name, ios::ate), which means ios::out | ios::ate, still truncates the file. ios::binary adds a b to the fopen mode. A combination that has no fopen equivalent, such as ios::in | ios::trunc or ios::app | ios::trunc, makes open() fail and sets failbit."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Mode combination",
+          "Behaves like fopen",
+          "File must exist?",
+          "Existing contents"
+        ],
+        [
+          "in",
+          "\"r\"",
+          "Yes",
+          "Kept; read only"
+        ],
+        [
+          "out, or out | trunc",
+          "\"w\"",
+          "No, it is created",
+          "Discarded"
+        ],
+        [
+          "app, or out | app",
+          "\"a\"",
+          "No, it is created",
+          "Kept; every write goes to the end"
+        ],
+        [
+          "in | out",
+          "\"r+\"",
+          "Yes",
+          "Kept; read and overwrite anywhere"
+        ],
+        [
+          "in | out | trunc",
+          "\"w+\"",
+          "No, it is created",
+          "Discarded"
+        ],
+        [
+          "in | app, or in | out | app",
+          "\"a+\"",
+          "No, it is created",
+          "Kept; writes go to the end"
+        ],
+        [
+          "in | trunc, app | trunc",
+          "None: open() fails",
+          "Not applicable",
+          "Not applicable (failbit set)"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "n = \\frac{\\text{pos}}{\\text{sizeof(rec)}} + 1",
+      "plainText": "a fixed-size record starting at byte pos is record number n = pos / sizeof(rec) + 1"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <fstream>\n#include <iostream>\nusing namespace std;\nint main() {\n    fstream f(\"pos.bin\", ios::in | ios::out | ios::binary | ios::trunc);\n    f << \"0123456789\";\n    f.seekg(-4, ios::end);\n    char c; f.get(c);\n    cout << c << ' ' << f.tellg() << ' ';\n    f.seekp(2, ios::beg); f << \"AB\";\n    f.seekg(-2, ios::cur); f.get(c);\n    cout << c << ' ' << f.tellg();\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 6 7 A 3\n\nf << \"0123456789\"      10 bytes written, position = 10\nf.seekg(-4, ios::end)  position = 10 - 4 = 6\nf.get(c)               c = '6', position = 7        prints 6 7\nf.seekp(2, ios::beg)   position = 2 (an fstream has ONE shared position)\nf << \"AB\"              bytes 2 and 3 become A and B, position = 4\nf.seekg(-2, ios::cur)  position = 4 - 2 = 2\nf.get(c)               c = 'A', position = 3        prints A 3\nThe file now holds 01AB456789"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with file streams:",
+      "items": [
+        "Seeking back to the start after a read loop without calling clear() first: while failbit is set, seekg() and every later read are ignored.",
+        "Opening with ofstream f(name, ios::ate) to keep old data: the file is still truncated; use ios::app, or ios::in | ios::out (with ios::ate if needed).",
+        "Calling getline() right after in >> n: it returns the empty rest of the line; skip the newline first with in.ignore(1000, '\\n') or in >> ws.",
+        "Numbering record offsets from 1: record n starts at (n - 1) × sizeof(rec), so seekg(n * sizeof(rec)) lands on the record after the one intended.",
+        "Reading a file through a second stream while the ofstream that wrote it is still open and unflushed: the data may still be in the writer's buffer.",
+        "On an fstream, switching between writing and reading with no seek in between: the same rule as for C FILE applies, so call seekg() or seekp() before changing direction (after writing, flush() is also enough)."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "To find a file's size in one step, open it with ios::binary | ios::ate and call tellg(). In a text file on Windows each newline occupies two bytes (\\r\\n), so byte counts of text files are platform dependent; record arithmetic is safe only in binary mode."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i52_m001",
+      "questionText": "Which standard header must be included to use the classes ifstream, ofstream and fstream?",
+      "options": [
+        "<fstream>",
+        "<iomanip>",
+        "<cstdio>",
+        "<sstream>"
+      ],
+      "correctIndex": 0,
+      "explanation": "<fstream> declares the three file stream classes. <iomanip> declares parameterised manipulators such as setw, <cstdio> declares the C FILE functions and <sstream> declares the string streams.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m002",
+      "questionText": "In the standard C++ stream class hierarchy, from which class is ofstream derived?",
+      "options": [
+        "istream",
+        "iostream",
+        "fstream",
+        "ostream"
+      ],
+      "correctIndex": 3,
+      "explanation": "ofstream is an output-only stream, so it derives from ostream and inherits <<, put() and write(). ifstream derives from istream, and fstream, which does both input and output, derives from iostream.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m003",
+      "questionText": "An fstream object is opened with only a file name, as in fstream f(\"data.txt\");. Which open mode is used?",
+      "options": [
+        "ios::in | ios::out",
+        "ios::in",
+        "ios::out | ios::trunc",
+        "ios::in | ios::out | ios::app"
+      ],
+      "correctIndex": 0,
+      "explanation": "The default mode argument of fstream's constructor and of its open() is ios::in | ios::out, so the file must already exist and its contents are kept. ifstream defaults to ios::in and ofstream to ios::out.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m004",
+      "questionText": "Which member function moves the put (write) pointer of an output file stream to a new position?",
+      "options": [
+        "seekg()",
+        "tellp()",
+        "seekp()",
+        "putback()"
+      ],
+      "correctIndex": 2,
+      "explanation": "seekp() (p for put) positions the next write and seekg() (g for get) the next read. tellp() only reports the put position, and putback() returns a character to an input stream.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m005",
+      "questionText": "Which second argument makes fin.seekg(offset, origin) measure the offset from the current position of the get pointer?",
+      "options": [
+        "ios::cur",
+        "ios::beg",
+        "ios::end",
+        "ios::ate"
+      ],
+      "correctIndex": 0,
+      "explanation": "The seek directions are ios::beg (start of file), ios::cur (current position) and ios::end (end of file). ios::ate is an open-mode flag, not a seek direction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m006",
+      "questionText": "Which of the following is NOT an open-mode flag of standard C++17?",
+      "options": [
+        "ios::ate",
+        "ios::nocreate",
+        "ios::trunc",
+        "ios::binary"
+      ],
+      "correctIndex": 1,
+      "explanation": "Standard C++17 defines six open-mode flags: in, out, app, ate, trunc and binary. ios::nocreate existed only in old pre-standard libraries such as Turbo C++ and was never part of standard C++.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m007",
+      "questionText": "fin is an ifstream and ch is a char. Which statement extracts exactly one character from the file, even when that character is a space or a newline?",
+      "options": [
+        "fin >> ch;",
+        "ch = fin.peek();",
+        "fin.get(ch);",
+        "fin.putback(ch);"
+      ],
+      "correctIndex": 2,
+      "explanation": "get(ch) is an unformatted read that takes the next character whatever it is. fin >> ch skips whitespace first, peek() looks at the next character without extracting it, and putback() returns a character to the stream.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m008",
+      "questionText": "Assume the file no_such_file.txt does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nifstream fin(\"no_such_file.txt\");\nbool opened = fin.is_open();\ncout << opened << fin.fail() << fin.good();",
+      "options": [
+        "101",
+        "000",
+        "110",
+        "010"
+      ],
+      "correctIndex": 3,
+      "explanation": "Opening a missing file for input fails: no file is attached, so is_open() prints 0, and the constructor sets failbit, so fail() prints 1 and good() prints 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m009",
+      "questionText": "Assume the file new.dat does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nfstream f(\"new.dat\", ios::in | ios::out);\ncout << f.is_open();\nfstream g(\"new.dat\", ios::in | ios::out | ios::trunc);\ncout << g.is_open();",
+      "options": [
+        "11",
+        "10",
+        "00",
+        "01"
+      ],
+      "correctIndex": 3,
+      "explanation": "ios::in | ios::out behaves like fopen mode \"r+\", which requires an existing file, so the first open fails and prints 0. Adding ios::trunc gives \"w+\", which creates the file, so the second open succeeds and prints 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m010",
+      "questionText": "The file log.txt already exists. For which mode does fstream f(\"log.txt\", mode); fail to open the file?",
+      "options": [
+        "ios::out | ios::app",
+        "ios::in | ios::trunc",
+        "ios::in | ios::out",
+        "ios::out | ios::trunc | ios::binary"
+      ],
+      "correctIndex": 1,
+      "explanation": "ios::trunc is allowed only together with ios::out, so ios::in | ios::trunc has no fopen equivalent and open() fails, setting failbit. The other three behave like fopen modes \"a\", \"r+\" and \"wb\" and open normally.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m011",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"t.txt\"); f << \"AB\"; }\n{ ofstream f(\"t.txt\", ios::app); f.seekp(0); f << \"CD\"; }\nifstream in(\"t.txt\");\nstring s;\nin >> s;\ncout << s;",
+      "options": [
+        "CD",
+        "ABCD",
+        "CDAB",
+        "AB"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first block writes AB. ios::app forces every write to the current end of the file, so seekp(0) does not change where CD goes and the file becomes ABCD. Overwriting from the start would need a mode without app, such as ios::in | ios::out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m012",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"h.txt\"); f << \"HELLO\"; }\n{ ofstream f(\"h.txt\", ios::ate); f << \"X\"; }\nifstream in(\"h.txt\");\nstring s;\nin >> s;\ncout << s << \" \" << s.size();",
+      "options": [
+        "HELLOX 6",
+        "XELLO 5",
+        "X 1",
+        "HELLO 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "ofstream always adds ios::out, and ios::out | ios::ate still opens like fopen \"w\": the file is truncated first and ate merely moves to the end of the now-empty file. So the file holds only X, size 1; keeping HELLO needs ios::app or ios::in | ios::out | ios::ate.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m013",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"w.txt\"); f << \"HELLO\"; }\nfstream f(\"w.txt\", ios::in | ios::out);\nf.seekp(1);\nf << \"AB\";\nf.seekg(0);\nstring s;\nf >> s;\ncout << s;",
+      "options": [
+        "ABLLO",
+        "HAB",
+        "HELLOAB",
+        "HABLO"
+      ],
+      "correctIndex": 3,
+      "explanation": "ios::in | ios::out opens the existing file without truncating it. seekp(1) moves to the second byte, so AB overwrites E and the first L, giving HABLO, which is read back after seekg(0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m014",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"n.txt\"); f << \"4 5 6\\n\"; }\nifstream in(\"n.txt\");\nint x, sum = 0;\nwhile (in >> x) sum += x;\ncout << sum << \" \" << in.eof() << in.fail() << in.bad();",
+      "options": [
+        "15 100",
+        "15 110",
+        "15 010",
+        "15 000"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loop adds 4 + 5 + 6 = 15. The fourth extraction skips the final newline, reaches end of file and reads nothing, so it sets both eofbit and failbit; badbit stays clear, giving 110.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m015",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"v.txt\"); f << \"10 20\"; }    // no newline after 20\nifstream in(\"v.txt\");\nint a, b;\nin >> a >> b;\ncout << in.eof() << in.fail() << in.good() << bool(in);",
+      "options": [
+        "0011",
+        "1100",
+        "1001",
+        "1000"
+      ],
+      "correctIndex": 2,
+      "explanation": "While reading 20 the stream looks for more digits and hits end of file, so eofbit is set, but 20 itself was read successfully, so failbit is not. good() is 0 because a bit is set, while bool(in) means !fail() and is 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m016",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"n3.txt\"); f << \"1 2 3\\n\"; }\nifstream in(\"n3.txt\");\nint x = 0, sum = 0, count = 0;\nwhile (!in.eof()) {\n    in >> x;\n    sum += x;\n    count++;\n}\ncout << count << \" \" << sum;",
+      "options": [
+        "4 9",
+        "3 6",
+        "3 9",
+        "5 12"
+      ],
+      "correctIndex": 0,
+      "explanation": "After 3 is read the newline is still unread, so eof() is false and the loop runs a fourth time. That extraction finds only end of file, sets eofbit and failbit and leaves x at 3, so count = 4 and sum = 1 + 2 + 3 + 3 = 9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m017",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"l.txt\"); f << \"a\\nb\\nc\\n\"; }\nifstream in(\"l.txt\");\nstring line;\nint n = 0;\nwhile (!in.eof()) {\n    getline(in, line);\n    n++;\n}\ncout << n << \" [\" << line << \"]\";",
+      "options": [
+        "3 [c]",
+        "4 [c]",
+        "4 []",
+        "3 []"
+      ],
+      "correctIndex": 2,
+      "explanation": "The third getline reads c and consumes its newline without reaching end of file, so eof() is still false and the loop runs again. The fourth getline empties line, finds end of file and sets eofbit (and failbit), so n is 4 and line is empty.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m018",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"r.txt\"); f << \"x\\ny\\nz\\n\"; }\nifstream in(\"r.txt\");\nstring s;\nint first = 0, second = 0;\nwhile (getline(in, s)) first++;\nin.seekg(0);\nwhile (getline(in, s)) second++;\ncout << first << \" \" << second;",
+      "options": [
+        "3 3",
+        "3 0",
+        "3 1",
+        "0 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first loop ends because getline failed at end of file, leaving failbit set. seekg() does nothing on a stream whose failbit is set and every later read is ignored, so the second count is 0; calling in.clear() before in.seekg(0) would give 3 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m019",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"c.txt\"); f << \"a b\\nc\\n\"; }\nifstream in(\"c.txt\");\nchar ch;\nint n1 = 0, n2 = 0;\nwhile (in.get(ch)) n1++;\nin.clear();\nin.seekg(0);\nwhile (in >> ch) n2++;\ncout << n1 << \" \" << n2;",
+      "options": [
+        "6 3",
+        "3 3",
+        "6 6",
+        "4 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "get() counts every character: a, space, b, newline, c, newline = 6. After clear() and seekg(0) the >> operator skips all whitespace, so the second loop counts only a, b and c = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m020",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"m.txt\"); f << \"42\\nRam Thapa\\n\"; }\nifstream in(\"m.txt\");\nint id;\nstring name;\nin >> id;\ngetline(in, name);\ncout << id << \" [\" << name << \"]\";",
+      "options": [
+        "42 [Ram Thapa]",
+        "42 []",
+        "42 [Ram]",
+        "0 [Ram Thapa]"
+      ],
+      "correctIndex": 1,
+      "explanation": "in >> id stops at the newline after 42 and leaves it in the stream, so getline() immediately meets that newline and stores an empty string. Skipping it first with in.ignore(1000, '\\n') or getline(in >> ws, name) would read Ram Thapa.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m021",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"abc.bin\", ios::binary); f << \"ABCDEFGHIJ\"; }\nifstream in(\"abc.bin\", ios::binary);\nchar c;\nin.seekg(3);\nin.get(c);\ncout << c << in.tellg() << \" \";\nin.seekg(-2, ios::cur);\nin.get(c);\ncout << c << \" \";\nin.seekg(-1, ios::end);\nin.get(c);\ncout << c;",
+      "options": [
+        "D3 B J",
+        "C3 A I",
+        "D4 B I",
+        "D4 C J"
+      ],
+      "correctIndex": 3,
+      "explanation": "Offsets start at 0, so seekg(3) reaches D and get() advances the pointer to 4. Moving back 2 from 4 gives offset 2, which is C. seekg(-1, ios::end) is offset 10 - 1 = 9, the last byte J.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m022",
+      "questionText": "Rec is plain data, so its bytes can be written and read directly. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct Rec { int id; double marks; };\nfstream f(\"rec.dat\", ios::in | ios::out | ios::binary | ios::trunc);\nfor (int i = 1; i <= 4; i++) {\n    Rec r = {i, i * 10.0};\n    f.write(reinterpret_cast<char*>(&r), sizeof r);\n}\nRec t;\nf.seekg(2 * sizeof(Rec));\nf.read(reinterpret_cast<char*>(&t), sizeof t);\ncout << t.id << \" \" << t.marks << \" \";\nf.seekg(-static_cast<long>(sizeof(Rec)), ios::end);\nf.read(reinterpret_cast<char*>(&t), sizeof t);\ncout << t.id << \" \" << f.tellg() / sizeof(Rec);",
+      "options": [
+        "2 20 4 4",
+        "3 30 4 4",
+        "3 30 3 3",
+        "3 30 4 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Offset 2 × sizeof(Rec) skips records 1 and 2, so record 3 (3 30) is read. Seeking one record back from the end reaches record 4; after reading it the get pointer is at the end of the file, 4 × sizeof(Rec), and the division gives 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m023",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct Item { int code; int qty; };\nfstream f(\"item.dat\", ios::in | ios::out | ios::binary | ios::trunc);\nItem it;\nfor (int i = 1; i <= 3; i++) {\n    it = {i, i * 5};\n    f.write(reinterpret_cast<char*>(&it), sizeof it);\n}\nf.seekg(sizeof(Item));\nf.read(reinterpret_cast<char*>(&it), sizeof it);\nit.qty += 100;\nf.seekp(-static_cast<long>(sizeof(Item)), ios::cur);\nf.write(reinterpret_cast<char*>(&it), sizeof it);\nf.seekg(0);\nwhile (f.read(reinterpret_cast<char*>(&it), sizeof it)) cout << it.qty << \";\";",
+      "options": [
+        "5;10;110;",
+        "5;110;15;",
+        "5;10;15;110;",
+        "105;10;15;"
+      ],
+      "correctIndex": 1,
+      "explanation": "seekg(sizeof(Item)) reaches record 2, and reading it leaves the shared file position at the start of record 3. seekp(-sizeof(Item), ios::cur) steps back to record 2, so the modified record (qty 10 + 100 = 110) overwrites it in place.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m024",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"s.bin\", ios::binary); f << \"Kathmandu\"; }\nifstream in(\"s.bin\", ios::binary | ios::ate);\ncout << in.tellg();",
+      "options": [
+        "9",
+        "0",
+        "10",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "ios::ate positions the get pointer at the end of the file immediately after opening, so tellg() returns the file size: the 9 characters of Kathmandu (<< does not write the terminating '\\0').",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m025",
+      "questionText": "Assume int is 4 bytes. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nint n = 123456;\n{ ofstream ft(\"num.txt\"); ft << n; }\n{ ofstream fb(\"num.bin\", ios::binary); fb.write(reinterpret_cast<char*>(&n), sizeof n); }\nifstream it(\"num.txt\", ios::ate), ib(\"num.bin\", ios::binary | ios::ate);\ncout << it.tellg() << \" \" << ib.tellg();",
+      "options": [
+        "4 6",
+        "6 4",
+        "6 6",
+        "4 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "<< stores the number as the six characters 123456, while write() copies the int's internal representation, sizeof(int) = 4 bytes. With ios::ate, tellg() reports each file's size: 6 and 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m026",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream f(\"p.bin\", ios::binary);\nf << \"ABCDEF\";\nf.seekp(2);\nf << \"xy\";\ncout << f.tellp() << \" \";\nf.seekp(0, ios::end);\ncout << f.tellp();",
+      "options": [
+        "8 8",
+        "2 6",
+        "4 6",
+        "4 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "After seekp(2) the two characters xy overwrite C and D, leaving the put pointer at 2 + 2 = 4. The file is still ABxyEF, 6 bytes long, so seeking to the end gives 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m027",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"mix.txt\"); f << \"12 abc 34\\n\"; }\nifstream in(\"mix.txt\");\nint a = 0, b = 0;\nstring w;\nin >> a >> b;\ncout << a << \" \" << b << \" \" << in.fail() << \" \";\nin.clear();\nin >> w >> b;\ncout << \"[\" << w << \"] \" << b;",
+      "options": [
+        "12 0 1 [abc] 34",
+        "12 0 1 [] 0",
+        "12 0 1 [34] 0",
+        "12 0 0 [abc] 34"
+      ],
+      "correctIndex": 0,
+      "explanation": "Reading abc into the int b fails and sets failbit without consuming the word, so the first output is 12 0 1. clear() makes the stream usable again; then abc is read into w and 34 into b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m028",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"six.bin\", ios::binary); f << \"ABCDEF\"; }\nifstream in(\"six.bin\", ios::binary);\nchar buf[10];\nin.read(buf, 4);\ncout << in.gcount() << \" \";\nin.read(buf, 4);\ncout << in.gcount() << \" \" << in.eof() << in.fail();",
+      "options": [
+        "4 2 11",
+        "4 4 00",
+        "4 2 10",
+        "4 0 11"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first read() gets A to D. The second asks for 4 bytes but only E and F remain, so gcount() is 2, and because fewer bytes than requested arrived, both eofbit and failbit are set.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m029",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"g.txt\"); f << \"ABCDEFGH\\nXY\\n\"; }\nifstream in(\"g.txt\");\nchar buf[5];\nin.getline(buf, 5);\ncout << buf << \" \" << in.fail() << \" \";\nin.clear();\nin.getline(buf, 5);\ncout << buf;",
+      "options": [
+        "ABCD 0 EFGH",
+        "ABCD 1 XY",
+        "ABCDE 1 FGH",
+        "ABCD 1 EFGH"
+      ],
+      "correctIndex": 3,
+      "explanation": "getline(buf, 5) stores at most 4 characters plus '\\0'. The first call stops after ABCD before the line ends, which sets failbit. After clear(), the second call stores EFGH and then finds the newline, which it removes, so this time the read succeeds.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m030",
+      "questionText": "Assume the file missing.txt does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nifstream fin;\nfin.exceptions(ios::failbit | ios::badbit);\ntry {\n    fin.open(\"missing.txt\");\n    cout << \"opened \";\n} catch (const ios::failure &e) {\n    cout << \"caught \";\n}\ncout << \"end\";",
+      "options": [
+        "caught end",
+        "opened end",
+        "opened caught end",
+        "end"
+      ],
+      "correctIndex": 0,
+      "explanation": "exceptions(ios::failbit | ios::badbit) makes the stream throw ios::failure whenever one of those bits becomes set. The failed open() sets failbit, so the exception is thrown before \"opened\" is printed; it is caught and the program continues with end.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m031",
+      "questionText": "A program writes several lines through ofstream out(\"r.txt\"); and then, while out is still in scope and has been neither flushed nor closed, opens ifstream in(\"r.txt\"); to read them back. Why may the reader find the file empty or incomplete?",
+      "options": [
+        "An open ofstream locks the file, so the ifstream always fails to open it",
+        "The text may still be in out's buffer; it reaches the file only when the buffer is flushed or out is closed or destroyed",
+        "An ifstream always starts reading at the end of the file",
+        "Text written with << can be read back only through the same stream object"
+      ],
+      "correctIndex": 1,
+      "explanation": "File streams buffer their output. Data are passed to the file when the buffer fills, when flush() or endl is used, or when close() or the destructor runs, so the writer should be closed or flushed before the file is read.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m032",
+      "questionText": "Which statement about calling close() on a file stream object is correct?",
+      "options": [
+        "It deletes the file from the disk",
+        "It truncates the file to zero length",
+        "It flushes any buffered output and releases the file, after which the same object can open another file",
+        "It must be called explicitly, otherwise everything written to the file is lost"
+      ],
+      "correctIndex": 2,
+      "explanation": "close() flushes the buffer and detaches the file from the stream; the object itself remains and can be reused with open(). If close() is never called, the destructor closes the file anyway.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m033",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream f(\"a.txt\");\nf.open(\"b.txt\");            // a.txt is still open\ncout << f.fail() << \" \";\nf.close();\nf.clear();\nf.open(\"b.txt\");\ncout << f.is_open();",
+      "options": [
+        "0 1",
+        "1 0",
+        "0 0",
+        "1 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "open() on a stream that already has a file attached fails and sets failbit, so the first output is 1. After close(), and clear() to reset the state, the same object can open b.txt, so is_open() is 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m034",
+      "questionText": "ifstream fin(\"data.txt\"); opened the file successfully, but a later fin >> x, where x is an int, failed because the next word in the file was abc. Which expression is still true?",
+      "options": [
+        "fin.good()",
+        "!fin.fail()",
+        "bool(fin)",
+        "fin.is_open()"
+      ],
+      "correctIndex": 3,
+      "explanation": "The failed extraction sets failbit, so good(), !fail() and bool(fin) are all false. is_open() only reports whether a file is attached, and the file stays attached until close().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m035",
+      "questionText": "Which of the following is NOT a correct way to detect that ifstream fin(\"data.txt\"); failed to open its file?",
+      "options": [
+        "if (!fin)",
+        "if (fin.eof())",
+        "if (fin.fail())",
+        "if (!fin.is_open())"
+      ],
+      "correctIndex": 1,
+      "explanation": "A failed open sets failbit, which !fin and fin.fail() test, and leaves no file attached, which !fin.is_open() tests. eofbit is set only when a read runs past the end of an open file, so eof() stays false after a failed open.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m036",
+      "questionText": "Objects of struct Emp { std::string name; int age; }; are saved with f.write(reinterpret_cast<char*>(&e), sizeof e) and read back with read() in a later run of the program. Why can the names not be relied on?",
+      "options": [
+        "write() can store only char arrays, so the int member age is lost",
+        "sizeof e counts only the int member, so the string is skipped",
+        "std::string is not plain data: the object normally holds a pointer to characters stored elsewhere, so write() saves internal addresses and bookkeeping rather than a self-contained copy of the text",
+        "Binary records written by one run of a program can never be read by another run"
+      ],
+      "correctIndex": 2,
+      "explanation": "write() copies the raw bytes of the object. For a std::string those bytes are its internal pointer, size and capacity, which mean nothing in another run; fixed char arrays must be used for records written this way.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m037",
+      "questionText": "In f.write(reinterpret_cast<char*>(&rec), sizeof rec); why is the address of rec cast to char*?",
+      "options": [
+        "write() takes a pointer to characters (bytes) and a byte count, so the record's address must be passed as a char pointer",
+        "The cast converts the numbers stored in rec into readable digits",
+        "The cast makes write() add a newline after each record",
+        "The cast is needed only when the file is opened in text mode"
+      ],
+      "correctIndex": 0,
+      "explanation": "ostream::write(const char *s, streamsize n) copies n bytes starting at s. The cast only reinterprets the record's address as a byte pointer; the bytes themselves are copied unchanged.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m038",
+      "questionText": "A binary file holds fixed-size records of 48 bytes each. After f.seekg(0, ios::end); the call f.tellg() returns 1200. How many records does the file contain, and at which byte offset does the last record begin?",
+      "options": [
+        "25 records; offset 1200",
+        "24 records; offset 1152",
+        "25 records; offset 1152",
+        "25 records; offset 1104"
+      ],
+      "correctIndex": 2,
+      "explanation": "N = file size / record size = 1200 / 48 = 25. The last record, number 25, starts at (25 - 1) × 48 = 1152, the same place that seekg(-48, ios::end) reaches.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m039",
+      "questionText": "A binary file stores 32-byte records. Just after a record has been read, f.tellg() returns 256. If f.seekg(-64, ios::cur); is executed next, which record (counting from 1) will the following read() return?",
+      "options": [
+        "The 7th record",
+        "The 6th record",
+        "The 8th record",
+        "The 9th record"
+      ],
+      "correctIndex": 0,
+      "explanation": "The new position is 256 - 64 = 192, and a record starting at byte 192 is number 192 / 32 + 1 = 7. The record just read was the 8th (bytes 224 to 255), so the pointer moved back two records.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m040",
+      "questionText": "The program runs on Windows, where a text-mode output stream stores each '\\n' as the two bytes '\\r' '\\n'. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream t(\"t2.txt\"); t << \"AB\\nCD\\n\"; }\n{ ofstream b(\"b2.txt\", ios::binary); b << \"AB\\nCD\\n\"; }\nifstream t2(\"t2.txt\", ios::binary | ios::ate);\nifstream b2(\"b2.txt\", ios::binary | ios::ate);\ncout << t2.tellg() << \" \" << b2.tellg();",
+      "options": [
+        "6 6",
+        "6 8",
+        "8 6",
+        "8 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "The text-mode stream turns each of the two newlines into \\r\\n, so t2.txt holds 4 letters + 4 bytes = 8 bytes. The binary stream copies the 6 characters unchanged. Opening with ios::ate and calling tellg() reports each file's size.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m041",
+      "questionText": "Which pair of member functions transfers a block of raw bytes, such as a whole structure, to and from a binary file stream?",
+      "options": [
+        "put() and get()",
+        "<< and >>",
+        "seekp() and seekg()",
+        "write() and read()"
+      ],
+      "correctIndex": 3,
+      "explanation": "write(p, n) and read(p, n) copy n bytes with no formatting. put() and get() move a single character, << and >> convert values to and from text, and the seek functions only move the file pointers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m042",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"para.txt\"); f << \"to be\\nor not\\n\"; }\nifstream in(\"para.txt\");\nchar ch;\nint lines = 0, words = 0, chars = 0;\nbool inWord = false;\nwhile (in.get(ch)) {\n    chars++;\n    if (ch == '\\n') lines++;\n    if (ch == ' ' || ch == '\\n') inWord = false;\n    else if (!inWord) { inWord = true; words++; }\n}\ncout << lines << \" \" << words << \" \" << chars;",
+      "options": [
+        "2 4 11",
+        "3 4 13",
+        "2 4 13",
+        "2 4 9"
+      ],
+      "correctIndex": 2,
+      "explanation": "get() reads every character: \"to be\" plus a newline is 6 and \"or not\" plus a newline is 7, so chars = 13. The two newlines give lines = 2, and a word starts at each letter that follows a space, a newline or the start: to, be, or, not = 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i52_m043",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream out(\"ch.txt\");\nfor (char c = 'a'; c <= 'e'; c += 2) out.put(c);\nout.close();\nifstream in(\"ch.txt\");\nchar c;\nstring s;\nwhile (in.get(c)) s = c + s;\ncout << s;",
+      "options": [
+        "ace",
+        "edcba",
+        "abcde",
+        "eca"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loop writes a, c and e (c goes up by 2 each time), so the file holds ace. Each character read is placed in front of s, which reverses the order to eca.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i52_m044",
+      "questionText": "What does opening a file with ios::binary change?",
+      "options": [
+        "Characters are transferred unchanged, without the newline and end-of-file translation that text mode may perform",
+        "Numbers written with << are stored in their internal binary form instead of as digits",
+        "Only read() and write() may be used on the stream",
+        "The file is opened for both input and output"
+      ],
+      "correctIndex": 0,
+      "explanation": "ios::binary only switches off text-mode translation, which on Windows maps \\n to \\r\\n and treats Ctrl-Z as end of file. << still writes numbers as characters; storing a value's internal bytes needs write().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m045",
+      "questionText": "Which situation sets badbit on a stream, rather than only failbit or eofbit?",
+      "options": [
+        "Reading letters into an int variable",
+        "An unrecoverable error in the stream buffer or device, such as a failed write to the disk",
+        "Reading past the last character of the file",
+        "Trying to open a file that does not exist"
+      ],
+      "correctIndex": 1,
+      "explanation": "badbit signals that the stream itself has lost integrity, for example a buffer or device error during a write. A format mismatch and a failed open set failbit, and running past the end of input sets eofbit, usually together with failbit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i52_m046",
+      "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct P { char name[8]; int age; };\nP a = {\"Ram\", 20}, b = {\"Sita\", 22}, c = {\"Hari\", 25}, x;\nofstream f(\"p.dat\", ios::binary);\nf.write((char*)&a, sizeof a);\nf.write((char*)&b, sizeof b);\nf.close();\nf.open(\"p.dat\", ios::binary | ios::app);\nf.write((char*)&c, sizeof c);\nf.close();\nifstream in(\"p.dat\", ios::binary | ios::ate);\nlong n = in.tellg() / sizeof(P);\nin.seekg((n - 2) * sizeof(P));\nin.read((char*)&x, sizeof x);\ncout << n << \" \" << x.name << \" \" << x.age;",
+      "options": [
+        "3 Ram 20",
+        "3 Hari 25",
+        "1 Hari 25",
+        "3 Sita 22"
+      ],
+      "correctIndex": 3,
+      "explanation": "The second open uses ios::app, so Hari is added after Ram and Sita and the file holds 3 records: n = 3. Offset (n - 2) × sizeof(P) = 1 × sizeof(P) is the start of record 2, which is Sita 22.",
+      "difficulty": "hard"
+    }
+  ]
+}

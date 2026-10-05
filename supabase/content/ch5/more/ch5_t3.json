@@ -1,0 +1,499 @@
+{
+  "topicId": "ch5_t3",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: IPv4 Addressing and Subnetting"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each octet of an IPv4 address is 8 bits with place values 128, 64, 32, 16, 8, 4, 2 and 1, so it runs from 0 (00000000) to 255 (11111111). To convert an octet to binary, subtract the largest place values that fit: 172 = 128 + 32 + 8 + 4, which is 10101100. The subnet mask works on the same bits: its 1s cover the network part and its 0s cover the host part. In 192.168.1.100 with mask 255.255.255.0 the network part is 192.168.1 (the first 24 bits, as in any class C address) and the host part is 100."
+    },
+    {
+      "type": "bulletList",
+      "text": "The classes in full, with a memory aid: A large, B medium, C small, D multicast, E research.",
+      "items": [
+        "Class A (leading bit 0) spans 0.0.0.0 to 127.255.255.255, but networks 0 and 127 are reserved, so usable class A networks run from 1.0.0.0 to 126.255.255.255; they suit very large organisations, and 10.0.0.1 is a typical (private) class A address.",
+        "Class B (leading bits 10) spans 128.0.0.0 to 191.255.255.255 and suits medium organisations; 172.16.0.1 is a typical (private) class B address.",
+        "Class C (leading bits 110) spans 192.0.0.0 to 223.255.255.255 and suits small organisations, with at most 254 hosts per network; 192.168.1.1 is a typical (private) class C address.",
+        "Class D (1110) spans 224.0.0.0 to 239.255.255.255 and holds multicast group addresses, never used as a host's unicast address; class E (1111), 240.0.0.0 to 255.255.255.255, is reserved for experiments.",
+        "A range written as '1.0.0.0 to 126.0.0.0' or '128.0.0.0 to 191.255.0.0' lists only the network addresses; each class really ends at the last address of its last network, such as 191.255.255.255 for class B."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Before sending, a host ANDs both its own address and the destination address with its subnet mask. If the two results match, the destination is on the same subnet and the host delivers the packet directly, after using ARP to find the destination's MAC address. Otherwise it sends the packet to its default gateway, the local router, which forwards it towards the destination. For 192.168.1.100/24 sending to 192.168.2.7 the results are 192.168.1.0 and 192.168.2.0, so the packet goes to the gateway; a wrong mask on a host therefore breaks connectivity even when its address is correct."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Net} = \\text{IP} \\wedge M, \\quad \\text{Bcast} = \\text{Net} \\vee \\lnot M",
+      "plainText": "Network address = IP AND mask; broadcast address = network address OR (NOT mask)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 172.16.45.200/20\nMask /20     = 255.255.240.0  (interesting octet = 3rd, value 240)\nBlock size   = 256 - 240 = 16 -> 3rd-octet boundaries 0, 16, 32, 48 ...\n45 lies in the block 32..47\nNetwork      = 172.16.32.0\nBroadcast    = 172.16.47.255\nFirst host   = 172.16.32.1\nLast host    = 172.16.47.254\nUsable hosts = 2^(32-20) - 2 = 4096 - 2 = 4094"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: VLSM on 200.10.20.0/24, largest need first\n100 hosts: 2^7 - 2 = 126 -> /25  200.10.20.0   to .127  hosts .1 to .126\n 50 hosts: 2^6 - 2 = 62  -> /26  200.10.20.128 to .191  hosts .129 to .190\n 20 hosts: 2^5 - 2 = 30  -> /27  200.10.20.192 to .223  hosts .193 to .222\nWAN link 1: 2 hosts     -> /30  200.10.20.224 to .227  hosts .225, .226\nWAN link 2: 2 hosts     -> /30  200.10.20.228 to .231  hosts .229, .230\nStill free: 200.10.20.232/29 and 200.10.20.240/28 for growth"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: summarise 172.16.12.0/24 to 172.16.15.0/24\n3rd octet 12 = 000011|00\n          13 = 000011|01\n          14 = 000011|10\n          15 = 000011|11\nCommon leading bits = 16 (first two octets) + 6 = 22\nSummary = 172.16.12.0/22, covering 172.16.12.0 to 172.16.15.255 exactly\nCheck alignment: 12 is a multiple of 2^(24-22) = 4, so one /22 fits"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Prefix",
+          "Mask",
+          "Block size",
+          "Usable hosts"
+        ],
+        [
+          "/20",
+          "255.255.240.0",
+          "16 (3rd octet)",
+          "4,094"
+        ],
+        [
+          "/22",
+          "255.255.252.0",
+          "4 (3rd octet)",
+          "1,022"
+        ],
+        [
+          "/24",
+          "255.255.255.0",
+          "1 (3rd octet)",
+          "254"
+        ],
+        [
+          "/26",
+          "255.255.255.192",
+          "64",
+          "62"
+        ],
+        [
+          "/27",
+          "255.255.255.224",
+          "32",
+          "30"
+        ],
+        [
+          "/28",
+          "255.255.255.240",
+          "16",
+          "14"
+        ],
+        [
+          "/30",
+          "255.255.255.252",
+          "4",
+          "2"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "NAT comes in three forms. Static NAT maps one private address permanently to one public address, which suits an inside server; dynamic NAT maps inside hosts to addresses from a public pool on demand; PAT (NAPT, 'NAT overload') lets many inside hosts share one public address by giving each connection its own public port. For example, 192.168.1.10:51000 and 192.168.1.11:51000 can leave as 203.0.113.5:40001 and 203.0.113.5:40002, and the router maps each reply back by its port number. An outside host cannot open a connection to an inside host unless a translation entry already exists, so inside servers need static NAT or port forwarding."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "Taking the block size from the wrong octet: for /20 the interesting octet is the third, so 172.16.45.200/20 belongs to 172.16.32.0, not 172.16.45.0.",
+        "Forgetting the −2: a /27 has 32 addresses but 30 usable hosts. The exceptions are /31, which numbers both ends of a point-to-point link (RFC 3021), and /32, a single-host route.",
+        "Calling every 172.x.x.x address private: only 172.16.0.0 to 172.31.255.255 is in the private /12, so 172.217.14.206 is a public address.",
+        "Treating 255.255.255.255 as an Internet-wide broadcast: it is the limited broadcast, which routers never forward; a directed broadcast such as 192.168.5.255 targets one named network.",
+        "Other reserved blocks: 169.254.0.0/16 is link-local (APIPA), 100.64.0.0/10 is shared space for carrier-grade NAT (RFC 6598), and 192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24 are for documentation (RFC 5737)."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any 'which subnet' question: write the mask, take block size = 256 − the interesting mask octet, find the largest multiple of the block size not above the address's octet (that is the network), add block size − 1 for the broadcast, and step one address in from each end for the first and last hosts."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_t3_m001",
+      "questionText": "Which of these IPv4 addresses is a private (RFC 1918) address?",
+      "options": [
+        "8.8.8.8",
+        "172.217.14.206",
+        "192.168.1.1",
+        "151.101.1.140"
+      ],
+      "correctIndex": 2,
+      "explanation": "RFC 1918 reserves 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 for private use. 172.217.14.206 starts with 172 but lies outside 172.16 to 172.31, so it is public, like 8.8.8.8 and 151.101.1.140.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m002",
+      "questionText": "In classful addressing, what is the first-octet range of a class B address?",
+      "options": [
+        "1–126",
+        "128–191",
+        "192–223",
+        "224–239"
+      ],
+      "correctIndex": 1,
+      "explanation": "Class B addresses start with the bits 10, so the first octet runs from 10000000 (128) to 10111111 (191). 1–126 is class A, 192–223 class C and 224–239 class D.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m003",
+      "questionText": "Which IPv4 address class provides the largest number of host addresses per network?",
+      "options": [
+        "Class A",
+        "Class B",
+        "Class C",
+        "Class D"
+      ],
+      "correctIndex": 0,
+      "explanation": "Class A leaves 24 host bits, giving 2^24 − 2 = 16,777,214 usable hosts per network, against 65,534 for class B and 254 for class C. Class D holds multicast group addresses and has no host part.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m004",
+      "questionText": "What is subnetting used for in IP addressing?",
+      "options": [
+        "Combining several contiguous networks into one routing entry",
+        "Translating private addresses into a public address",
+        "Resolving IP addresses into MAC addresses",
+        "Dividing one large network into smaller networks by borrowing host bits"
+      ],
+      "correctIndex": 3,
+      "explanation": "Subnetting borrows high-order host bits to create several smaller networks, each with its own network and broadcast address, which cuts broadcast traffic and eases management. Combining networks is supernetting, address translation is NAT and IP-to-MAC resolution is ARP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m005",
+      "questionText": "What is the main function of the default gateway configured on a host?",
+      "options": [
+        "It resolves domain names into IP addresses for the host",
+        "It is the router to which the host sends packets for destinations outside its own subnet",
+        "It leases IP addresses and subnet masks to hosts",
+        "It translates the host's IP address into a MAC address"
+      ],
+      "correctIndex": 1,
+      "explanation": "The host compares the destination with its own subnet using the mask; when the destination is not local, it hands the packet to the default gateway (its local router), which forwards it on. DNS resolves names, DHCP leases addresses and ARP maps IP addresses to MAC addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m006",
+      "questionText": "Which IPv4 address block is reserved in its entirety for loopback testing?",
+      "options": [
+        "192.168.0.0/16",
+        "172.16.0.0/12",
+        "127.0.0.0/8",
+        "10.0.0.0/8"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every address in 127.0.0.0/8 is loopback: a packet sent to any 127.x.y.z address is returned inside the host and never reaches the network, and 127.0.0.1 is just the conventional choice. The other three blocks are the RFC 1918 private ranges.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m007",
+      "questionText": "What is the dotted-decimal form of the binary address 10101100.00010000.00101101.11001000?",
+      "options": [
+        "172.16.45.200",
+        "172.32.45.200",
+        "172.16.90.200",
+        "172.16.45.100"
+      ],
+      "correctIndex": 0,
+      "explanation": "10101100 = 128 + 32 + 8 + 4 = 172, 00010000 = 16, 00101101 = 32 + 8 + 4 + 1 = 45 and 11001000 = 128 + 64 + 8 = 200, giving 172.16.45.200.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m008",
+      "questionText": "Using classful rules, what are the class and the default subnet mask of the address 200.45.6.7?",
+      "options": [
+        "Class B, 255.255.0.0",
+        "Class C, 255.255.0.0",
+        "Class A, 255.0.0.0",
+        "Class C, 255.255.255.0"
+      ],
+      "correctIndex": 3,
+      "explanation": "200 lies in 192–223 (leading bits 110), so the address is class C with 24 network bits and the default mask 255.255.255.0 (/24).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m009",
+      "questionText": "How many usable host addresses does each subnet have when the subnet mask is 255.255.255.240?",
+      "options": [
+        "16",
+        "14",
+        "30",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "240 = 11110000 leaves 4 host bits, so each subnet has 2^4 = 16 addresses and 2^4 − 2 = 14 usable hosts after removing the network and broadcast addresses.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m010",
+      "questionText": "A host has the address 10.1.1.130/25. What are its subnet (network) address and its broadcast address?",
+      "options": [
+        "10.1.1.128 and 10.1.1.255",
+        "10.1.1.0 and 10.1.1.127",
+        "10.1.1.128 and 10.1.1.254",
+        "10.0.0.0 and 10.255.255.255"
+      ],
+      "correctIndex": 0,
+      "explanation": "/25 is mask 255.255.255.128, a block size of 128 in the last octet; 130 falls in 128–255, so the subnet is 10.1.1.128 and the broadcast (all host bits 1) is 10.1.1.255. 10.1.1.254 is the last usable host, not the broadcast.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m011",
+      "questionText": "What is the broadcast address of the subnet that contains 172.16.100.50/22?",
+      "options": [
+        "172.16.100.255",
+        "172.16.101.255",
+        "172.16.103.255",
+        "172.16.127.255"
+      ],
+      "correctIndex": 2,
+      "explanation": "/22 is mask 255.255.252.0, a block size of 4 in the third octet. 100 is a multiple of 4, so the subnet spans 172.16.100.0 to 172.16.103.255 and the broadcast address is 172.16.103.255.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m012",
+      "questionText": "What is the usable host range of the subnet 192.168.20.96/28?",
+      "options": [
+        "192.168.20.96 to 192.168.20.111",
+        "192.168.20.97 to 192.168.20.111",
+        "192.168.20.97 to 192.168.20.126",
+        "192.168.20.97 to 192.168.20.110"
+      ],
+      "correctIndex": 3,
+      "explanation": "/28 has a block size of 16, so the subnet runs from 192.168.20.96 (network) to 192.168.20.111 (broadcast). The usable hosts are .97 to .110, which is 16 − 2 = 14 addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m013",
+      "questionText": "A /24 network is subnetted with the mask 255.255.255.224, and subnet zero and the all-ones subnet are both used. How many subnets are there, and how many usable hosts does each have?",
+      "options": [
+        "8 subnets with 30 hosts each",
+        "6 subnets with 30 hosts each",
+        "8 subnets with 32 hosts each",
+        "32 subnets with 6 hosts each"
+      ],
+      "correctIndex": 0,
+      "explanation": "224 = 11100000 borrows 3 bits, giving 2^3 = 8 subnets, and leaves 5 host bits, giving 2^5 − 2 = 30 usable hosts each. The old rule that excluded subnet zero and the all-ones subnet would give 6 subnets.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m014",
+      "questionText": "A LAN must hold 60 hosts. What is the longest prefix (the smallest subnet) that can serve it?",
+      "options": [
+        "/27",
+        "/26",
+        "/25",
+        "/24"
+      ],
+      "correctIndex": 1,
+      "explanation": "The subnet needs 2^h − 2 ≥ 60, so h = 6 host bits (62 hosts) and the prefix is 32 − 6 = /26. A /27 offers only 30 hosts; /25 (126) and /24 (254) work but waste addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m015",
+      "questionText": "Which of these is NOT a valid IPv4 subnet mask?",
+      "options": [
+        "255.255.255.224",
+        "255.255.240.0",
+        "255.255.255.252",
+        "255.255.255.160"
+      ],
+      "correctIndex": 3,
+      "explanation": "A mask must be an unbroken run of 1s followed by 0s. 160 = 10100000 has a 0 between two 1s, so 255.255.255.160 is invalid, whereas 224 (11100000), 240 (11110000) and 252 (11111100) are contiguous.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m016",
+      "questionText": "Why are only 126 class A networks available for ordinary use?",
+      "options": [
+        "The 8 network bits give 256 values, but half of them are given to class B",
+        "126 = 2^7 − 2 because each network loses its network address and its broadcast address",
+        "The 7 network bits after the leading 0 give 128 values, and networks 0 (this network) and 127 (loopback) are reserved",
+        "Networks 127 and 128 are reserved for multicast, leaving 126"
+      ],
+      "correctIndex": 2,
+      "explanation": "With the first bit fixed at 0, class A has 7 bits for the network number, so 2^7 = 128 values (0–127); 0 and 127 are reserved, leaving 1–126. The network-and-broadcast −2 is a different rule that applies to the hosts inside one network.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m017",
+      "questionText": "A PC set to obtain its address automatically finds no DHCP server and configures itself as 169.254.23.7. What kind of address is this?",
+      "options": [
+        "A link-local (APIPA) address, usable only on the local link",
+        "A private RFC 1918 address that routers inside the organisation forward",
+        "A loopback address that never leaves the host",
+        "A class D multicast group address"
+      ],
+      "correctIndex": 0,
+      "explanation": "169.254.0.0/16 is the IPv4 link-local block: when no DHCP server answers, the host picks an address from it (Automatic Private IP Addressing). Routers do not forward these addresses, so the host can talk only to neighbours on the same link.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t3_m018",
+      "questionText": "Which statement about IPv4 broadcast addresses is correct?",
+      "options": [
+        "255.255.255.255 reaches every host on the Internet",
+        "255.255.255.255 is a limited broadcast that routers do not forward, while 192.168.5.255 is the directed broadcast of 192.168.5.0/24",
+        "A directed broadcast address has all of its network bits set to 1",
+        "A broadcast address may be assigned to a host interface when the subnet is small"
+      ],
+      "correctIndex": 1,
+      "explanation": "The limited broadcast stays on the local network, whereas a directed broadcast has all host bits set to 1 for one particular network. Neither can be assigned to an interface, and routers now drop directed broadcasts arriving from outside by default (RFC 2644).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m019",
+      "questionText": "What is the main advantage of CIDR over classful addressing?",
+      "options": [
+        "It lengthens IPv4 addresses to 64 bits",
+        "It removes the need for any network mask",
+        "It lets a host keep the same address on every network it joins",
+        "Prefixes can have any length, so blocks fit real needs and contiguous blocks can be aggregated into one route"
+      ],
+      "correctIndex": 3,
+      "explanation": "CIDR (RFC 4632) writes a block as a.b.c.d/n with any n, so a site needing 500 hosts can get a /23 instead of a whole class B, and ISPs can advertise many customer blocks as one aggregate. Addresses stay 32 bits long, and the prefix length is the mask.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m020",
+      "questionText": "A router has these routes: 10.0.0.0/8 via R1, 10.1.0.0/16 via R2, 10.1.2.0/24 via R3 and 0.0.0.0/0 via R4. Which next hop does it use for a packet addressed to 10.1.2.99?",
+      "options": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "correctIndex": 2,
+      "explanation": "All four routes match 10.1.2.99, and the router applies longest-prefix matching: the /24 is the most specific, so the packet goes to R3. The default route 0.0.0.0/0 is used only when nothing more specific matches.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m021",
+      "questionText": "Inside host 192.168.1.10 opens a TCP connection to a web server through a PAT (NAT overload) router whose public address is 203.0.113.5. Which fields of the outgoing packet does the router rewrite for the translation?",
+      "options": [
+        "The source IP address and source port, recomputing the IP and TCP checksums",
+        "The destination IP address and destination port",
+        "Only the source MAC address",
+        "Only the TTL field"
+      ],
+      "correctIndex": 0,
+      "explanation": "PAT replaces the private source address with 203.0.113.5 and gives the connection a source port that is unique on the public side (usually a new number), recording the mapping so replies can be translated back; the IP and TCP checksums change because the header and the TCP pseudo-header changed. The destination fields are rewritten only on the returning replies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m022",
+      "questionText": "Which statement about NAT is NOT correct?",
+      "options": [
+        "Many hosts with private addresses can share one or a few public addresses",
+        "The NAT router keeps a translation table to map replies back to the right inside host",
+        "NAT can break protocols that carry IP addresses inside their payload, such as active-mode FTP, unless the router has a helper for them",
+        "Outside hosts can open connections to any inside host without any extra configuration"
+      ],
+      "correctIndex": 3,
+      "explanation": "An unsolicited inbound packet finds no translation entry and is dropped unless static NAT or port forwarding has been configured, which is why NAT hides the inside network. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m023",
+      "questionText": "Which statement about /31 and /32 prefixes is correct?",
+      "options": [
+        "A /31 has 2^1 − 2 = 0 usable addresses, so it can never be used",
+        "A /31 can number both ends of a point-to-point link (RFC 3021), and a /32 identifies a single host",
+        "A /32 contains two addresses: a network address and a broadcast address",
+        "A /30 is mandatory on every link because /31 is reserved for multicast"
+      ],
+      "correctIndex": 1,
+      "explanation": "A point-to-point link needs no broadcast address, so RFC 3021 allows both addresses of a /31 to be used; a /32 is a single address, used for host routes and loopback interfaces. Everywhere else the 2^h − 2 rule applies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t3_m024",
+      "questionText": "Using VLSM on 192.168.4.0/24, subnets are allocated largest first, starting at 192.168.4.0, for LAN A (50 hosts), LAN B (30 hosts), LAN C (15 hosts) and LAN D (6 hosts), each getting the smallest block that fits. What is LAN D's subnet?",
+      "options": [
+        "192.168.4.112/29",
+        "192.168.4.128/28",
+        "192.168.4.128/29",
+        "192.168.4.136/29"
+      ],
+      "correctIndex": 2,
+      "explanation": "A needs /26 (62 hosts): .0–.63; B needs /27 (30 hosts): .64–.95; C needs /27 because a /28 has only 14 usable hosts: .96–.127; D needs /29 (6 hosts), the next free block 192.168.4.128/29. Giving C a /28 (16 addresses but 14 hosts) is the mistake that leads to .112/29.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t3_m025",
+      "questionText": "An ISP wants one summary route that covers exactly the eight networks 10.1.64.0/24 to 10.1.71.0/24 and nothing else. Which prefix should it advertise?",
+      "options": [
+        "10.1.64.0/21",
+        "10.1.64.0/22",
+        "10.1.64.0/20",
+        "10.1.0.0/16"
+      ],
+      "correctIndex": 0,
+      "explanation": "Eight /24s need 3 fewer prefix bits (2^3 = 8), giving /21, and 64 is a multiple of 8, so 10.1.64.0/21 spans 10.1.64.0 to 10.1.71.255 exactly. A /22 covers only four of the networks, and a /20 also covers 10.1.72.0 to 10.1.79.255.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t3_m026",
+      "questionText": "Three hosts use a /20 prefix: H1 is 172.16.33.10, H2 is 172.16.47.200 and H3 is 172.16.48.5. Which statement is correct?",
+      "options": [
+        "All three hosts are in subnet 172.16.32.0/20",
+        "H2 and H3 are in subnet 172.16.48.0/20, and H1 is in 172.16.32.0/20",
+        "Each host is in a different subnet",
+        "H1 and H2 are in subnet 172.16.32.0/20, and H3 is in 172.16.48.0/20"
+      ],
+      "correctIndex": 3,
+      "explanation": "/20 gives a block size of 16 in the third octet: 33 and 47 both fall in 32–47 (subnet 172.16.32.0, broadcast 172.16.47.255), while 48 starts the next block, 172.16.48.0/20. Reading the hosts as /24 networks would wrongly put each in its own subnet.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t3_m027",
+      "questionText": "The network 10.0.0.0/8 must be divided into at least 1,000 equal subnets, each with as many hosts as possible (subnet zero is used). What prefix length and how many usable hosts per subnet result?",
+      "options": [
+        "/17 with 32,766 hosts per subnet",
+        "/18 with 16,382 hosts per subnet",
+        "/18 with 16,384 hosts per subnet",
+        "/22 with 1,022 hosts per subnet"
+      ],
+      "correctIndex": 1,
+      "explanation": "2^s ≥ 1,000 needs s = 10 borrowed bits (1,024 subnets), so the prefix is 8 + 10 = /18, leaving 14 host bits: 2^14 − 2 = 16,382 hosts. A /17 gives only 2^9 = 512 subnets, and /22 comes from confusing subnet bits with host bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t3_m028",
+      "questionText": "Can 198.16.1.0/24, 198.16.2.0/24, 198.16.3.0/24 and 198.16.4.0/24 be summarised as a single /22? If not, what is the smallest single prefix that covers all four?",
+      "options": [
+        "Yes, as 198.16.1.0/22",
+        "Yes, as 198.16.0.0/22",
+        "No; the smallest covering prefix is 198.16.0.0/21",
+        "No; the smallest covering prefix is 198.16.0.0/20"
+      ],
+      "correctIndex": 2,
+      "explanation": "A /22 must start at a third octet that is a multiple of 4, so 198.16.0.0/22 covers 0–3 and 198.16.4.0/22 covers 4–7; the blocks 1–4 straddle that boundary. Their common leading bits (1 = 00000001, 4 = 00000100) give /21, so 198.16.0.0/21 is the smallest single prefix, and it also includes 0, 5, 6 and 7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t3_m029",
+      "questionText": "192.168.1.0/24 is divided into /28 subnets, and subnet zero and the all-ones subnet are both used. How many usable host addresses are there in total across all the subnets?",
+      "options": [
+        "224",
+        "254",
+        "256",
+        "240"
+      ],
+      "correctIndex": 0,
+      "explanation": "/28 borrows 4 bits, giving 2^4 = 16 subnets with 2^4 − 2 = 14 usable hosts each, so 16 × 14 = 224. Subnetting spends 16 network and 16 broadcast addresses, against only 2 for the undivided /24 (254 hosts).",
+      "difficulty": "hard"
+    }
+  ]
+}

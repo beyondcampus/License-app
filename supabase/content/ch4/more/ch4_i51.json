@@ -1,0 +1,694 @@
+{
+  "topicId": "ch4_i51",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Scheduling Calculations and Schedulability"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every scheduling calculation starts from a Gantt chart and then uses four measures per task: completion time CT, turnaround time TAT = CT - arrival time, waiting time WT = TAT - CPU burst, and response time = first start - arrival time. State the tie-break rule (usually earlier arrival, then lower index) and, for round robin, where a new arrival joins the queue; the usual textbook convention is that a task arriving at the same instant a quantum expires is queued ahead of the pre-empted task. A pre-emptive policy is re-evaluated at every arrival and completion, a non-pre-emptive one only when the running task finishes or blocks."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: SRTF (pre-emptive SJF), no I/O, times in ms\nTask  Arrival  Burst\nP1    0        8\nP2    1        4\nP3    2        9\nP4    3        5\nGantt: | P1 0-1 | P2 1-5 | P4 5-10 | P1 10-17 | P3 17-26 |\nt = 1: P2 (4) is shorter than P1's remaining 7, so P1 is pre-empted\nWT = CT - AT - burst: P1 17-0-8 = 9    P2 5-1-4 = 0\n                      P3 26-2-9 = 15   P4 10-3-5 = 2\nAverage WT = 26/4 = 6.5 ms (non-pre-emptive SJF gives 7.75 ms)"
+    },
+    {
+      "type": "formula",
+      "latex": "R_i = C_i + B_i + \\sum_{j \\in hp(i)} \\left\\lceil \\frac{R_i}{T_j} \\right\\rceil C_j",
+      "plainText": "R_i = C_i + B_i + sum over higher-priority tasks j of ceil(R_i / T_j) x C_j; iterate from R_i = C_i + B_i"
+    },
+    {
+      "type": "paragraph",
+      "text": "The Liu and Layland bound comes from the critical instant: a task's worst response occurs when it is released together with every higher-priority task, and n(2^(1/n) - 1) is the least upper bound: every set at or below it is schedulable, while just above it some unlucky choice of periods and execution times misses a deadline. The bound is sufficient but not necessary; for example, task sets with harmonic periods (each period divides the next) stay RM-schedulable right up to U = 1. Response-time analysis (RTA) is exact for fixed priorities with D <= T: start with R = C + B, recompute the interference from higher-priority tasks until the value stops changing, and the task is schedulable if that R <= D. B is the blocking caused by lower-priority tasks holding shared resources."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: T1 (C=1, T=3), T2 (C=3, T=8), T3 (C=3, T=12), D = T\nU = 1/3 + 3/8 + 3/12 = 0.958 > 3(2^(1/3) - 1) = 0.780 -> RM bound inconclusive\nRTA with RM priorities T1 > T2 > T3:\n R1 = 1 <= 3  ok\n R2: 3 -> 3 + ceil(3/3)x1 = 4 -> 3 + ceil(4/3)x1 = 5 -> 5  <= 8  ok\n R3 = 3 + ceil(R/3)x1 + ceil(R/8)x3:\n      3 -> 7 -> 9 -> 12 -> 13 > 12  -> T3 misses under RM\nEDF: U = 0.958 <= 1 -> schedulable; T3's first job ends at t = 9 (deadline 12)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Algorithm",
+          "Priority basis",
+          "Optimal among",
+          "Exact test"
+        ],
+        [
+          "Rate-monotonic (RM)",
+          "Fixed: shorter period = higher",
+          "Fixed-priority policies, D = T",
+          "RTA; the bound n(2^(1/n) - 1) is only sufficient"
+        ],
+        [
+          "Deadline-monotonic (DM)",
+          "Fixed: shorter relative deadline = higher",
+          "Fixed-priority policies, D <= T",
+          "RTA"
+        ],
+        [
+          "Earliest deadline first (EDF)",
+          "Dynamic: earlier absolute deadline = higher",
+          "All pre-emptive policies on one CPU",
+          "U <= 1 when D = T"
+        ],
+        [
+          "Least laxity first (LLF)",
+          "Dynamic: smaller laxity d - t - c = higher",
+          "All pre-emptive policies on one CPU",
+          "U <= 1 when D = T, but far more context switches"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "How long priority inversion lasts depends on the locking protocol. With no protocol, a high-priority task H that is blocked on a mutex also waits for every medium-priority task that pre-empts the holder, so its blocking has no fixed limit. Basic priority inheritance limits H's blocking to at most one critical section of each lower-priority task that shares a resource with it, but blocking can still chain through several holders and deadlock is still possible. The priority ceiling protocol, and its simpler immediate-ceiling form used in OSEK/AUTOSAR kernels, limits blocking to a single critical section and makes deadlock through nested locks impossible."
+    },
+    {
+      "type": "bulletList",
+      "text": "Deadlines, laxity and jitter:",
+      "items": [
+        "Relative deadline D is measured from a job's release; the absolute deadline is d = release time + D, so job k of a task released first at t = 0 has d = (k - 1)T + D.",
+        "Laxity (slack) at time t is d - t - remaining execution; least-laxity-first runs the job with the smallest laxity, and a negative laxity means the deadline can no longer be met.",
+        "Release jitter is the variation in when a job actually becomes ready, for example up to one tick when periodic tasks are released by a 1 ms system tick.",
+        "Response (output) jitter is the spread of response times, R_max - R_min; control loops keep it small by sampling and actuating at the start of a high-priority task or inside a timer ISR."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{laxity} = d - t - c_{rem}",
+      "plainText": "Laxity = absolute deadline d - current time t - remaining execution time c_rem"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: measuring waiting time from t = 0 instead of from arrival; letting a newly arrived job cut in under a non-pre-emptive policy; using ln 2 = 0.693 instead of the bound for the actual n; calling a set unschedulable just because U exceeds the RM bound, when that test is only sufficient; and applying U <= 1 to EDF when deadlines are shorter than periods, where a processor-demand test is needed instead."
+    },
+    {
+      "type": "examTip",
+      "text": "For RM questions work in this order: compute U, compare it with n(2^(1/n) - 1) for the actual n, and if U lies between the bound and 1, run response-time analysis for each task from the highest priority down. For EDF with deadlines equal to periods, the single check U <= 1 decides the answer."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i51_m001",
+      "questionText": "Which is an advantage of cooperative multitasking compared with pre-emptive multitasking?",
+      "options": [
+        "A high-priority task always starts within one tick of becoming ready",
+        "A task that never yields cannot delay the other tasks",
+        "Every deadline is met whenever total utilisation is at most 1",
+        "Task switches happen only where the programmer yields, so data shared between tasks needs less locking"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because a cooperative task is never interrupted by another task between its yield points, a sequence of accesses to shared data between two yields is automatically indivisible with respect to other tasks (ISRs still need care). The price is that response time depends on the longest code between yields.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m002",
+      "questionText": "Why do hard real-time systems normally use pre-emptive priority scheduling instead of cooperative scheduling?",
+      "options": [
+        "A high-priority task's response time no longer depends on how long lower-priority tasks run before yielding",
+        "Pre-emptive scheduling removes the need for semaphores and mutexes",
+        "Pre-emptive scheduling always gives higher throughput than cooperative scheduling",
+        "Pre-emptive scheduling performs no context switches, so it has no overhead"
+      ],
+      "correctIndex": 0,
+      "explanation": "With pre-emption the kernel switches to a higher-priority task as soon as it becomes ready, so its response is bounded by kernel latency rather than by the longest code between yields. Pre-emption actually adds context switches and makes shared-data protection more important.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m003",
+      "questionText": "A priority-based pre-emptive RTOS has time slicing enabled. Tasks A and B are ready at the same, highest priority, and a lower-priority task C is also ready. How is the CPU shared?",
+      "options": [
+        "A and B alternate, one time slice each, and C runs only when neither A nor B is ready",
+        "A runs until it blocks or finishes, and only then does B run",
+        "A, B and C share the CPU in round-robin order, one slice each",
+        "C runs every third slice so that it does not starve"
+      ],
+      "correctIndex": 0,
+      "explanation": "Round robin applies only among tasks of the highest ready priority; a lower-priority task gets the CPU only when no higher-priority task is ready, so C may starve if A and B never block.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m004",
+      "questionText": "A cooperative kernel always picks the highest-priority ready task whenever the running task yields. Three background tasks run for at most 3 ms, 6 ms and 11 ms between yields. An urgent task U with the highest priority becomes ready at an arbitrary moment. Ignoring kernel overhead, what is U's worst-case delay before it starts?",
+      "options": [
+        "20 ms, the sum of the three runs",
+        "Just under 11 ms, the longest run between yields of any other task",
+        "6.67 ms, the average run length",
+        "Zero, because U has the highest priority"
+      ],
+      "correctIndex": 1,
+      "explanation": "U may become ready just after the 11 ms task has started, and nothing can pre-empt it, so U waits almost 11 ms; when that task yields, the scheduler picks U first, so the other tasks add nothing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m005",
+      "questionText": "Which practical difficulty limits the use of pure shortest-job-first (SJF) scheduling?",
+      "options": [
+        "It gives the highest average waiting time of all the common algorithms",
+        "It cannot be used when processes arrive at different times",
+        "It needs a separate hardware timer for every process",
+        "The length of each process's next CPU burst is not known in advance and has to be predicted"
+      ],
+      "correctIndex": 3,
+      "explanation": "SJF minimises average waiting time, but only if burst lengths are known; real schedulers estimate them, for example by exponential averaging of past bursts.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m006",
+      "questionText": "Which scheduling criterion does a CPU scheduler try to MAXIMISE rather than minimise?",
+      "options": [
+        "Throughput",
+        "Waiting time",
+        "Turnaround time",
+        "Response time"
+      ],
+      "correctIndex": 0,
+      "explanation": "Throughput (jobs completed per unit time) and CPU utilisation are maximised; waiting, turnaround and response times are minimised.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m007",
+      "questionText": "Several short processes wait behind one long CPU-bound process, so the average waiting time becomes large. This convoy effect is characteristic of which algorithm?",
+      "options": [
+        "First-come, first-served (FCFS)",
+        "Round robin",
+        "Shortest remaining time first (SRTF)",
+        "Earliest deadline first (EDF)"
+      ],
+      "correctIndex": 0,
+      "explanation": "FCFS is non-pre-emptive and ignores burst length, so short jobs queued behind a long one all wait for it to finish.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m008",
+      "questionText": "Which of these scheduling algorithms is inherently non-pre-emptive?",
+      "options": [
+        "Round robin",
+        "Shortest remaining time first (SRTF)",
+        "First-come, first-served (FCFS)",
+        "Earliest deadline first (EDF) as used in RTOS kernels"
+      ],
+      "correctIndex": 2,
+      "explanation": "FCFS runs each job to completion (or until it blocks) in arrival order; round robin pre-empts at the end of each quantum, and SRTF and EDF pre-empt when a more urgent job arrives.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m009",
+      "questionText": "Jobs J1, J2 and J3 arrive at time 0 in that order with CPU bursts of 10 ms, 4 ms and 6 ms and are scheduled FCFS. What is the turnaround time of J3?",
+      "options": [
+        "20 ms",
+        "14 ms",
+        "6 ms",
+        "14.67 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "J3 starts after 10 + 4 = 14 ms and completes at 20 ms, so its turnaround = 20 - 0 = 20 ms (14 ms is its waiting time and 14.67 ms is the average turnaround).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m010",
+      "questionText": "Processes P1, P2, P3 and P4 arrive at 0, 1, 2 and 3 ms with CPU bursts of 5, 3, 8 and 6 ms and are scheduled FCFS (no I/O). What is the average waiting time?",
+      "options": [
+        "7.25 ms",
+        "11.25 ms",
+        "5.25 ms",
+        "5.75 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "Gantt: P1 0-5, P2 5-8, P3 8-16, P4 16-22. Waiting = start - arrival = 0, 4, 6 and 13 ms, so the average is 23/4 = 5.75 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m011",
+      "questionText": "Non-pre-emptive SJF schedules P1, P2, P3 and P4, which arrive at 0, 1, 2 and 3 ms with CPU bursts of 8, 4, 2 and 1 ms. What is the average waiting time?",
+      "options": [
+        "2.75 ms",
+        "7 ms",
+        "5.5 ms",
+        "9.25 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only P1 is present at t = 0, so it runs 0-8; then the shortest waiting job goes first: P4 8-9, P3 9-11, P2 11-15. Waits are 0, 10, 7 and 5 ms, average 22/4 = 5.5 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m012",
+      "questionText": "Under SRTF (pre-emptive SJF), P1, P2, P3 and P4 arrive at 0, 1, 2 and 4 ms with CPU bursts of 7, 5, 2 and 3 ms. What is the average waiting time?",
+      "options": [
+        "5.25 ms",
+        "3.75 ms",
+        "5.5 ms",
+        "6.5 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Gantt: P1 0-1, P2 1-2, P3 2-4, P4 4-7, P2 7-11, P1 11-17. Waiting = CT - arrival - burst = 10, 5, 0 and 0 ms, average 15/4 = 3.75 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m013",
+      "questionText": "Under SRTF, P1, P2, P3 and P4 arrive at 0, 2, 3 and 5 ms with CPU bursts of 9, 4, 6 and 2 ms. What is the total waiting time of P1?",
+      "options": [
+        "14 ms",
+        "21 ms",
+        "12 ms",
+        "4.5 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "Gantt: P1 0-2, P2 2-6, P4 6-8, P3 8-14, P1 14-21. P1 waits from 2 to 14 ms, i.e. 21 - 0 - 9 = 12 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m014",
+      "questionText": "In priority scheduling, a low-priority process may never run because higher-priority processes keep arriving. Which technique prevents this?",
+      "options": [
+        "Increasing the time quantum",
+        "Ageing: gradually raising the priority of processes that have waited a long time",
+        "Priority inversion",
+        "Running the highest-priority process with interrupts disabled"
+      ],
+      "correctIndex": 1,
+      "explanation": "The problem is starvation (indefinite blocking); ageing raises a waiting process's priority over time so that it eventually runs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m015",
+      "questionText": "Non-pre-emptive priority scheduling (smaller number = higher priority) is applied to P1 (arrival 0 ms, burst 4 ms, priority 3), P2 (1, 3, 1), P3 (2, 5, 4) and P4 (3, 2, 2). What is the average waiting time?",
+      "options": [
+        "3.5 ms",
+        "4.25 ms",
+        "5 ms",
+        "7 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "P1 runs 0-4 because it is alone at t = 0; then P2 4-7, P4 7-9 and P3 9-14. Waits are 0, 3, 4 and 7 ms, average 14/4 = 3.5 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m016",
+      "questionText": "Pre-emptive priority scheduling (smaller number = higher priority) runs P1 (arrival 0 ms, burst 2 ms, priority 4), P2 (1, 2, 1), P3 (3, 2, 3) and P4 (4, 4, 2). What is the average turnaround time?",
+      "options": [
+        "4 ms",
+        "5.5 ms",
+        "3 ms",
+        "7.5 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Gantt: P1 0-1, P2 1-3, P3 3-4, P4 4-8, P3 8-9, P1 9-10. Turnaround = CT - arrival = 10, 2, 6 and 4 ms, average 22/4 = 5.5 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m017",
+      "questionText": "What happens to round-robin scheduling if the time quantum is made longer than the longest CPU burst of every process?",
+      "options": [
+        "It behaves like SJF",
+        "Context-switch overhead rises sharply",
+        "It behaves like FCFS",
+        "It becomes rate-monotonic scheduling"
+      ],
+      "correctIndex": 2,
+      "explanation": "No process is ever pre-empted by the quantum, so each runs to completion in queue order, which is exactly FCFS; overhead falls rather than rises.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m018",
+      "questionText": "Three processes arrive at time 0 in the order P1, P2, P3 with CPU bursts of 10, 4 and 7 ms. Round robin with a 3 ms quantum is used and context-switch time is ignored. What is the average waiting time?",
+      "options": [
+        "8 ms",
+        "9 ms",
+        "3 ms",
+        "11 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "Gantt: P1 0-3, P2 3-6, P3 6-9, P1 9-12, P2 12-13, P3 13-16, P1 16-19, P3 19-20, P1 20-21. Completions 21, 13 and 20 ms give waits 11, 9 and 13 ms, average 33/3 = 11 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m019",
+      "questionText": "Round robin with a 2 ms quantum schedules P1, P2, P3 and P4, arriving at 0, 1, 2 and 3 ms with CPU bursts of 5, 3, 1 and 2 ms. A process arriving at the same instant a quantum expires joins the ready queue ahead of the pre-empted process. What is the average waiting time?",
+      "options": [
+        "5 ms",
+        "4.5 ms",
+        "7.25 ms",
+        "1.75 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Gantt: P1 0-2, P2 2-4, P3 4-5, P1 5-7, P4 7-9, P2 9-10, P1 10-11. Waiting = CT - arrival - burst = 6, 6, 2 and 4 ms, average 18/4 = 4.5 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m020",
+      "questionText": "Under round robin with a 4 ms quantum, a process needs 17 ms of CPU time, never blocks and shares the CPU with other CPU-bound processes. How many times is it pre-empted by quantum expiry before it finishes?",
+      "options": [
+        "5",
+        "3",
+        "4.25",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "It receives ceil(17/4) = 5 quanta (4 + 4 + 4 + 4 + 1 ms); it is pre-empted at the end of the first four and finishes during the fifth.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m021",
+      "questionText": "An SJF scheduler predicts the next CPU burst with exponential averaging, τ(n+1) = α·t(n) + (1 - α)·τ(n), where α = 0.5 and the initial guess τ(1) = 10 ms. The next two measured bursts are t(1) = 6 ms and t(2) = 4 ms. What is the predicted burst τ(3)?",
+      "options": [
+        "8 ms",
+        "5 ms",
+        "6.67 ms",
+        "6 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "τ(2) = 0.5 x 6 + 0.5 x 10 = 8 ms, then τ(3) = 0.5 x 4 + 0.5 x 8 = 6 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m022",
+      "questionText": "FCFS runs P1 (arrival 0 ms, burst 3 ms), P2 (arrival 5 ms, burst 4 ms) and P3 (arrival 6 ms, burst 2 ms). Over the interval from 0 until the last process finishes, what are the CPU utilisation and the throughput?",
+      "options": [
+        "100 % and 0.273 processes per ms",
+        "81.8 % and 0.333 processes per ms",
+        "81.8 % and 0.273 processes per ms",
+        "18.2 % and 0.273 processes per ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "P1 runs 0-3, the CPU is idle 3-5, P2 runs 5-9 and P3 9-11. Utilisation = 9/11 = 81.8 % and throughput = 3 processes / 11 ms = 0.273 per ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m023",
+      "questionText": "Which scheduling algorithm assigns priorities dynamically, according to each job's absolute deadline?",
+      "options": [
+        "Rate-monotonic scheduling (RMS)",
+        "Earliest deadline first (EDF)",
+        "Deadline-monotonic scheduling (DMS)",
+        "First-come, first-served (FCFS)"
+      ],
+      "correctIndex": 1,
+      "explanation": "EDF gives the highest priority to the ready job whose absolute deadline is nearest, so priorities change at run time; RMS and DMS fix priorities at design time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m024",
+      "questionText": "Three periodic tasks have (C, T) = (1, 5), (2, 10) and (3, 20) ms. What is their total processor utilisation?",
+      "options": [
+        "0.171",
+        "0.45",
+        "1.82",
+        "0.55"
+      ],
+      "correctIndex": 3,
+      "explanation": "U = 1/5 + 2/10 + 3/20 = 0.20 + 0.20 + 0.15 = 0.55, i.e. 55 % of the CPU.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m025",
+      "questionText": "Four independent periodic tasks with deadlines equal to periods have (C, T) = (2, 8), (2, 10), (3, 20) and (6, 40) ms. What does the Liu and Layland test say about rate-monotonic scheduling of this set?",
+      "options": [
+        "U = 0.75 exceeds ln 2 = 0.693, so RM will miss a deadline",
+        "U = 0.75 is above the bound 0.743, so the test is inconclusive",
+        "U = 0.75 <= 0.757, so the set is guaranteed schedulable",
+        "The test cannot be applied because the periods are not harmonic"
+      ],
+      "correctIndex": 2,
+      "explanation": "U = 0.25 + 0.20 + 0.15 + 0.15 = 0.75 and the bound for n = 4 is 4(2^(1/4) - 1) = 0.757, so all deadlines are met; 0.693 is only the limit for very large n.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m026",
+      "questionText": "Tasks (C, T) = (1, 4), (2, 6) and (3, 10) ms, with deadlines equal to periods, share one processor. Which conclusion follows from the utilisation tests alone?",
+      "options": [
+        "The RM bound test is inconclusive (U = 0.883 > 0.780), but EDF is guaranteed to meet every deadline (U <= 1)",
+        "RM is guaranteed to meet every deadline because U = 0.883 <= 1",
+        "No algorithm can schedule the set because U exceeds 0.780",
+        "EDF cannot be used because the periods are not harmonic"
+      ],
+      "correctIndex": 0,
+      "explanation": "U = 0.25 + 0.333 + 0.30 = 0.883, above the n = 3 bound 0.780 but not above 1. (Response-time analysis shows RM does in fact meet every deadline here, with R3 = 10 ms, but the utilisation test alone cannot tell.)",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m027",
+      "questionText": "Under pre-emptive RM, T1 (C = 2 ms, T = 4 ms) and T2 (C = 3 ms, T = 10 ms) are both released at t = 0. At what time does the first job of T2 complete?",
+      "options": [
+        "5 ms",
+        "7 ms",
+        "3 ms",
+        "10 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "T1 0-2, T2 2-4, T1's second job pre-empts at 4 and runs 4-6, then T2 finishes its last 1 ms at 6-7, well before its deadline of 10 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m028",
+      "questionText": "Using response-time analysis, what is the worst-case response time of T3 under RM for T1 (C = 2, T = 5), T2 (C = 2, T = 8) and T3 (C = 3, T = 20), all in ms with deadlines equal to periods?",
+      "options": [
+        "13 ms",
+        "7 ms",
+        "11 ms",
+        "20 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "R = 3 + 2 x ceil(R/5) + 2 x ceil(R/8) iterates 3 -> 7 -> 9 -> 11 -> 13 -> 13, so R3 = 13 ms, within its 20 ms deadline.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m029",
+      "questionText": "T1 (C = 2 ms, T = 5 ms) and T2 (C = 4 ms, T = 7 ms), with deadlines equal to periods, are released together at t = 0 and scheduled by pre-emptive RM. What happens to the first job of T2?",
+      "options": [
+        "It completes at t = 6 and meets its deadline",
+        "It still needs 1 ms at t = 7 and misses its deadline",
+        "It completes at t = 7, exactly at its deadline",
+        "It still needs 2 ms at t = 7 and misses its deadline"
+      ],
+      "correctIndex": 1,
+      "explanation": "T1 runs 0-2, T2 2-5 (3 ms done), then T1's second job pre-empts it at 5-7, so T2 has 1 ms left at its deadline. Check: U = 0.971 > 0.828 and RTA gives 4 -> 6 -> 8 > 7. (EDF would finish it at t = 6.)",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m030",
+      "questionText": "Pre-emptive EDF schedules T1 (C = 1, T = 3), T2 (C = 2, T = 6) and T3 (C = 3, T = 10), all in ms with deadlines equal to periods and all released at t = 0. At what time does the first job of T3 complete?",
+      "options": [
+        "8 ms",
+        "7 ms",
+        "10 ms",
+        "It misses its deadline at 10 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "T1 0-1, T2 1-3, T1 3-4, T3 4-6, T1 6-7 (deadline 9), then T3 7-8 because its deadline 10 is earlier than the 12 ms deadline of T2's second job. Under RM, T2 would run 7-9 instead and T3 would miss at 10 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m031",
+      "questionText": "Tasks (C, T) = (1, 4) and (2, 10) ms already run on a processor. A third task with a 20 ms period (deadline = period) is added. What is the largest whole-millisecond execution time C3 that is guaranteed schedulable (a) by the Liu and Layland RM utilisation bound and (b) under EDF?",
+      "options": [
+        "7 ms by the RM bound and 11 ms under EDF",
+        "6 ms by the RM bound and 11 ms under EDF",
+        "4 ms by the RM bound and 11 ms under EDF",
+        "6 ms by the RM bound and 20 ms under EDF"
+      ],
+      "correctIndex": 1,
+      "explanation": "Existing U = 0.25 + 0.20 = 0.45. (a) 0.45 + C/20 <= 3(2^(1/3) - 1) = 0.780 gives C <= 6.6, so 6 ms; (b) 0.45 + C/20 <= 1 gives C <= 11 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m032",
+      "questionText": "Periodic tasks with periods 4, 6 and 10 ms are all released at t = 0. What is the hyperperiod, and how many jobs are released in one hyperperiod?",
+      "options": [
+        "240 ms and 124 jobs",
+        "60 ms and 3 jobs",
+        "60 ms and 31 jobs",
+        "20 ms and 3 jobs"
+      ],
+      "correctIndex": 2,
+      "explanation": "Hyperperiod = LCM(4, 6, 10) = 60 ms; jobs = 60/4 + 60/6 + 60/10 = 15 + 10 + 6 = 31.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m033",
+      "questionText": "Tasks (C, T) = (2, 4), (2, 8) and (4, 16) ms with deadlines equal to periods have total utilisation 1.0. Are they schedulable under pre-emptive RM?",
+      "options": [
+        "Yes; the periods are harmonic, so RM can use 100 % of the CPU, and every deadline in the 16 ms hyperperiod is met",
+        "No; U = 1.0 exceeds the n = 3 bound of 0.780",
+        "Only under EDF, because RM can never exceed 69.3 % utilisation",
+        "No; T3 misses its deadline at t = 16 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "Timeline: T1 0-2, T2 2-4, T1 4-6, T3 6-8, T1 8-10, T2 10-12, T1 12-14, T3 14-16, so every job meets its deadline (RTA gives R3 = 16 ms = D). The Liu and Layland bound is only a sufficient test.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m034",
+      "questionText": "Independent periodic tasks have relative deadlines shorter than their periods (D < T). Which fixed-priority assignment is optimal for them?",
+      "options": [
+        "Rate-monotonic: the shorter the period, the higher the priority",
+        "Longest execution time first",
+        "Priority in order of first release time",
+        "Deadline-monotonic: the shorter the relative deadline, the higher the priority"
+      ],
+      "correctIndex": 3,
+      "explanation": "Leung and Whitehead showed deadline-monotonic assignment is optimal among fixed-priority schemes when D <= T; RM is the special case D = T.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m035",
+      "questionText": "Which statement about pre-emptive EDF scheduling on one processor is NOT correct?",
+      "options": [
+        "Priorities are decided at run time from each job's absolute deadline",
+        "With deadlines equal to periods, a task set is schedulable if and only if U <= 1",
+        "EDF priorities are fixed at design time from the task periods",
+        "EDF can schedule some task sets that rate-monotonic scheduling cannot"
+      ],
+      "correctIndex": 2,
+      "explanation": "EDF is a dynamic-priority policy: the job with the nearest absolute deadline runs, so relative priorities of tasks change over time. Fixed priorities from periods describe RM.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m036",
+      "questionText": "A transient overload briefly pushes processor demand above 100 %. How do RM and EDF typically behave?",
+      "options": [
+        "Under EDF the lowest-priority tasks miss first; under RM misses cascade through all tasks",
+        "Both drop only the task with the longest period",
+        "EDF automatically discards the least important task, so no deadlines are missed",
+        "Under RM the lowest-priority tasks miss first while high-priority tasks stay protected; under EDF misses are hard to predict and can cascade"
+      ],
+      "correctIndex": 3,
+      "explanation": "RM's fixed priorities shield the high-priority (short-period) tasks during overload, whereas EDF gives priority to whichever job is nearest its deadline, so one late job can make many others late (the domino effect).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m037",
+      "questionText": "Liu and Layland proved that, under fixed-priority scheduling, a task's worst-case response time occurs when it is released:",
+      "options": [
+        "Just after all higher-priority tasks have completed",
+        "When the processor is otherwise idle",
+        "At the same instant as all higher-priority tasks (the critical instant)",
+        "Only at the start of the hyperperiod, and only if the periods are harmonic"
+      ],
+      "correctIndex": 2,
+      "explanation": "Releasing a task together with every higher-priority task produces the maximum interference, so testing that critical instant is enough; response-time analysis is built on the same idea.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m038",
+      "questionText": "At t = 30 ms three jobs are ready: J1 (absolute deadline 50 ms, 12 ms of execution left), J2 (deadline 45 ms, 4 ms left) and J3 (deadline 48 ms, 9 ms left). Which job runs under least-laxity-first (LLF), and which under EDF?",
+      "options": [
+        "Both LLF and EDF run J2",
+        "LLF runs J3 and EDF runs J2",
+        "Both LLF and EDF run J1",
+        "LLF runs J1 and EDF runs J2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Laxity = d - t - remaining: J1 = 50 - 30 - 12 = 8, J2 = 11 and J3 = 9 ms, so LLF picks J1; EDF picks the earliest deadline, J2 at 45 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m039",
+      "questionText": "A periodic task has period 20 ms and relative deadline 15 ms, and its first job is released at t = 0. What is the absolute deadline of its third job?",
+      "options": [
+        "55 ms",
+        "60 ms",
+        "35 ms",
+        "45 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "The third job is released at 2 x 20 = 40 ms, so its absolute deadline is 40 + 15 = 55 ms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m040",
+      "questionText": "What is the main drawback of making the round-robin time quantum very small?",
+      "options": [
+        "Round robin turns into FCFS",
+        "Short processes starve",
+        "Context-switch overhead takes a large share of CPU time",
+        "Average response time becomes very long"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each quantum ends in a context switch, so a tiny quantum means most CPU time goes on switching; a very large quantum makes RR behave like FCFS instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i51_m041",
+      "questionText": "A task is released at t = 0, 10, 20 and 30 ms, and its four jobs complete at 3, 14, 22 and 35 ms. Taking response-time jitter as the largest minus the smallest response time, what is it?",
+      "options": [
+        "5 ms",
+        "3 ms",
+        "3.5 ms",
+        "13 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Response = completion - release = 3, 4, 2 and 5 ms, so jitter = 5 - 2 = 3 ms (5 ms is the spread of the intervals between completions).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m042",
+      "questionText": "In a non-pre-emptive priority system, low-priority job L (execution 8 ms) starts at t = 0. High-priority job H (execution 2 ms, relative deadline 6 ms) arrives at t = 1 ms. When does H finish, and does it meet its deadline?",
+      "options": [
+        "At 3 ms, meeting its deadline",
+        "At 9 ms, missing its absolute deadline of 7 ms",
+        "At 10 ms, missing its absolute deadline of 7 ms",
+        "At 10 ms, meeting its deadline because it needs only 2 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "L cannot be pre-empted, so H waits until 8 ms and finishes at 10 ms, 3 ms after its absolute deadline 1 + 6 = 7 ms. With pre-emption it would finish at 3 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m043",
+      "questionText": "Which statement about the basic priority inheritance protocol is correct?",
+      "options": [
+        "The blocked high-priority task lowers its own priority to that of the mutex holder",
+        "A low-priority task holding a mutex temporarily runs at the priority of the highest-priority task blocked on it, and drops back when it releases the mutex",
+        "Every task that uses the mutex runs permanently at the highest priority of any of its users",
+        "It prevents deadlock between tasks that lock two mutexes in opposite orders"
+      ],
+      "correctIndex": 1,
+      "explanation": "Inheritance is temporary and only while the holder blocks a higher-priority task; it bounds priority inversion but does not prevent deadlock.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m044",
+      "questionText": "Priorities are H > M > L on a pre-emptive RTOS. L is released at 0 and immediately locks mutex X, which it holds for 3 ms of execution. H is released at 1 ms, immediately requests X and then needs 2 ms of execution while holding it. M, which never uses X, is released at 2 ms with 4 ms of execution. When does H finish without priority inheritance, and when with it?",
+      "options": [
+        "9 ms without inheritance and 7 ms with it",
+        "7 ms without inheritance and 5 ms with it",
+        "5 ms in both cases",
+        "9 ms without inheritance and 5 ms with it"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without inheritance: L 0-2 (H blocks at 1), M pre-empts L 2-6, L 6-7 releases X, H 7-9. With inheritance L runs at H's priority from t = 1, M cannot pre-empt it, L releases X at 3 and H runs 3-5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i51_m045",
+      "questionText": "Compared with basic priority inheritance, what does the priority ceiling protocol add?",
+      "options": [
+        "It prevents deadlock and chained blocking, so a task is blocked by at most one lower-priority critical section",
+        "It removes the need to know in advance which tasks use each resource",
+        "It lets a task keep a mutex locked across a long sleep without delaying any other task",
+        "It allows unbounded blocking but reduces the number of context switches"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each resource gets a ceiling equal to the highest priority of its users; a task may lock only when its priority is above the ceilings of resources locked by others, which rules out nested-lock deadlock and limits blocking to one critical section. This requires knowing each resource's users beforehand.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i51_m046",
+      "questionText": "High-priority task H uses mutexes R1 and R2. Lower-priority task L1 holds R1 for at most 3 ms per job, and lower-priority task L2 holds R2 for at most 5 ms per job; no critical sections are nested. Using the standard worst-case blocking bounds, what is H's maximum blocking per job under basic priority inheritance and under the priority ceiling protocol?",
+      "options": [
+        "5 ms under both protocols",
+        "8 ms under priority inheritance and 5 ms under the priority ceiling protocol",
+        "8 ms under both protocols",
+        "3 ms under priority inheritance and 8 ms under the priority ceiling protocol"
+      ],
+      "correctIndex": 1,
+      "explanation": "With inheritance H can be blocked once by each lower-priority task holding a resource it needs (chained blocking): 3 + 5 = 8 ms. The ceiling protocol allows blocking by at most one lower-priority critical section, the longest, 5 ms.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,513 @@
+{
+  "topicId": "ch5_i61",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Ciphers, Keys and RSA"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on the two families of ciphers, cleaned up and corrected:",
+      "items": [
+        "Cryptography is the science of secret writing: encryption turns plaintext into ciphertext under a key, and decryption turns it back.",
+        "Symmetric (secret-key) ciphers are like a padlock whose one key both locks and unlocks. They are fast and suit large amounts of data, but the key must reach the other side secretly, and every pair of users needs its own key.",
+        "DES (56-bit key) is obsolete and can be broken by brute force; AES with 128, 192 or 256-bit keys is the current standard. Both are symmetric.",
+        "Asymmetric (public-key) ciphers are like a mailbox: anyone can drop a letter through the slot (the public key), but only the owner can open the box (the private key). In RSA, what one key of the pair does, only the other key can undo.",
+        "For confidentiality you encrypt with the receiver's public key; for a digital signature you sign with your own private key. Public-key operations are roughly 100 to 1000 times slower, so they protect only short values such as session keys and hashes.",
+        "RSA is the best-known public-key system and ECC (elliptic-curve cryptography) the newer one with much smaller keys. RSA is used in TLS certificates, e-mail security (PGP, S/MIME) and digital signatures; TLS 1.3 no longer lets RSA carry the session key and uses ephemeral (EC)DH instead, keeping RSA for signatures."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: classical ciphers by hand (A=0, B=1, ..., Z=25)\nVigenere, key KEY:   A  T  T  A  C  K  ->   0 19 19  0  2 10\n  add key K E Y K E Y ->                   10  4 24 10  4 24\n  sum mod 26 = 10 23 17 10 6 8 -> KXRKGI (the two T's became X and R)\nRail fence, 3 rails, NETWORKSECURITY written in a zigzag:\n  N . . . O . . . E . . . I . .\n  . E . W . R . S . C . R . T .\n  . . T . . . K . . . U . . . Y\n  read row by row -> NOEI + EWRSCRT + TKUY = NOEIEWRSCRTTKUY\nPlayfair, key MONARCHY: rows MONAR / CHYBD / EFGIK / LPQST / UVWXZ\n  BALLOON -> pairs BA LX LO ON (an X splits the double L)\n  BA same column: letter below each -> IB;  LX rectangle -> SU\n  LO rectangle -> PM;  ON same row: letter to the right -> NA\n  ciphertext IBSUPMNA"
+    },
+    {
+      "type": "formula",
+      "latex": "C_i = (P_i + K_{i \\bmod m}) \\bmod 26, \\quad P_i = (C_i - K_{i \\bmod m}) \\bmod 26",
+      "plainText": "Vigenere: C_i = (P_i + K_(i mod m)) mod 26 and P_i = (C_i - K_(i mod m)) mod 26 for a key of m letters"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Cipher",
+          "Key size (bits)",
+          "Block size (bits)",
+          "Rounds and status"
+        ],
+        [
+          "DES",
+          "56 (64 with parity bits)",
+          "64",
+          "16 Feistel rounds; broken by brute force"
+        ],
+        [
+          "3DES (EDE)",
+          "112 or 168",
+          "64",
+          "48 DES rounds; disallowed by NIST for encryption after 2023"
+        ],
+        [
+          "AES-128",
+          "128",
+          "128",
+          "10 rounds; current standard"
+        ],
+        [
+          "AES-192",
+          "192",
+          "128",
+          "12 rounds"
+        ],
+        [
+          "AES-256",
+          "256",
+          "128",
+          "14 rounds"
+        ],
+        [
+          "RC4",
+          "40 to 2048",
+          "Stream (no blocks)",
+          "Broken; prohibited in TLS (RFC 7465)"
+        ],
+        [
+          "ChaCha20",
+          "256",
+          "Stream (no blocks)",
+          "20 rounds; used in TLS 1.3"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A block cipher needs a mode of operation to encrypt anything longer than one block. ECB encrypts every block independently with the same key, so identical plaintext blocks give identical ciphertext blocks and patterns show through; it should not be used for real data. CBC XORs each plaintext block with the previous ciphertext block before encrypting it (C_i = E_K(P_i ⊕ C_i−1), with a random IV as C_0), so encryption is sequential and the last block needs padding such as PKCS#7. CTR encrypts successive counter values (nonce ‖ counter) to make a keystream that is XORed with the data, which turns the block cipher into a stream cipher: blocks can be processed in parallel, no padding is needed, and a nonce must never be reused with the same key. GCM adds an authentication tag to CTR mode and is the usual choice in TLS."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: RSA key generation, encryption and decryption\np = 11, q = 13  ->  n = 143,  phi(n) = 10 x 12 = 120\ne = 7: gcd(7, 120) = 1, so e is valid\nExtended Euclid: 120 = 17 x 7 + 1  ->  1 = 120 - 17 x 7\n  so 7 x (-17) = 1 (mod 120) and d = -17 + 120 = 103\n  check: 7 x 103 = 721 = 6 x 120 + 1\nPublic key (7, 143); private key (103, 143)\nEncrypt m = 9 by square-and-multiply (7 = 4 + 2 + 1):\n  9^2 = 81;  9^4 = 81^2 = 6561 = 45 x 143 + 126 -> 126\n  9^7 = 9^4 x 9^2 x 9 = 126 x 81 x 9 (mod 143)\n  126 x 81 = 10206 = 71 x 143 + 53;  53 x 9 = 477 = 3 x 143 + 48\n  c = 48\nDecrypt: 48^103 mod 143 = 9 (the same method with the exponent d)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Decryption works because e × d = 1 + k × φ(n) for some integer k, so c^d = m^(ed) = m × (m^φ(n))^k, and Euler's theorem gives m^φ(n) ≡ 1 (mod n) when gcd(m, n) = 1; the Chinese remainder theorem shows it holds for every m < n. An attacker who factors n gets φ(n) = (p − 1)(q − 1) and then d by the same extended-Euclid step, which is why RSA's security rests on factoring; computing φ(n) from n alone is as hard as factoring it. In practice e = 65537 (binary 10000000000000001) is used, because it is prime and needs only 16 squarings and one multiplication, and n is at least 2048 bits. ECC reaches the same strength with far smaller keys: a 256-bit elliptic-curve key is about as strong as 3072-bit RSA."
+    },
+    {
+      "type": "bulletList",
+      "text": "Hashes, MACs and HMAC, and what each one proves:",
+      "items": [
+        "A hash H(m) has no key: anyone can recompute it, so on its own it detects accidental change but not deliberate tampering.",
+        "Strength of an n-bit hash: finding a preimage takes about 2^n trials, but by the birthday paradox a collision takes only about 2^(n/2), so MD5 (128 bits) offers at most 2^64 and SHA-256 offers 2^128 collision resistance.",
+        "A MAC is a keyed checksum, tag = MAC(K, m), with K shared by sender and receiver. It proves integrity and that the sender holds K, but gives no non-repudiation, because the receiver could have made the same tag.",
+        "HMAC (RFC 2104) builds a MAC from any hash: the key is padded to the hash's block size (64 bytes for SHA-256), XORed with ipad (bytes 0x36) and opad (bytes 0x5C), and the hash is applied twice. The nested form resists the length-extension weakness of a plain H(K || m).",
+        "Encryption gives confidentiality, a MAC gives integrity and origin, and a digital signature adds non-repudiation; AEAD modes such as AES-GCM give confidentiality and integrity together."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "HMAC(K,m) = H\\big((K' \\oplus opad) \\,\\|\\, H((K' \\oplus ipad) \\,\\|\\, m)\\big)",
+      "plainText": "HMAC(K, m) = H((K' XOR opad) || H((K' XOR ipad) || m)), where K' is the key padded to the hash block size"
+    },
+    {
+      "type": "examTip",
+      "text": "Numbers to remember: DES has a 56-bit key and 64-bit block; AES has a 128-bit block with 128, 192 or 256-bit keys and 10, 12 or 14 rounds; MD5, SHA-1 and SHA-256 give 128, 160 and 256-bit digests; n users need n(n − 1)/2 symmetric keys but only n key pairs (2n keys) with public-key cryptography. In RSA numericals, find d modulo φ(n) but encrypt and decrypt modulo n, and check that e × d mod φ(n) = 1 before using d."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: finding d modulo n instead of φ(n); forgetting to turn a negative result of the extended Euclidean algorithm into a positive one (−17 ≡ 103 mod 120); choosing an e that shares a factor with φ(n); and encrypting with your own private key when you want confidentiality. A Caesar cipher has only 25 useful keys, and a monoalphabetic cipher's 26! keys still fall to letter-frequency analysis, so a large keyspace alone does not prove a cipher secure."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i61_m001",
+      "questionText": "Which kind of encryption is faster, and is therefore used to encrypt bulk data?",
+      "options": [
+        "Symmetric (secret-key) encryption",
+        "Asymmetric (public-key) encryption",
+        "Both are equally fast",
+        "Neither; bulk data is protected only by hashing"
+      ],
+      "correctIndex": 0,
+      "explanation": "Symmetric ciphers such as AES use cheap bit operations, often in hardware, while public-key operations need modular arithmetic on 2048-bit numbers and are roughly 100 to 1000 times slower. Hybrid systems such as TLS and PGP therefore use public-key methods only to set up a symmetric session key.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m002",
+      "questionText": "AES is an example of:",
+      "options": [
+        "Asymmetric encryption",
+        "A hash function",
+        "Symmetric encryption (a block cipher)",
+        "A digital signature scheme"
+      ],
+      "correctIndex": 2,
+      "explanation": "AES (Rijndael) uses the same secret key to encrypt and decrypt 128-bit blocks, with 128, 192 or 256-bit keys. DES and 3DES are also symmetric, while RSA and ECC are asymmetric.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m003",
+      "questionText": "What is the RSA algorithm mainly used for in practice?",
+      "options": [
+        "Encrypting large files faster than AES can",
+        "Public-key encryption of short values, such as a session key, and digital signatures",
+        "Converting IP addresses into MAC addresses",
+        "Scanning a host for open TCP ports"
+      ],
+      "correctIndex": 1,
+      "explanation": "RSA is slow, so it protects only short values: a random symmetric key (as in PGP) or a message hash when signing. The bulk data is then encrypted with a symmetric cipher such as AES.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m004",
+      "questionText": "What is the primary purpose of the Diffie-Hellman key exchange?",
+      "options": [
+        "To encrypt e-mail attachments",
+        "To allocate IP addresses to hosts",
+        "To compress multimedia files",
+        "To let two parties agree on a shared secret key over an insecure network without ever sending the key itself"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each side sends only g^x mod p, and both compute the same g^(ab) mod p, which an eavesdropper could find only by solving the discrete logarithm problem. Plain Diffie-Hellman does not authenticate the parties, so it is combined with signatures or certificates to stop a man-in-the-middle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m005",
+      "questionText": "According to Kerckhoffs's principle, a cryptosystem should remain secure even if:",
+      "options": [
+        "The key is known to the attacker, as long as the algorithm stays secret",
+        "Everything about it except the key, including the algorithm, is known to the attacker",
+        "The attacker can read the plaintext before it is encrypted",
+        "Every user in the world shares the same key"
+      ],
+      "correctIndex": 1,
+      "explanation": "Security must rest on the secrecy of the key alone, because algorithms leak and can be reverse-engineered, and public algorithms such as AES are better studied. Relying on a secret algorithm is 'security through obscurity', the opposite idea.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m006",
+      "questionText": "Using a Caesar cipher with key k = 3 (each letter shifted three places forward), what is the ciphertext of NEPAL?",
+      "options": [
+        "KBMXI",
+        "RITEP",
+        "QHSDO",
+        "PGRCN"
+      ],
+      "correctIndex": 2,
+      "explanation": "C = (P + 3) mod 26: N to Q, E to H, P to S, A to D and L to O, giving QHSDO. KBMXI shifts backwards (that is decryption), while RITEP and PGRCN use shifts of 4 and 2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m007",
+      "questionText": "How many useful (non-identity) keys does a Caesar cipher have, and how many keys does a general monoalphabetic substitution cipher have?",
+      "options": [
+        "25 and 26! (about 4.0 x 10^26)",
+        "25 and 2^26 (about 6.7 x 10^7)",
+        "26 and 26^26 (about 6.2 x 10^36)",
+        "13 and 26 x 25 (650)"
+      ],
+      "correctIndex": 0,
+      "explanation": "A Caesar key is a shift of 1 to 25, since a shift of 0 or 26 changes nothing. A monoalphabetic key is any permutation of the 26 letters, so there are 26! = 4.0 x 10^26 keys, yet the cipher still falls quickly to letter-frequency analysis.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m008",
+      "questionText": "Encrypt NETWORK with the Vigenere cipher using the key KEY (A = 0, ..., Z = 25; the key is repeated as needed).",
+      "options": [
+        "YJSHTQV",
+        "DAVMKTA",
+        "XIRWORK",
+        "XIRGSPU"
+      ],
+      "correctIndex": 3,
+      "explanation": "Add KEYKEYK mod 26: N+K = 13+10 = 23 (X), E+E = 8 (I), T+Y = 43 mod 26 = 17 (R), W+K = 32 mod 26 = 6 (G), O+E = 18 (S), R+Y = 41 mod 26 = 15 (P), K+K = 20 (U). YJSHTQV counts A as 1, DAVMKTA subtracts the key (decryption) and XIRWORK forgets to repeat the key.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m009",
+      "questionText": "The plaintext SECURITY is encrypted with a rail-fence cipher of depth 2 (letters written alternately on two rails, then read rail by rail). What is the ciphertext, and what kind of cipher is this?",
+      "options": [
+        "SREUIYCT; a transposition cipher",
+        "SCRTEUIY; a transposition cipher",
+        "SCRTEUIY; a substitution cipher",
+        "YTIRUCES; a transposition cipher"
+      ],
+      "correctIndex": 1,
+      "explanation": "Rail 1 holds letters 1, 3, 5 and 7 (S, C, R, T) and rail 2 letters 2, 4, 6 and 8 (E, U, I, Y), giving SCRTEUIY. The letters are unchanged and only their order moves, which makes it a transposition cipher; SREUIYCT is what 3 rails would give.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m010",
+      "questionText": "A Playfair cipher uses the key MONARCHY, whose 5 x 5 matrix rows are MONAR, CHYBD, EFGIK, LPQST and UVWXZ (I and J share a cell). What is the ciphertext of SPOOF, splitting the double letter with X?",
+      "options": [
+        "TQVAHP",
+        "QLAVVH",
+        "TQAVHP",
+        "TQAVNG"
+      ],
+      "correctIndex": 2,
+      "explanation": "The pairs are SP, OX, OF: SP lies in one row, so each letter moves right (TQ); OX forms a rectangle, so each letter takes the corner in its own row and the other letter's column (AV); OF lies in one column, so each letter moves down (HP). TQVAHP swaps the rectangle corners, QLAVVH moves left and up (decryption), and TQAVNG treats the column pair like a row.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m011",
+      "questionText": "Alice wants to send Bob a message that only Bob can read, using public-key encryption. Which key does she encrypt it with?",
+      "options": [
+        "Alice's private key",
+        "Alice's public key",
+        "Bob's private key",
+        "Bob's public key"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only the holder of the matching private key, Bob, can decrypt what was encrypted with Bob's public key. Encrypting with Alice's private key makes a signature that anyone can undo with her public key, so it gives no confidentiality.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m012",
+      "questionText": "A company of 50 employees wants every pair of employees to be able to talk privately. How many secret keys are needed with pairwise symmetric encryption, and how many individual keys (public plus private) with public-key cryptography?",
+      "options": [
+        "1,225 and 100",
+        "2,450 and 100",
+        "1,225 and 50",
+        "2,500 and 50"
+      ],
+      "correctIndex": 0,
+      "explanation": "Symmetric: one key per pair, n(n - 1)/2 = 50 x 49 / 2 = 1,225. Public-key: each employee has one public and one private key, 2n = 100 keys, and a new employee adds only 2 keys instead of 50.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m013",
+      "questionText": "Which statement correctly contrasts block ciphers and stream ciphers?",
+      "options": [
+        "A block cipher uses a public key, while a stream cipher uses a private key",
+        "A stream cipher needs the data padded to a multiple of its block size, while a block cipher never needs padding",
+        "A block cipher encrypts fixed-size blocks (128 bits for AES), while a stream cipher XORs the data with a keystream bit by bit or byte by byte, as ChaCha20 does",
+        "Block ciphers are used only for hashing, and stream ciphers only for key exchange"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both kinds are symmetric. A block cipher in ECB or CBC mode may need padding, while a stream cipher (or a block cipher in CTR mode) needs none, but it must never reuse a keystream, that is, the same key with the same nonce.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m014",
+      "questionText": "What are the effective key length and the block size of DES?",
+      "options": [
+        "64-bit key, 56-bit block",
+        "56-bit key, 64-bit block",
+        "128-bit key, 128-bit block",
+        "56-bit key, 128-bit block"
+      ],
+      "correctIndex": 1,
+      "explanation": "DES takes a 64-bit key of which 8 bits are parity, leaving 56 effective key bits, and encrypts 64-bit blocks in 16 Feistel rounds. A 56-bit key is small enough to search exhaustively today.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m015",
+      "questionText": "AES-256 encrypts data in blocks of what size, and with how many rounds?",
+      "options": [
+        "256-bit blocks, 14 rounds",
+        "128-bit blocks, 10 rounds",
+        "256-bit blocks, 16 rounds",
+        "128-bit blocks, 14 rounds"
+      ],
+      "correctIndex": 3,
+      "explanation": "The AES block is always 128 bits; only the key length changes the number of rounds: 10 for AES-128, 12 for AES-192 and 14 for AES-256. Rijndael itself allowed larger blocks, but the AES standard (FIPS 197) fixes the block at 128 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m016",
+      "questionText": "A key-search machine tests 10^12 DES keys per second. How long does it take, in the worst case, to try every 56-bit DES key?",
+      "options": [
+        "About 20 hours",
+        "About 10 hours",
+        "About 214 days",
+        "About 2.3 years"
+      ],
+      "correctIndex": 0,
+      "explanation": "2^56 = 7.2 x 10^16 keys, and 7.2 x 10^16 / 10^12 = 7.2 x 10^4 s = 20.0 h. On average the key is found halfway (about 10 h); 214 days would be the time for a full 64-bit key and 2.3 years the time at only 10^9 keys per second.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m017",
+      "questionText": "Why is ECB mode unsuitable for encrypting an image, or any data with repeated patterns?",
+      "options": [
+        "ECB needs a new secret key for every block",
+        "ECB ciphertext cannot be decrypted without the IV, which is lost with the image",
+        "Identical plaintext blocks encrypt to identical ciphertext blocks under the same key, so the patterns stay visible in the ciphertext",
+        "ECB turns the block cipher into a public-key cipher, which is too slow for images"
+      ],
+      "correctIndex": 2,
+      "explanation": "ECB encrypts every block independently, with no IV and no chaining, so an encrypted bitmap still shows the outline of the picture. CBC, CTR or GCM with a fresh IV or nonce hide such patterns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m018",
+      "questionText": "Which statement about the CBC and CTR modes of operation is correct?",
+      "options": [
+        "CTR XORs each plaintext block with the previous ciphertext block, so it is sequential; CBC encrypts counter values, so it can run in parallel",
+        "CBC XORs each plaintext block with the previous ciphertext block before encrypting it, so encryption is sequential; CTR encrypts successive counter values to make a keystream, so blocks can be encrypted in parallel",
+        "Neither mode needs an IV or a nonce, because the key alone makes each block unique",
+        "CTR needs the plaintext padded to a multiple of the block size, while CBC does not"
+      ],
+      "correctIndex": 1,
+      "explanation": "In CBC, C_i = E_K(P_i XOR C_i-1) with a random IV as C_0, and the last block is padded. In CTR, C_i = P_i XOR E_K(nonce || i), which needs no padding and allows parallel encryption, but a nonce must never be reused with the same key.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m019",
+      "questionText": "A 1,030-byte message is encrypted with AES in CBC mode using PKCS#7 padding. How long is the ciphertext, not counting the IV?",
+      "options": [
+        "1,030 bytes",
+        "1,032 bytes",
+        "1,056 bytes",
+        "1,040 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "AES blocks are 16 bytes and 1,030 = 64 x 16 + 6, so PKCS#7 adds 10 padding bytes to fill a 65th block: 65 x 16 = 1,040 bytes. 1,030 ignores the padding, 1,032 uses 8-byte DES blocks, and 1,056 also counts the 16-byte IV.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m020",
+      "questionText": "What are the digest sizes of MD5, SHA-1 and SHA-256, respectively?",
+      "options": [
+        "128, 160 and 256 bits",
+        "160, 128 and 256 bits",
+        "64, 128 and 256 bits",
+        "128, 160 and 512 bits"
+      ],
+      "correctIndex": 0,
+      "explanation": "MD5 gives 128 bits and SHA-1 160 bits, and both are broken for collision resistance; SHA-256, from the SHA-2 family, gives 256 bits and is the current standard. SHA-512 is the family member with a 512-bit digest.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m021",
+      "questionText": "A cryptographic hash function makes it computationally infeasible to find ANY two different messages that produce the same digest. What is this property called?",
+      "options": [
+        "Preimage resistance (one-wayness)",
+        "Collision resistance",
+        "Second-preimage resistance",
+        "The avalanche effect"
+      ],
+      "correctIndex": 1,
+      "explanation": "Preimage resistance means a digest cannot be inverted to a message, and second-preimage resistance means that for a GIVEN message no other message with the same digest can be found. Collision resistance lets the attacker choose both messages, and by the birthday paradox it costs only about 2^(n/2) trials for an n-bit hash.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m022",
+      "questionText": "Why is elliptic-curve cryptography (ECC) often preferred to RSA in phones, smart cards and TLS?",
+      "options": [
+        "It is a symmetric cipher, so it is as fast as AES",
+        "It needs no private key, only a public one",
+        "It gives the same security with much smaller keys: a 256-bit ECC key is about as strong as a 3,072-bit RSA key",
+        "Its security rests on factoring, which is harder for curves than for integers"
+      ],
+      "correctIndex": 2,
+      "explanation": "ECC rests on the elliptic-curve discrete logarithm problem, for which no sub-exponential attack is known, so keys and signatures are short and operations are fast. It is still public-key cryptography, with a private and a public key.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m023",
+      "questionText": "Alice and Bob share a secret key and attach an HMAC-SHA256 tag to every message. What does a valid tag prove to Bob?",
+      "options": [
+        "That the message was kept confidential in transit",
+        "That Alice cannot later deny sending it, because only she knows the key",
+        "Nothing more than a plain SHA-256 hash, since anyone can compute the tag",
+        "That the message was not altered and came from someone holding the shared key; it gives no non-repudiation, because Bob could have made the same tag"
+      ],
+      "correctIndex": 3,
+      "explanation": "A MAC provides integrity and data-origin authentication but no confidentiality, since the message travels in clear unless it is also encrypted. Both parties hold the key, so a third party cannot tell which of them made a tag; non-repudiation needs a digital signature.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m024",
+      "questionText": "In RSA with p = 13 and q = 17, what are n and φ(n)?",
+      "options": [
+        "n = 221, φ(n) = 192",
+        "n = 221, φ(n) = 220",
+        "n = 30, φ(n) = 192",
+        "n = 192, φ(n) = 221"
+      ],
+      "correctIndex": 0,
+      "explanation": "n = p x q = 13 x 17 = 221 and φ(n) = (p - 1)(q - 1) = 12 x 16 = 192. 220 is n - 1, which is the totient only when n itself is prime.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i61_m025",
+      "questionText": "An RSA key has φ(n) = 192. Which of these values can be chosen as the public exponent e?",
+      "options": [
+        "3",
+        "12",
+        "11",
+        "16"
+      ],
+      "correctIndex": 2,
+      "explanation": "e must satisfy 1 < e < φ(n) and gcd(e, φ(n)) = 1 so that its inverse d exists. 192 = 2^6 x 3, so 3, 12 and 16 all share a factor with it, while gcd(11, 192) = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m026",
+      "questionText": "In RSA with p = 7, q = 19 and e = 5, what is the private exponent d?",
+      "options": [
+        "80",
+        "65",
+        "53",
+        "43"
+      ],
+      "correctIndex": 1,
+      "explanation": "φ(n) = 6 x 18 = 108, and the extended Euclidean algorithm gives 1 = 2 x 108 - 43 x 5, so d = -43 mod 108 = 65 (check: 5 x 65 = 325 = 3 x 108 + 1). 80 is the inverse modulo n = 133, 53 the inverse modulo n - 1 = 132, and 43 drops the minus sign.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m027",
+      "questionText": "A public RSA key is (e = 5, n = 91). What is the ciphertext of the message m = 4?",
+      "options": [
+        "16",
+        "1,024",
+        "20",
+        "23"
+      ],
+      "correctIndex": 3,
+      "explanation": "c = m^e mod n = 4^5 mod 91 = 1,024 mod 91 = 1,024 - 11 x 91 = 23. Reducing modulo φ(n) = 72 gives the wrong 16, 1,024 forgets the reduction, and 20 multiplies instead of raising to a power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i61_m028",
+      "questionText": "Bob's RSA key uses p = 5, q = 17 and e = 5. He receives the ciphertext c = 3. What plaintext m does he recover?",
+      "options": [
+        "63",
+        "73",
+        "19",
+        "27"
+      ],
+      "correctIndex": 0,
+      "explanation": "φ(n) = 4 x 16 = 64 and d = 13 (5 x 13 = 65 = 64 + 1), so m = 3^13 mod 85 = 63; re-encrypting, 63^5 mod 85 = 3 confirms it. 73 wrongly uses e as the exponent, 19 reduces modulo φ(n) instead of n, and 27 comes from the sign error d = -13 mod 64 = 51.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m029",
+      "questionText": "Alice and Bob run Diffie-Hellman with the public values p = 19 and g = 2. Alice's secret is a = 5 and Bob's is b = 7. What shared key K do they both compute?",
+      "options": [
+        "13",
+        "14",
+        "10",
+        "11"
+      ],
+      "correctIndex": 2,
+      "explanation": "A = 2^5 mod 19 = 13 and B = 2^7 mod 19 = 14 are sent in clear; Alice computes K = 14^5 mod 19 = 10 and Bob K = 13^7 mod 19 = 10, both equal to 2^35 mod 19. 13 and 14 are only the public values, and 11 is 2^(5+7) mod 19, which wrongly adds the exponents.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i61_m030",
+      "questionText": "Why does the security of RSA rest on the difficulty of factoring the modulus n?",
+      "options": [
+        "Factoring n reveals the plaintext directly, without any need for d",
+        "The public exponent e is hidden inside n, and factoring n reveals it",
+        "φ(n) is published with the public key, so n itself must be kept secret",
+        "Anyone who finds p and q can compute φ(n) = (p - 1)(q - 1) and then d = e^(-1) mod φ(n), recovering the private key"
+      ],
+      "correctIndex": 3,
+      "explanation": "The public key (e, n) is public, and φ(n) is the only missing piece needed to compute d. Multiplying p and q is easy, but no known classical algorithm can factor a 2048-bit n in practical time.",
+      "difficulty": "medium"
+    }
+  ]
+}

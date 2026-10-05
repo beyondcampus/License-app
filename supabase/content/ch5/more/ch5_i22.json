@@ -1,0 +1,484 @@
+{
+  "topicId": "ch5_i22",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Multiple Access"
+    },
+    {
+      "type": "paragraph",
+      "text": "Access control, the last of the five data link functions (framing, error detection, error correction, flow control and access control), decides who may use a shared medium at any moment. CSMA/CD follows the rules of a polite conversation: listen first (carrier sense), speak only when the line is quiet, keep listening while speaking, stop at once if someone else starts (collision detection), send a short jam signal so everyone knows, then wait a random backoff time and try again. A radio cannot follow the same rules, because its own signal drowns out any distant one while it is transmitting and it may not even hear every other station. Wi-Fi therefore uses CSMA/CA, which tries to avoid collisions before sending and learns about the ones that still happen from a missing ACK."
+    },
+    {
+      "type": "paragraph",
+      "text": "The ALOHA formulas assume that transmission attempts, new frames and retransmissions together, arrive as a Poisson process with an average of G attempts per frame time T_fr. A pure ALOHA frame survives only if no other attempt starts inside its 2 × T_fr vulnerable window, which happens with probability e^(−2G), while a slotted ALOHA frame only needs its own slot to itself, probability e^(−G). Multiplying by G gives the throughput S, and setting dS/dG = 0 puts the peaks at G = 0.5 for pure and G = 1 for slotted ALOHA. With a finite number N of stations that each send in a slot with probability p, a slot succeeds when exactly one station sends; the best choice p = 1/N gives a success rate that falls towards 1/e as N grows."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: ALOHA throughput\nChannel 50 kbps, frame 500 bits -> T_fr = 500 / 50 000 = 10 ms\nCapacity = 1 / T_fr = 100 frames/s; offered 50 frames/s -> G = 0.5\nPure ALOHA:    S = G e^(-2G) = 0.5 e^(-1)   = 0.184 -> 18.4 frames/s succeed\nSlotted ALOHA: S = G e^(-G)  = 0.5 e^(-0.5) = 0.303 -> 30.3 frames/s succeed\nOffered 100 frames/s (G = 1):\nPure ALOHA:    S = 1 x e^(-2) = 0.135 -> 13.5 frames/s (past its peak)\nSlotted ALOHA: S = 1 x e^(-1) = 0.368 -> 36.8 frames/s (exactly its peak)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The ratio a = t_prop / t_trans compares how long a station stays unaware of another transmission with the length of a frame. Carrier sensing only helps if news of a transmission spreads quickly relative to the frame time, so every CSMA variant works best when a is small, that is with short cables and long frames. Raising the bit rate while keeping the frame and cable unchanged shrinks t_trans and raises a, which is why half-duplex Gigabit Ethernet had to stretch its slot to 512 bytes (carrier extension) and why 10 Gbps Ethernet dropped CSMA/CD altogether."
+    },
+    {
+      "type": "formula",
+      "latex": "S_N = Np(1-p)^{N-1},\\quad a = \\frac{t_{prop}}{t_{trans}},\\quad \\eta_{CD} \\approx \\frac{1}{1+5a}",
+      "plainText": "Slotted ALOHA with N stations each sending with probability p: success probability per slot S_N = N p (1 − p)^(N − 1), largest at p = 1/N. CSMA/CD: a = t_prop / t_trans and efficiency η ≈ 1 / (1 + 5a) (Kurose–Ross approximation), which tends to 1 as a tends to 0."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: CSMA/CD distance and efficiency (v = 2 x 10^8 m/s)\nRule: T_fr >= 2 x t_prop, so d_max = v x T_fr / 2; minimum frame 64 bytes = 512 bits\n100 Mbps: T_fr = 512 / 10^8 = 5.12 us  -> d_max = 2e8 x 5.12e-6 / 2 = 512 m\n1 Gbps:   T_fr = 512 / 10^9 = 0.512 us -> d_max = 51.2 m (too short to be useful)\n1 Gbps, 512-byte slot (4096 bits): T_fr = 4.096 us -> d_max = 409.6 m\nEfficiency at 100 Mbps, 500 m cable, 1500-byte frames:\n  t_prop = 500 / 2e8 = 2.5 us; t_trans = 12 000 / 10^8 = 120 us; a = 0.0208\n  eta = 1 / (1 + 5 x 0.0208) = 0.906 -> about 90.6 %\nReal limits are shorter (about 205 m at 100 Mbps) because repeaters add delay"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: binary exponential backoff for two stations A and B (10 Mbps, slot 51.2 us)\nAfter collision 1: K from {0, 1}         P(same K, collide again) = 2/4  = 1/2\nAfter collision 2: K from {0, 1, 2, 3}   P(same K, collide again) = 4/16 = 1/4\nAfter collision 3: K from {0 .. 7}       P(same K, collide again) = 1/8\n  longest wait after collision 3 = 7 x 51.2 us = 358.4 us\nAfter collision n (n <= 10): K from {0 .. 2^n - 1}; collisions 10 to 15 keep {0 .. 1023}\nAfter the 16th collision the frame is dropped and an error is reported upward"
+    },
+    {
+      "type": "bulletList",
+      "text": "CSMA/CA as used by the 802.11 distributed coordination function (DCF):",
+      "items": [
+        "Physical carrier sense: a station senses the medium; if it has been idle for DIFS the countdown may proceed, otherwise the station waits.",
+        "Random backoff: the station picks a number of slots between 0 and the contention window CW; the counter drops by one for every idle slot and is frozen while the medium is busy, resuming after the next DIFS.",
+        "When the counter reaches zero the whole frame is sent; the sender cannot detect a collision during the transmission.",
+        "The receiver checks the CRC and returns an ACK after SIFS; a missing ACK means a collision or error, so the sender doubles CW (up to CWmax) and retries.",
+        "Virtual carrier sense: every frame carries a Duration field, and stations that hear it load their NAV timer and treat the medium as busy until it expires.",
+        "Collisions are reduced, not eliminated: two stations whose counters reach zero in the same slot still collide."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: CDMA with Walsh codes, N = 4\nA = +1 +1 +1 +1   B = +1 -1 +1 -1   C = +1 +1 -1 -1\nData: bit 1 -> +code, bit 0 -> -code, silent -> 0\nA sends 0:   -1 -1 -1 -1\nB sends 1:   +1 -1 +1 -1\nC sends 1:   +1 +1 -1 -1\nChannel sum: +1 -1 -1 -3\nDecode B: (+1)(+1) + (-1)(-1) + (-1)(+1) + (-3)(-1) = 4 -> 4 / 4 = +1 -> bit 1\nDecode A: (+1)(+1) + (-1)(+1) + (-1)(+1) + (-3)(+1) = -4 -> -4 / 4 = -1 -> bit 0\nOrthogonality: different codes give inner product 0, a code with itself gives N\nW(2N) = [W(N) W(N); W(N) -W(N)], so the number of codes N is a power of 2"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Method",
+          "How it works",
+          "Weak point"
+        ],
+        [
+          "Reservation",
+          "Each interval starts with a reservation frame of N minislots, one per station; a station marks its minislot to book a data slot",
+          "Minislot overhead grows with the number of stations"
+        ],
+        [
+          "Polling",
+          "A primary polls secondaries to collect data (poll, then data or NAK) and selects a secondary before sending to it (SEL, ACK, data)",
+          "Polling overhead; the primary is a single point of failure"
+        ],
+        [
+          "Token passing",
+          "A token circulates round a logical ring; only its holder sends, for at most the token holding time",
+          "A lost or duplicated token needs a monitor station; a station waits for the token even on an idle network"
+        ],
+        [
+          "Random access (for contrast)",
+          "Stations send when they wish and recover from collisions by backoff",
+          "No delay bound; throughput falls under heavy load"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: using the one-way delay where CSMA/CD needs the round trip (T_fr ≥ 2 × t_prop); mixing bits and bytes (512 bits = 64 bytes); quoting 36.8 % for pure ALOHA (it is 18.4 %); treating G as successful frames when it counts all attempts including retransmissions; assuming CSMA/CA prevents every collision; and applying CSMA/CD to full-duplex switched links, where there is no contention at all."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i22_m001",
+      "questionText": "CSMA/CD is the medium access method of which network?",
+      "options": [
+        "Token ring (IEEE 802.5)",
+        "Shared half-duplex Ethernet (IEEE 802.3)",
+        "Wi-Fi (IEEE 802.11)",
+        "Token bus (IEEE 802.4)"
+      ],
+      "correctIndex": 1,
+      "explanation": "CSMA/CD was defined for shared, half-duplex Ethernet. Token ring and token bus pass a token, so they have no collisions, and Wi-Fi uses CSMA/CA because a radio cannot detect collisions while it transmits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m002",
+      "questionText": "What is a collision on a shared Ethernet segment?",
+      "options": [
+        "Two or more stations transmit at the same time, so their signals overlap and the frames are garbled",
+        "A frame is delivered to the wrong destination MAC address",
+        "A receiver fails to acknowledge a frame within the timeout",
+        "A switch receives more frames than its buffers can hold"
+      ],
+      "correctIndex": 0,
+      "explanation": "On a shared medium, simultaneous transmissions overlap and corrupt each other; CSMA/CD detects this and makes the stations back off and retry. Ethernet sends no ACKs, and buffer overflow in a switch is congestion, not a collision.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m003",
+      "questionText": "Why do IEEE 802.11 wireless LANs use CSMA/CA instead of CSMA/CD?",
+      "options": [
+        "CSMA/CA guarantees that collisions can never happen",
+        "A radio cannot reliably detect a collision while it is transmitting, so the protocol tries to avoid collisions before sending and uses ACKs to discover failures",
+        "CSMA/CA uses smaller frames, which are transmitted faster",
+        "CSMA/CA raises the transmit power automatically when the channel is busy"
+      ],
+      "correctIndex": 1,
+      "explanation": "While transmitting, a station's own signal swamps any weak incoming signal, and hidden stations may be out of range, so collision detection is impractical. CSMA/CA waits an inter-frame space plus a random backoff to make collisions unlikely and treats a missing ACK as a failure; it reduces collisions but cannot rule them out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m004",
+      "questionText": "In CSMA/CD Ethernet, what is the jam signal used for?",
+      "options": [
+        "To raise the transmission rate when traffic is heavy",
+        "To synchronise the receiver's clock before a frame",
+        "To make sure every station involved notices that a collision has occurred",
+        "To request a new IP address from the DHCP server"
+      ],
+      "correctIndex": 2,
+      "explanation": "A station that detects a collision stops its frame and sends a 32-bit jam pattern so that the collision lasts long enough for every colliding station to detect it; then each station backs off. Clock synchronisation is the job of the preamble.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m005",
+      "questionText": "Which of the following is a controlled-access method rather than a random-access (contention) method?",
+      "options": [
+        "Pure ALOHA",
+        "1-persistent CSMA",
+        "CSMA/CA",
+        "Token passing"
+      ],
+      "correctIndex": 3,
+      "explanation": "In token passing only the station holding the token may send, so stations never contend and no collisions occur. ALOHA and all CSMA variants let stations transmit when they wish and recover from collisions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m006",
+      "questionText": "A pure ALOHA network sends 1000-bit frames on a 1 Mbps channel (1 Mbps = 10^6 bit/s). How long is the vulnerable time of each frame?",
+      "options": [
+        "1 ms",
+        "2 ms",
+        "0.5 ms",
+        "4 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "T_fr = 1000 / 10^6 = 1 ms. In pure ALOHA any frame that starts less than T_fr before or after it collides with it, so the vulnerable time is 2 × T_fr = 2 ms (slotted ALOHA would give 1 ms).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m007",
+      "questionText": "A pure ALOHA channel runs at 200 kbps with 200-bit frames. The stations offer a total of 500 frames per second, counting new frames and retransmissions. About how many frames per second get through successfully?",
+      "options": [
+        "About 184",
+        "About 303",
+        "About 92",
+        "500"
+      ],
+      "correctIndex": 0,
+      "explanation": "T_fr = 200 / 200 000 = 1 ms, so G = 500 × 1 ms = 0.5 frames per frame time and S = G e^(−2G) = 0.5 × e^(−1) = 0.184 successful frames per frame time. With 1000 frame times per second that is about 184 frames/s; multiplying S by the offered 500 frames/s (92) is a common slip, and slotted ALOHA would give about 303.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m008",
+      "questionText": "A slotted ALOHA channel carries an offered load of G = 2 frames per slot (Poisson arrivals). What fraction of the slots contain a collision?",
+      "options": [
+        "13.5%",
+        "27.1%",
+        "59.4%",
+        "86.5%"
+      ],
+      "correctIndex": 2,
+      "explanation": "P(empty) = e^(−2) = 0.135 and P(success) = G e^(−G) = 2e^(−2) = 0.271, so P(collision) = 1 − 0.135 − 0.271 = 0.594, about 59.4%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i22_m009",
+      "questionText": "Four stations share a slotted ALOHA channel, and in every slot each station transmits independently with probability p = 0.25. What is the probability that a given slot carries exactly one frame (a success)?",
+      "options": [
+        "10.5%",
+        "31.6%",
+        "36.8%",
+        "42.2%"
+      ],
+      "correctIndex": 3,
+      "explanation": "P(success) = N p (1 − p)^(N − 1) = 4 × 0.25 × 0.75^3 = 0.4219 ≈ 42.2%. Leaving out the factor N gives 10.5%, and 0.75^4 = 31.6% is the probability of an empty slot.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i22_m010",
+      "questionText": "A CSMA station finds the channel busy. Instead of watching it continuously, it waits a random time and then senses the channel again. Which persistence method is this?",
+      "options": [
+        "1-persistent",
+        "Non-persistent",
+        "p-persistent",
+        "Slotted ALOHA"
+      ],
+      "correctIndex": 1,
+      "explanation": "Non-persistent CSMA backs off for a random time whenever the channel is busy, which reduces collisions but leaves the channel idle more often. A 1-persistent station keeps sensing and sends the moment the channel frees, and a p-persistent station applies a probability p in each slot once the channel is idle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m011",
+      "questionText": "In p-persistent CSMA with p = 0.4, a waiting station finds the channel idle and it stays idle. What is the probability that the station transmits in the first or the second slot?",
+      "options": [
+        "0.16",
+        "0.40",
+        "0.64",
+        "0.80"
+      ],
+      "correctIndex": 2,
+      "explanation": "It sends in slot 1 with probability 0.4 and in slot 2 with probability 0.6 × 0.4 = 0.24, a total of 0.64 = 1 − 0.6^2. Adding p twice (0.80) or multiplying p by p (0.16) are the usual mistakes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m012",
+      "questionText": "In CSMA without collision detection, what is the vulnerable time during which another station's transmission can collide with a frame?",
+      "options": [
+        "2 × T_fr, twice the frame transmission time",
+        "T_fr, one frame transmission time",
+        "T_p, the propagation time across the medium",
+        "Zero, because sensing the carrier prevents every collision"
+      ],
+      "correctIndex": 2,
+      "explanation": "Once the first bit of a frame has reached every station, all of them sense the channel busy, so a colliding transmission can only start within the propagation time T_p. The values 2 × T_fr and T_fr are the vulnerable times of pure and slotted ALOHA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m013",
+      "questionText": "Which CSMA persistence method does classic IEEE 802.3 Ethernet use?",
+      "options": [
+        "1-persistent",
+        "Non-persistent",
+        "p-persistent with p = 0.1",
+        "p-persistent with p = 0.5"
+      ],
+      "correctIndex": 0,
+      "explanation": "An Ethernet station defers while the carrier is present and transmits as soon as the channel becomes idle (after the inter-frame gap), which is 1-persistent CSMA; the resulting collisions are handled by CSMA/CD and binary exponential backoff.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m014",
+      "questionText": "A 10 Mbps CSMA/CD LAN uses a minimum frame of 64 bytes, and the signal travels at 2 × 10^8 m/s. Ignoring repeater, processing and jam delays, what is the maximum distance between two stations for collisions to be detected reliably?",
+      "options": [
+        "640 m",
+        "2560 m",
+        "5120 m",
+        "10,240 m"
+      ],
+      "correctIndex": 2,
+      "explanation": "T_fr = 512 bits / 10^7 bit/s = 51.2 µs must cover the round trip, so t_prop ≤ 25.6 µs and d = 25.6 × 10^−6 s × 2 × 10^8 m/s = 5120 m. Using the whole 51.2 µs one way gives 10,240 m, and treating 64 as bits gives 640 m.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i22_m015",
+      "questionText": "A CSMA/CD network is upgraded from 10 Mbps to 100 Mbps but keeps the same 64-byte minimum frame. If the maximum network length is limited only by the rule that the frame transmission time must be at least the round-trip propagation time, the maximum length becomes:",
+      "options": [
+        "10 times longer",
+        "Unchanged",
+        "One-hundredth of the original",
+        "One-tenth of the original"
+      ],
+      "correctIndex": 3,
+      "explanation": "At 10 times the bit rate the 512-bit frame lasts one-tenth as long (5.12 µs instead of 51.2 µs), so the allowed round-trip time, and with it the distance, shrinks by a factor of 10. This is why Fast Ethernet collision domains are only about 200 m across.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m016",
+      "questionText": "The CSMA/CD slot time is 512 bit times. What is the slot time of 100 Mbps Fast Ethernet (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "51.2 µs",
+        "5.12 µs",
+        "0.512 µs",
+        "512 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Slot time = 512 bits / 10^8 bit/s = 5.12 µs. The familiar 51.2 µs belongs to 10 Mbps Ethernet, and 0.512 µs would be 512 bit times at 1 Gbps.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m017",
+      "questionText": "On 10 Mbps Ethernet (slot time 51.2 µs), a frame has just suffered its 4th consecutive collision. What is the longest backoff the station may choose before its next attempt?",
+      "options": [
+        "768 µs",
+        "819.2 µs",
+        "358.4 µs",
+        "1587.2 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "After the n-th collision K is chosen from 0 to 2^n − 1, so after the 4th collision K ≤ 15 and the longest wait is 15 × 51.2 µs = 768 µs. 819.2 µs forgets the −1, and 7 or 31 slots belong to the 3rd and 5th collisions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m018",
+      "questionText": "Stations A and B on a shared Ethernet have collided twice in a row. After the second collision each picks K uniformly from {0, 1, 2, 3}. What is the probability that A chooses a strictly smaller K than B, so that A transmits first without another collision?",
+      "options": [
+        "0.25",
+        "0.375",
+        "0.5",
+        "0.625"
+      ],
+      "correctIndex": 1,
+      "explanation": "Of the 4 × 4 = 16 equally likely pairs, K_A < K_B in 6: (0,1), (0,2), (0,3), (1,2), (1,3), (2,3), so P = 6/16 = 0.375. The 4 ties (0.25) collide again, and 0.625 wrongly counts the ties as wins for A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i22_m019",
+      "questionText": "After how many unsuccessful transmission attempts does a classic Ethernet station give up and discard a frame?",
+      "options": [
+        "8",
+        "10",
+        "15",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "The attempt limit is 16: after the 16th collision the frame is dropped and an error is reported. The number 10 is where the backoff range stops growing (K ≤ 1023).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m020",
+      "questionText": "A CSMA/CD LAN runs at 100 Mbps over 2 km of cable with signal speed 2 × 10^8 m/s, and all frames are 500 bytes. Using the approximation efficiency = 1 / (1 + 5a), where a = t_prop / t_trans and t_prop is the one-way end-to-end delay, what is the channel efficiency?",
+      "options": [
+        "44.4%",
+        "28.6%",
+        "80.0%",
+        "4.8%"
+      ],
+      "correctIndex": 0,
+      "explanation": "t_prop = 2000 / (2 × 10^8) = 10 µs and t_trans = 4000 bits / 10^8 bit/s = 40 µs, so a = 0.25 and efficiency = 1 / (1 + 1.25) = 0.444 = 44.4%. Using the round-trip delay (a = 0.5) gives 28.6%, and inverting a gives 4.8%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i22_m021",
+      "questionText": "Which change, on its own, increases the efficiency of a CSMA/CD network?",
+      "options": [
+        "Raising the bit rate while keeping the frame size and cable length unchanged",
+        "Lengthening the cable between the farthest stations",
+        "Using longer frames at the same bit rate and cable length",
+        "Letting stations transmit even while they sense the channel busy"
+      ],
+      "correctIndex": 2,
+      "explanation": "Efficiency depends on a = t_prop / t_trans and improves as a gets smaller. Longer frames raise t_trans and lower a, whereas a higher bit rate or a longer cable raises a, and ignoring the carrier only causes more collisions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m022",
+      "questionText": "Which statement about CSMA/CD is NOT correct?",
+      "options": [
+        "A station must still be transmitting when news of a collision returns, so the frame time must be at least the round-trip propagation time",
+        "After detecting a collision a station stops sending the frame and transmits a jam signal",
+        "The range from which the random backoff is chosen doubles after each collision, up to a limit",
+        "It is required on full-duplex switched links such as 10 Gigabit Ethernet"
+      ],
+      "correctIndex": 3,
+      "explanation": "Full-duplex point-to-point links have a separate path in each direction and no contention, so CSMA/CD is not used; 10 Gigabit Ethernet does not even support half-duplex operation. The other three statements describe CSMA/CD correctly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m023",
+      "questionText": "An 802.11 station is counting down its random backoff when another station starts transmitting. What does the first station do with its backoff counter?",
+      "options": [
+        "Resets it to a new random value when the channel becomes idle",
+        "Freezes it and resumes counting down after the channel has been idle for DIFS again",
+        "Keeps counting down and transmits when it reaches zero",
+        "Doubles its contention window immediately"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the 802.11 DCF the counter decreases only during idle slots; it is frozen while the medium is busy and resumes after a further DIFS of idle time, so the station keeps the waiting it has already done. The contention window doubles only after a failed transmission (no ACK).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m024",
+      "questionText": "In 802.11, a station sets its Network Allocation Vector (NAV) from the Duration field of frames it overhears. What does the NAV provide?",
+      "options": [
+        "Virtual carrier sensing",
+        "Physical carrier sensing",
+        "Collision detection",
+        "Forward error correction"
+      ],
+      "correctIndex": 0,
+      "explanation": "The NAV is a timer telling the station that the medium will be busy for the announced duration, so it defers even when it cannot hear the carrier itself; this is virtual carrier sensing. Physical carrier sensing is done by the radio's clear channel assessment.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m025",
+      "questionText": "A network with 6 stations uses the reservation access method. What does each reservation frame contain?",
+      "options": [
+        "One token that circulates among the 6 stations",
+        "A poll for each station issued by a primary station",
+        "A single slot that all 6 stations contend for",
+        "6 minislots, one belonging to each station"
+      ],
+      "correctIndex": 3,
+      "explanation": "Time is divided into intervals, each starting with a reservation frame of N minislots; a station with data marks its own minislot and then sends in the data slots that follow. Polling relies on a primary station and token passing on a token, not on minislots.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m026",
+      "questionText": "In polling-based controlled access, the primary station has a frame to send to a secondary. Which function does it use first?",
+      "options": [
+        "Poll",
+        "Token",
+        "Select (SEL)",
+        "RTS"
+      ],
+      "correctIndex": 2,
+      "explanation": "Before sending, the primary uses select to alert the secondary and waits for an ACK showing it is ready; poll works the other way round, asking secondaries whether they have data to send. RTS belongs to 802.11 and the token to token passing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m027",
+      "questionText": "In FDMA, what prevents the signals of neighbouring channels from interfering with each other?",
+      "options": [
+        "Guard bands left unused between adjacent frequency channels",
+        "Orthogonal chip sequences",
+        "Time slots separated by synchronisation bits",
+        "A token that grants the channel"
+      ],
+      "correctIndex": 0,
+      "explanation": "FDMA gives each user its own frequency band and leaves small guard bands between bands to absorb filter imperfections. Chip sequences belong to CDMA and time slots to TDMA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i22_m028",
+      "questionText": "GSM splits its spectrum into 200 kHz carriers and divides each carrier into 8 time slots, one per active call. Which channelisation methods does this combine?",
+      "options": [
+        "CDMA and TDMA",
+        "FDMA and CDMA",
+        "CSMA/CA and TDMA",
+        "FDMA and TDMA"
+      ],
+      "correctIndex": 3,
+      "explanation": "Separate carriers are frequency division (FDMA) and the 8 slots on each carrier are time division (TDMA). CDMA, used by IS-95 and 3G UMTS, separates users by codes instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m029",
+      "questionText": "In CDMA, station A uses the chip code [+1, +1, +1, +1] and station B uses [+1, −1, +1, −1]. A sends bit 1 and B sends bit 0 at the same time (bit 1 = +code, bit 0 = −code). What is the combined signal on the channel?",
+      "options": [
+        "[0, +2, 0, +2]",
+        "[+2, 0, +2, 0]",
+        "[0, −2, 0, −2]",
+        "[−1, +1, −1, +1]"
+      ],
+      "correctIndex": 0,
+      "explanation": "A contributes [+1, +1, +1, +1] and B contributes −[+1, −1, +1, −1] = [−1, +1, −1, +1]; adding chip by chip gives [0, +2, 0, +2]. [+2, 0, +2, 0] would mean both stations sent bit 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i22_m030",
+      "questionText": "Four CDMA stations use the Walsh codes A = [+1, +1, +1, +1], B = [+1, −1, +1, −1], C = [+1, +1, −1, −1] and D = [+1, −1, −1, +1]. A sends 1, B sends 0, C is silent and D sends 1 (bit 1 = +code, bit 0 = −code, silent = 0). A receiver decodes the channel signal with C's code. What does it obtain?",
+      "options": [
+        "+1, so C sent bit 1",
+        "−1, so C sent bit 0",
+        "0, so C was silent",
+        "A value that depends on the other stations' data"
+      ],
+      "correctIndex": 2,
+      "explanation": "The channel carries A − B + D = [+1, +1, −1, +3]. Its inner product with C is 1 + 1 + 1 − 3 = 0, and 0 / 4 = 0, so C sent nothing; because the codes are orthogonal, the other stations' data cancel out completely.",
+      "difficulty": "hard"
+    }
+  ]
+}

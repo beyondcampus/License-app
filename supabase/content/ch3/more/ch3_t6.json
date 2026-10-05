@@ -1,0 +1,707 @@
+{
+  "topicId": "ch3_t6",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Deduction, Specialisation and Instantiation"
+    },
+    {
+      "type": "paragraph",
+      "text": "Template argument deduction compares each function parameter type P with the type A of the matching argument and solves for the template parameters. For a by-value parameter T the argument first decays: an array becomes a pointer to its first element, a function becomes a function pointer, and top-level const is dropped, because the function works on a copy. For a reference parameter T& or const T& nothing decays, so T can become an array type such as int[5]. Deduction does not apply the ordinary implicit conversions such as int to double (only small adjustments such as adding const are allowed) and never looks at the return type, which is why maxOf(3, 4.5) fails and why a parameter used only in the return type must be written explicitly."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Parameter",
+          "Argument",
+          "T deduced as"
+        ],
+        [
+          "T x",
+          "const int c",
+          "int (top-level const dropped)"
+        ],
+        [
+          "T x",
+          "int a[5]",
+          "int* (the array decays)"
+        ],
+        [
+          "T &x",
+          "int a[5]",
+          "int[5] (no decay)"
+        ],
+        [
+          "T x",
+          "\"hi\"",
+          "const char*"
+        ],
+        [
+          "const T &x",
+          "\"hi\"",
+          "char[3]"
+        ],
+        [
+          "T *p",
+          "&c, where const int c",
+          "const int"
+        ],
+        [
+          "T a, T b",
+          "3 and 4.5",
+          "Deduction fails: int versus double"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\ntemplate <typename T> size_t byValue(T x)      { return sizeof(x); }\ntemplate <typename T> size_t byRef(const T &x) { return sizeof(x); }\ntemplate <typename R, typename T> R as(T x)    { return static_cast<R>(x); }\nint main() {\n    double d[4] = {1.5, 2.5, 3.5, 4.5};\n    cout << byValue(d) << \" \" << byRef(d) << endl;\n    cout << as<int>(d[3]) << \" \" << as<char>(65) << \" \" << as<double>(7) / 2 << endl;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (8-byte double and pointer, ASCII):\n8 32\n4 A 3.5\n\nbyValue(d)       T = double*, the array decayed: sizeof = 8\nbyRef(d)         T = double[4], no decay: 4 x 8 = 32\nas<int>(d[3])    R = int given, T = double deduced: 4.5 -> 4\nas<char>(65)     R = char: 65 is 'A', printed as a character\nas<double>(7)/2  R = double: 7.0 / 2 = 3.5, not integer division"
+    },
+    {
+      "type": "paragraph",
+      "text": "An explicit specialisation such as template <> void f<char>(char) is not a new overload: it only supplies a different body for one instantiation of an existing primary template. Overload resolution therefore works in two steps. First the compiler compares the ordinary functions and the primary templates, with their deduced arguments, and picks the best; an ordinary function wins a tie with a template, and between two templates the more specialised one wins. Only if the winner is a primary template does the compiler check whether that particular instantiation has an explicit specialisation, and use its body if it has."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\ntemplate <typename T> void f(T)  { cout << \"primary \"; }\ntemplate <> void f<char>(char)   { cout << \"spec-char \"; }\nvoid f(int)                      { cout << \"ordinary \"; }\nint main() {\n    f('x');\n    f(7);\n    f(7L);\n    f<>(7);\n    f<int>('x');\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: spec-char ordinary primary primary primary\n\nf('x')       f(int) needs a char -> int promotion; the template gives\n             T = char exactly, so the template wins, and f<char>\n             has an explicit specialisation: spec-char\nf(7)         f(int) and f<int> are both exact: the ordinary one wins\nf(7L)        only the template is exact (T = long): primary\nf<>(7)       empty <> allows templates only: f<int>, not specialised\nf<int>('x')  T fixed as int, 'x' converted to 120: primary"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each distinct, complete list of template arguments names a different specialisation: default arguments are filled in first, so Row<> and Row<int, 3> are the same class while Row<int, 4> is another one with its own static members. Only what is used gets instantiated: a member function of Stack<int> is compiled only if it is called, so a class template can hold a type that lacks an operator needed by an uncalled member. The declaration template class Stack<int>; (an explicit instantiation) forces every member to be generated in that file, which lets template code stay in a .cpp file for a fixed set of types. Because non-type arguments are compile-time constants, a class template can even recurse on them, with an explicit specialisation as the base case."
+    },
+    {
+      "type": "formula",
+      "latex": "F\\langle N\\rangle = N \\cdot F\\langle N-1\\rangle,\\quad F\\langle 0\\rangle = 1",
+      "plainText": "F<N>::value = N x F<N-1>::value, with the explicit specialisation F<0>::value = 1 as the base case; e.g. F<4> = 4 x 3 x 2 x 1 x 1 = 24, computed entirely by the compiler"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with templates:",
+      "items": [
+        "Naming a dependent type without typename: inside template <class C>, C::const_iterator it; does not compile; write typename C::const_iterator it;.",
+        "Giving a class template parameter a default and a later parameter none: template <class T = int, class U> class P; is ill-formed.",
+        "Using a run-time variable as a non-type argument: int n = 8; Buf<n> b; fails, while const int k = 8; Buf<k> b; is fine.",
+        "An out-of-class member definition must match its declaration exactly, including const: template <class T> T Box<T>::get() const { return v; }.",
+        "An explicit specialisation must be declared before the first use that would implicitly instantiate the same template arguments; place it right after the primary template.",
+        "Expecting a function template specialisation to beat an ordinary overload: specialisations never take part in overload resolution, so an ordinary overload is usually the clearer choice."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "To predict which function a call runs: (1) deduce T for every candidate template from the argument types, allowing no conversions; (2) rank the ordinary functions and templates, letting an ordinary function win a tie and the more specialised template win between templates; (3) only then swap in an explicit specialisation if the winning template has one. For class templates, fill in default arguments before deciding whether two names are the same type. Under C++17, Box b(2.5); deduces Box<double> from the constructor argument."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t6_m001",
+      "questionText": "A program defines template <typename T> T cube(T x) { return x * x * x; } but never calls cube or uses it in any other way. What code does the compiler generate from this template?",
+      "options": [
+        "One version for every built-in arithmetic type, ready for later calls",
+        "None: code is generated only for the template arguments the program actually uses",
+        "One generic version working on void* that is reused for all types",
+        "A single copy that is linked into the program and specialised at run time"
+      ],
+      "correctIndex": 1,
+      "explanation": "A template is only a blueprint. The compiler instantiates a concrete function for a type only when the program uses the template with that type, so an unused template produces no code (it is merely checked for syntax).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m002",
+      "questionText": "For the function template template <class T> T sq(T x) { return x * x; }, which types can be used as T?",
+      "options": [
+        "Only class types, because the keyword class is used",
+        "Only built-in types such as int and double",
+        "Any type for which the operations used in the body (copying and *) are valid, such as int, double or a class that overloads *",
+        "Only pointer types"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a template parameter list, class means the same as typename: T may be any type, built-in or user-defined. The only requirement is that the body compiles for that type, here that T can be copied and multiplied.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m003",
+      "questionText": "What does this program print? Assume <iostream> and <string> are included and using namespace std; is in effect.\n\ntemplate <typename T>\nT twice(T x) { return x + x; }\nint main() {\n    cout << twice(4) << \" \" << twice(1.5) << \" \" << twice(string(\"ab\"));\n    return 0;\n}",
+      "options": [
+        "8 3 abab",
+        "8 3.0 abab",
+        "8 2 abab",
+        "Compile error: + cannot be applied when T is string"
+      ],
+      "correctIndex": 0,
+      "explanation": "Three instantiations are made: T = int gives 4 + 4 = 8; T = double gives 3.0, which cout prints as 3; T = string uses the string + operator (concatenation), so ab followed by ab gives abab.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m004",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nvoid swapT(T &a, T &b) { T t = a; a = b; b = t; }\nint main() {\n    int x = 1, y = 2;\n    char p = 'p', q = 'q';\n    swapT(x, y);\n    swapT(p, q);\n    cout << x << y << p << q;\n    return 0;\n}",
+      "options": [
+        "12pq",
+        "21pq",
+        "12qp",
+        "21qp"
+      ],
+      "correctIndex": 3,
+      "explanation": "swapT takes its parameters by reference, so the originals are exchanged. swapT(x, y) uses T = int and swapT(p, q) uses T = char, giving x = 2, y = 1, p = 'q', q = 'p', printed as 21qp.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m005",
+      "questionText": "Assume the ASCII character set. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nT succ(T x) { return x + 1; }\nint main() {\n    cout << succ('A') << \" \" << succ(65);\n    return 0;\n}",
+      "options": [
+        "66 66",
+        "B 66",
+        "B B",
+        "66 B"
+      ],
+      "correctIndex": 1,
+      "explanation": "succ('A') deduces T = char: 'A' + 1 is computed as the int 66 but is converted back to char on return, so cout prints the character B. succ(65) deduces T = int and prints 66.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m006",
+      "questionText": "Given template <typename T> void f(T a, T b) { }, which of these calls compiles?",
+      "options": [
+        "f(1, 2L)",
+        "f('a', 98)",
+        "f(2.0f, 3.0)",
+        "f<double>(1, 2.5f)"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the first three calls deduction gets two different types for T (int and long, char and int, float and double) and fails, because deduction does not convert one argument to the type of the other. With T given explicitly as double nothing is deduced, and 1 and 2.5f are simply converted to double.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m007",
+      "questionText": "Assume int is 4 bytes and pointers are 8 bytes. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nsize_t byVal(T x) { return sizeof(x); }\ntemplate <typename T>\nsize_t byRef(T &x) { return sizeof(x); }\nint main() {\n    int a[10] = {0};\n    cout << byVal(a) << \" \" << byRef(a);\n    return 0;\n}",
+      "options": [
+        "8 40",
+        "40 40",
+        "8 8",
+        "40 8"
+      ],
+      "correctIndex": 0,
+      "explanation": "For the by-value parameter the array decays, so T = int* and sizeof(x) = 8. For the reference parameter there is no decay, T = int[10] and sizeof(x) = 10 x 4 = 40 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m008",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T, typename U>\nT add(T a, U b) { return a + b; }\nint main() {\n    cout << add(5, 2.7) << \" \" << add(2.7, 5);\n    return 0;\n}",
+      "options": [
+        "7.7 7.7",
+        "7 7",
+        "7 7.7",
+        "7.7 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "In add(5, 2.7), T = int and U = double; 5 + 2.7 = 7.7 is converted to the return type int, giving 7. In add(2.7, 5), T = double, so 7.7 is returned unchanged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m009",
+      "questionText": "Given template <typename T> T zero() { return T(); }, which statement compiles?",
+      "options": [
+        "int a = zero();",
+        "int b = zero(int);",
+        "int c = zero<int>();",
+        "int d = <int>zero();"
+      ],
+      "correctIndex": 2,
+      "explanation": "T appears only in the return type, and the type of the variable being initialised is not used for deduction, so T must be given explicitly: zero<int>() returns int(), which is 0. The other forms either leave T undeduced or are not valid syntax.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m010",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename R, typename T, typename U>\nR mul(T a, U b) { return a * b; }\nint main() {\n    cout << mul<int>(2.5, 3) << \" \";\n    cout << mul<double, int>(2.5, 3) << \" \";\n    cout << mul<double>(2.5, 3);\n    return 0;\n}",
+      "options": [
+        "7.5 7.5 7.5",
+        "7 6 7.5",
+        "7 7.5 7.5",
+        "7 6 7"
+      ],
+      "correctIndex": 1,
+      "explanation": "Explicit arguments fill R, T, U from the left and the rest are deduced. mul<int>(2.5, 3): 2.5 x 3 = 7.5 returned as int, 7. mul<double, int>(2.5, 3): T = int converts 2.5 to 2, so 2 x 3 = 6. mul<double>(2.5, 3): T = double, giving 7.5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m011",
+      "questionText": "Which line correctly begins an explicit (full) specialisation of template <typename T> void show(T x) for T = const char*?",
+      "options": [
+        "template <> void show<const char*>(const char* x)",
+        "template <typename T> void show<const char*>(T x)",
+        "void show<const char*>(const char* x)",
+        "specialize <const char*> void show(const char* x)"
+      ],
+      "correctIndex": 0,
+      "explanation": "An explicit specialisation starts with an empty parameter list, template <>, followed by the function with the template argument written after its name. Function templates cannot be partially specialised, template <> may not be omitted, and C++ has no specialize keyword.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m012",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nvoid kind(T) { cout << \"G\"; }\ntemplate <>\nvoid kind<double>(double) { cout << \"D\"; }\nint main() {\n    kind(1); kind(1.0); kind(1.0f); kind('1');\n    return 0;\n}",
+      "options": [
+        "GDDG",
+        "GGGG",
+        "DDGG",
+        "GDGG"
+      ],
+      "correctIndex": 3,
+      "explanation": "Deduction gives T = int, double, float and char for the four calls. Only kind(1.0) produces the specialised instantiation kind<double>; 1.0f makes T = float, which uses the general version, so the output is GDGG.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m013",
+      "questionText": "A program defines template <class T> class Box { ... }; and after it template <> class Box<bool> { ... };. Which statement is correct?",
+      "options": [
+        "Box<bool> automatically inherits every member of the primary template and may only add new ones",
+        "The specialisation is used for bool and also for every type that converts to bool, such as int",
+        "Box<bool> is a completely separate class definition used whenever Box<bool> is named; its members need not match the primary template",
+        "The specialisation must appear before the primary template in the source"
+      ],
+      "correctIndex": 2,
+      "explanation": "A full specialisation replaces the whole class for exactly that argument list; nothing is inherited from the primary template, so Box<bool> may have entirely different members. It applies only to Box<bool>, and it must come after the primary template has been declared.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m014",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nstruct Printer { void print(T x) { cout << \"[\" << x << \"]\"; } };\ntemplate <>\nstruct Printer<bool> {\n    void print(bool b) { cout << \"[\" << (b ? \"yes\" : \"no\") << \"]\"; }\n};\nint main() {\n    Printer<int> pi;\n    Printer<bool> pb;\n    pi.print(true); pb.print(true); pb.print(0);\n    return 0;\n}",
+      "options": [
+        "[1][yes][no]",
+        "[yes][yes][no]",
+        "[1][1][0]",
+        "[true][yes][no]"
+      ],
+      "correctIndex": 0,
+      "explanation": "pi is a Printer<int>, so print(true) converts true to the int 1 and prints [1]. pb uses the specialisation Printer<bool>: true prints [yes], and 0 is converted to false and prints [no].",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m015",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void f(T)  { cout << \"1\"; }\ntemplate <typename T> void f(T*) { cout << \"2\"; }\ntemplate <> void f<int*>(int*)   { cout << \"3\"; }\nint main() {\n    int x = 0;\n    f(&x);\n    return 0;\n}",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "Compile error: the call is ambiguous"
+      ],
+      "correctIndex": 1,
+      "explanation": "f<int*>(int*) is a specialisation of the first template (T = int* turns f(T) into f(int*)). Overload resolution compares only the primary templates: f(T) with T = int* and f(T*) with T = int are both exact, and the more specialised f(T*) wins, so 2 is printed; the specialisation of the losing template is never used.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m016",
+      "questionText": "A call matches an ordinary (non-template) function and a function template equally well, with no conversion needed for either. Which one does the compiler call?",
+      "options": [
+        "The function template, because a template is more general",
+        "Neither: the call is ambiguous and does not compile",
+        "Whichever of the two is declared first in the file",
+        "The ordinary function"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the conversion sequences are equally good, the tie-breaker rule prefers a non-template function over a function generated from a template. For example, with void f(int) and template <class T> void f(T), the call f(10) runs f(int).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m017",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void show(T) { cout << \"T\"; }\nvoid show(double) { cout << \"d\"; }\nint main() {\n    show(2.0); show(2); show(2.0f); show<>(2.0);\n    return 0;\n}",
+      "options": [
+        "dTTT",
+        "dddd",
+        "dTdd",
+        "dTdT"
+      ],
+      "correctIndex": 0,
+      "explanation": "show(2.0): show(double) and show<double> are both exact, so the ordinary function wins (d). show(2) and show(2.0f): the template gives T = int or float exactly, which beats the conversion to double (T, T). show<>(2.0): the empty <> restricts the call to templates, so T is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m018",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T> void g(T)        { cout << \"A\"; }\ntemplate <typename T> void g(T*)       { cout << \"B\"; }\ntemplate <typename T> void g(const T*) { cout << \"C\"; }\nint main() {\n    int n = 1;\n    const int c = 2;\n    g(n); g(&n); g(&c);\n    return 0;\n}",
+      "options": [
+        "ABB",
+        "AAA",
+        "ABC",
+        "ACC"
+      ],
+      "correctIndex": 2,
+      "explanation": "g(n): only g(T) fits (A). g(&n): g(T*) with T = int matches int* exactly, while g(const T*) needs an int* to const int* conversion, and g(T*) is more specialised than g(T) (B). g(&c): all three match const int* exactly and g(const T*) is the most specialised (C).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m019",
+      "questionText": "Which description of a class template is correct?",
+      "options": [
+        "A class that has only pure virtual functions and cannot be instantiated",
+        "A pattern with parameters from which the compiler generates a separate class for each set of template arguments used",
+        "A class from which every other class in the program must be derived",
+        "A class whose objects can be created only with new"
+      ],
+      "correctIndex": 1,
+      "explanation": "A class template such as template <class T> class Stack is a blueprint; Stack<int> and Stack<double> are two distinct classes generated from it. The first option describes an abstract class, not a template.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m020",
+      "questionText": "Given template <class T> class Pair { T first, second; };, which statement correctly creates an object of Pair holding int values?",
+      "options": [
+        "Pair p<int>;",
+        "template Pair<int> p;",
+        "Pair(int) p;",
+        "Pair<int> p;"
+      ],
+      "correctIndex": 3,
+      "explanation": "The template arguments are written in angle brackets directly after the template name: Pair<int> p;. Pair<int> is then used exactly like an ordinary class name.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m021",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nclass Duo {\n    T a, b;\npublic:\n    Duo(T x, T y) : a(x), b(y) {}\n    T sum() const { return a + b; }\n};\nint main() {\n    Duo<int> p(3, 4);\n    Duo<double> q(1.5, 2.25);\n    cout << p.sum() << \" \" << q.sum();\n    return 0;\n}",
+      "options": [
+        "7 3.75",
+        "7 3",
+        "7.0 3.75",
+        "7 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Duo<int> stores ints, so sum() returns 3 + 4 = 7. Duo<double> stores doubles, so sum() returns 1.5 + 2.25 = 3.75; cout prints 7 without a decimal point.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m022",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nclass Counter {\npublic:\n    static int count;\n    Counter() { ++count; }\n};\ntemplate <class T> int Counter<T>::count = 0;\nint main() {\n    Counter<int> a, b;\n    Counter<double> c;\n    Counter<int> d;\n    cout << Counter<int>::count << \" \" << Counter<double>::count;\n    return 0;\n}",
+      "options": [
+        "4 4",
+        "3 1",
+        "3 3",
+        "4 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each instantiation is a separate class with its own static member. Counter<int>::count is increased by a, b and d (3) and Counter<double>::count only by c (1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m023",
+      "questionText": "Which numbered line causes a compile error?\n\ntemplate <class T>\nclass Box {\n    T v;\npublic:\n    Box(T x);\n    T get() const;\n    void set(T x);\n};\ntemplate <class T> Box<T>::Box(T x) : v(x) {}         // line 1\ntemplate <class T> T Box<T>::get() { return v; }      // line 2\ntemplate <class T> void Box<T>::set(T x) { v = x; }   // line 3\nint main() { Box<int> b(5); b.set(7); return 0; }     // line 4",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "get is declared as a const member function, so its out-of-class definition must also say const: template <class T> T Box<T>::get() const { return v; }. Without const the definition matches no member declared in Box<T>.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m024",
+      "questionText": "Why are the member function definitions of a class template normally written in the header file along with the class, instead of in a separately compiled .cpp file?",
+      "options": [
+        "The compiler must see the full definitions wherever a new specialisation such as Stack<int> is used, so that it can generate the code there",
+        "C++ does not allow the keyword template to appear in a .cpp file",
+        "Class template members are processed by the preprocessor, which reads only header files",
+        "Placing them in the header makes every member function virtual"
+      ],
+      "correctIndex": 0,
+      "explanation": "Code for Stack<int>::push is generated only where the compiler sees both the use and the template definition. If the definitions sit in another .cpp file, the calls compile but linking fails with undefined references, unless that file explicitly instantiates the needed types.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m025",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T, int N>\nclass Ring {\n    T d[N]; int pos = 0;\npublic:\n    void put(T x);\n    T get(int i) const { return d[i]; }\n};\ntemplate <class T, int N>\nvoid Ring<T, N>::put(T x) { d[pos] = x; pos = (pos + 1) % N; }\nint main() {\n    Ring<int, 3> r;\n    for (int i = 1; i <= 5; i++) r.put(i * 10);\n    cout << r.get(0) << \" \" << r.get(1) << \" \" << r.get(2);\n    return 0;\n}",
+      "options": [
+        "10 20 30",
+        "30 40 50",
+        "50 40 30",
+        "40 50 30"
+      ],
+      "correctIndex": 3,
+      "explanation": "With N = 3, pos cycles 0, 1, 2, 0, 1. The puts store 10 in d[0], 20 in d[1], 30 in d[2], then 40 overwrites d[0] and 50 overwrites d[1], so the array holds 40 50 30.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m026",
+      "questionText": "Under C++17, what is the type of b after the declaration Box b(2.5); given template <class T> struct Box { T v; Box(T x) : v(x) {} };?",
+      "options": [
+        "Box<float>",
+        "Box<int>",
+        "Box<double>",
+        "It does not compile: the template argument must be written, as in Box<double> b(2.5);"
+      ],
+      "correctIndex": 2,
+      "explanation": "C++17 added class template argument deduction: the constructor argument 2.5 is a double, so T = double and b is a Box<double>. Before C++17 the template argument had to be written explicitly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m027",
+      "questionText": "Which keyword must replace ____ for this function template to compile when it is called with a std::vector<int>?\n\ntemplate <class C>\nint firstOf(const C &c) {\n    ____ C::const_iterator it = c.begin();\n    return *it;\n}",
+      "options": [
+        "typename",
+        "template",
+        "const",
+        "static"
+      ],
+      "correctIndex": 0,
+      "explanation": "C::const_iterator depends on the template parameter C, and the compiler assumes such a qualified name is not a type unless it is preceded by typename. Writing typename C::const_iterator it declares it as an iterator variable.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m028",
+      "questionText": "In template <class T, int N> class Array { T a[N]; };, what kind of template parameter is N?",
+      "options": [
+        "A type parameter, so Array<int, double> is valid",
+        "A default argument that the constructor receives at run time",
+        "A run-time variable that can change after an object is created",
+        "A non-type parameter: its argument must be a compile-time constant of type int, as in Array<char, 16>"
+      ],
+      "correctIndex": 3,
+      "explanation": "N is a non-type (value) template parameter. Its argument must be a constant expression, because it becomes part of the type: Array<char, 16> and Array<char, 32> are different classes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m029",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <int N>\nint power(int x) {\n    int r = 1;\n    for (int i = 0; i < N; i++) r *= x;\n    return r;\n}\nint main() {\n    cout << power<3>(2) << \" \" << power<0>(5);\n    return 0;\n}",
+      "options": [
+        "9 1",
+        "8 1",
+        "8 0",
+        "6 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "power<3>(2) multiplies 2 three times: 2 x 2 x 2 = 8. In power<0>(5) the loop runs zero times, so r keeps its starting value 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m030",
+      "questionText": "Which numbered line causes a compile error?\n\ntemplate <int N>\nstruct Buf { char b[N]; };\nint main() {\n    const int k = 8;\n    int n = 8;\n    Buf<8> a;              // line 1\n    Buf<k * 2> b;          // line 2\n    Buf<n> c;              // line 3\n    Buf<sizeof(int)> d;    // line 4\n    return 0;\n}",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "A non-type template argument must be a constant expression. k is a const int initialised with a constant and sizeof(int) is known at compile time, but n is an ordinary variable, so Buf<n> is rejected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m031",
+      "questionText": "Assume double is 8 bytes. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T, int N>\nclass Array {\n    T a[N];\npublic:\n    int size() const { return N; }\n    int bytes() const { return sizeof(a); }\n};\nint main() {\n    Array<double, 5> x;\n    Array<char, 5> y;\n    cout << x.size() << \" \" << x.bytes() << \" \" << y.bytes();\n    return 0;\n}",
+      "options": [
+        "5 40 5",
+        "5 5 5",
+        "40 40 5",
+        "5 40 40"
+      ],
+      "correctIndex": 0,
+      "explanation": "size() returns the non-type argument N = 5. The member array T a[N] occupies N x sizeof(T) bytes: 5 x 8 = 40 for double and 5 x 1 = 5 for char.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m032",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <int N>\nstruct Fact { static const int value = N * Fact<N - 1>::value; };\ntemplate <>\nstruct Fact<0> { static const int value = 1; };\nint main() {\n    cout << Fact<5>::value << \" \" << Fact<0>::value;\n    return 0;\n}",
+      "options": [
+        "0 1",
+        "120 0",
+        "Compile error: the recursion in Fact never ends",
+        "120 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Fact<5> needs Fact<4>, down to Fact<0>, which is the explicit specialisation with value 1 and stops the recursion. The compiler computes 5 x 4 x 3 x 2 x 1 x 1 = 120, and Fact<0>::value is 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m033",
+      "questionText": "Assume int is 4 bytes, double is 8 bytes and the compiler adds no padding to the structs. What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T = int, int N = 3>\nstruct Row { T cell[N]; };\nint main() {\n    cout << sizeof(Row<>) << \" \" << sizeof(Row<char>);\n    cout << \" \" << sizeof(Row<double, 2>);\n    return 0;\n}",
+      "options": [
+        "12 12 16",
+        "3 3 2",
+        "12 3 16",
+        "12 3 24"
+      ],
+      "correctIndex": 2,
+      "explanation": "Missing arguments take their defaults. Row<> is Row<int, 3>: 3 x 4 = 12 bytes. Row<char> is Row<char, 3>: 3 x 1 = 3 bytes. Row<double, 2> overrides both: 2 x 8 = 16 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m034",
+      "questionText": "Which class template declaration does NOT compile?",
+      "options": [
+        "template <class T, class U = T> class P;",
+        "template <class T = int, class U> class P;",
+        "template <class T, int N = 10> class P;",
+        "template <class T = char, int N = 5> class P;"
+      ],
+      "correctIndex": 1,
+      "explanation": "As with default function arguments, once a class template parameter has a default, every parameter after it must have one too, so T = int followed by a plain U is ill-formed. A default may refer to an earlier parameter, as in U = T.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m035",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename R = int, typename T>\nR avg(T a, T b) { return (a + b) / 2; }\nint main() {\n    cout << avg(3.0, 4.0) << \" \";\n    cout << avg<double>(3.0, 4.0) << \" \";\n    cout << avg<double>(3, 4);\n    return 0;\n}",
+      "options": [
+        "3 3.5 3",
+        "3.5 3.5 3.5",
+        "3 3.5 3.5",
+        "3.5 3.5 3"
+      ],
+      "correctIndex": 0,
+      "explanation": "avg(3.0, 4.0): R takes its default int, so 3.5 is returned as 3. avg<double>(3.0, 4.0): R = double, giving 3.5. avg<double>(3, 4): T is deduced as int, so (3 + 4) / 2 is integer division = 3, returned as 3.0 and printed as 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m036",
+      "questionText": "Which template header does NOT compile when it is followed by struct X { };?",
+      "options": [
+        "template <class T>",
+        "template <typename T, class U>",
+        "template <typename T, int N>",
+        "template <class T, class T>"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each template parameter must have a distinct name, so declaring T twice is an error. Mixing typename and class, or type and non-type parameters, is allowed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m037",
+      "questionText": "Compared with the function-like macro #define MAX(a, b) ((a) > (b) ? (a) : (b)), what is an advantage of the function template template <class T> T maxOf(T a, T b)?",
+      "options": [
+        "The template is expanded by the preprocessor, so it never adds a function call",
+        "The template can also be used in C programs",
+        "The template's arguments are type-checked and each argument expression is evaluated exactly once",
+        "The template accepts two arguments of different types, such as maxOf(3, 4.5), without any extra code"
+      ],
+      "correctIndex": 2,
+      "explanation": "A template is compiled like a real function: arguments are type-checked and evaluated once, so maxOf(i++, j) increments i only once. Templates are handled by the compiler, not the preprocessor, do not exist in C, and maxOf(3, 4.5) fails deduction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m038",
+      "questionText": "Which statement comparing function templates with function-like macros is NOT correct?",
+      "options": [
+        "A template obeys scope and namespace rules, while a macro name is replaced everywhere after its #define",
+        "Both are expanded by the preprocessor before the compiler proper sees the code",
+        "A template can be given a specialised version for one particular type",
+        "An argument such as i++ passed to a template is evaluated only once"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only macros are handled by the preprocessor, as plain text substitution; templates are instantiated by the compiler, with full type checking. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m039",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\n#define MAXM(a, b) ((a) > (b) ? (a) : (b))\ntemplate <typename T>\nT maxT(T a, T b) { return a > b ? a : b; }\nint main() {\n    cout << MAXM(9, 2.5) / 2 << \" \" << maxT<int>(9, 2.5) / 2;\n    return 0;\n}",
+      "options": [
+        "4 4",
+        "4.5 4.5",
+        "4 4.5",
+        "4.5 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "The macro becomes ((9) > (2.5) ? (9) : (2.5)) / 2; a conditional with int and double operands has type double, so 9.0 / 2 = 4.5. maxT<int> converts 2.5 to 2 and returns the int 9, so 9 / 2 is integer division = 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m040",
+      "questionText": "When is a function template instantiated for a particular type such as int?",
+      "options": [
+        "At compile time, when the compiler meets a use (such as a call) that needs that type",
+        "During preprocessing, like a macro",
+        "At link time, when the object files are combined",
+        "At run time, the first time the function is called"
+      ],
+      "correctIndex": 0,
+      "explanation": "Instantiation is done by the compiler: a use such as maxOf(3, 7) makes it generate and type-check maxOf<int>. Nothing about templates happens at run time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t6_m041",
+      "questionText": "How many distinct specialisations (instantiations) of neg does the compiler generate for this program?\n\ntemplate <typename T>\nT neg(T x) { return -x; }\nint main() {\n    neg(2); neg(3); neg(2.0); neg(2.0f); neg('a'); neg(5);\n    return 0;\n}",
+      "options": [
+        "1",
+        "3",
+        "4",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "One function is generated per distinct deduced type, not per call: neg<int> (for 2, 3 and 5), neg<double>, neg<float> and neg<char>, which makes 4. 2.0f is a float and 'a' is a char, so neither reuses another instantiation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m042",
+      "questionText": "What does this program print? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <typename T>\nint counter(T) { static int n = 0; return ++n; }\nint main() {\n    counter(1); counter(2); counter(3.0);\n    cout << counter(4) << \" \" << counter(5.0) << \" \" << counter('x');\n    return 0;\n}",
+      "options": [
+        "4 5 6",
+        "3 2 1",
+        "3 2 4",
+        "1 1 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each instantiation has its own static n. counter<int> is called with 1, 2 and then 4, so it returns 3; counter<double> is called with 3.0 and then 5.0, so it returns 2; counter<char> is new and returns 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m043",
+      "questionText": "S has no ++ operator and no << operator. What happens when this program is compiled and run? Assume <iostream> is included and using namespace std; is in effect.\n\ntemplate <class T>\nstruct W {\n    T v;\n    void inc() { v++; }\n    void show() { cout << v; }\n};\nstruct S { };\nint main() {\n    W<S> w;\n    cout << \"ok\";\n    return 0;\n}",
+      "options": [
+        "It compiles and prints ok",
+        "Compile error in inc(), because S has no ++ operator",
+        "Compile error in show(), because S cannot be printed with <<",
+        "It compiles, but the program crashes when w is created"
+      ],
+      "correctIndex": 0,
+      "explanation": "A member function of a class template is instantiated only if it is used. W<S> creates the class with its data member, but inc() and show() are never called, so their bodies are never compiled for S.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m044",
+      "questionText": "This program does not compile. Which call is responsible for the error?\n\ntemplate <typename T>\nT big(T a, T b) { return a > b ? a : b; }\nstruct P { int x; };\nint main() {\n    int i = big(1, 2);\n    double d = big(1.5, 0.5);\n    char c = big('a', 'z');\n    P p = big(P{1}, P{2});\n    return 0;\n}",
+      "options": [
+        "big(1, 2)",
+        "big(1.5, 0.5)",
+        "big('a', 'z')",
+        "big(P{1}, P{2})"
+      ],
+      "correctIndex": 3,
+      "explanation": "The template body is checked for a type only when it is instantiated with it. big<int>, big<double> and big<char> are fine, but instantiating big<P> fails because a > b has no meaning for struct P, which defines no > operator.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t6_m045",
+      "questionText": "How many distinct class types are generated from the template V by these declarations?\n\ntemplate <class T, int N = 4>\nstruct V { T a[N]; };\nV<int> a;\nV<int, 4> b;\nV<int, 8> c;\nV<double> d;\nV<double, 4> e;",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Default arguments are filled in first: V<int> is V<int, 4>, the same type as b, and V<double> is V<double, 4>, the same type as e. The distinct classes are V<int, 4>, V<int, 8> and V<double, 4>, which makes 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t6_m046",
+      "questionText": "Stack is a class template. What does the statement template class Stack<int>; do?",
+      "options": [
+        "It declares a new, empty class named Stack<int> that replaces the template's members",
+        "It creates a global object of type Stack<int>",
+        "It explicitly instantiates Stack<int>: the definitions of all its member functions are generated in this file even if none is called",
+        "It forbids Stack from being used with any type other than int"
+      ],
+      "correctIndex": 2,
+      "explanation": "template class Stack<int>; is an explicit instantiation definition. It makes the compiler generate every member of Stack<int> in that translation unit, which is how template definitions can be kept in a .cpp file for a known set of types.",
+      "difficulty": "medium"
+    }
+  ]
+}

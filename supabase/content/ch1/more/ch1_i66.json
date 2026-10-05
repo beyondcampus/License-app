@@ -1,0 +1,699 @@
+{
+  "topicId": "ch1_i66",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Thermal Design and Transformer Output Stages"
+    },
+    {
+      "type": "paragraph",
+      "text": "Heat flow obeys the same law as current in a resistor chain: temperature difference = power × thermal resistance. The dissipated power P_D is the 'current', each interface (junction to case, case to sink, sink to air) is a series 'resistor' in °C/W, and the ambient temperature is the 'ground'. Any intermediate temperature follows the same way: the case is at T_C = T_J − P_D θ_JC and the sink at T_S = T_A + P_D θ_SA. When several transistors share one heat sink, the sink resistance carries the total power of all of them, while each junction-to-case path carries only its own device's power."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: choosing a heat sink\nP_D = 25 W, T_J(max) = 150 °C, T_A = 40 °C\nθ_JC = 1.2 °C/W, θ_CS = 0.4 °C/W (mica washer with grease)\nAllowed total   θ_JA = (150 − 40)/25 = 4.4 °C/W\nSink needed     θ_SA = 4.4 − 1.2 − 0.4 = 2.8 °C/W or lower\nCheck: T_S = 40 + 25 × 2.8 = 110 °C\n       T_C = 110 + 25 × 0.4 = 120 °C\n       T_J = 120 + 25 × 1.2 = 150 °C  (exactly at the limit)"
+    },
+    {
+      "type": "formula",
+      "latex": "P_D(T_C) = P_{D(25)} - \\frac{T_C - 25}{\\theta_{JC}}",
+      "plainText": "P_D(T_C) = P_D(25 °C) − (T_C − 25)/θ_JC; derating factor 1/θ_JC W/°C, with θ_JC = (T_J(max) − 25)/P_D(25 °C)"
+    },
+    {
+      "type": "paragraph",
+      "text": "On a log-log plot the safe operating area is bounded by four lines: a horizontal I_C(max) line (bond wires and metallisation), a line of slope −1 for constant power P_D(max) = V_CE I_C, a steeper second-breakdown line at high V_CE, and a vertical V_CEO line. Short pulses widen the area because the junction does not have time to heat, so data sheets draw extra curves for 1 ms or 100 µs pulses. The SOA is specified at 25 °C case temperature and shrinks as the case gets hotter."
+    },
+    {
+      "type": "paragraph",
+      "text": "For the transformer-coupled class A stage the best Q-point puts the collector current at I_CQ = V_CC/R', so the AC load line through (V_CC, I_CQ) reaches the V_CE axis at 2 V_CC. With full swing the output power is (V_CC/√2)(I_CQ/√2) = V_CC I_CQ/2 = V_CC²/(2R') while the supply delivers V_CC I_CQ = V_CC²/R', giving the 50 % ceiling. The supply power is constant, so the transistor runs hottest with no signal, when it dissipates all of V_CC I_CQ. With a smaller swing between V_CE(min) and V_CE(max) the efficiency follows the formula below."
+    },
+    {
+      "type": "formula",
+      "latex": "\\eta = 50\\left(\\frac{V_{CE(max)} - V_{CE(min)}}{V_{CE(max)} + V_{CE(min)}}\\right)^2 \\%",
+      "plainText": "η = 50·[(V_CEmax − V_CEmin)/(V_CEmax + V_CEmin)]² %   (transformer-coupled class A)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: transformer-coupled class A, V_CC = 15 V\nLoad 8 Ω, turns ratio N1 : N2 = 3 : 1\nReflected load     R' = 3² × 8 = 72 Ω\nBest Q-point       I_CQ = V_CC/R' = 15/72 = 0.208 A, V_CEQ ≈ 15 V\nSupply power       P_dc = V_CC × I_CQ = 3.125 W (signal or not)\nMax output         P_o = V_CC²/(2R') = 225/144 = 1.5625 W\nEfficiency         1.5625/3.125 = 50 %\nWorst dissipation  3.125 W, at zero signal"
+    },
+    {
+      "type": "paragraph",
+      "text": "Even-harmonic cancellation in push-pull follows from symmetry. Transistor Q_2 produces the same current waveform as Q_1 but half a cycle later, and the transformer responds to the difference of the two primary currents. Shifting a harmonic of order k by half a cycle multiplies it by (−1)^k, so in the difference the odd harmonics (including the fundamental) double while the even harmonics and the DC components cancel. Any mismatch between the two transistors breaks this symmetry and lets second harmonic through. In class B each transistor's dissipation peaks at V_CC²/(π² R') when the collector swing is 2V_CC/π, about 64 % of full drive, not at maximum output."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: push-pull class B at partial drive\nV_CC = 20 V, reflected load R' = 80 Ω per half-primary, swing Vp = 15 V\nPeak current    I_p = 15/80 = 0.1875 A\nOutput power    P_o = Vp²/(2R') = 225/160 = 1.41 W\nSupply power    P_dc = 2 V_CC I_p/π = 2 × 20 × 0.1875/π = 2.39 W\nEfficiency      1.41/2.39 = 58.9 %  (= 78.5 % × 15/20)\nPer transistor  (2.39 − 1.41)/2 = 0.49 W\nWorst case      V_CC²/(π² R') = 400/(9.87 × 80) = 0.51 W each"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity",
+          "Transformer-coupled class A",
+          "Transformer-coupled push-pull class B"
+        ],
+        [
+          "Quiescent collector current",
+          "I_CQ = V_CC/R', large",
+          "Practically zero"
+        ],
+        [
+          "Maximum efficiency",
+          "50 %",
+          "78.5 %"
+        ],
+        [
+          "Maximum output power",
+          "V_CC²/(2R')",
+          "V_CC²/(2R') with R' per half-primary"
+        ],
+        [
+          "Worst-case transistor dissipation",
+          "V_CC²/R' at zero signal",
+          "V_CC²/(π² R') each, at 64 % drive"
+        ],
+        [
+          "DC flux in output core",
+          "Yes, core must be larger",
+          "Cancels"
+        ],
+        [
+          "Even harmonics",
+          "Present",
+          "Cancel if devices match"
+        ],
+        [
+          "Main distortion",
+          "Non-linearity of one device",
+          "Crossover, unless biased class AB"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Frequent slips: using the whole primary instead of one half for R' in push-pull; forgetting that the heat sink resistance carries the combined power when devices share a sink; taking a data-sheet P_D rated at 25 °C case temperature as if it applied at a hot ambient; and assuming the class A transistor runs hottest at full output, when it is hottest at zero signal."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i66_m001",
+      "questionText": "A power transistor has T_J(max) = 150 °C and a total junction-to-ambient thermal resistance of 2.5 °C/W. At an ambient temperature of 25 °C the maximum power it may dissipate is:",
+      "options": [
+        "70 W",
+        "50 W",
+        "60 W",
+        "312.5 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_D(max) = (T_J(max) − T_A)/θ_JA = (150 − 25)/2.5 = 50 W. Dividing 150 alone by 2.5 (60 W) forgets the ambient temperature.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m002",
+      "questionText": "A transistor dissipating 15 W has θ_JC = 1.5 °C/W, θ_CS = 0.5 °C/W and a heat sink with θ_SA = 3 °C/W. At T_A = 40 °C its junction temperature is:",
+      "options": [
+        "62.5 °C",
+        "85 °C",
+        "115 °C",
+        "70 °C"
+      ],
+      "correctIndex": 2,
+      "explanation": "θ_JA = 1.5 + 0.5 + 3 = 5 °C/W, so T_J = 40 + 15 × 5 = 115 °C. Using only one of the resistances gives the lower distractors.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m003",
+      "questionText": "A transistor must dissipate 20 W at an ambient of 50 °C without its junction exceeding 150 °C. Given θ_JC = 2 °C/W and θ_CS = 0.5 °C/W, the largest acceptable heat-sink thermal resistance θ_SA is:",
+      "options": [
+        "5 °C/W",
+        "3 °C/W",
+        "2.5 °C/W",
+        "7.5 °C/W"
+      ],
+      "correctIndex": 2,
+      "explanation": "θ_JA(max) = (150 − 50)/20 = 5 °C/W, so θ_SA = 5 − 2 − 0.5 = 2.5 °C/W. Forgetting θ_CS gives 3 °C/W; stopping at θ_JA gives 5 °C/W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m004",
+      "questionText": "A power transistor is rated 40 W at a case temperature of 25 °C, with T_J(max) = 150 °C. Its allowable dissipation when the case is at 75 °C is:",
+      "options": [
+        "16 W",
+        "24 W",
+        "40 W",
+        "32 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "θ_JC = (150 − 25)/40 = 3.125 °C/W, so the derating factor is 0.32 W/°C. P_D = 40 − 0.32 × (75 − 25) = 40 − 16 = 24 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m005",
+      "questionText": "A data sheet rates a transistor at 25 W for a case temperature of 25 °C and gives T_J(max) = 150 °C. The power derating factor is:",
+      "options": [
+        "5 W/°C",
+        "0.167 W/°C",
+        "0.2 W/°C",
+        "0.1 W/°C"
+      ],
+      "correctIndex": 2,
+      "explanation": "Derating factor = P_D(25)/(T_J(max) − 25) = 25/125 = 0.2 W/°C, which is 1/θ_JC with θ_JC = 5 °C/W. Dividing by 150 instead of 125 gives 0.167 W/°C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m006",
+      "questionText": "A heat sink allows a power transistor to dissipate more power because it:",
+      "options": [
+        "Lowers the thermal resistance from the case to the surrounding air",
+        "Raises the maximum junction temperature of the device",
+        "Reduces the collector current at a given base current",
+        "Increases the thermal resistance from junction to case"
+      ],
+      "correctIndex": 0,
+      "explanation": "P_D(max) = (T_J(max) − T_A)/θ_JA. The sink cannot change T_J(max) or θ_JC, but it replaces the large case-to-air resistance with a much smaller θ_CS + θ_SA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m007",
+      "questionText": "Thermal resistance is normally expressed in:",
+      "options": [
+        "°C/W",
+        "W/°C",
+        "Ω/°C",
+        "J/°C"
+      ],
+      "correctIndex": 0,
+      "explanation": "Thermal resistance is the temperature rise per watt of heat flow, °C/W (or K/W). W/°C is the unit of the derating factor, which is its reciprocal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m008",
+      "questionText": "A thin mica washer coated with thermal grease is placed between a TO-3 transistor and its heat sink in order to:",
+      "options": [
+        "Raise the thermal resistance so the heat sink stays cool",
+        "Increase the breakdown voltage V_CEO of the transistor",
+        "Act as a fuse that opens if the junction overheats",
+        "Insulate the case electrically from the sink while keeping the case-to-sink thermal resistance low"
+      ],
+      "correctIndex": 3,
+      "explanation": "The case is usually the collector, so it must often be isolated from a grounded chassis. Mica is a good electrical insulator, and the grease fills air gaps so θ_CS stays around 0.3 to 0.5 °C/W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m009",
+      "questionText": "In most power BJT packages (TO-3, TO-220) the metal case or mounting tab is electrically connected to the:",
+      "options": [
+        "Emitter",
+        "Collector",
+        "Base",
+        "No terminal; it is insulated"
+      ],
+      "correctIndex": 1,
+      "explanation": "Most of the heat is produced at the collector-base junction, so the collector is bonded directly to the metal to give the shortest thermal path to the heat sink.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m010",
+      "questionText": "The safe operating area of a power BJT is bounded by several limits. Which of the following is NOT one of them?",
+      "options": [
+        "The maximum collector current I_C(max)",
+        "A minimum current-gain (h_FE) line",
+        "The maximum power dissipation hyperbola V_CE I_C = P_D(max)",
+        "The second-breakdown limit at high V_CE"
+      ],
+      "correctIndex": 1,
+      "explanation": "The SOA is set by I_C(max), P_D(max), second breakdown and V_CEO. Current gain varies with operating point but does not define a safe-operating boundary.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m011",
+      "questionText": "A power transistor has P_D(max) = 30 W at the operating case temperature. At V_CE = 20 V, the largest collector current allowed by the power limit of its SOA is:",
+      "options": [
+        "0.67 A",
+        "2 A",
+        "3 A",
+        "1.5 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "On the constant-power boundary I_C = P_D(max)/V_CE = 30/20 = 1.5 A. The inverted ratio 20/30 gives the 0.67 A slip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m012",
+      "questionText": "A transformer-coupled class A amplifier runs from V_CC = 12 V and drives an 8 Ω loudspeaker through a 5 : 1 transformer. With ideal full swing, the maximum AC output power is:",
+      "options": [
+        "0.36 W",
+        "0.72 W",
+        "9 W",
+        "0.18 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "R' = 5² × 8 = 200 Ω. P_o(max) = V_CC²/(2R') = 144/400 = 0.36 W. 0.72 W is the DC supply power V_CC²/R', and 9 W wrongly uses the 8 Ω speaker directly.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m013",
+      "questionText": "A loudspeaker of 8 Ω is connected to the secondary of a transformer with a 10 : 1 primary-to-secondary turns ratio. The resistance seen at the primary is:",
+      "options": [
+        "80 Ω",
+        "0.08 Ω",
+        "800 Ω",
+        "8 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "R' = (N_1/N_2)² R_L = 10² × 8 = 800 Ω. Forgetting to square the ratio gives 80 Ω.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m014",
+      "questionText": "A transistor stage works best into a 1.8 kΩ collector load but must drive an 8 Ω loudspeaker. The required primary-to-secondary turns ratio of the output transformer is:",
+      "options": [
+        "225 : 1",
+        "15 : 1",
+        "1 : 15",
+        "7.5 : 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "(N_1/N_2)² = R'/R_L = 1800/8 = 225, so N_1/N_2 = √225 = 15. 225 : 1 is the impedance ratio, not the turns ratio.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m015",
+      "questionText": "Replacing the collector resistor of a series-fed class A stage by the primary of an output transformer raises the maximum theoretical efficiency from:",
+      "options": [
+        "25 % to 50 %",
+        "50 % to 78.5 %",
+        "25 % to 78.5 %",
+        "12.5 % to 25 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "The resistor wastes half the supply power in the series-fed stage (25 % ceiling). The winding has negligible DC resistance and lets the collector swing to 2V_CC, so the ceiling doubles to 50 %. 78.5 % needs class B.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m016",
+      "questionText": "Why can the collector of a transformer-coupled class A stage swing well above the supply voltage V_CC?",
+      "options": [
+        "The transformer steps up the supply voltage on the primary side",
+        "The transistor enters avalanche breakdown on every cycle",
+        "The primary inductance stores energy and its induced voltage adds to V_CC on the half-cycle when the collector current falls",
+        "The load resistance appears in parallel with the supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_CEQ ≈ V_CC because the winding drops no DC voltage. When the current falls below I_CQ the inductance opposes the change and its EMF adds to V_CC, so v_CE can reach nearly 2V_CC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m017",
+      "questionText": "In an ideal transformer-coupled class A amplifier supplied from V_CC = 10 V and driven to full swing, the collector-emitter voltage reaches a peak of about:",
+      "options": [
+        "20 V",
+        "10 V",
+        "5 V",
+        "14.1 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "With V_CEQ ≈ V_CC = 10 V and a full symmetrical swing of ±V_CC, v_CE swings from about 0 to 2V_CC = 20 V, so the transistor must be rated for at least twice the supply.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m018",
+      "questionText": "A transformer-coupled class A stage has V_CC = 20 V and I_CQ = 0.5 A. With signal, v_CE swings between 5 V and 35 V. The efficiency is about:",
+      "options": [
+        "28.1 %",
+        "37.5 %",
+        "50 %",
+        "75 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "R' = V_CC/I_CQ = 40 Ω, V_p = 15 V, so P_o = 15²/(2 × 40) = 2.81 W and P_dc = 20 × 0.5 = 10 W, giving 28.1 %. Equivalently 50 × [(35 − 5)/(35 + 5)]² = 28.1 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m019",
+      "questionText": "A transformer-coupled class A amplifier with V_CC = 12 V drives a 16 Ω load through a 3 : 1 transformer. The collector voltage swings 10 V peak. The power delivered to the load (ideal transformer) is:",
+      "options": [
+        "3.125 W",
+        "1.04 W",
+        "0.694 W",
+        "0.347 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "R' = 3² × 16 = 144 Ω. P_o = V_p²/(2R') = 100/288 = 0.347 W. Leaving out the square gives 1.04 W; leaving out the 2 for RMS gives 0.694 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m020",
+      "questionText": "A drawback of the single-ended transformer-coupled class A stage that the push-pull stage avoids is:",
+      "options": [
+        "The need for two transistors of opposite type",
+        "DC magnetisation of the output transformer core by the quiescent collector current",
+        "Inability to match a low-impedance load",
+        "An efficiency ceiling of 78.5 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "The large I_CQ flows one way through the primary, so the core must be bigger to avoid saturation. In push-pull the two quiescent currents flow in opposite halves of the primary and their flux cancels.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m021",
+      "questionText": "In a transformer-coupled push-pull amplifier, the two transistors receive their drive signals:",
+      "options": [
+        "In antiphase, from the two ends of a centre-tapped input transformer secondary",
+        "In phase, from a single capacitor-coupled driver",
+        "From two separate oscillators",
+        "Only on alternate cycles of the input signal"
+      ],
+      "correctIndex": 0,
+      "explanation": "The centre-tapped driver transformer acts as a phase splitter: with its centre tap as reference, the two ends carry equal signals 180° apart, so each transistor conducts on one half-cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m022",
+      "questionText": "In a transformer-coupled push-pull stage using two NPN transistors, the centre tap of the output transformer primary is connected to:",
+      "options": [
+        "The emitters of both transistors",
+        "The bases of both transistors",
+        "The loudspeaker",
+        "The positive supply V_CC"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each collector connects to one end of the primary and the centre tap goes to +V_CC, so each transistor draws its collector current through its own half of the winding; the speaker is on the secondary.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m023",
+      "questionText": "A push-pull class B amplifier runs from V_CC = 24 V and drives a 4 Ω speaker through an output transformer with 4 : 1 turns from each half of the primary to the secondary. Its maximum ideal output power is:",
+      "options": [
+        "4.5 W",
+        "9 W",
+        "72 W",
+        "18 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "R' = 4² × 4 = 64 Ω per half-primary. P_o(max) = V_CC²/(2R') = 576/128 = 4.5 W. Using R' = 16 Ω (ratio not squared) gives 18 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m024",
+      "questionText": "The push-pull class B stage with V_CC = 24 V and R' = 64 Ω per half-primary is driven so that each collector swings only 12 V peak. The efficiency is about:",
+      "options": [
+        "78.5 %",
+        "50 %",
+        "39.3 %",
+        "19.6 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_p = 12/64 = 0.1875 A; P_o = 12²/128 = 1.125 W; P_dc = 2 × 24 × 0.1875/π = 2.865 W; η = 39.3 %. In class B η = 78.5 % × (V_p/V_CC).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m025",
+      "questionText": "For the same class B push-pull stage (V_CC = 24 V, R' = 64 Ω per half-primary), the maximum power each transistor must dissipate at the worst-case drive level is about:",
+      "options": [
+        "1.82 W",
+        "4.5 W",
+        "0.912 W",
+        "0.45 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each transistor's worst case is V_CC²/(π² R') = 576/(9.87 × 64) = 0.912 W, reached at about 64 % of full swing. 1.82 W is the total for both transistors.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m026",
+      "questionText": "In the thermal analogy used for heat-sink calculations, the quantity that corresponds to electric current is:",
+      "options": [
+        "The temperature, in °C",
+        "The power dissipated, in watts",
+        "The thermal resistance, in °C/W",
+        "The heat-sink area"
+      ],
+      "correctIndex": 1,
+      "explanation": "Temperature difference plays the role of voltage and thermal resistance that of resistance, so heat flow in watts corresponds to current: ΔT = P_D θ, like V = IR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m027",
+      "questionText": "Which of the following would introduce second-harmonic distortion into the output of a transformer-coupled push-pull amplifier?",
+      "options": [
+        "Perfectly matched transistors driven in antiphase",
+        "Unequal current gains of the two transistors",
+        "Adding a small class AB forward bias to both bases",
+        "Using a centre-tapped output transformer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Even harmonics cancel only if the two half-cycles are mirror images. If one transistor has a higher β, its half-cycle is larger and the imbalance appears as second harmonic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m028",
+      "questionText": "For the same output power, the output transformer of a push-pull class B stage can be smaller than that of a single-ended class A stage mainly because:",
+      "options": [
+        "The push-pull stage delivers no power at the fundamental frequency",
+        "The DC components of the two collector currents flow in opposite directions and produce no net DC flux in the core",
+        "The push-pull transformer carries no current on the primary",
+        "Class B stages always use a higher supply voltage"
+      ],
+      "correctIndex": 1,
+      "explanation": "The core must not saturate. In single-ended class A the large DC current biases the core; in push-pull the DC and even-harmonic fluxes cancel, so a smaller core suffices.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m029",
+      "questionText": "Which statement correctly compares a complementary-symmetry output stage with a transformer-coupled push-pull stage?",
+      "options": [
+        "The complementary stage uses two identical NPN transistors",
+        "The complementary stage can match any load impedance by choosing a turns ratio",
+        "The complementary stage has a narrower frequency response because of its transformers",
+        "The complementary stage needs no phase splitter, because the NPN and PNP devices respond to opposite half-cycles of the same drive"
+      ],
+      "correctIndex": 3,
+      "explanation": "With one NPN and one PNP driven from the same point, the positive half-cycle turns on the NPN and the negative the PNP, so no phase-splitting transformer is needed and no magnetic components limit the bandwidth.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m030",
+      "questionText": "A complementary-symmetry push-pull output stage uses:",
+      "options": [
+        "Two NPN transistors and two transformers",
+        "Two PNP transistors in parallel",
+        "One NPN and one matched PNP transistor",
+        "A single transistor with a centre-tapped choke"
+      ],
+      "correctIndex": 2,
+      "explanation": "Complementary symmetry means a matched NPN/PNP pair with their emitters joined to the load; it removes the need for input and output transformers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m031",
+      "questionText": "Which of the following is NOT an advantage of the transformer-coupled push-pull amplifier over a transformerless complementary-symmetry stage?",
+      "options": [
+        "Easy impedance matching to any load through the turns ratio",
+        "Both transistors can be of the same type",
+        "Wider frequency response",
+        "DC isolation of the load from the supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "Transformers limit both low- and high-frequency response and add size, weight and cost, so a wide frequency response belongs to the transformerless stage. The other three are genuine benefits of transformer coupling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m032",
+      "questionText": "Compared with a small-signal BJT, a typical power BJT has:",
+      "options": [
+        "Higher current gain and higher f_T",
+        "Lower current gain and lower transition frequency f_T",
+        "Higher current gain but lower f_T",
+        "Smaller junction area and lower V_CE(sat)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The large junction area needed for high current adds capacitance and a wide base, so β is typically 20 to 100 and f_T only a few MHz; V_CE(sat) is also higher.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m033",
+      "questionText": "Which measure does NOT help prevent thermal runaway in a power transistor stage?",
+      "options": [
+        "Increasing the thermal resistance between case and heat sink",
+        "Adding a small resistor in series with the emitter",
+        "Using bias diodes thermally coupled to the transistor",
+        "Mounting the transistor on a larger heat sink"
+      ],
+      "correctIndex": 0,
+      "explanation": "Runaway occurs when a temperature rise increases I_C, which raises the temperature further. Raising θ_CS makes the junction hotter for the same power, which encourages runaway; the other three measures break the loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m034",
+      "questionText": "A TO-220 transistor without a heat sink has θ_JA = 62.5 °C/W and T_J(max) = 150 °C. At T_A = 25 °C it can dissipate at most:",
+      "options": [
+        "2.4 W",
+        "2 W",
+        "2.8 W",
+        "0.5 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_D(max) = (150 − 25)/62.5 = 2 W. The same device bolted to a good heat sink could handle tens of watts.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m035",
+      "questionText": "A transistor dissipates 10 W with θ_JC = 1.5 °C/W, θ_CS = 0.5 °C/W and θ_SA = 6 °C/W. If T_J must not exceed 150 °C, the highest permissible ambient temperature is:",
+      "options": [
+        "130 °C",
+        "70 °C",
+        "90 °C",
+        "80 °C"
+      ],
+      "correctIndex": 1,
+      "explanation": "θ_JA = 1.5 + 0.5 + 6 = 8 °C/W, so the temperature rise is 10 × 8 = 80 °C and T_A(max) = 150 − 80 = 70 °C.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m036",
+      "questionText": "A power transistor dissipating 20 W has θ_JC = 2 °C/W. If its junction is at 120 °C, the case temperature is:",
+      "options": [
+        "160 °C",
+        "100 °C",
+        "40 °C",
+        "80 °C"
+      ],
+      "correctIndex": 3,
+      "explanation": "T_C = T_J − P_D θ_JC = 120 − 20 × 2 = 80 °C. Adding instead of subtracting gives 160 °C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m037",
+      "questionText": "A heat sink with θ_SA = 2 °C/W carries 15 W from a transistor to air at 30 °C. The temperature of the heat sink is:",
+      "options": [
+        "30 °C",
+        "45 °C",
+        "32 °C",
+        "60 °C"
+      ],
+      "correctIndex": 3,
+      "explanation": "T_S = T_A + P_D θ_SA = 30 + 15 × 2 = 60 °C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m038",
+      "questionText": "Two transistors, each dissipating 10 W, are mounted on one heat sink with θ_SA = 1.5 °C/W. Each has θ_JC = 2 °C/W and θ_CS = 0.5 °C/W. At T_A = 40 °C the junction temperature of each transistor is:",
+      "options": [
+        "80 °C",
+        "120 °C",
+        "95 °C",
+        "70 °C"
+      ],
+      "correctIndex": 2,
+      "explanation": "The sink carries the total 20 W: T_S = 40 + 20 × 1.5 = 70 °C. Each junction is then 70 + 10 × (2 + 0.5) = 95 °C. Treating each device as if it had the sink to itself gives 80 °C.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m039",
+      "questionText": "A power Darlington is built from a driver transistor with β = 50 and an output transistor with β = 20. Its overall current gain is approximately:",
+      "options": [
+        "70",
+        "2.5",
+        "20",
+        "1000"
+      ],
+      "correctIndex": 3,
+      "explanation": "The emitter current of the driver is the base current of the output device, so β_D ≈ β₁β₂ = 50 × 20 = 1000 (exactly β₁β₂ + β₁ + β₂ = 1070). Adding the gains (70) is the usual slip.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m040",
+      "questionText": "When power BJTs are connected in parallel to share a large current, a small resistor is placed in each emitter lead to:",
+      "options": [
+        "Force the current to divide evenly so the device with the lowest V_BE does not hog the current",
+        "Increase the overall current gain",
+        "Raise the maximum junction temperature",
+        "Reduce the input impedance of the stage"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_BE differs slightly between devices and falls with temperature, so without ballast resistors one transistor would take most of the current, heat up and take even more. The emitter resistors add local negative feedback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m041",
+      "questionText": "Each transistor of a push-pull stage should see 50 Ω, and the load is an 8 Ω speaker. The required turns ratio from the WHOLE primary (end to end) to the secondary is:",
+      "options": [
+        "2.5 : 1",
+        "6.25 : 1",
+        "5 : 1",
+        "12.5 : 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Per half-primary (N_half/N_2)² = 50/8 = 6.25, so N_half/N_2 = 2.5. The whole primary has twice those turns, so the end-to-end ratio is 5 : 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i66_m042",
+      "questionText": "In a transformer-coupled push-pull class B amplifier, each transistor conducts for:",
+      "options": [
+        "About 180° of each cycle",
+        "The full 360° of each cycle",
+        "Less than 90° of each cycle",
+        "Alternate complete cycles"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each transistor is biased at cut-off and conducts only during its own half-cycle (180°); the output transformer combines the two halves into a complete sine wave.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i66_m043",
+      "questionText": "A push-pull class B stage with V_CC = 30 V and R' = 100 Ω per half-primary is driven to full output. The average current drawn from the supply is about:",
+      "options": [
+        "0.3 A",
+        "0.095 A",
+        "0.212 A",
+        "0.191 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_p = V_CC/R' = 0.3 A. The supply current is a full-wave train of half-sines, averaging 2I_p/π = 0.191 A. Ip/√2 = 0.212 A is the RMS value, not the average.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m044",
+      "questionText": "A transformer-coupled class A stage with V_CC = 15 V drives a reflected load R' = 75 Ω, biased at I_CQ = V_CC/R'. The minimum power rating the transistor needs is:",
+      "options": [
+        "1.5 W",
+        "0.75 W",
+        "6 W",
+        "3 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_CQ = 15/75 = 0.2 A and P_dc = 15 × 0.2 = 3 W. With no signal all of this is dissipated in the transistor, so it must handle 3 W, even though the maximum output is only 1.5 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m045",
+      "questionText": "Which statement about the transformer-coupled class A power amplifier is correct?",
+      "options": [
+        "The transistor dissipation is greatest at full output",
+        "Its maximum theoretical efficiency is 78.5 %",
+        "The collector voltage can never exceed V_CC",
+        "The transistor dissipation is greatest when there is no input signal"
+      ],
+      "correctIndex": 3,
+      "explanation": "The supply power V_CC I_CQ is constant; any power delivered to the load is taken from the transistor's dissipation, so the device runs coolest at full output and hottest at zero signal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i66_m046",
+      "questionText": "A push-pull amplifier develops a 12 V peak sine wave across an 8 Ω loudspeaker. The output power is:",
+      "options": [
+        "9 W",
+        "18 W",
+        "1.5 W",
+        "4.5 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "P = V_p²/(2R_L) = 144/16 = 9 W. Using V_p²/R_L without converting to RMS gives 18 W.",
+      "difficulty": "easy"
+    }
+  ]
+}

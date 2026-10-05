@@ -1,0 +1,689 @@
+{
+  "topicId": "ch3_t2",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Pointer Arithmetic and Heap Memory"
+    },
+    {
+      "type": "paragraph",
+      "text": "Pointer arithmetic can be scaled only because every pointer type carries the size of its target. For T *p, the expression p + i is computed as the address in p plus i × sizeof(T) bytes, and p[i] is simply *(p + i). Subtraction runs the same rule backwards: the byte gap between two pointers is divided by sizeof(T), so q − p counts elements, not bytes. These results are guaranteed only while both pointers stay inside one array or at the address just past its last element; forming any other address, even without dereferencing it, is undefined behaviour."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{bytes from } p \\text{ to } q = (q - p) \\times \\text{sizeof}(T)",
+      "plainText": "byte gap from p to q = (q − p) × sizeof(T), where q − p is counted in elements"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int a[5] = {10, 20, 30, 40, 50};\n    int *p = a, *q = a + 4;\n    double d[3], *r = d;\n    p += 2;\n    printf(\"%d %td\\n\", *p, q - p);\n    printf(\"%td %td\\n\", (char *)q - (char *)p, (char *)(r + 2) - (char *)r);\n    int x = *p++;\n    printf(\"%d %d %d\\n\", x, *p, p < q);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (int = 4 bytes, double = 8 bytes):\n30 2\n8 16\n30 40 1\nTrace:\np += 2       -> p = &a[2], *p = 30; q = &a[4], so q - p = 2 elements\nchar * casts -> the same gap in bytes: 2 x 4 = 8; r + 2 skips 2 doubles = 16 bytes\nx = *p++     -> x gets the old target 30, then p moves on to &a[3]\n*p, p < q    -> *p is 40, and &a[3] < &a[4] is true, printed as 1"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Declaration",
+          "*p = 5 allowed?",
+          "p = &y allowed?",
+          "Read right to left as"
+        ],
+        [
+          "int *p",
+          "Yes",
+          "Yes",
+          "p is a pointer to int"
+        ],
+        [
+          "const int *p (same as int const *p)",
+          "No",
+          "Yes",
+          "p is a pointer to a const int"
+        ],
+        [
+          "int *const p = &x",
+          "Yes",
+          "No",
+          "p is a const pointer to int"
+        ],
+        [
+          "const int *const p = &x",
+          "No",
+          "No",
+          "p is a const pointer to a const int"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Function",
+          "Bytes obtained",
+          "Initial contents",
+          "On failure"
+        ],
+        [
+          "malloc(n)",
+          "n",
+          "Indeterminate (garbage)",
+          "Returns NULL"
+        ],
+        [
+          "calloc(k, s)",
+          "k × s",
+          "Every byte zero",
+          "Returns NULL"
+        ],
+        [
+          "realloc(p, n)",
+          "n (the block may move)",
+          "Old bytes kept; added bytes indeterminate",
+          "Returns NULL; the old block stays valid"
+        ],
+        [
+          "free(p)",
+          "None: the block is released",
+          "Must not be used again",
+          "No result; free(NULL) does nothing"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <stdlib.h>\nint grow(int **pa, size_t n) {\n    int *t = realloc(*pa, n * sizeof **pa);\n    if (t != NULL) *pa = t;          /* on failure *pa keeps the old block */\n    return t != NULL;\n}\nint main(void) {\n    int *a = calloc(2, sizeof *a);   /* {0, 0} */\n    if (a == NULL || !grow(&a, 4)) { free(a); return 1; }\n    a[1] = 7;  a[2] = a[1] * 2;  a[3] = a[0] + 1;\n    printf(\"%d %d %d %d\\n\", a[0], a[1], a[2], a[3]);\n    free(a);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output (int = 4 bytes):\n0 7 14 1\nTrace:\ncalloc(2, 4)   -> a = {0, 0}: calloc zero-fills\ngrow(&a, 4)    -> realloc keeps {0, 0} and adds 2 uninitialised ints;\n                  *pa = t writes the new address into main's a\na[1] = 7       -> {0, 7, ?, ?}\na[2], a[3]     -> a[2] = 7 * 2 = 14 and a[3] = 0 + 1 = 1\nfree(a)        -> the whole 16-byte block is released once"
+    },
+    {
+      "type": "bulletList",
+      "text": "Special cases and common mistakes:",
+      "items": [
+        "p = realloc(p, n) leaks the old block when realloc fails, because the only pointer to it is overwritten with NULL; assign to a temporary and copy it back only on success.",
+        "realloc(NULL, n) behaves exactly like malloc(n), and free(NULL) does nothing, so both are safe starting and ending points.",
+        "Writing malloc(n * sizeof *p) instead of naming the type keeps the size correct if the declaration of p changes later.",
+        "To let a function change which block the caller's pointer refers to, pass the pointer's address (int **); a plain int * parameter changes only a copy.",
+        "Relational tests (<, >) are defined only for pointers into the same array; == and != may compare any two valid pointers, or a pointer with NULL.",
+        "After free(p) the address left in p is stale; setting p = NULL makes an accidental second free harmless and keeps a later if (p) test honest."
+      ]
+    },
+    {
+      "type": "note",
+      "text": "NULL, '\\0' and 0 are different ideas that share the value zero. NULL is a null pointer constant meant for pointers, '\\0' is the null character (a char of value 0) that ends every string, and 0 is an ordinary integer. Use each in its own context: p = NULL, s[i] == '\\0', n = 0."
+    },
+    {
+      "type": "examTip",
+      "text": "For address questions, multiply before adding: new address = old address + n × sizeof(T). For pointer differences, divide the byte gap by sizeof(T). Always check whether the question wants elements (q − p) or bytes ((char *)q − (char *)p)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t2_m001",
+      "questionText": "After the declaration int *p, q; which statement is correct?",
+      "options": [
+        "p is a pointer to int and q is a plain int",
+        "p and q are both pointers to int",
+        "p and q are both plain ints",
+        "q is a pointer to int and p is a plain int"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a declaration the * belongs to each individual declarator, not to the type, so only p is a pointer. Write int *p, *q; to declare two pointers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m002",
+      "questionText": "What does the following fragment print?\n\nint a = 3, b = 7;\nint *p = &a, *q = &b;\n*p = *q;\nq = p;\n*q = 10;\nprintf(\"%d %d\", a, b);",
+      "options": [
+        "7 10",
+        "10 7",
+        "7 7",
+        "10 10"
+      ],
+      "correctIndex": 1,
+      "explanation": "*p = *q copies b's value into a, so a = 7. q = p then makes q point to a as well, so *q = 10 overwrites a while b keeps 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m003",
+      "questionText": "Given int x; int *p = &x; which declaration lets pp store the address of p (pp = &p)?",
+      "options": [
+        "int *pp[2];",
+        "int (*pp)[2];",
+        "int **pp;",
+        "int &pp;"
+      ],
+      "correctIndex": 2,
+      "explanation": "&p has type int **, so pp must be a pointer to a pointer to int. int *pp[2] is an array of two int pointers, int (*pp)[2] is a pointer to an array of two ints, and int &pp is not valid C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m004",
+      "questionText": "Which statement about the null pointer in C is correct?",
+      "options": [
+        "Dereferencing NULL always gives 0, because NULL points to address 0",
+        "free(NULL) crashes the program, so it must always be guarded with an if",
+        "NULL may be assigned only to pointers of type void *",
+        "A null pointer compares equal to 0 (and to NULL), and dereferencing it is undefined behaviour"
+      ],
+      "correctIndex": 3,
+      "explanation": "NULL is a null pointer constant that may be assigned to any pointer type and compares equal to 0; it points to no object, so dereferencing it is undefined behaviour. free(NULL) is defined to do nothing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m005",
+      "questionText": "Why does standard C reject the expression v + 1 when v is declared as void *v?",
+      "options": [
+        "A void pointer can only ever hold NULL",
+        "A void pointer cannot store the address of an int or a double",
+        "The size of the pointed-to object is unknown, so the step cannot be scaled",
+        "A void pointer is read-only and cannot change after initialisation"
+      ],
+      "correctIndex": 2,
+      "explanation": "Pointer arithmetic moves by sizeof(*p) bytes, and void has no size. Cast first, for example (char *)v + 1 or (int *)v + 1; GCC and Clang accept void * arithmetic only as an extension that steps 1 byte.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m006",
+      "questionText": "The fragment below is compiled as C. Which numbered line causes a compile error?\n\nint x = 5;\nvoid *v = &x;         /* line 1 */\nint *p = v;           /* line 2 */\nprintf(\"%d\", *v);     /* line 3 */\nprintf(\"%d\", *p);     /* line 4 */",
+      "options": [
+        "Line 1",
+        "Line 2",
+        "Line 3",
+        "Line 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "A void * cannot be dereferenced, because the type of the object it points to is unknown. Lines 1 and 2 are legal in C, since void * converts implicitly to and from any object pointer type (C++ would need a cast on line 2).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m007",
+      "questionText": "What does the following fragment print?\n\ndouble d = 2.5;\nint i = 7;\nvoid *v = &d;\nprintf(\"%.1f \", *(double *)v);\nv = &i;\nprintf(\"%d\", *(int *)v * 2);",
+      "options": [
+        "2.5 7",
+        "2.5 14",
+        "Compile error: a void * cannot be reassigned to an int address",
+        "Compile error: *(int *)v * 2 multiplies a pointer by 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "A void * may hold any object address, and after a cast to the right type *(double *)v reads 2.5 and *(int *)v reads 7. Unary * binds tighter than binary *, so the second expression is 7 * 2 = 14.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m008",
+      "questionText": "What does the following fragment print?\n\nint x = 10, y = 20;\nint *p = &x;\nint **pp = &p;\n**pp += 5;\n*pp = &y;\n**pp *= 2;\nprintf(\"%d %d %d\", x, y, *p);",
+      "options": [
+        "15 40 40",
+        "15 40 15",
+        "30 20 30",
+        "15 20 15"
+      ],
+      "correctIndex": 0,
+      "explanation": "**pp is x, so x becomes 15. *pp = &y changes p itself to point to y, so **pp *= 2 doubles y to 40, and *p now reads y, which is 40.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m009",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nvoid alloc(int *p) {\n    p = malloc(sizeof(int));\n}\nint main(void) {\n    int *q = NULL;\n    alloc(q);\n    printf(\"%s\", q == NULL ? \"NULL\" : \"allocated\");\n    return 0;\n}",
+      "options": [
+        "allocated",
+        "Compile error: NULL cannot be passed to a function",
+        "The program crashes inside alloc",
+        "NULL"
+      ],
+      "correctIndex": 3,
+      "explanation": "The pointer q is passed by value, so alloc changes only its local copy p; q stays NULL and the new block is leaked. To change the caller's pointer, pass &q to a parameter of type int **.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m010",
+      "questionText": "Assume every allocation succeeds. What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nvoid grow(int **pp, int n) {\n    *pp = malloc(n * sizeof(int));\n    for (int i = 0; i < n; i++) (*pp)[i] = i * 3;\n}\nint main(void) {\n    int *a = NULL;\n    grow(&a, 4);\n    printf(\"%d %d\", a[1] + a[3], a[2]);\n    free(a);\n    return 0;\n}",
+      "options": [
+        "9 6",
+        "12 6",
+        "12 9",
+        "The program crashes because a is still NULL"
+      ],
+      "correctIndex": 1,
+      "explanation": "grow receives &a, so *pp = malloc(...) stores the new address in main's a. The block holds 0, 3, 6, 9, so a[1] + a[3] = 3 + 9 = 12 and a[2] = 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m011",
+      "questionText": "What does the following fragment print?\n\nint x = 5, y = 9;\nint *p = &x, *q = &y;\nint **pp = &p;\n*pp = q;\n(**pp)++;\npp = &q;\n**pp += x;\nprintf(\"%d %d\", x, y);",
+      "options": [
+        "6 15",
+        "5 10",
+        "5 14",
+        "5 15"
+      ],
+      "correctIndex": 3,
+      "explanation": "*pp = q stores y's address in p, so (**pp)++ raises y to 10 and x stays 5. After pp = &q, **pp is y again, and y += x gives 10 + 5 = 15.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m012",
+      "questionText": "Assume char is 1 byte, int is 4 bytes and double is 8 bytes. The pointers char *c, int *i and double *d all hold the address 1000. Which addresses do c + 3, i + 3 and d + 3 hold?",
+      "options": [
+        "1003, 1012, 1024",
+        "1003, 1003, 1003",
+        "1012, 1012, 1012",
+        "1003, 1006, 1012"
+      ],
+      "correctIndex": 0,
+      "explanation": "Adding n to a pointer adds n × sizeof(pointed-to type) bytes: 1000 + 3 × 1 = 1003, 1000 + 3 × 4 = 1012 and 1000 + 3 × 8 = 1024.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m013",
+      "questionText": "On a 64-bit system where pointers are 8 bytes, how do sizeof(char *) and sizeof(double *) compare?",
+      "options": [
+        "1 byte and 8 bytes",
+        "Both are 8 bytes",
+        "8 bytes and 64 bytes",
+        "They depend on the value stored in each pointer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both are addresses of the same width, so sizeof(char *) = sizeof(double *) = 8 bytes. The values 1 and 8 are sizeof(char) and sizeof(double), the sizes of the pointed-to types.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m014",
+      "questionText": "Assume int is 4 bytes. What does the following fragment print?\n\nint a[6] = {0};\nint *p = &a[1], *q = &a[5];\nprintf(\"%td %td\", q - p, (char *)q - (char *)p);",
+      "options": [
+        "4 16",
+        "16 4",
+        "4 4",
+        "5 20"
+      ],
+      "correctIndex": 0,
+      "explanation": "q − p counts int elements: 5 − 1 = 4. Casting both to char * makes each step 1 byte, so the same gap measures 4 × 4 = 16 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m015",
+      "questionText": "What does the following fragment print?\n\nint a[3] = {10, 20, 30};\nint *p = a;\nint x = *p++;\nint y = (*p)++;\nprintf(\"%d %d %d\", x, y, a[1]);",
+      "options": [
+        "10 21 21",
+        "11 20 20",
+        "10 20 21",
+        "10 20 20"
+      ],
+      "correctIndex": 2,
+      "explanation": "*p++ yields a[0] = 10 and then moves p to a[1]. (*p)++ yields the old value 20 and increments a[1] to 21, while p stays where it is.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m016",
+      "questionText": "What does the following fragment print?\n\nint a[] = {5, 15, 25};\nint *p = a;\nint x = *++p;\nint y = ++*p;\nprintf(\"%d %d %d\", x, y, *p);",
+      "options": [
+        "6 7 7",
+        "15 16 15",
+        "15 25 25",
+        "15 16 16"
+      ],
+      "correctIndex": 3,
+      "explanation": "*++p first moves p to a[1] and reads 15. ++*p then increments the value a[1] to 16 and yields 16; p still points to a[1], so *p is 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m017",
+      "questionText": "What does the following fragment print?\n\nint a[5] = {1, 3, 5, 7, 9};\nint *p = &a[4];\nprintf(\"%d %d\", p[-2], *(p - 4) + p[-1]);",
+      "options": [
+        "7 8",
+        "5 10",
+        "5 8",
+        "3 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "p[-2] means *(p − 2), which is a[2] = 5; a negative subscript is legal while the result stays inside the array. *(p − 4) is a[0] = 1 and p[-1] is a[3] = 7, so the sum is 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m018",
+      "questionText": "Assume int is 4 bytes, double is 8 bytes and pointers are 8 bytes. What does the following fragment print?\n\ndouble d[4];\ndouble *p = d;\nint *q = NULL;\nprintf(\"%zu %zu %zu %zu\", sizeof d, sizeof p, sizeof *p, sizeof *q);",
+      "options": [
+        "8 8 8 4",
+        "32 32 8 4",
+        "32 8 8 8",
+        "32 8 8 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof d is the whole array, 4 × 8 = 32 bytes. sizeof p is a pointer (8), sizeof *p a double (8) and sizeof *q an int (4); sizeof does not evaluate *q, so the null pointer is never dereferenced.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m019",
+      "questionText": "Assume int is 4 bytes and pointers are 8 bytes. What does the following fragment print?\n\nint x[5] = {0};\nint *p = x;\nprintf(\"%zu %zu %td\", sizeof x / sizeof *p, sizeof(p + 1), (p + 4) - (p + 1));",
+      "options": [
+        "5 4 3",
+        "5 8 3",
+        "20 8 3",
+        "5 8 12"
+      ],
+      "correctIndex": 1,
+      "explanation": "sizeof x / sizeof *p = 20 / 4 = 5 elements. p + 1 is still an int *, so its size is 8 bytes, and (p + 4) − (p + 1) = 3 elements, not 12 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m020",
+      "questionText": "p and q are int pointers into the same array and n is an int. Which expression is NOT valid C?",
+      "options": [
+        "p + q",
+        "q - p",
+        "p + n",
+        "p < q"
+      ],
+      "correctIndex": 0,
+      "explanation": "Adding two addresses has no meaning, so p + q is a compile error. An integer may be added to a pointer, and two pointers into the same array may be subtracted (giving elements) or compared.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m021",
+      "questionText": "What does the following fragment print?\n\nint a[] = {2, 4, 6, 8, 10, 12};\nint *p = a, *q = a + 5;\nint s = 0;\nwhile (p < q)\n    s += *p++ - *q--;\nprintf(\"%d %td\", s, p - a);",
+      "options": [
+        "-18 6",
+        "18 3",
+        "-18 3",
+        "-12 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "The loop pairs 2 − 12, 4 − 10 and 6 − 8, adding −10, −6 and −2, so s = −18. After three passes p points to a[3] and q to a[2], so p < q fails and p − a = 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m022",
+      "questionText": "How many times does the body of this loop run?\n\nint a[8];\nint *p = a, *q = &a[7];\nint count = 0;\nwhile (p < q) {\n    p += 2;\n    q--;\n    count++;\n}\nprintf(\"%d\", count);",
+      "options": [
+        "2",
+        "4",
+        "7",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "Before each test the (p, q) positions are (0, 7), (2, 6), (4, 5) and then (6, 4), which ends the loop, so the body runs 3 times. Only addresses are compared; the array values are never read.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m023",
+      "questionText": "What does the following fragment print?\n\nchar s[] = \"pointer\";\nchar *p = s;\nwhile (*p != 't')\n    p++;\nprintf(\"%td %c\", p - s, *(p - 2));",
+      "options": [
+        "4 i",
+        "5 i",
+        "4 n",
+        "3 o"
+      ],
+      "correctIndex": 0,
+      "explanation": "'t' is at index 4 of \"pointer\", so the loop stops with p = s + 4 and p − s = 4. *(p − 2) is s[2], which is 'i'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m024",
+      "questionText": "In C, what is the type of the result of subtracting two pointers that point into the same array?",
+      "options": [
+        "size_t, an unsigned integer type",
+        "ptrdiff_t, a signed integer type defined in <stddef.h>",
+        "The same pointer type as the two operands",
+        "void *"
+      ],
+      "correctIndex": 1,
+      "explanation": "The difference is a count of elements that may be negative (p − q when p comes first), so its type is the signed type ptrdiff_t. It is printed with %td.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m025",
+      "questionText": "Which pointer comparison is always well defined in standard C?",
+      "options": [
+        "p == NULL, where p is any valid pointer",
+        "p < q, where p and q point into two unrelated arrays",
+        "p + 10 > p, where p points to the first element of int a[5]",
+        "p != q, where p is an uninitialised pointer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Testing a valid pointer against NULL with == or != is always allowed. Relational operators are defined only for pointers into the same array (or one past its end), forming p + 10 beyond a 5-element array is undefined, and an uninitialised pointer must not even be read.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m026",
+      "questionText": "In the declaration int *const p = &x; what is constant?",
+      "options": [
+        "The value *p: it cannot be changed, but p can point elsewhere",
+        "The pointer p itself: it cannot be made to point elsewhere, but *p can be changed",
+        "Both p and *p are constant",
+        "Nothing: const in this position is ignored"
+      ],
+      "correctIndex": 1,
+      "explanation": "Read the declaration right to left: p is a const pointer to int. p = &y is a compile error, while *p = 5 is allowed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m027",
+      "questionText": "Consider the declarations below. In which option are BOTH statements legal?\n\nint x = 1, y = 2;\nconst int *p = &x;\nint *const q = &x;",
+      "options": [
+        "*p = 5; q = &y;",
+        "p = &y; q = &y;",
+        "*p = 5; *q = 5;",
+        "p = &y; *q = 5;"
+      ],
+      "correctIndex": 3,
+      "explanation": "const int *p protects the pointee, so *p = 5 is illegal but p may move. int *const q fixes the pointer, so q = &y is illegal but *q = 5 is fine.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m028",
+      "questionText": "Given int x = 1, y = 2; const int *const r = &x; which statement compiles?",
+      "options": [
+        "r = &y;",
+        "*r = y;",
+        "int z = *r + y;",
+        "(*r)++;"
+      ],
+      "correctIndex": 2,
+      "explanation": "r is a constant pointer to a constant int, so neither r nor *r may be modified. Reading through r is always allowed, which gives z = 1 + 2 = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m029",
+      "questionText": "What does the following fragment print?\n\nconst char *base = \"POINTER\";\nconst char *s = base;\ns += 3;\nprintf(\"%s %c\", s, *(s + 1) + 1);",
+      "options": [
+        "NTER U",
+        "INTER U",
+        "NTER O",
+        "Compile error: s points to const data and cannot be moved"
+      ],
+      "correctIndex": 0,
+      "explanation": "const char * makes the characters read-only but lets the pointer move, so s += 3 points to \"NTER\". *(s + 1) is 'T', and 'T' + 1 is 'U' when printed with %c.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m030",
+      "questionText": "After which fragment is p a dangling pointer?",
+      "options": [
+        "int *p = NULL;",
+        "int x = 4; int *p = &x;   /* x still in scope */",
+        "int *p = malloc(sizeof(int)); free(p); p = NULL;",
+        "int *p = malloc(sizeof(int)); free(p);"
+      ],
+      "correctIndex": 3,
+      "explanation": "free releases the block but leaves the old address in p, so p now dangles. Setting p = NULL after free removes the danger, and a null pointer or a pointer to a live variable is not dangling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m031",
+      "questionText": "Inside a function, the statements int *p; *p = 10; are executed. Which description is correct?",
+      "options": [
+        "p is a null pointer, so the statement safely does nothing",
+        "p is a wild (uninitialised) pointer, and writing through it is undefined behaviour",
+        "p is a void pointer, so the statement is a compile error",
+        "p is a dangling pointer to freed memory, where 10 is stored safely"
+      ],
+      "correctIndex": 1,
+      "explanation": "A local pointer that is never initialised holds an indeterminate address, and storing through it may corrupt memory or crash the program. Initialise every pointer to a valid address or to NULL.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m032",
+      "questionText": "Which fragment is free of undefined behaviour?",
+      "options": [
+        "int *p = malloc(sizeof *p); free(p); free(p);",
+        "int x = 3; int *p = &x; free(p);",
+        "int *p = malloc(sizeof *p); free(p); p = NULL; free(p);",
+        "int *p = malloc(4 * sizeof *p); free(p + 1);"
+      ],
+      "correctIndex": 2,
+      "explanation": "After p = NULL, the second free(p) is defined to do nothing. Freeing the same block twice, freeing a variable that was never allocated on the heap, and freeing an address that is not the start of an allocated block are all undefined behaviour.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m033",
+      "questionText": "Which call allocates space for 10 ints and sets every byte of it to zero?",
+      "options": [
+        "calloc(10, sizeof(int))",
+        "malloc(10 * sizeof(int))",
+        "malloc(10)",
+        "realloc(NULL, 10 * sizeof(int))"
+      ],
+      "correctIndex": 0,
+      "explanation": "calloc(count, size) allocates count × size bytes and zero-fills them. malloc and realloc leave new bytes uninitialised, and malloc(10) requests only 10 bytes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m034",
+      "questionText": "What does malloc return when it cannot allocate the requested memory?",
+      "options": [
+        "(void *)-1",
+        "The address of the largest free block that is available",
+        "A null pointer (NULL)",
+        "Nothing, because it waits until enough memory becomes free"
+      ],
+      "correctIndex": 2,
+      "explanation": "malloc, calloc and realloc report failure by returning NULL, which is why the result should be checked before it is used.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m035",
+      "questionText": "Which standard C header declares malloc, calloc, realloc and free?",
+      "options": [
+        "<stdio.h>",
+        "<stdlib.h>",
+        "<malloc.h>",
+        "<string.h>"
+      ],
+      "correctIndex": 1,
+      "explanation": "The heap functions are declared in <stdlib.h>. <malloc.h> is a non-standard header found on some compilers and should not be relied on.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t2_m036",
+      "questionText": "p points to a block obtained from malloc. What is the risk in the statement p = realloc(p, 1000 * sizeof(int));?",
+      "options": [
+        "realloc always frees the old block first, so its contents are lost",
+        "realloc can only shrink a block, never enlarge it",
+        "realloc expects a count of elements, so the size requested is 4 times too large",
+        "If realloc fails it returns NULL, p is overwritten and the original block is leaked"
+      ],
+      "correctIndex": 3,
+      "explanation": "On failure realloc returns NULL but leaves the old block allocated, so assigning the result straight to p loses the only pointer to it. Use a temporary: t = realloc(p, n); if (t != NULL) p = t;",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m037",
+      "questionText": "Which statement about realloc is correct?",
+      "options": [
+        "realloc always returns the same address it was given",
+        "realloc(NULL, n) behaves like malloc(n)",
+        "realloc sets the newly added bytes to zero",
+        "realloc may be used to resize a local array such as int a[10]"
+      ],
+      "correctIndex": 1,
+      "explanation": "Called with a null pointer, realloc simply allocates n bytes. When it enlarges a block it may move it to a new address, the added bytes are not initialised, and it works only on blocks from malloc, calloc or realloc.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m038",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nint main(void) {\n    int *a = calloc(5, sizeof(int));\n    int s = 0;\n    if (a == NULL) return 1;\n    a[2] = 4;\n    a[4] = a[2] * 3;\n    for (int i = 0; i < 5; i++)\n        s += a[i];\n    printf(\"%d\", s);\n    free(a);\n    return 0;\n}",
+      "options": [
+        "12",
+        "4",
+        "An unpredictable (garbage) value",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "calloc zero-fills the block, so the elements are 0, 0, 4, 0 and 12, and their sum is 16. With malloc instead, the untouched elements would be indeterminate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m039",
+      "questionText": "Assume every allocation succeeds. What does the following fragment print?\n\nint s = 0, *p = malloc(4 * sizeof(int));\nfor (int i = 0; i < 4; i++) *(p + i) = 1 << i;\nint *t = realloc(p, 6 * sizeof(int));\nif (t != NULL) p = t;\np[4] = p[3] + p[2];\np[5] = *(p + 4) - *p;\nfor (int *k = p; k < p + 6; k++) s += *k;\nprintf(\"%d\", s);\nfree(p);",
+      "options": [
+        "38",
+        "27",
+        "15",
+        "An unpredictable value, because realloc discards the old contents"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first loop stores 1, 2, 4 and 8 (1 << i), and realloc keeps them. Then p[4] = 8 + 4 = 12 and p[5] = 12 − 1 = 11, so s = 1 + 2 + 4 + 8 + 12 + 11 = 38.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m040",
+      "questionText": "Assume every allocation succeeds. How many bytes are still allocated but unreachable (leaked) after this fragment runs?\n\nchar *p = malloc(40);\np = malloc(80);\nfree(p);",
+      "options": [
+        "0",
+        "80",
+        "40",
+        "120"
+      ],
+      "correctIndex": 2,
+      "explanation": "The second assignment overwrites the only pointer to the first 40-byte block, so that block can never be freed. free(p) releases only the 80-byte block, leaving 40 bytes leaked.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t2_m041",
+      "questionText": "Assume int is 4 bytes. The array int a[10] starts at address 4000, and int *p = &a[2], *q = &a[7];. What are the address held by p + 3 and the value of q - p?",
+      "options": [
+        "4020 and 5",
+        "4012 and 5",
+        "4020 and 20",
+        "4005 and 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "p holds 4000 + 2 × 4 = 4008, so p + 3 holds 4008 + 3 × 4 = 4020. q − p counts elements: 7 − 2 = 5, which is the 20-byte gap divided by 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m042",
+      "questionText": "Assume every allocation succeeds. What does the following fragment print?\n\nint **m = malloc(3 * sizeof(int *));\nfor (int i = 0; i < 3; i++) {\n    m[i] = malloc((i + 1) * sizeof(int));\n    for (int j = 0; j <= i; j++)\n        m[i][j] = i + j;\n}\nint s = 0;\nfor (int i = 0; i < 3; i++)\n    s += m[i][i];\nprintf(\"%d %d\", s, m[2][0]);\nfor (int i = 0; i < 3; i++) free(m[i]);\nfree(m);",
+      "options": [
+        "6 0",
+        "3 2",
+        "6 2",
+        "9 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "m is an array of 3 row pointers, and row i holds i + 1 ints with m[i][j] = i + j. The diagonal gives 0 + 2 + 4 = 6, and m[2][0] = 2 + 0 = 2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t2_m043",
+      "questionText": "What does the following fragment print?\n\nint a = 1, b = 2;\nint *p = &a, *q = &b, *t;\nt = p;\np = q;\nq = t;\n*p = *p * 10;\nprintf(\"%d %d %d %d\", a, b, *p, *q);",
+      "options": [
+        "10 2 10 2",
+        "2 10 10 2",
+        "20 1 20 1",
+        "1 20 20 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Swapping p and q exchanges only the addresses: p now points to b and q to a. *p = *p * 10 therefore changes b to 20, while a keeps 1.",
+      "difficulty": "medium"
+    }
+  ]
+}

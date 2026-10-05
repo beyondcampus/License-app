@@ -1,0 +1,528 @@
+{
+  "topicId": "ch5_i23",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Ethernet, Token LANs and Wi-Fi"
+    },
+    {
+      "type": "paragraph",
+      "text": "Ethernet (IEEE 802.3) is the most common wired LAN: every frame carries MAC addresses, speeds have grown from 10 Mbps through 100 Mbps and 1 Gbps to 10 Gbps and beyond, and CSMA/CD is used on the old shared, half-duplex segments. In token ring (IEEE 802.5) the stations form a ring and a token travels round it; only the token holder may transmit, so there are no collisions at all (not merely fewer), but in a simple ring one broken link or station stops the whole network, which is why real rings were star-wired through MAUs that bypass a failed station. Token bus (IEEE 802.4) combines the two ideas: the cabling is a bus like Ethernet, but access follows a token passed round a logical ring in descending order of station address, so the waiting time is bounded. Each token bus station knows its successor, and new stations join through periodic solicit-successor frames sent by the token holder."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Standard",
+          "Medium and reach",
+          "Line coding"
+        ],
+        [
+          "10BASE5 / 10BASE2",
+          "Thick / thin coaxial bus, 500 m / 185 m",
+          "Manchester"
+        ],
+        [
+          "10BASE-T",
+          "2 pairs of Cat 3 UTP to a hub or switch, 100 m",
+          "Manchester (20 Mbaud)"
+        ],
+        [
+          "100BASE-TX",
+          "2 pairs of Cat 5 UTP, 100 m",
+          "4B/5B + MLT-3 (125 Mbaud)"
+        ],
+        [
+          "100BASE-FX",
+          "Multimode fibre, 2 km in full duplex",
+          "4B/5B + NRZI"
+        ],
+        [
+          "1000BASE-T",
+          "4 pairs of Cat 5e UTP, 100 m, 250 Mbps per pair",
+          "PAM-5 (125 Mbaud per pair)"
+        ],
+        [
+          "1000BASE-SX / LX",
+          "Multimode fibre up to 550 m / single-mode fibre 5 km",
+          "8B/10B (1.25 Gbaud)"
+        ],
+        [
+          "10GBASE-SR / LR / T",
+          "Multimode 300 m / single-mode 10 km / Cat 6a 100 m; full duplex only",
+          "64B/66B on fibre, PAM-16 on copper"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Manchester coding puts a transition in the middle of every bit, so the receiver recovers the clock from the signal itself and the line carries no DC component. The price is bandwidth: every bit needs two signal elements, so 10 Mbps Ethernet signals at 20 Mbaud. Fast Ethernet therefore switched to 4B/5B block coding, which sends every 4 data bits as a 5-bit code word chosen so that no more than three 0s ever occur in a row, an overhead of 25 % instead of 100 %. Differential Manchester, used by 802.5 token ring, also has a mid-bit transition in every bit but encodes a 0 as a transition at the start of the bit and a 1 as no transition there, so it does not depend on the polarity of the wires."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: Manchester, IEEE 802.3 convention (1 = low->high, 0 = high->low)\nBits:         1     0     1     1     0\nHalf-bits:   L H   H L   L H   L H   H L\nMid-bit transitions: 5, one in every bit (this is the clock)\nBit-boundary transitions: only between two equal bits (the 1-1 pair here): 1\nTotal = 6 transitions; 10 signal elements for 5 bits, so baud = 2 x bit rate\nThe opposite polarity convention (used in some textbooks) gives the same counts"
+    },
+    {
+      "type": "formula",
+      "latex": "T_{wire} = \\frac{8(L + 20)}{R},\\qquad \\eta = \\frac{P}{P + 38}",
+      "plainText": "Wire time of one Ethernet frame T_wire = 8 × (L + 20) / R, where L is the frame size in bytes from destination address to FCS (64 to 1518) and 20 bytes = 8 preamble/SFD + 12 inter-frame gap; payload efficiency η = P / (P + 38) for a payload of P = 46 to 1500 bytes (38 = 8 + 14 header + 4 FCS + 12 gap)."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example: Ethernet overhead and frame rate at 1 Gbps (1 Gbps = 10^9 bit/s)\nPer frame on the wire: preamble + SFD 8 + header 14 + data + FCS 4 + inter-frame gap 12 bytes\nMinimum frame: 8 + 64 + 12 = 84 bytes = 672 bits -> 672 ns\n  frame rate = 10^9 / 672 = 1 488 095 frames/s; payload efficiency = 46 / 84 = 54.8 %\nMaximum frame: 8 + 1518 + 12 = 1538 bytes = 12 304 bits -> 12.304 us\n  frame rate = 10^9 / 12 304 = 81 274 frames/s; payload efficiency = 1500 / 1538 = 97.5 %\nUseful IP data rate with full frames = 0.975 x 1000 Mbps = 975 Mbps"
+    },
+    {
+      "type": "paragraph",
+      "text": "In 802.5 a free token is 3 bytes (start delimiter, access control, end delimiter); a station that wants to send flips the token bit in the access control byte, turning the token into the start of a data frame, and may keep it for the token holding time, 10 ms by default. The frame travels all the way round and the sender removes it (source stripping), reading the A and C bits of the frame status byte to learn whether the destination recognised its address and copied the frame. With early token release, used on 16 Mbps rings, the sender issues a new token straight after its frame instead of waiting for the frame to return. Ring latency is the propagation time round the ring plus about one bit of delay in each station, and the active monitor adds a 24-bit latency buffer so that a whole token always fits on a short ring."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "To DS / From DS",
+          "Address 1 (receiver)",
+          "Address 2 (transmitter)",
+          "Address 3"
+        ],
+        [
+          "0 / 0: station to station in one BSS",
+          "Destination",
+          "Source",
+          "BSSID"
+        ],
+        [
+          "0 / 1: AP to station",
+          "Destination",
+          "BSSID (sending AP)",
+          "Original source"
+        ],
+        [
+          "1 / 0: station to AP",
+          "BSSID (receiving AP)",
+          "Source",
+          "Final destination"
+        ],
+        [
+          "1 / 1: AP to AP (wireless bridge)",
+          "Receiving AP",
+          "Sending AP",
+          "Final destination (Address 4 = original source)"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: A sends to B; C is hidden from A but in range of B (802.11 DCF with RTS/CTS)\nMedium idle for DIFS and A's backoff reaches 0\nA -> B  RTS  Duration = 3 SIFS + CTS + DATA + ACK     C cannot hear it\n        SIFS\nB -> A  CTS  Duration = 2 SIFS + DATA + ACK           C hears it, sets NAV and stays silent\n        SIFS\nA -> B  DATA                                         stations near A deferred on the RTS\n        SIFS\nB -> A  ACK                                          NAVs expire; contention restarts after DIFS"
+    },
+    {
+      "type": "bulletList",
+      "text": "More on 802.11 and Bluetooth:",
+      "items": [
+        "DCF (distributed coordination function) is the mandatory CSMA/CA mode; PCF (point coordination function) is an optional contention-free mode in which the AP polls stations, taking priority by waiting only PIFS; a beacon opens each contention-free period, which is followed by an ordinary contention period.",
+        "Exposed station problem: B hears C sending to D and defers, although its own frame to A would not disturb D's reception; RTS/CTS does not cure it, because B still hears C's traffic.",
+        "802.11 frame types: management (beacon, probe, authentication, association), control (RTS, CTS, ACK) and data.",
+        "Speeds such as 300+ Mbps for 802.11n and 1+ Gbps for 802.11ac are typical figures for two or three spatial streams; the standards' maxima are 600 Mbps and about 6.9 Gbps. 802.11be (Wi-Fi 7) adds 320 MHz channels and multi-link operation.",
+        "Bluetooth (IEEE 802.15.1) uses the 2.4 GHz band with frequency hopping over 79 channels of 1 MHz at 1600 hops/s; a piconet has one master (central) and up to 7 active slaves plus up to 255 parked ones, and piconets linked through a shared device form a scatternet. Bluetooth Low Energy uses 40 channels of 2 MHz."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: including the 8-byte preamble and SFD in the 64 to 1518-byte frame size, yet forgetting them and the 12-byte inter-frame gap when working out wire time or frame rate; confusing Manchester's baud rate (twice the bit rate) with its bit rate; saying token ring has fewer collisions (it has none); and mixing up 802.4 (token bus: physical bus, logical ring) with 802.5 (token ring: physical ring)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i23_m001",
+      "questionText": "Which LAN technology does the IEEE 802.3 standard define?",
+      "options": [
+        "Token ring",
+        "Ethernet",
+        "Wi-Fi",
+        "Bluetooth"
+      ],
+      "correctIndex": 1,
+      "explanation": "IEEE 802.3 is Ethernet. Token ring is 802.5, Wi-Fi is 802.11 and Bluetooth is 802.15.1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m002",
+      "questionText": "Which LAN standard connects the stations in a physical ring and lets only the station holding the circulating token transmit?",
+      "options": [
+        "Ethernet (IEEE 802.3)",
+        "Token bus (IEEE 802.4)",
+        "Token ring (IEEE 802.5)",
+        "PPP"
+      ],
+      "correctIndex": 2,
+      "explanation": "Token ring (802.5) passes the token round a physical ring (star-wired through MAUs in practice). Token bus (802.4) also uses a token, but over a physical bus with a logical ring, and Ethernet uses CSMA/CD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m003",
+      "questionText": "An Ethernet receiver silently discards a frame whose CRC check fails and sends no acknowledgement. In the TCP/IP stack, which protocol makes sure the lost data is still delivered to the application?",
+      "options": [
+        "Ethernet",
+        "UDP",
+        "CSMA/CD",
+        "TCP"
+      ],
+      "correctIndex": 3,
+      "explanation": "Ethernet gives an unacknowledged connectionless service, UDP never retransmits and CSMA/CD only resolves collisions. TCP numbers and acknowledges its segments, so a segment lost in a discarded frame is retransmitted end to end.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m004",
+      "questionText": "What is the maximum data rate of IEEE 802.11b?",
+      "options": [
+        "2 Mbps",
+        "11 Mbps",
+        "54 Mbps",
+        "600 Mbps"
+      ],
+      "correctIndex": 1,
+      "explanation": "802.11b (2.4 GHz, DSSS/CCK) tops out at 11 Mbps. The original 802.11 gave 2 Mbps, 802.11a/g 54 Mbps and 802.11n up to 600 Mbps.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m005",
+      "questionText": "10 Mbps Ethernet uses Manchester encoding. What signal-element (baud) rate does this need on the cable?",
+      "options": [
+        "5 Mbaud",
+        "10 Mbaud",
+        "20 Mbaud",
+        "40 Mbaud"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each Manchester bit is sent as two half-bit signal elements, so the baud rate is 2 × 10 Mbps = 20 Mbaud. This 100 % overhead is why faster Ethernets moved to block codes such as 4B/5B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m006",
+      "questionText": "The bits 0 1 1 1 1 are sent with Manchester encoding (IEEE 802.3 convention: 0 = high-to-low, 1 = low-to-high). How many signal-level transitions occur within these five bit periods, counting mid-bit and bit-boundary transitions but not any transition before the first bit?",
+      "options": [
+        "9",
+        "8",
+        "6",
+        "5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every bit has one mid-bit transition (5), and a boundary transition is needed only between two equal bits, because the first bit then ends on the opposite level to the one the second must start on; 0 1 1 1 1 has three such 1-1 boundaries, giving 5 + 3 = 8. The count is the same under either polarity convention.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i23_m007",
+      "questionText": "In the name 10BASE-T, what do the three parts mean?",
+      "options": [
+        "10 Mbps, baseband signalling, twisted-pair cable",
+        "10 Mbps, broadband signalling, thick coaxial cable",
+        "10 km maximum length, baseband signalling, twisted pair",
+        "10 stations per segment, baseband signalling, terminated bus"
+      ],
+      "correctIndex": 0,
+      "explanation": "The number is the data rate in Mbps, BASE means baseband (one signal occupies the medium) and T means twisted pair. 10BASE5 and 10BASE2 were the coaxial versions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m008",
+      "questionText": "What is the maximum segment length of 10BASE-T, 100BASE-TX and 1000BASE-T twisted-pair Ethernet?",
+      "options": [
+        "100 m",
+        "185 m",
+        "500 m",
+        "2 km"
+      ],
+      "correctIndex": 0,
+      "explanation": "All twisted-pair Ethernet standards up to 1000BASE-T (and 10GBASE-T on Cat 6a) allow 100 m per segment. 185 m and 500 m are the 10BASE2 and 10BASE5 coax limits, and 2 km is 100BASE-FX over multimode fibre.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m009",
+      "questionText": "100BASE-TX applies 4B/5B block coding before MLT-3 line coding. What is the resulting signalling rate on the wire (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "80 Mbaud",
+        "100 Mbaud",
+        "125 Mbaud",
+        "200 Mbaud"
+      ],
+      "correctIndex": 2,
+      "explanation": "4B/5B turns every 4 data bits into 5 code bits, so 100 Mbps × 5/4 = 125 Mbit/s of code bits, sent by MLT-3 at 125 Mbaud. 100 Mbaud ignores the block code and 200 Mbaud would be Manchester.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m010",
+      "questionText": "How does 1000BASE-T carry 1 Gbps over Category 5e cable?",
+      "options": [
+        "It uses one pair at 1 Gbps with Manchester coding",
+        "It uses two pairs, one for each direction, at 500 Mbps each",
+        "It uses 8B/10B coding on a single pair at 1.25 Gbaud",
+        "It uses all four pairs at once, 250 Mbps per pair in both directions, with PAM-5 signalling"
+      ],
+      "correctIndex": 3,
+      "explanation": "1000BASE-T sends 250 Mbps on each of the four pairs simultaneously in both directions (echo cancellation separates them), using PAM-5 at 125 Mbaud per pair. 8B/10B at 1.25 Gbaud is used by the fibre versions 1000BASE-SX/LX.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m011",
+      "questionText": "Which statement about 10 Gigabit Ethernet (IEEE 802.3ae / 802.3an) is correct?",
+      "options": [
+        "It keeps CSMA/CD but with a 4096-bit slot time",
+        "It operates in full-duplex mode only, so CSMA/CD is not used",
+        "It works only over coaxial cable",
+        "It uses a different frame format with 128-bit addresses"
+      ],
+      "correctIndex": 1,
+      "explanation": "10 Gigabit Ethernet supports only full-duplex point-to-point links, so there is no contention and no CSMA/CD, while the 802.3 frame format and 48-bit MAC addresses stay the same. The 4096-bit slot belonged to half-duplex Gigabit Ethernet.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m012",
+      "questionText": "A 200-byte IP packet is sent in an Ethernet II frame. Counting the preamble and SFD (8 bytes), the MAC header (14 bytes), the FCS (4 bytes) and the 12-byte inter-frame gap, what fraction of the wire time carries the IP packet?",
+      "options": [
+        "93.5%",
+        "91.7%",
+        "88.5%",
+        "84.0%"
+      ],
+      "correctIndex": 3,
+      "explanation": "Wire bytes = 8 + 14 + 200 + 4 + 12 = 238, so the fraction is 200 / 238 = 84.0%. Leaving out the gap gives 200 / 226 = 88.5%, and counting only header and FCS gives 200 / 218 = 91.7%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i23_m013",
+      "questionText": "10 Mbps Ethernet (10^7 bit/s) sends back-to-back minimum-size frames. Including the 8-byte preamble/SFD and the 12-byte inter-frame gap, what is the maximum frame rate?",
+      "options": [
+        "813 frames/s",
+        "14,881 frames/s",
+        "17,361 frames/s",
+        "19,531 frames/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each minimum frame occupies 8 + 64 + 12 = 84 bytes = 672 bit times, so the rate is 10^7 / 672 ≈ 14,881 frames/s. Ignoring the gap gives 10^7 / 576 ≈ 17,361, ignoring preamble and gap gives 19,531, and 813 frames/s is the rate for maximum-size frames.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i23_m014",
+      "questionText": "An IPv4 packet of 30 bytes is carried in an Ethernet II frame. How many pad bytes must be added?",
+      "options": [
+        "0",
+        "16",
+        "18",
+        "34"
+      ],
+      "correctIndex": 1,
+      "explanation": "The data field must be at least 46 bytes, so 46 − 30 = 16 pad bytes are added, making the frame 14 + 46 + 4 = 64 bytes. 34 wrongly pads up to 64 bytes of data.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m015",
+      "questionText": "The Type/Length field of a received Ethernet frame contains 0x05DC (1500 decimal). How is it interpreted?",
+      "options": [
+        "As the length of the data field, because values up to 1500 denote a length",
+        "As an EtherType identifying IPv4",
+        "As an error, because the field must always be at least 0x0600",
+        "As an 802.1Q VLAN tag"
+      ],
+      "correctIndex": 0,
+      "explanation": "Values up to 1500 (0x05DC) are IEEE 802.3 length fields, and values of 1536 (0x0600) or more are EtherTypes such as 0x0800 for IPv4 or 0x8100 for a VLAN tag. So 0x05DC means a 1500-byte data field, normally beginning with an LLC header.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m016",
+      "questionText": "How does classic Bluetooth share the crowded 2.4 GHz band with Wi-Fi and other devices?",
+      "options": [
+        "CSMA/CD on a single 20 MHz channel",
+        "Token passing among all nearby devices",
+        "Fixed-frequency transmission in the 5 GHz band",
+        "Frequency hopping over 79 channels of 1 MHz, about 1600 hops per second"
+      ],
+      "correctIndex": 3,
+      "explanation": "Classic Bluetooth (802.15.1) uses frequency-hopping spread spectrum: the piconet hops over 79 one-megahertz channels about 1600 times per second, so interference on any one frequency affects only a few slots. Bluetooth Low Energy uses 40 channels of 2 MHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m017",
+      "questionText": "In IEEE 802.5 token ring, which station removes a data frame from the ring?",
+      "options": [
+        "The sending station, when the frame returns to it",
+        "The destination station, as soon as it copies the frame",
+        "The active monitor, in every case",
+        "The next station downstream of the destination"
+      ],
+      "correctIndex": 0,
+      "explanation": "Token ring uses source stripping: the frame circles the ring and the sender removes it, reading the A and C bits to see whether the destination recognised and copied it. The active monitor removes only orphan frames whose sender has failed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m018",
+      "questionText": "What does a free token consist of in IEEE 802.5 token ring?",
+      "options": [
+        "1 byte: the access control byte only",
+        "6 bytes: the address of the next station",
+        "3 bytes: start delimiter, access control and end delimiter",
+        "64 bytes, the minimum frame size"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 802.5 token is 3 bytes: SD, AC and ED. A station seizes it by flipping the token bit in the AC byte, which turns it into the start of a data frame.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m019",
+      "questionText": "Which of these is a job of the active monitor in an IEEE 802.5 token ring?",
+      "options": [
+        "Assigning IP addresses to the ring stations",
+        "Detecting collisions and sending jam signals",
+        "Converting token ring frames into Ethernet frames",
+        "Regenerating a lost token and removing frames that would otherwise circle the ring endlessly"
+      ],
+      "correctIndex": 3,
+      "explanation": "One station acts as active monitor: it supplies the master clock, regenerates the token if none is seen in time, uses the monitor bit to remove orphan frames and inserts a latency buffer. Token rings have no collisions, so there is no jam signal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m020",
+      "questionText": "In IEEE 802.4 token bus, in what order is the token passed?",
+      "options": [
+        "Round a logical ring in descending order of station address",
+        "In order of the stations' physical position along the cable",
+        "To whichever station has the most data waiting",
+        "In a random order chosen by a central controller"
+      ],
+      "correctIndex": 0,
+      "explanation": "Token bus stations sit on a physical bus but form a logical ring ordered by address, with the token passed from higher to lower address and each station knowing its successor. Physical position on the cable does not matter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m021",
+      "questionText": "A 16 Mbps token ring is 2 km long (signal speed 2 × 10^8 m/s) and has 50 stations, each adding a 1-bit delay. What is the ring latency in bits?",
+      "options": [
+        "50 bits",
+        "160 bits",
+        "210 bits",
+        "370 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "Propagation round the ring = 2000 / (2 × 10^8) = 10 µs, which is 10 µs × 16 × 10^6 bit/s = 160 bits; adding 50 × 1 bit of station delay gives 210 bits. 370 bits wrongly doubles the propagation delay, as if it were a round trip.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i23_m022",
+      "questionText": "Several 802.11 BSSs whose access points are joined by a distribution system, so that users can roam between them, form a(n):",
+      "options": [
+        "Extended Service Set (ESS)",
+        "Independent BSS (IBSS)",
+        "Piconet",
+        "Scatternet"
+      ],
+      "correctIndex": 0,
+      "explanation": "An ESS is two or more infrastructure BSSs connected through a distribution system (usually wired Ethernet) and sharing one SSID. An IBSS is an ad hoc network without an AP, and piconets and scatternets are Bluetooth terms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m023",
+      "questionText": "Which 802.11 access mode is optional and contention-free, with the access point polling the stations?",
+      "options": [
+        "DCF",
+        "PCF",
+        "CSMA/CD",
+        "EDCA"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the point coordination function the AP (point coordinator) polls stations during a contention-free period, gaining priority by waiting only PIFS. DCF is the mandatory contention-based CSMA/CA mode, and EDCA is the prioritised contention mode of 802.11e.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m024",
+      "questionText": "Station B wants to send to A but hears C transmitting to D. B defers, even though its transmission to A would not interfere with D's reception. What is this called?",
+      "options": [
+        "Exposed station problem",
+        "Hidden station problem",
+        "Near-far problem",
+        "Capture effect"
+      ],
+      "correctIndex": 0,
+      "explanation": "B is exposed to C's transmission and needlessly stays silent, wasting capacity. In the hidden station problem the opposite happens: two senders cannot hear each other and collide at a common receiver.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m025",
+      "questionText": "Which sequence correctly shows an 802.11 DCF exchange that uses RTS/CTS?",
+      "options": [
+        "SIFS, RTS, DIFS, CTS, DIFS, DATA, DIFS, ACK",
+        "DIFS, DATA, SIFS, RTS, SIFS, CTS, SIFS, ACK",
+        "DIFS, RTS, SIFS, CTS, SIFS, DATA, SIFS, ACK",
+        "RTS, CTS, DATA, DIFS, ACK"
+      ],
+      "correctIndex": 2,
+      "explanation": "The sender waits DIFS (plus any backoff) before the RTS; every later frame of the exchange (CTS, DATA and ACK) follows after only SIFS, so no other station can slip in. Using DIFS inside the exchange would let contending stations interrupt it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m026",
+      "questionText": "Which IEEE 802.11 amendment is marketed as Wi-Fi 6 and introduced OFDMA?",
+      "options": [
+        "802.11g",
+        "802.11n",
+        "802.11ac",
+        "802.11ax"
+      ],
+      "correctIndex": 3,
+      "explanation": "802.11ax is Wi-Fi 6 (Wi-Fi 6E when extended to 6 GHz) and adds OFDMA and 1024-QAM. 802.11n is Wi-Fi 4 and 802.11ac is Wi-Fi 5.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m027",
+      "questionText": "Which statement comparing 802.11a and 802.11g is correct?",
+      "options": [
+        "Both reach 54 Mbps using OFDM, but 802.11a works at 5 GHz and 802.11g at 2.4 GHz",
+        "802.11a reaches 11 Mbps and 802.11g 54 Mbps, both at 2.4 GHz",
+        "Both work at 5 GHz, but only 802.11g uses OFDM",
+        "802.11g is backward compatible with 802.11a but not with 802.11b"
+      ],
+      "correctIndex": 0,
+      "explanation": "802.11a and 802.11g share the same OFDM physical layer and 54 Mbps maximum, but 802.11a uses 5 GHz while 802.11g uses 2.4 GHz and stays backward compatible with 802.11b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i23_m028",
+      "questionText": "How many active slave devices can a single Bluetooth piconet master serve at once?",
+      "options": [
+        "3",
+        "7",
+        "8",
+        "255"
+      ],
+      "correctIndex": 1,
+      "explanation": "A piconet has one master (central) and at most 7 active slaves, because the active member address is 3 bits and one value is reserved. Up to 255 further devices can be parked, and 8 counts the master as well.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i23_m029",
+      "questionText": "A wireless station sends a frame through its access point to a host on the wired LAN, so To DS = 1 and From DS = 0. What does Address 1 of the 802.11 frame contain?",
+      "options": [
+        "The wired host's MAC address",
+        "The sending station's MAC address",
+        "The access point's MAC address (BSSID)",
+        "The broadcast address FF:FF:FF:FF:FF:FF"
+      ],
+      "correctIndex": 2,
+      "explanation": "Address 1 is always the immediate receiver, here the AP, identified by the BSSID. Address 2 holds the sending station and Address 3 the final destination, the wired host.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i23_m030",
+      "questionText": "A 100 Mbps Ethernet link carries back-to-back maximum-size frames, each holding a 1500-byte IP packet with 20-byte IP and 20-byte TCP headers and no options. Counting preamble and SFD (8 bytes), MAC header and FCS (18 bytes) and the 12-byte inter-frame gap, what is the maximum TCP payload (goodput) rate?",
+      "options": [
+        "100 Mbps",
+        "About 97.5 Mbps",
+        "About 96.2 Mbps",
+        "About 94.9 Mbps"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each frame uses 8 + 18 + 1500 + 12 = 1538 bytes of wire time and carries 1500 − 40 = 1460 bytes of TCP payload, so goodput = 100 × 1460 / 1538 ≈ 94.9 Mbps. Forgetting the TCP/IP headers gives 97.5 Mbps, and forgetting preamble and gap gives 96.2 Mbps.",
+      "difficulty": "hard"
+    }
+  ]
+}

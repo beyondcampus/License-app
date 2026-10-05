@@ -1,0 +1,695 @@
+{
+  "topicId": "ch2_i23",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Adders and Subtractors"
+    },
+    {
+      "type": "paragraph",
+      "text": "The full-adder carry comes straight from a K-map. Its minterms 3, 5, 6 and 7 pair up with minterm 7 in three ways, giving Cout = AB + B·Cin + A·Cin. The sum map is a checkerboard with no two adjacent 1s, so it cannot be simplified in SOP form and needs XOR gates. Designers usually write Cout = AB + Cin(A ⊕ B) instead, because the A ⊕ B term is already built for the sum and can be shared."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 4-bit ripple add, A = 0101, B = 0011, C0 = 0\nbit  Ai Bi Ci | Si  Ci+1\n 0    1  1  0 |  0   1   (generate)\n 1    0  1  1 |  0   1   (propagate)\n 2    1  0  1 |  0   1   (propagate)\n 3    0  0  1 |  1   0\nResult: S = 1000 (8), C4 = 0; carries C4C3C2C1 = 0111"
+    },
+    {
+      "type": "formula",
+      "latex": "C_4 = G_3 + P_3G_2 + P_3P_2G_1 + P_3P_2P_1G_0 + P_3P_2P_1P_0C_0",
+      "plainText": "C4 = G3 + P3G2 + P3P2G1 + P3P2P1G0 + P3P2P1P0C0"
+    },
+    {
+      "type": "paragraph",
+      "text": "Timing shows why lookahead matters. In a ripple adder each carry passes through an AND and an OR level, so the last carry of an n-bit adder needs about 2n gate delays. In a lookahead adder, P and G take one level and every carry then needs only two more (AND then OR), so about 3 gate delays for any n, plus one XOR level for the sums. The cost is hardware: the carry into bit i needs AND gates with up to i + 1 inputs. For that reason lookahead is normally applied to 4-bit groups, and a second-level generator such as the 74182 links the groups."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "Ripple-carry",
+          "Carry-lookahead",
+          "Serial adder"
+        ],
+        [
+          "Hardware",
+          "n full adders",
+          "n full adders plus lookahead logic",
+          "1 full adder plus 1 D flip-flop"
+        ],
+        [
+          "Carry delay",
+          "About 2n gate delays",
+          "About 3 gate delays",
+          "n clock cycles"
+        ],
+        [
+          "Gate fan-in",
+          "2 or 3 inputs",
+          "Grows to n + 1 inputs",
+          "2 or 3 inputs"
+        ],
+        [
+          "Typical IC",
+          "74283 (4-bit)",
+          "74182 generator",
+          "Built from shift registers"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: adder/subtractor, M = 1, A = 0011, B = 0101 (unsigned)\nB XOR M   = 0101 XOR 1111 = 1010\nC0 = M    = 1\n  0011 + 1010 + 1 = 1110,  C4 = 0\nC4 = 0 -> A < B, so the result is negative\n|A - B|   = 2's complement of 1110 = 0010\nCheck: 3 - 5 = -2"
+    },
+    {
+      "type": "paragraph",
+      "text": "The same adder/subtractor output is read in two ways. For unsigned operands, C4 = 1 after a subtraction means no borrow (A ≥ B) and C4 = 0 means A < B. For signed 2's complement operands, C4 is ignored and V = C4 ⊕ C3 flags overflow. For example, with M = 1, A = 0101 (+5) and B = 1100 (−4), the adder gives 1001 with C3 = 1 and C4 = 0, so V = 1: the true result +9 does not fit in 4 bits."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: BCD 47 + 38\nUnits: 0111 + 1000 = 1111 (15 > 9)  -> + 0110 = 1 0101\n       digit 5, decimal carry 1\nTens:  0100 + 0011 + 1 = 1000 (8, valid, no correction)\nResult: 1000 0101 = 85"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in adder and subtractor questions:",
+      "items": [
+        "Treating the half-subtractor borrow as AB' instead of A'B (a borrow happens when A = 0 and B = 1).",
+        "Forgetting that a BCD sum with K = 1 (16 to 19) needs correction even though its low 4 bits look valid, e.g. 9 + 9 = 1 0010.",
+        "Leaving out C0 = M in the adder/subtractor, which gives A + B' = A − B − 1.",
+        "Taking the ripple delay as one stage delay; the worst case is n stages in series.",
+        "Using P = A + B for the sum: it gives correct carries but wrong sum bits when A = B = 1."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Gate counts to remember: half adder = 1 XOR + 1 AND; full adder from half adders = 2 XOR + 2 AND + 1 OR (5 gates); XOR = 4 NAND; half adder = 5 NAND; full adder = 9 NAND. A 4-bit adder has 9 inputs (A, B, C0) and 5 outputs (S0 to S3, C4)."
+    },
+    {
+      "type": "warning",
+      "text": "The two half-adder carries in a full adder are never both 1, so ORing them is safe. Do not use AND in their place, because AND of the two carries is always 0."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i23_m001",
+      "questionText": "The sum output S of a half adder with inputs A and B is given by:",
+      "options": [
+        "A · B",
+        "A + B",
+        "A' · B",
+        "A ⊕ B"
+      ],
+      "correctIndex": 3,
+      "explanation": "The half-adder sum is 1 only when exactly one input is 1, which is the exclusive-OR: S = A ⊕ B. A · B is the carry.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m002",
+      "questionText": "A half subtractor computes A − B. Its borrow output is:",
+      "options": [
+        "A · B'",
+        "A · B",
+        "A ⊕ B",
+        "A' · B"
+      ],
+      "correctIndex": 3,
+      "explanation": "A borrow is needed only when A = 0 and B = 1, so Borrow = A'B. A ⊕ B is the difference output, and AB' is the common wrong guess with the complement on the wrong variable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m003",
+      "questionText": "A full adder can be constructed from:",
+      "options": [
+        "Two half adders and one AND gate",
+        "One half adder and one OR gate",
+        "One half adder and two OR gates",
+        "Two half adders and one OR gate"
+      ],
+      "correctIndex": 3,
+      "explanation": "The first half adder adds A and B, the second adds that sum to Cin, and the two half-adder carries are ORed to give Cout.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m004",
+      "questionText": "A full adder has inputs A = 1, B = 0 and Cin = 1. Its outputs are:",
+      "options": [
+        "S = 1, Cout = 0",
+        "S = 1, Cout = 1",
+        "S = 0, Cout = 1",
+        "S = 0, Cout = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Two inputs are 1, so 1 + 0 + 1 = 2 = 10₂: S = 1 ⊕ 0 ⊕ 1 = 0 and Cout = 1 (majority of the inputs).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m005",
+      "questionText": "A half subtractor (A − B) has inputs A = 0 and B = 1. Its outputs are:",
+      "options": [
+        "D = 1, Borrow = 0",
+        "D = 0, Borrow = 1",
+        "D = 1, Borrow = 1",
+        "D = 0, Borrow = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "0 − 1 needs a borrow from the next bit, giving 10₂ − 1 = 1: D = 0 ⊕ 1 = 1 and Borrow = A'B = 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m006",
+      "questionText": "With A as the most significant input, the sum output of a full adder S(A, B, Cin) in minterm form is:",
+      "options": [
+        "Σm(3, 5, 6, 7)",
+        "Σm(1, 2, 4, 7)",
+        "Σm(0, 3, 5, 6)",
+        "Σm(1, 2, 3, 4)"
+      ],
+      "correctIndex": 1,
+      "explanation": "S = 1 when an odd number of inputs are 1: rows 001, 010, 100 and 111, i.e. minterms 1, 2, 4 and 7. Σm(3, 5, 6, 7) is the carry-out.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m007",
+      "questionText": "An 8-bit ripple-carry adder must also accept an input carry C0 from a previous stage. The minimum number of full adders needed is:",
+      "options": [
+        "7",
+        "9",
+        "8",
+        "16"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every bit position, including bit 0, has three inputs (Ai, Bi and a carry), so one full adder per bit is needed: 8 full adders. Only when C0 is not required can bit 0 use a half adder.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m008",
+      "questionText": "The 74283 TTL integrated circuit is a:",
+      "options": [
+        "4-bit binary full adder with fast carry",
+        "4-bit magnitude comparator",
+        "BCD-to-seven-segment decoder/driver",
+        "8-to-1 line multiplexer"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 74283 adds two 4-bit numbers with a carry-in and gives a 4-bit sum and carry-out; the 7485 is a comparator, the 7447 a seven-segment decoder and the 74151 a multiplexer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m009",
+      "questionText": "In a 4-bit adder/subtractor, each B input passes through an XOR gate controlled by the mode line M, and M is also connected to the carry input C0. With M = 0 the circuit computes:",
+      "options": [
+        "A − B",
+        "A + B + 1",
+        "A + B",
+        "B − A"
+      ],
+      "correctIndex": 2,
+      "explanation": "With M = 0 the XOR gates pass B unchanged and C0 = 0, so the adder produces A + B.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m010",
+      "questionText": "The difference output D of a full subtractor (A − B − Bin) is:",
+      "options": [
+        "A'B + A'Bin + B·Bin",
+        "A ⊕ B ⊕ Bin",
+        "AB + A·Bin + B·Bin",
+        "(A ⊕ B) · Bin"
+      ],
+      "correctIndex": 1,
+      "explanation": "The difference is 1 when an odd number of the three inputs are 1, exactly like the full-adder sum. A'B + A'Bin + B·Bin is the borrow-out.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m011",
+      "questionText": "Using binary subtraction with borrows, 1011₂ − 0110₂ equals:",
+      "options": [
+        "1101₂",
+        "0111₂",
+        "0101₂",
+        "0100₂"
+      ],
+      "correctIndex": 2,
+      "explanation": "1011₂ = 11 and 0110₂ = 6, so the difference is 5 = 0101₂. 1101₂ is what you get by ignoring every borrow (bitwise XOR).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m012",
+      "questionText": "An 8-bit adder/subtractor uses XOR gates on the B inputs so that B can be complemented for subtraction. How many XOR gates are needed for this purpose?",
+      "options": [
+        "8",
+        "4",
+        "9",
+        "16"
+      ],
+      "correctIndex": 0,
+      "explanation": "One XOR gate per bit of B, each with M as its second input: 8 gates for an 8-bit word. (A ninth XOR is needed only if an overflow output V is also wanted.)",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m013",
+      "questionText": "A full adder behaves exactly like a half adder when:",
+      "options": [
+        "Its carry input Cin is held at 1",
+        "Its carry input Cin is held at 0",
+        "Both A and B are held at 0",
+        "Its carry output is left unconnected"
+      ],
+      "correctIndex": 1,
+      "explanation": "With Cin = 0, S = A ⊕ B ⊕ 0 = A ⊕ B and Cout = AB + 0 = AB, which are the half-adder equations.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m014",
+      "questionText": "A 4-bit binary parallel adder such as the 74283 has how many output lines?",
+      "options": [
+        "4",
+        "8",
+        "9",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "It gives four sum bits S0 to S3 plus one carry-out C4, so 4 + 1 = 5 outputs. It has 9 inputs (A0–A3, B0–B3 and C0).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i23_m015",
+      "questionText": "Which output combination can never appear at the outputs of a half adder?",
+      "options": [
+        "S = 1 and C = 1",
+        "S = 0 and C = 0",
+        "S = 1 and C = 0",
+        "S = 0 and C = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "C = 1 only for A = B = 1, and then S = 1 ⊕ 1 = 0. The largest sum of two bits is 2 = 10₂, so S = 1 with C = 1 (value 3) is impossible.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m016",
+      "questionText": "A full subtractor computes A − B − Bin. For A = 0, B = 1 and Bin = 1 the outputs are:",
+      "options": [
+        "D = 1, Bout = 1",
+        "D = 0, Bout = 0",
+        "D = 0, Bout = 1",
+        "D = 1, Bout = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "0 − 1 − 1 = −2, so borrow 1 (worth 2) from the next bit: 2 + 0 − 1 − 1 = 0. D = 0 ⊕ 1 ⊕ 1 = 0 and Bout = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m017",
+      "questionText": "For a 4-bit carry-lookahead adder with A = 1011₂ and B = 0110₂, the generate and propagate words (G = G3G2G1G0, P = P3P2P1P0) are:",
+      "options": [
+        "G = 1101, P = 0010",
+        "G = 0010, P = 1111",
+        "G = 0010, P = 1101",
+        "G = 1111, P = 1101"
+      ],
+      "correctIndex": 2,
+      "explanation": "Gi = Ai·Bi gives 1011 AND 0110 = 0010, and Pi = Ai ⊕ Bi gives 1011 XOR 0110 = 1101. P = 1111 would be the OR, which is not the propagate used for the sum.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m018",
+      "questionText": "In a carry-lookahead adder, the carry into bit 2 expressed in terms of generate, propagate and the input carry C0 is:",
+      "options": [
+        "G1 + P1G0",
+        "G1P1 + G0P0 + C0",
+        "P1 + G1P0 + G1G0C0",
+        "G1 + P1G0 + P1P0C0"
+      ],
+      "correctIndex": 3,
+      "explanation": "Expand C2 = G1 + P1C1 with C1 = G0 + P0C0 to get C2 = G1 + P1G0 + P1P0C0. Dropping the last term ignores the input carry.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m019",
+      "questionText": "In a 4-bit carry-lookahead adder, C4 = G3 + P3G2 + P3P2G1 + P3P2P1G0 + P3P2P1P0C0. The widest AND gate needed for this carry has how many inputs?",
+      "options": [
+        "4",
+        "3",
+        "5",
+        "8"
+      ],
+      "correctIndex": 2,
+      "explanation": "The last product term P3P2P1P0C0 has 5 literals, so it needs a 5-input AND gate; in general the carry into bit i needs an (i + 1)-input AND gate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m020",
+      "questionText": "In a carry-lookahead adder, once all the Pi and Gi signals are available, every carry is produced after:",
+      "options": [
+        "n gate levels for the carry into bit n",
+        "Two gate levels (AND then OR), whatever the word length",
+        "Two gate levels for each bit position, so 2n levels in total",
+        "One XOR level per bit position"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each carry is written as a sum of products of P, G and C0, so an AND level followed by an OR level produces it. This removes the ripple, at the cost of wider gates as n grows.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m021",
+      "questionText": "A 16-bit ripple-carry adder is built from full adders, each with a carry propagation delay of 5 ns. The worst-case delay before the final carry-out is valid is:",
+      "options": [
+        "5 ns",
+        "80 ns",
+        "40 ns",
+        "160 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "The carry may have to pass through all 16 stages in series: 16 × 5 ns = 80 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m022",
+      "questionText": "A 4-bit adder/subtractor (XOR gates on B, mode M also driving C0) has M = 1, A = 0111₂ and B = 0010₂. The sum outputs S3S2S1S0 and carry C4 are:",
+      "options": [
+        "S = 0101, C4 = 1",
+        "S = 1001, C4 = 0",
+        "S = 0100, C4 = 1",
+        "S = 0101, C4 = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "M = 1 inverts B to 1101 and sets C0 = 1: 0111 + 1101 + 1 = 1 0101. S = 0101 (7 − 2 = 5) and C4 = 1, meaning no borrow for unsigned operands.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m023",
+      "questionText": "In a binary adder/subtractor, an XOR gate is placed between each Bi input and the adder because an XOR gate with one input tied to M:",
+      "options": [
+        "Passes Bi unchanged when M = 0 and inverts it when M = 1",
+        "Inverts Bi when M = 0 and passes it unchanged when M = 1",
+        "Adds M to Bi and produces a carry",
+        "Forms the complete 2's complement of B by itself"
+      ],
+      "correctIndex": 0,
+      "explanation": "B ⊕ 0 = B and B ⊕ 1 = B', so the XOR acts as a controlled inverter. The +1 needed for the 2's complement comes from connecting M to C0, not from the XOR gates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m024",
+      "questionText": "In a 4-bit adder/subtractor the designer forgets to connect M to C0 (C0 stays 0). With M = 1 the circuit now computes:",
+      "options": [
+        "A − B",
+        "A + B + 1",
+        "A − B − 1 (A plus the 1's complement of B)",
+        "B − A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without C0 = 1 the adder forms A + B' only. Since B' = 2⁴ − 1 − B, the result is A − B − 1 (mod 16), one less than the correct difference.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m025",
+      "questionText": "A one-digit BCD adder adds 8 (1000) and 5 (0101). The corrected output, written as decimal carry followed by the BCD digit, is:",
+      "options": [
+        "0 1101",
+        "1 1101",
+        "0 0011",
+        "1 0011"
+      ],
+      "correctIndex": 3,
+      "explanation": "1000 + 0101 = 1101 (13), which is above 9, so add 0110: 1101 + 0110 = 1 0011, i.e. carry 1 and digit 3, giving 13.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m026",
+      "questionText": "In a BCD adder the uncorrected binary sum is Z8Z4Z2Z1 with no carry out (K = 0). Which value does NOT need the +0110 correction?",
+      "options": [
+        "1010",
+        "1001",
+        "1100",
+        "1111"
+      ],
+      "correctIndex": 1,
+      "explanation": "The correction condition is K + Z8Z4 + Z8Z2. For 1001 both Z8Z4 and Z8Z2 are 0, so it is a valid digit (9); 1010, 1100 and 1111 all exceed 9.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m027",
+      "questionText": "A full adder is built from two half adders and an OR gate, each half adder being one XOR gate and one AND gate. The total number of logic gates is:",
+      "options": [
+        "5",
+        "3",
+        "4",
+        "6"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two half adders contribute 2 XOR + 2 AND gates, and one OR gate combines the carries: 2 + 2 + 1 = 5 gates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m028",
+      "questionText": "The minimum number of 2-input NAND gates needed to implement a full adder (both S and Cout) is:",
+      "options": [
+        "5",
+        "9",
+        "7",
+        "12"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each XOR takes 4 NAND gates, so the two XORs for S use 8; the carry reuses the first NAND of each XOR, Cout = NAND(NAND(A,B), NAND(A⊕B, Cin)), adding 1 gate: 8 + 1 = 9. Five NAND gates are enough only for a half adder.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m029",
+      "questionText": "Which expression is NOT equivalent to the carry-out of a full adder?",
+      "options": [
+        "AB + Cin(A ⊕ B)",
+        "AB + Cin",
+        "AB + B·Cin + A·Cin",
+        "AB + Cin(A + B)"
+      ],
+      "correctIndex": 1,
+      "explanation": "AB + Cin gives 1 for A = B = 0, Cin = 1, but 0 + 0 + 1 produces no carry. The other three are all the majority function (with A⊕B or A+B the case A = B = 1 is already covered by AB).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m030",
+      "questionText": "A full subtractor can be built from:",
+      "options": [
+        "Two half adders and one AND gate",
+        "Two half subtractors and one OR gate",
+        "One half subtractor and one XOR gate",
+        "Two half subtractors and one AND gate"
+      ],
+      "correctIndex": 1,
+      "explanation": "The first half subtractor forms A − B, the second subtracts Bin from that difference, and the two borrows are ORed to give Bout, mirroring the full adder built from half adders.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m031",
+      "questionText": "A 4-bit ripple-carry adder with C0 = 0 adds A = 1101₂ and B = 1011₂. The outputs are:",
+      "options": [
+        "S = 1000, C4 = 1",
+        "S = 1000, C4 = 0",
+        "S = 0110, C4 = 1",
+        "S = 1001, C4 = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "13 + 11 = 24 = 1 1000₂, so S = 1000 with carry-out C4 = 1 (the true sum needs 5 bits). 0110 is A ⊕ B without the carries.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m032",
+      "questionText": "For a 4-bit ripple-carry adder with C0 = 0, which pair of inputs makes a carry ripple through the largest number of stages?",
+      "options": [
+        "1000 + 1000",
+        "0101 + 0101",
+        "0000 + 0000",
+        "1111 + 0001"
+      ],
+      "correctIndex": 3,
+      "explanation": "In 1111 + 0001 bit 0 generates a carry and bits 1, 2 and 3 each propagate it, so all four carries C1 to C4 are 1 in a chain. 1000 + 1000 only generates a carry at bit 3, and 0101 + 0101 gives two separate one-stage carries.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m033",
+      "questionText": "A serial binary adder for n-bit numbers normally consists of:",
+      "options": [
+        "n full adders working in parallel, taking one clock cycle",
+        "One half adder with no storage, taking one clock cycle",
+        "Two full adders and a counter, taking n/2 clock cycles",
+        "One full adder and a D flip-flop that stores the carry, taking n clock cycles"
+      ],
+      "correctIndex": 3,
+      "explanation": "Bits are shifted in one pair per clock; the single full adder adds them with the carry saved in a D flip-flop from the previous cycle. It is cheap in hardware but needs n clock cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m034",
+      "questionText": "Which statement about a carry-lookahead adder is NOT correct?",
+      "options": [
+        "Its carries do not have to wait for lower stages to ripple",
+        "It needs fewer gates than a ripple-carry adder of the same width",
+        "It uses generate Gi = AiBi and propagate Pi = Ai ⊕ Bi",
+        "A lookahead carry generator such as the 74182 can combine groups of 4-bit adders"
+      ],
+      "correctIndex": 1,
+      "explanation": "Lookahead gains speed by adding gates: the carry into bit i needs gates with up to i + 1 inputs, so it uses more hardware than a ripple-carry adder, not less.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m035",
+      "questionText": "A one-digit BCD adder uses two 4-bit binary adders. The second adder adds to the uncorrected sum:",
+      "options": [
+        "0110 always",
+        "1010 whenever the sum exceeds 9",
+        "0110 when the correction output is 1, otherwise 0000",
+        "0011 to convert the result to excess-3"
+      ],
+      "correctIndex": 2,
+      "explanation": "The correction signal K + Z8Z4 + Z8Z2 drives the two middle inputs (weights 4 and 2) of the second adder, so it adds 0110 when correction is needed and 0000 otherwise; the same signal is the decimal carry-out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m036",
+      "questionText": "An 8-bit unsigned binary adder adds 200 and 100 (decimal). The 8-bit result and carry-out are:",
+      "options": [
+        "0010 1100 with carry-out 0",
+        "1111 1111 with carry-out 1",
+        "0100 0100 with carry-out 1",
+        "0010 1100 with carry-out 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "200 + 100 = 300, which exceeds 255, so carry-out = 1 and the 8 bits hold 300 − 256 = 44 = 0010 1100. The carry-out of 1 signals unsigned overflow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m037",
+      "questionText": "A full adder is built from a 3-to-8 decoder (inputs A, B, Cin with A as MSB, outputs D0 to D7) and OR gates. The carry-out is the OR of decoder outputs:",
+      "options": [
+        "D1, D2, D4, D7",
+        "D0, D3, D5, D6",
+        "D4, D5, D6, D7",
+        "D3, D5, D6, D7"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cout = Σm(3, 5, 6, 7), so OR the decoder outputs D3, D5, D6 and D7. D1, D2, D4, D7 give the sum S.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i23_m038",
+      "questionText": "A one-digit BCD adder adds 9 (1001) and 9 (1001). The uncorrected binary result is K Z8Z4Z2Z1 = 1 0010. What is the final corrected output (decimal carry, BCD digit)?",
+      "options": [
+        "1 0010",
+        "0 1000",
+        "1 1000",
+        "1 0110"
+      ],
+      "correctIndex": 2,
+      "explanation": "Although 0010 looks like a valid digit, K = 1 means the true sum is 18, so the correction condition K + Z8Z4 + Z8Z2 = 1. Adding 0110 to 0010 gives 1000 with decimal carry 1, i.e. 18.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m039",
+      "questionText": "A 4-bit adder/subtractor with M = 1 is given unsigned inputs A = 0011₂ and B = 0101₂. Which statement correctly describes the outputs?",
+      "options": [
+        "S = 1110 and C4 = 1, so A ≥ B and A − B = 1110",
+        "S = 1110 and C4 = 0, so A < B and |A − B| = 0010",
+        "S = 0010 and C4 = 1, so A − B = +2",
+        "S = 1101 and C4 = 0, so |A − B| = 0011"
+      ],
+      "correctIndex": 1,
+      "explanation": "0011 + 1010 + 1 = 1110 with no carry out. C4 = 0 means A < B, and the true magnitude is the 2's complement of 1110 = 0010 (3 − 5 = −2). 1101 results if the +1 through C0 is forgotten.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m040",
+      "questionText": "Two-digit BCD numbers 0100 0111 (47) and 0011 1000 (38) are added using BCD adders. The result is:",
+      "options": [
+        "1000 0101",
+        "0111 1111",
+        "0111 0101",
+        "1000 1111"
+      ],
+      "correctIndex": 0,
+      "explanation": "Units: 0111 + 1000 = 1111 (15 > 9), add 0110 to get 1 0101, digit 5 with carry 1. Tens: 0100 + 0011 + 1 = 1000 (8, valid). Result 1000 0101 = 85. 0111 1111 is the uncorrected binary sum.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m041",
+      "questionText": "A 4-bit ripple-carry adder with C0 = 0 adds A = 0101₂ and B = 0011₂. The internal carries C4C3C2C1 and the sum S are:",
+      "options": [
+        "C4C3C2C1 = 0001, S = 0110",
+        "C4C3C2C1 = 1110, S = 1000",
+        "C4C3C2C1 = 0111, S = 0110",
+        "C4C3C2C1 = 0111, S = 1000"
+      ],
+      "correctIndex": 3,
+      "explanation": "Bit 0: 1 + 1 = 0 carry 1; bit 1: 0 + 1 + 1 = 0 carry 1; bit 2: 1 + 0 + 1 = 0 carry 1; bit 3: 0 + 0 + 1 = 1 carry 0. So C4C3C2C1 = 0111 and S = 1000 (5 + 3 = 8).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m042",
+      "questionText": "In a carry-lookahead adder the designer defines propagate as Pi = Ai + Bi (OR) instead of Ai ⊕ Bi, keeping Gi = AiBi and Ci+1 = Gi + PiCi. What is the effect?",
+      "options": [
+        "The carries are still correct, but the sum can no longer be formed as Si = Pi ⊕ Ci",
+        "Both the carries and the sums remain correct",
+        "The carries become wrong but the sums stay correct",
+        "Both the carries and the sums become wrong"
+      ],
+      "correctIndex": 0,
+      "explanation": "Gi + (Ai + Bi)Ci = AiBi + AiCi + BiCi is still the majority function, so every carry is right. But for Ai = Bi = 1, Ci = 0 the sum Pi ⊕ Ci gives 1 instead of 0, so the sum needs the XOR form of P.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m043",
+      "questionText": "A 4-bit carry-lookahead adder has A = 1001₂, B = 0110₂ and C0 = 1. Using Si = Pi ⊕ Ci, the sum and final carry are:",
+      "options": [
+        "S = 1111, C4 = 0",
+        "S = 0000, C4 = 1",
+        "S = 0000, C4 = 0",
+        "S = 1111, C4 = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "P = A ⊕ B = 1111 and G = AB = 0000, so C4 = P3P2P1P0C0 = 1 and every internal carry is 1; each Si = 1 ⊕ 1 = 0. Check: 9 + 6 + 1 = 16 = 1 0000₂.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m044",
+      "questionText": "A 4-bit adder/subtractor with overflow output V = C4 ⊕ C3 is set to M = 1 with signed 2's complement inputs A = 0101 (+5) and B = 1100 (−4). The outputs are:",
+      "options": [
+        "S = 1001, V = 1 (overflow: +9 does not fit in 4 bits)",
+        "S = 1001, V = 0, so the result is −7",
+        "S = 0001, V = 0, so the result is +1",
+        "S = 1001, V = 0, so the result is +9"
+      ],
+      "correctIndex": 0,
+      "explanation": "B is inverted to 0011 and C0 = 1: 0101 + 0011 + 1 = 1001 with C3 = 1 and C4 = 0, so V = 1. The true answer 5 − (−4) = +9 lies outside −8 to +7, so 1001 (read as −7) is wrong.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m045",
+      "questionText": "A full subtractor is built from two half subtractors and an OR gate. Its borrow-out (A − B − Bin) can be written as:",
+      "options": [
+        "A'B + (A ⊕ B)'·Bin",
+        "A'B + (A ⊕ B)·Bin",
+        "AB' + (A ⊕ B)'·Bin",
+        "A'B + A·Bin"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first half subtractor borrows A'B; the second computes (A ⊕ B) − Bin and borrows (A ⊕ B)'·Bin. ORing them gives A'B + (A ⊕ B)'Bin, which equals A'B + A'Bin + B·Bin by truth table.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i23_m046",
+      "questionText": "All gates (including XOR) have a delay of 10 ns. In a 4-bit ripple-carry adder each full adder's carry path is 2 gate levels; in a 4-bit lookahead adder, P and G take 1 gate level and each carry then takes 2 more. The times for C4 to become valid are:",
+      "options": [
+        "Ripple 80 ns, lookahead 30 ns",
+        "Ripple 40 ns, lookahead 20 ns",
+        "Ripple 80 ns, lookahead 80 ns",
+        "Ripple 30 ns, lookahead 80 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "Ripple: 4 stages × 2 levels × 10 ns = 80 ns. Lookahead: 1 level for P/G + 2 levels for the AND-OR carry = 3 × 10 ns = 30 ns, independent of the number of bits.",
+      "difficulty": "hard"
+    }
+  ]
+}

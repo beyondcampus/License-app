@@ -1,0 +1,525 @@
+{
+  "topicId": "ch5_i64",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Wi-Fi Security and Firewalls"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on wireless security and firewalls, cleaned up and corrected:",
+      "items": [
+        "WEP is the old, broken standard: never use it. WPA (with TKIP) was a stop-gap on WEP hardware, WPA2 (with AES-CCMP) is the long-standing standard, and WPA3 (with SAE) is the newest and strongest, so choose WPA3 or WPA2.",
+        "WEP is broken not because its key is short alone but because of design flaws: a 24-bit IV that soon repeats, a key-scheduling weakness in RC4, and an unkeyed CRC-32 integrity check that lets an attacker change bits undetected. Tools recover the key in minutes.",
+        "Correction: WPA2 does not encrypt with TKIP. TKIP is the WPA cipher; WPA2 uses AES in CCMP mode. WPA3 keeps AES, and in Personal mode it derives the master key with SAE instead of directly from the pre-shared key; the 4-way handshake still follows.",
+        "Personal (PSK) mode shares one passphrase for the whole network; Enterprise mode gives each user their own credentials through 802.1X with an authentication server (RADIUS) and EAP, so a leaver's access can be revoked without changing everyone's key.",
+        "A firewall is like a security guard at the boundary: it inspects traffic and allows or blocks it by a rule set. All traffic must pass through it, and only traffic the policy permits gets through; it also logs and can do NAT.",
+        "Firewall types from simple to deep: packet filter (layer 3-4 headers), stateful inspection (tracks connections), application/proxy gateway (layer 7, inspects content), and next-generation firewalls that add intrusion prevention and application awareness. A web application firewall (WAF) protects web servers against attacks such as SQL injection."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "How WEP builds one encrypted frame (and why it fails)\nseed = IV (24 bits, sent in clear) || shared key K (40 or 104 bits)\nkeystream = RC4(seed)\nICV = CRC32(plaintext)                 (unkeyed, linear)\nciphertext = (plaintext || ICV) XOR keystream\nFlaw 1: only 2^24 IVs, so two frames often share an IV and keystream;\n        XOR the two ciphertexts and the keystream cancels out.\nFlaw 2: RC4 weak-key IVs leak key bytes (Fluhrer-Mantin-Shamir).\nFlaw 3: CRC32 is linear, so an attacker flips message bits and fixes\n        the ICV to match, with no key: integrity is not protected."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{IV}=2^{24}=16{,}777{,}216, \\qquad t_{\\text{cycle}}=\\frac{2^{24}}{r}",
+      "plainText": "WEP has N_IV = 2^24 = 16,777,216 distinct IVs; an AP that increments the IV by one for each frame at r frames per second reuses an IV after t_cycle = 2^24 / r seconds"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Standard",
+          "Cipher / encryption",
+          "Integrity",
+          "Authentication / key setup"
+        ],
+        [
+          "WEP (1997)",
+          "RC4, 40 or 104-bit key + 24-bit IV",
+          "CRC-32 ICV (insecure)",
+          "Open or shared static key"
+        ],
+        [
+          "WPA (2003)",
+          "RC4 with TKIP per-packet keys",
+          "Michael MIC + 48-bit sequence",
+          "PSK or 802.1X/EAP"
+        ],
+        [
+          "WPA2 (2004)",
+          "AES-CCMP, 128-bit",
+          "CBC-MAC (part of CCMP)",
+          "PSK or 802.1X/EAP; 4-way handshake"
+        ],
+        [
+          "WPA3 (2018)",
+          "AES-CCMP/GCMP",
+          "GMAC / CBC-MAC",
+          "Personal: SAE (Dragonfly), forward secrecy; Enterprise: 802.1X/EAP; PMF required"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The WPA2/WPA3 4-way handshake runs after authentication to prove that both sides know the pairwise master key (from the passphrase in Personal mode) and to derive fresh session keys. It exchanges nonces so that each session gets a different pairwise transient key, and it installs the group key for broadcast traffic. In WPA2-Personal an eavesdropper who captures the handshake can run an offline dictionary attack on the passphrase; WPA3's SAE (Simultaneous Authentication of Equals) fixes this by making each guess need a fresh online exchange and by giving forward secrecy, so a later passphrase compromise does not expose earlier traffic. The KRACK attack (2017), which replayed handshake messages to make a device reinstall a key already in use, was fixed by software patches, because WPA3 still runs the 4-way handshake after SAE."
+    },
+    {
+      "type": "bulletList",
+      "text": "Wireless attacks and weak defences to know:",
+      "items": [
+        "Rogue access point: an unauthorised AP plugged into the network, opening a back door past the firewall.",
+        "Evil twin: an attacker's AP that copies a legitimate SSID (and often its look) to lure clients into associating, then runs a man-in-the-middle.",
+        "WPS PIN weakness: the 8-digit PIN is checked in two halves and its last digit is a checksum, so at most 10^4 + 10^3 = 11,000 guesses are needed instead of 10^7, letting the Reaver tool recover it in hours; disable WPS.",
+        "Deauthentication flood: forged 802.11 deauth frames knock clients off; protected management frames (PMF, mandatory in WPA3) stop this.",
+        "Weak measures: hiding the SSID and MAC-address filtering only slow a casual snooper, because the SSID still appears in client probes and MAC addresses are sent in clear and easily spoofed."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Trace: a first-match rule table (top to bottom, then default deny)\nR1 ALLOW  src 192.168.1.0/24  dst any            TCP 443\nR2 ALLOW  src any            dst 203.0.113.10    TCP 80\nR3 ALLOW  src 192.168.1.10   dst 192.168.2.0/24  TCP 22\nR4 DENY   src any            dst any             TCP 23\nR5 DENY   src 192.168.1.0/24 dst 203.0.113.10    TCP 80  (never reached)\nP1 192.168.1.7 -> 203.0.113.10 : 80  -> R2 ALLOW (before R5)\nP2 192.168.1.7 -> 8.8.8.8      : 443 -> R1 ALLOW\nP3 192.168.1.7 -> 192.168.2.9  : 22  -> no rule -> default DENY\nR5 is shadowed by R2, so put specific DENY rules above broad ALLOWs"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Firewall type",
+          "OSI layer",
+          "What it examines / decides on"
+        ],
+        [
+          "Packet filter",
+          "Network/transport (3-4)",
+          "One packet's IP addresses, ports, protocol, flags"
+        ],
+        [
+          "Stateful inspection",
+          "3-4 with a state table",
+          "Connection state; replies to sessions started inside"
+        ],
+        [
+          "Circuit-level gateway",
+          "Session (5)",
+          "Validity of the TCP handshake, then relays (e.g. SOCKS)"
+        ],
+        [
+          "Application/proxy gateway",
+          "Application (7)",
+          "Full content of one protocol (HTTP, FTP, SMTP)"
+        ],
+        [
+          "Next-generation / WAF",
+          "3-7",
+          "Above plus IPS, app and user awareness; WAF guards web apps"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A demilitarised zone (DMZ) is a perimeter network between the Internet and the internal LAN, holding the servers that outsiders must reach (web, mail, DNS). A screened-subnet design puts it between an outer and an inner firewall, so that a compromised public server is still separated from the internal hosts. An intrusion detection system (IDS) sits out of band and only alerts on suspicious traffic, while an intrusion prevention system (IPS) sits inline and can drop it; both detect either by signatures (known patterns, which miss new attacks) or by anomalies (deviations from a learned baseline, which raise more false alarms). Network address translation (NAT) is not a firewall, but by hiding internal addresses behind one public address it blocks unsolicited inbound connections as a side effect."
+    },
+    {
+      "type": "examTip",
+      "text": "Wi-Fi ladder: WEP (RC4 + 24-bit IV + CRC-32, broken) < WPA (TKIP) < WPA2 (AES-CCMP, 4-way handshake) < WPA3 (SAE, forward secrecy). PSK = one shared passphrase; Enterprise = 802.1X + EAP + RADIUS per user. Firewalls: packet filter L3-4, stateful adds a connection table, proxy L7. Rules are first-match with a default-deny at the end, so order matters. IDS detects, IPS (inline) blocks."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: saying WPA2 uses TKIP (that is WPA; WPA2 uses AES-CCMP) or that WEP's only fault is a short key; thinking a hidden SSID or MAC filtering gives real security; confusing IDS (alerts only) with IPS (blocks inline); and putting a broad ALLOW rule above a specific DENY, which leaves the DENY unreachable. A firewall cannot stop traffic that never passes through it, insider misuse, or malware inside allowed encrypted flows."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i64_m001",
+      "questionText": "What does WEP stand for in wireless LAN security?",
+      "options": [
+        "Wireless Encrypted Protocol",
+        "Web Encryption Process",
+        "Wired Equivalent Privacy",
+        "Wireless Endpoint Protection"
+      ],
+      "correctIndex": 2,
+      "explanation": "WEP means Wired Equivalent Privacy: it aimed to give a wireless link privacy comparable to a wired one, but its design is broken and it must not be used.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m002",
+      "questionText": "Which wireless security standard is the most secure?",
+      "options": [
+        "WPA3",
+        "WPA",
+        "WPA2",
+        "WEP"
+      ],
+      "correctIndex": 0,
+      "explanation": "WPA3 (2018) is the newest and strongest: it uses SAE instead of a plain pre-shared key, adds forward secrecy and protected management frames, and resists offline dictionary attacks. WEP is broken and WPA is weak.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m003",
+      "questionText": "What is the main purpose of a firewall in a network?",
+      "options": [
+        "To resolve domain names into IP addresses",
+        "To encrypt every TCP connection end to end",
+        "To store the MAC addresses of every host on the LAN",
+        "To monitor and control incoming and outgoing traffic according to a security policy"
+      ],
+      "correctIndex": 3,
+      "explanation": "A firewall sits at a network boundary and allows or blocks traffic by a set of rules, so that only authorised traffic passes and the events are logged. Encryption, address tables and name resolution are the jobs of TLS/IPsec, switches and DNS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m004",
+      "questionText": "At which OSI layers can firewalls operate?",
+      "options": [
+        "Only the physical layer",
+        "At several layers, depending on the type of firewall",
+        "Only the application layer",
+        "Only the network layer"
+      ],
+      "correctIndex": 1,
+      "explanation": "A packet filter works at layers 3-4, a proxy gateway at layer 7, a circuit-level gateway at layer 5 and a next-generation firewall across layers 3-7. So the layer depends on the firewall's type, not a single fixed layer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m005",
+      "questionText": "Which encryption does WPA2 use, and how does it differ from WPA?",
+      "options": [
+        "WPA2 uses AES in CCMP mode, replacing the RC4-based TKIP that WPA introduced",
+        "WPA2 uses RC4 with TKIP, while WPA used DES",
+        "WPA2 uses WEP's RC4 with a longer key",
+        "WPA2 and WPA both use AES, differing only in key length"
+      ],
+      "correctIndex": 0,
+      "explanation": "WPA2 (IEEE 802.11i) mandates AES-CCMP, a modern block-cipher mode giving confidentiality and integrity. WPA was an interim scheme that kept RC4 but added TKIP so that it could run on existing WEP hardware.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m006",
+      "questionText": "What is an evil-twin attack on a wireless network?",
+      "options": [
+        "Sending forged deauthentication frames to disconnect clients",
+        "Guessing the Wi-Fi passphrase from a captured handshake",
+        "An attacker's access point that advertises the same SSID as a legitimate one, so that clients associate with it and their traffic can be intercepted",
+        "Flooding the channel with radio noise to cause a denial of service"
+      ],
+      "correctIndex": 2,
+      "explanation": "An evil twin impersonates a trusted network by copying its SSID (and often its captive portal), luring clients into connecting and enabling a man-in-the-middle. It is a rogue AP aimed specifically at mimicking a known network.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m007",
+      "questionText": "Which statement about hiding the SSID and filtering by MAC address is correct?",
+      "options": [
+        "Together they make a network as secure as WPA2",
+        "They are weak measures: the SSID still appears in client probe requests, and MAC addresses are sent in clear and easily spoofed",
+        "They encrypt the wireless traffic",
+        "They are required by the WPA3 standard"
+      ],
+      "correctIndex": 1,
+      "explanation": "Neither measure encrypts anything. A hidden SSID is revealed whenever a client looks for the network, and an attacker can sniff an allowed MAC address and clone it, so real security still comes from WPA2 or WPA3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m008",
+      "questionText": "What is the difference between an IDS and an IPS?",
+      "options": [
+        "An IDS encrypts traffic, while an IPS decrypts it",
+        "An IDS works only on wireless networks and an IPS only on wired ones",
+        "An IDS is hardware and an IPS is always software",
+        "An IDS detects and alerts on suspicious traffic, usually out of band, while an IPS sits inline and can block or drop the malicious traffic in real time"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both look for attacks by signatures or anomalies, but their placement and response differ: an IDS watches a copy of the traffic and raises alerts, whereas an inline IPS can stop the traffic, at the risk of blocking legitimate flows on a false positive.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i64_m009",
+      "questionText": "Why is WEP considered insecure, beyond simply having a short key?",
+      "options": [
+        "It uses AES, which is too slow for wireless links",
+        "It requires a RADIUS server that most home routers lack",
+        "Its 24-bit IV soon repeats so keystreams are reused, RC4 has weak-key IVs that leak the key, and its unkeyed linear CRC-32 lets an attacker alter frames undetected",
+        "It encrypts the SSID, which breaks client discovery"
+      ],
+      "correctIndex": 2,
+      "explanation": "WEP's failures are structural: IV reuse exposes the keystream, the Fluhrer-Mantin-Shamir attack recovers the key from weak IVs, and the CRC-32 integrity check can be forged. Together these let tools break WEP within minutes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m010",
+      "questionText": "A study guide says WEP's main weakness is simply 'weak encryption keys that can be cracked easily'. Which more precise statement captures the real flaw?",
+      "options": [
+        "The real flaw is the 24-bit IV: it is so small that IVs and keystreams repeat, and because it is sent in clear as the first bytes of the RC4 key, RC4's key-scheduling weakness reveals the key, however long the secret key is",
+        "WEP has no encryption at all, so frames travel in clear text",
+        "WEP keys expire after a few seconds and cannot be renewed",
+        "WEP uses AES-128, which has since been broken"
+      ],
+      "correctIndex": 0,
+      "explanation": "Even a 104-bit WEP key falls quickly, because the fault lies in the tiny clear-text IV, which makes keystreams repeat and exposes RC4's weakness to the FMS and PTW key-recovery attacks, not in the length of the secret. WEP does encrypt (with RC4), and it never used AES.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m011",
+      "questionText": "How do WPA2/WPA3 Personal (PSK) and Enterprise modes differ?",
+      "options": [
+        "Personal uses AES and Enterprise uses RC4",
+        "Personal encrypts the traffic and Enterprise leaves it in clear",
+        "Enterprise works only on wired networks",
+        "Personal shares one passphrase for the whole network, while Enterprise authenticates each user separately through 802.1X with EAP and a RADIUS server"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both modes use the same AES-based encryption; they differ in authentication. Enterprise gives each user or device its own credentials via 802.1X/EAP and a RADIUS server, so access can be revoked individually without changing a shared passphrase.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m012",
+      "questionText": "What is the purpose of the WPA2/WPA3 4-way handshake?",
+      "options": [
+        "To scan for the least congested Wi-Fi channel",
+        "To let the client and access point confirm they share the master key and to derive fresh per-session keys, using exchanged nonces, and to install the group key",
+        "To assign the client an IP address",
+        "To negotiate the maximum data rate of the link"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 4-way handshake runs after association: it proves both sides know the pairwise master key without sending it, mixes in nonces so each session gets a unique transient key, and delivers the group key for broadcasts. Channel selection, addressing and rates are separate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m013",
+      "questionText": "What advantage does WPA3's SAE (Simultaneous Authentication of Equals) have over the WPA2-Personal handshake?",
+      "options": [
+        "Each password guess needs a fresh interaction with the access point, defeating offline dictionary attacks on captured handshakes, and it provides forward secrecy",
+        "It lets the network run without encryption",
+        "It doubles the Wi-Fi throughput",
+        "It removes the need for any password"
+      ],
+      "correctIndex": 0,
+      "explanation": "With WPA2-Personal an attacker who captures the 4-way handshake can try unlimited guesses offline. SAE makes every guess require a new online exchange with the AP and derives session keys so that a later password compromise does not expose earlier traffic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m014",
+      "questionText": "A basic packet-filtering firewall makes its decisions primarily using information from which OSI layers?",
+      "options": [
+        "The physical layer only",
+        "The presentation layer",
+        "The network and transport layers (IP addresses, protocol, and TCP/UDP port numbers)",
+        "The data link layer only"
+      ],
+      "correctIndex": 2,
+      "explanation": "A packet filter inspects layer-3 and layer-4 header fields, source and destination IP addresses, the protocol, and the port numbers, to allow or deny each packet. Reading message content would need an application-layer (proxy) firewall.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m015",
+      "questionText": "How does a stateful inspection firewall improve on a stateless packet filter?",
+      "options": [
+        "It encrypts the packets it forwards",
+        "It keeps a table of active connections, so it can allow inbound packets only when they belong to a session already started from the trusted side",
+        "It works at the physical layer for higher speed",
+        "It stores a copy of every packet permanently for auditing"
+      ],
+      "correctIndex": 1,
+      "explanation": "A stateless filter judges each packet alone, so allowing replies means opening ports permanently. A stateful firewall remembers connections in a state table and lets return traffic through only while its session is active.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m016",
+      "questionText": "Which firewall type inspects the actual content of an application protocol, so that it can, for example, block specific HTTP requests or filter FTP commands?",
+      "options": [
+        "Stateless packet filter",
+        "Circuit-level gateway",
+        "Network address translation (NAT)",
+        "Application-level gateway (proxy firewall)"
+      ],
+      "correctIndex": 3,
+      "explanation": "An application-level gateway works at layer 7 and understands the protocol it relays, so it can inspect and filter the content itself. A circuit-level gateway only validates the TCP session and relays bytes without looking inside.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m017",
+      "questionText": "What is the role of a web application firewall (WAF)?",
+      "options": [
+        "It replaces TLS by encrypting web pages",
+        "It assigns IP addresses to web clients",
+        "It sits in front of web applications and filters HTTP requests to block attacks such as SQL injection and cross-site scripting",
+        "It caches web pages to speed up delivery"
+      ],
+      "correctIndex": 2,
+      "explanation": "A WAF understands HTTP and web-application behaviour, so it can spot and block malicious requests aimed at the application layer, which a network firewall that only checks addresses and ports cannot. It complements, rather than replaces, TLS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m018",
+      "questionText": "Why is network address translation (NAT) often said to give a firewall-like side effect, even though it is not a firewall?",
+      "options": [
+        "By mapping many private addresses to one public address, it has no entry for unsolicited inbound connections, so outside hosts cannot reach internal hosts directly unless a port is forwarded",
+        "It encrypts the payload of every packet that crosses it",
+        "It authenticates every user before allowing traffic",
+        "It inspects the application-layer content of each packet"
+      ],
+      "correctIndex": 0,
+      "explanation": "NAT keeps a table of connections started from inside; an unsolicited packet from outside matches no entry and is dropped. This blocks direct inbound access as a by-product, but NAT applies no security policy and inspects no content, so it is not a true firewall.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m019",
+      "questionText": "Where should the publicly reachable web, mail and DNS servers be placed, and why?",
+      "options": [
+        "Inside the ISP's network, so the company need not protect them",
+        "On the internal LAN with the workstations, for easier management",
+        "Directly on the Internet with no firewall, to maximise performance",
+        "In a DMZ, a perimeter network separated from the internal LAN, so that a compromised public server cannot directly reach the internal hosts"
+      ],
+      "correctIndex": 3,
+      "explanation": "Public servers must accept connections from outside, so they are the most exposed. Putting them in a DMZ between an outer and inner firewall means that if one is breached, the attacker is still separated from the internal network.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m020",
+      "questionText": "A signature-based IDS/IPS and an anomaly-based one differ in a key way. Which statement is correct?",
+      "options": [
+        "Signature-based detection catches brand-new (zero-day) attacks that anomaly-based detection misses",
+        "Signature-based detection matches known attack patterns, so it misses new attacks; anomaly-based detection flags deviations from a learned baseline, so it can catch new attacks but raises more false alarms",
+        "Anomaly-based detection needs a database of known attack signatures",
+        "Both methods can only be used in an IDS, never in an IPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "A signature engine is accurate on known threats but blind to anything not yet in its database, while an anomaly engine can notice novel behaviour at the cost of more false positives. Either method can run in a detecting IDS or a blocking IPS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m021",
+      "questionText": "A network uses only MAC-address filtering and a hidden SSID, with open (unencrypted) Wi-Fi. What is the security result?",
+      "options": [
+        "Weak: an attacker sniffs the SSID from probe traffic, copies an allowed MAC address seen in clear, and reads all traffic because there is no encryption",
+        "Strong, because two independent controls are combined",
+        "Adequate for confidential data, because the SSID is hidden",
+        "Secure against eavesdropping but not against denial of service"
+      ],
+      "correctIndex": 0,
+      "explanation": "None of these measures encrypts the air link, so anyone in range reads the frames; the SSID leaks in management frames and MAC addresses are trivial to spoof. Only WPA2 or WPA3 encryption gives real protection.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m022",
+      "questionText": "A firewall evaluates rules top to bottom, first match wins, with an implicit default deny at the end:\nR1 ALLOW src 192.168.1.0/24 any TCP 443\nR2 ALLOW src any dst 203.0.113.10 TCP 80\nR3 ALLOW src 192.168.1.10 dst 192.168.2.0/24 TCP 22\nR4 DENY src any any TCP 23\nWhat happens to a packet from 192.168.1.50 to 192.168.2.20 on TCP port 22?",
+      "options": [
+        "Allowed by R3",
+        "Allowed by R1",
+        "Denied by the default rule",
+        "Denied by R4"
+      ],
+      "correctIndex": 2,
+      "explanation": "R1 needs port 443, R2 needs destination 203.0.113.10, R3 needs source 192.168.1.10 (not .50) and R4 needs port 23, so none matches. With first-match evaluation the packet falls through to the implicit default deny.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m023",
+      "questionText": "Using the same rule set (R1 ALLOW 192.168.1.0/24 -> any TCP 443; R2 ALLOW any -> 203.0.113.10 TCP 80; R3 ALLOW 192.168.1.10 -> 192.168.2.0/24 TCP 22; R4 DENY any -> any TCP 23; then default deny), how is a packet from 192.168.1.50 to 203.0.113.10 on TCP port 80 handled?",
+      "options": [
+        "Denied by the default rule",
+        "Allowed by R2",
+        "Denied by R4",
+        "Allowed by R1"
+      ],
+      "correctIndex": 1,
+      "explanation": "R1 requires port 443, so it does not match a port-80 packet; the next rule, R2, allows any source to reach 203.0.113.10 on TCP 80, so the packet is allowed there. First-match means later rules are not consulted.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m024",
+      "questionText": "An administrator adds, at the bottom of a first-match rule set, R5 DENY src 192.168.1.0/24 dst 203.0.113.10 TCP 80, intending to stop internal users reaching the DMZ web server, but R2 ALLOW src any dst 203.0.113.10 TCP 80 already sits above it. What is the effect, and how should it be fixed?",
+      "options": [
+        "R5 works as intended, because a DENY rule always overrides an ALLOW",
+        "R5 blocks all traffic to 203.0.113.10, including from outside",
+        "Both rules fire, so the packets are logged twice but still allowed",
+        "R5 is never reached, because R2 matches those packets first; the specific DENY must be placed above the broad ALLOW"
+      ],
+      "correctIndex": 3,
+      "explanation": "With first-match evaluation, an internal-to-DMZ port-80 packet matches R2 and is allowed before R5 is ever examined, so R5 is shadowed and useless. Specific rules must come before more general ones in the list.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m025",
+      "questionText": "A WPS-enabled router uses an 8-digit PIN. The router validates the PIN in two halves and the last digit is only a checksum computed from the first seven, so the first half is 4 digits and the second effective half is 3 digits. What is the worst-case number of online guesses to recover the PIN, and how does that compare with brute-forcing all 8 digits?",
+      "options": [
+        "100,000,000 guesses, the same as brute force",
+        "10,000,000 guesses, the same as brute force",
+        "11,000 guesses, versus 100,000,000 for all 8 digits",
+        "1,100 guesses, versus 10,000,000 for 7 digits"
+      ],
+      "correctIndex": 2,
+      "explanation": "Splitting the check lets the halves be found independently: at most 10^4 = 10,000 for the first half and 10^3 = 1,000 for the second (the eighth digit is a checksum), giving 11,000 tries instead of 10^8. This design flaw is why the Reaver tool can crack WPS, and why WPS should be disabled.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m026",
+      "questionText": "A WEP access point increments the 24-bit IV by one for every frame and transmits 500 frames per second. Approximately how long until it is forced to reuse an IV by cycling through the whole IV space?",
+      "options": [
+        "About 9.3 hours",
+        "About 4.7 hours",
+        "About 2.2 minutes",
+        "About 18.6 hours"
+      ],
+      "correctIndex": 0,
+      "explanation": "The IV has 2^24 = 16,777,216 values, so a full cycle takes 16,777,216 / 500 = 33,554 s = 9.32 hours. 4.7 hours assumes 1,000 frames/s, 2.2 minutes wrongly uses a 16-bit IV, and reuse actually begins far sooner because of random collisions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m027",
+      "questionText": "A home network has WPS enabled with WPA2-Personal and a long, random passphrase. Why is the network still at serious risk, and what is the best fix?",
+      "options": [
+        "The long passphrase is the weakness; shorten it so the 4-way handshake is faster",
+        "The risk is only that neighbours see the SSID; hide the SSID to fix it",
+        "There is no real risk, because WPA2 with a long passphrase cannot be broken",
+        "WPS lets an attacker recover the router's PIN in about 11,000 online tries and from it obtain the WPA2 passphrase, so the strong passphrase is bypassed; disable WPS"
+      ],
+      "correctIndex": 3,
+      "explanation": "The WPS PIN can be brute-forced in roughly 11,000 attempts because it is checked in two halves, and recovering it yields the WPA2 key no matter how strong the passphrase is. The remedy is to turn WPS off, not to change the passphrase.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m028",
+      "questionText": "An organisation wants outsiders to reach its web server but must keep the internal LAN protected even if that server is hacked, and it wants to block and log intrusion attempts inline. Which design best meets these goals?",
+      "options": [
+        "Place the web server on the internal LAN and rely on NAT alone",
+        "Put the web server in a DMZ between an outer and inner firewall, and deploy an inline IPS to detect and drop malicious traffic",
+        "Expose the web server directly on the Internet and install an IDS that only sends alerts",
+        "Use a hidden SSID and MAC filtering on the server's switch port"
+      ],
+      "correctIndex": 1,
+      "explanation": "The DMZ isolates the exposed server so a breach does not reach internal hosts, and an inline IPS both detects and actively blocks attacks, unlike an IDS that only alerts. NAT and Wi-Fi measures do not meet these requirements.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i64_m029",
+      "questionText": "What is a rogue access point, and why is it dangerous?",
+      "options": [
+        "An unauthorised access point connected to the internal network, which opens a wireless back door that bypasses the perimeter firewall",
+        "An access point that has simply lost power, so clients cannot connect",
+        "A vendor's default access point that ships with WPA3 enabled",
+        "An access point that broadcasts on a licensed frequency by mistake"
+      ],
+      "correctIndex": 0,
+      "explanation": "A rogue AP is an unsanctioned device, often plugged in by an insider for convenience, that lets attackers onto the internal LAN behind the firewall. It differs from an evil twin, which impersonates a known SSID to trap clients.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i64_m030",
+      "questionText": "An attacker floods a Wi-Fi network with forged 802.11 deauthentication frames, repeatedly knocking clients off the network. Which feature, mandatory in WPA3, prevents this?",
+      "options": [
+        "Hiding the SSID",
+        "MAC address filtering",
+        "Protected Management Frames (PMF, 802.11w), which authenticate management frames so forged deauth frames are rejected",
+        "A longer pre-shared key"
+      ],
+      "correctIndex": 2,
+      "explanation": "Classic 802.11 management frames, including deauthentication, are unauthenticated, so anyone can forge them to disconnect clients. PMF authenticates these frames; it is optional in WPA2 but required in WPA3.",
+      "difficulty": "medium"
+    }
+  ]
+}

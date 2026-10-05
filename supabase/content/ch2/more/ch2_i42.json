@@ -1,0 +1,692 @@
+{
+ "topicId": "ch2_i42",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Inside the 8086"
+  },
+  {
+   "type": "paragraph",
+   "text": "The prefetch queue pays off because many instructions spend more clock cycles inside the EU than the bus needs to fetch the next bytes. The BIU uses those free bus cycles to keep the queue topped up, so the EU usually finds its next opcode already waiting. The gain disappears after every taken jump, call, return or interrupt, and also when an instruction needs many memory operands, because then the BIU is busy serving the EU instead of prefetching."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Time ->   | slot 1   | slot 2   | slot 3   | slot 4\nBIU       | fetch I1 | fetch I2 | fetch I3 | fetch I4\nEU        |  (wait)  | exec I1  | exec I2  | exec I3\n\nJMP in I2 -> queue flushed, I3/I4 discarded\nBIU       | fetch target T1 ... EU waits one slot again"
+  },
+  {
+   "type": "heading",
+   "text": "Worked Example: Flags After an Addition"
+  },
+  {
+   "type": "code",
+   "language": "x86asm",
+   "text": "MOV AL, 7FH     ; AL = 0111 1111 (+127)\nMOV BL, 01H     ; BL = 0000 0001 (+1)\nADD AL, BL      ; AL = 1000 0000 = 80H\n; CF = 0  no carry out of bit 7\n; OF = 1  +127 + 1 = +128 does not fit in 8-bit signed\n; SF = 1  bit 7 of result is 1\n; ZF = 0  result not zero\n; AF = 1  F + 1 carries from bit 3 to bit 4\n; PF = 0  80H has one 1-bit (odd parity)"
+  },
+  {
+   "type": "paragraph",
+   "text": "CF and OF answer different questions. CF treats the operands as unsigned and reports a carry out of (or borrow into) the MSB; OF treats them as signed and is set when the carry into the MSB differs from the carry out of it. In the example above the unsigned sum 127 + 1 = 128 is fine (CF = 0) but the signed result overflows (OF = 1). PF looks only at the low byte of the result, even in 16-bit operations."
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Pin",
+     "Minimum mode (MN/MX = 1)",
+     "Maximum mode (MN/MX = 0)"
+    ],
+    [
+     "31",
+     "HOLD",
+     "RQ/GT0"
+    ],
+    [
+     "30",
+     "HLDA",
+     "RQ/GT1"
+    ],
+    [
+     "29",
+     "WR",
+     "LOCK"
+    ],
+    [
+     "28",
+     "M/IO",
+     "S2"
+    ],
+    [
+     "27",
+     "DT/R",
+     "S1"
+    ],
+    [
+     "26",
+     "DEN",
+     "S0"
+    ],
+    [
+     "25 and 24",
+     "ALE and INTA",
+     "QS0 and QS1 (queue status)"
+    ]
+   ]
+  },
+  {
+   "type": "formula",
+   "latex": "t_{bus} = \\frac{4 + N_{w}}{f_{clk}}",
+   "plainText": "t_bus = (4 + Nw) / f_clk, where Nw is the number of wait states"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Word read from odd address 12345H, 5 MHz, no waits\nCycle 1: address 12345H, BHE = 0, A0 = 1\n         byte 12345H (low byte) on D8-D15\nCycle 2: address 12346H, BHE = 1, A0 = 0\n         byte 12346H (high byte) on D0-D7\nTime = 2 x 4 x 200 ns = 1.6 us  (aligned word: 0.8 us)"
+  },
+  {
+   "type": "paragraph",
+   "text": "Designing the memory follows directly from the two banks. Divide the required capacity by 2 to get the size of each bank, then divide by the chip capacity to get chips per bank. The chips' address inputs connect to A1 upwards, not A0, because A0 and BHE act as the bank selects. For example, 128 KB from 16K × 8 chips needs 4 chips per bank, 8 in total, with A1–A14 on the chip address pins."
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes with 8086 architecture questions:",
+   "items": [
+    "Putting IP or the segment registers in the EU; they belong to the BIU with the queue.",
+    "Saying the queue refills when 1 byte is free (that is the 8088) instead of 2 bytes.",
+    "Using A0–A18 for bank addressing; each bank sees A1–A19.",
+    "Assuming INC and DEC change CF; they change all status flags except CF.",
+    "Forgetting that CMP and TEST change only the flags, never the destination operand."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For BHE/A0 questions, look at the last hex digit of the address: even means A0 = 0 and the even bank on D0–D7; odd means A0 = 1, BHE = 0 and the odd bank on D8–D15. A word at an even address uses BHE = 0 and A0 = 0 in one cycle."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i42_m001",
+   "questionText": "Which functional unit of the 8086 forms the 20-bit physical address placed on the address bus?",
+   "options": [
+    "Execution Unit (EU)",
+    "Bus Interface Unit (BIU)",
+    "Arithmetic Logic Unit (ALU)",
+    "Instruction decoder of the EU"
+   ],
+   "correctIndex": 1,
+   "explanation": "The BIU contains the segment registers, IP and the address adder that computes segment × 10H + offset; the EU only produces 16-bit offsets.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m002",
+   "questionText": "Which of the following 8086 registers is located in the Bus Interface Unit?",
+   "options": [
+    "SP",
+    "BP",
+    "IP",
+    "SI"
+   ],
+   "correctIndex": 2,
+   "explanation": "The BIU holds CS, DS, SS, ES, IP and the prefetch queue; SP, BP, SI and DI are pointer/index registers of the EU.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m003",
+   "questionText": "How many flags are defined in the 8086 flag register?",
+   "options": [
+    "9 (6 status and 3 control)",
+    "5 (all status)",
+    "8 (5 status and 3 control)",
+    "16 (one per bit)"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 8086 has CF, PF, AF, ZF, SF, OF (status) and TF, IF, DF (control) = 9 flags; the other 7 bits are unused.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m004",
+   "questionText": "Which of the following is a control flag of the 8086 rather than a status flag?",
+   "options": [
+    "CF",
+    "AF",
+    "PF",
+    "DF"
+   ],
+   "correctIndex": 3,
+   "explanation": "DF (direction), IF (interrupt enable) and TF (trap) are set by the programmer to control operation; CF, AF and PF report results.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m005",
+   "questionText": "What is the width of the external data bus of the 8086?",
+   "options": [
+    "16 bits",
+    "8 bits",
+    "20 bits",
+    "32 bits"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 8086 transfers data on AD0–AD15, a 16-bit bus; 20 bits is the width of its address bus, and 8 bits is the 8088's external data bus.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m006",
+   "questionText": "The MN/MX pin of an 8086 is connected to +5 V. In which mode does the processor operate?",
+   "options": [
+    "Maximum mode",
+    "Test mode",
+    "Minimum mode",
+    "DMA mode"
+   ],
+   "correctIndex": 2,
+   "explanation": "MN/MX = 1 selects minimum mode, where the 8086 generates its own bus control signals for a single-processor system.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m007",
+   "questionText": "Which support chip decodes the status lines S0–S2 into bus command signals when the 8086 runs in maximum mode?",
+   "options": [
+    "8284 clock generator",
+    "8288 bus controller",
+    "8282 octal latch",
+    "8259 interrupt controller"
+   ],
+   "correctIndex": 1,
+   "explanation": "In maximum mode the 8288 bus controller converts S0–S2 into MRDC, MWTC, IORC, IOWC, INTA and ALE.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m008",
+   "questionText": "Which 8086 flag, when set to 1, makes the processor execute one instruction and then generate a type-1 interrupt?",
+   "options": [
+    "IF (interrupt flag)",
+    "DF (direction flag)",
+    "OF (overflow flag)",
+    "TF (trap flag)"
+   ],
+   "correctIndex": 3,
+   "explanation": "TF enables single-step mode; after each instruction a type-1 interrupt occurs, which debuggers use to trace programs.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m009",
+   "questionText": "The instruction pointer (IP) of the 8086 performs the same job as which 8085 register?",
+   "options": [
+    "Stack pointer (SP)",
+    "Accumulator (A)",
+    "HL register pair",
+    "Program counter (PC)"
+   ],
+   "correctIndex": 3,
+   "explanation": "IP holds the offset of the next instruction to be fetched from the code segment, just as the 8085 PC holds the address of the next instruction.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m010",
+   "questionText": "In an 8086 system, the even memory bank is connected to which data lines?",
+   "options": [
+    "D8–D15",
+    "D0–D7",
+    "D0–D15",
+    "A16–A19"
+   ],
+   "correctIndex": 1,
+   "explanation": "The even bank (selected by A0 = 0) holds even addresses and drives the lower data byte D0–D7; the odd bank drives D8–D15.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m011",
+   "questionText": "How does the 8086 store a 16-bit word in memory?",
+   "options": [
+    "Low byte at the lower address, high byte at the next higher address",
+    "High byte at the lower address, low byte at the next higher address",
+    "Both bytes at the same address in two separate banks",
+    "Low byte in the even bank and high byte in the odd bank, whatever the address"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 8086 is little-endian: the least significant byte goes to the lower address. For odd addresses the low byte is in the odd bank, so the last option is wrong.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m012",
+   "questionText": "Which 8086 instruction clears the direction flag so that string instructions auto-increment SI and DI?",
+   "options": [
+    "STD",
+    "CLI",
+    "CLD",
+    "CLC"
+   ],
+   "correctIndex": 2,
+   "explanation": "CLD makes DF = 0 (auto-increment); STD sets DF, CLI clears IF and CLC clears CF.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m013",
+   "questionText": "What is the purpose of the ALE signal of the 8086 in minimum mode?",
+   "options": [
+    "To enable the data bus transceivers",
+    "To select between memory and I/O",
+    "To latch the address from the multiplexed AD0–AD15 lines during T1",
+    "To acknowledge an interrupt request"
+   ],
+   "correctIndex": 2,
+   "explanation": "ALE pulses high in T1 so external latches (8282/74LS373) capture the address before the AD lines switch to data; DEN enables transceivers and M/IO selects memory or I/O.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m014",
+   "questionText": "An 8086 register AX holds 3A7FH. What are the contents of AH and AL?",
+   "options": [
+    "AH = 7FH, AL = 3AH",
+    "AH = A7H, AL = 3FH",
+    "AH = 3AH, AL = 00H",
+    "AH = 3AH, AL = 7FH"
+   ],
+   "correctIndex": 3,
+   "explanation": "AH is the high byte (bits 15–8) = 3AH and AL is the low byte (bits 7–0) = 7FH.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i42_m015",
+   "questionText": "When does the BIU of the 8086 fetch the next instruction bytes into its 6-byte queue?",
+   "options": [
+    "Only when the queue is completely empty",
+    "When at least 2 bytes of the queue are empty",
+    "When at least 1 byte of the queue is empty",
+    "Only after the EU finishes the current instruction"
+   ],
+   "correctIndex": 1,
+   "explanation": "The 8086 fetches a 16-bit word at a time, so it refills the queue whenever 2 bytes are free; the 8088 (8-bit bus) refills when 1 byte is free.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m016",
+   "questionText": "Which of the following 8086 instructions causes the instruction queue to be discarded and refilled?",
+   "options": [
+    "JMP 2000H",
+    "MOV AX, BX",
+    "ADD AL, 05H",
+    "INC CX"
+   ],
+   "correctIndex": 0,
+   "explanation": "A jump changes IP, so the prefetched bytes belong to the wrong path; the queue is flushed and refilled from the new address. Sequential instructions keep the queue.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m017",
+   "questionText": "Which statement correctly describes pipelining in the 8086?",
+   "options": [
+    "The BIU fetches the next instructions while the EU executes the current one",
+    "The EU executes two instructions at the same time in separate ALUs",
+    "The BIU decodes instructions while the EU fetches operands",
+    "Each instruction is split into five stages that run in parallel"
+   ],
+   "correctIndex": 0,
+   "explanation": "Pipelining in the 8086 is the overlap of fetch (BIU, into the queue) and execute (EU); there is only one ALU and no multi-stage pipeline.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m018",
+   "questionText": "Which flag occupies bit 11 of the 8086 flag register?",
+   "options": [
+    "DF",
+    "IF",
+    "SF",
+    "OF"
+   ],
+   "correctIndex": 3,
+   "explanation": "Bit positions: CF 0, PF 2, AF 4, ZF 6, SF 7, TF 8, IF 9, DF 10, OF 11.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m019",
+   "questionText": "An 8086 runs at 8 MHz with no wait states. How long does one bus cycle take?",
+   "options": [
+    "125 ns",
+    "400 ns",
+    "500 ns",
+    "800 ns"
+   ],
+   "correctIndex": 2,
+   "explanation": "One bus cycle = 4 T-states = 4 / 8 MHz = 4 × 125 ns = 500 ns. 125 ns is a single T-state; 800 ns is the 5 MHz value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m020",
+   "questionText": "An 8086 runs at 10 MHz and the memory needs 2 wait states. How long does one memory read bus cycle take?",
+   "options": [
+    "400 ns",
+    "600 ns",
+    "200 ns",
+    "800 ns"
+   ],
+   "correctIndex": 1,
+   "explanation": "t = (4 + 2) × 100 ns = 600 ns. 400 ns ignores the wait states and 200 ns counts only the wait states.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m021",
+   "questionText": "The 8086 reads a single byte from physical address 20001H. What are the levels of BHE and A0 during this bus cycle?",
+   "options": [
+    "BHE = 1, A0 = 0",
+    "BHE = 0, A0 = 1",
+    "BHE = 0, A0 = 0",
+    "BHE = 1, A0 = 1"
+   ],
+   "correctIndex": 1,
+   "explanation": "20001H is odd, so A0 = 1 and the odd bank must be enabled with BHE = 0; the byte arrives on D8–D15.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m022",
+   "questionText": "The 8086 reads a 16-bit word starting at physical address 30000H. Which statement is correct?",
+   "options": [
+    "Two bus cycles, first with BHE = 0 and A0 = 1",
+    "One bus cycle with BHE = 1 and A0 = 0",
+    "One bus cycle with BHE = 0 and A0 = 0",
+    "Two bus cycles, first with BHE = 1 and A0 = 0"
+   ],
+   "correctIndex": 2,
+   "explanation": "30000H is even (aligned), so both banks are enabled together (BHE = 0, A0 = 0) and the whole word moves in one bus cycle.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m023",
+   "questionText": "In an 8086 system, in which memory bank is the byte at physical address 3A7F5H, and on which data lines is it transferred?",
+   "options": [
+    "Even bank, D0–D7",
+    "Odd bank, D0–D7",
+    "Even bank, D8–D15",
+    "Odd bank, D8–D15"
+   ],
+   "correctIndex": 3,
+   "explanation": "The last hex digit 5 is odd, so A0 = 1: the byte is in the odd bank, enabled by BHE = 0, which is wired to D8–D15.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m024",
+   "questionText": "The 8086 memory is divided into two banks. What is the size of each bank and which address lines select a location within a bank?",
+   "options": [
+    "512 KB, A1–A19",
+    "512 KB, A0–A19",
+    "1 MB, A1–A19",
+    "64 KB, A0–A15"
+   ],
+   "correctIndex": 0,
+   "explanation": "1 MB / 2 = 512 KB per bank = 2^19 locations, addressed by the 19 lines A1–A19; A0 and BHE choose the bank.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m025",
+   "questionText": "Which of the following 8086 instructions is NOT valid?",
+   "options": [
+    "MOV AX, [BX]",
+    "MOV AX, [SI]",
+    "MOV AX, [CX]",
+    "MOV AX, [BP]"
+   ],
+   "correctIndex": 2,
+   "explanation": "Only BX, BP, SI and DI can hold a memory offset in 8086 register-indirect addressing; CX cannot be used as a pointer.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m026",
+   "questionText": "Which of the following signals is NOT produced directly by the 8086 when it operates in minimum mode?",
+   "options": [
+    "ALE",
+    "DEN",
+    "DT/R",
+    "MRDC"
+   ],
+   "correctIndex": 3,
+   "explanation": "In minimum mode the 8086 itself drives ALE, DEN, DT/R, RD, WR, M/IO and INTA. MRDC (memory read command) is an output of the 8288 bus controller used in maximum mode.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m027",
+   "questionText": "What are the RQ/GT0 and RQ/GT1 pins of the 8086 used for?",
+   "options": [
+    "Bus request and grant between the 8086 and other bus masters in maximum mode",
+    "Requesting and granting interrupts in minimum mode",
+    "Selecting the upper and lower memory banks",
+    "Controlling the direction of the data transceivers"
+   ],
+   "correctIndex": 0,
+   "explanation": "In maximum mode RQ/GT lines replace HOLD/HLDA and let a coprocessor such as the 8087 request and be granted the local bus.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m028",
+   "questionText": "What does the LOCK signal of the 8086 (active when an instruction has the LOCK prefix) do?",
+   "options": [
+    "Disables all maskable and non-maskable interrupts",
+    "Prevents other bus masters from taking the bus until the locked instruction finishes",
+    "Freezes the instruction queue until the next jump",
+    "Locks the segment registers so they cannot be changed"
+   ],
+   "correctIndex": 1,
+   "explanation": "LOCK is used in maximum-mode multiprocessor systems to make read-modify-write sequences (e.g. XCHG on a semaphore) atomic; it does not affect interrupts.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m029",
+   "questionText": "Which statement comparing the 8086 and the 8088 is NOT correct?",
+   "options": [
+    "The 8088 has an 8-bit external data bus",
+    "The 8088 can address only 64 KB of memory",
+    "The 8088 has a 4-byte instruction queue",
+    "Both processors have the same registers and instruction set"
+   ],
+   "correctIndex": 1,
+   "explanation": "Both have 20 address lines and address 1 MB; the differences are the external data bus (16 vs 8 bits), the queue (6 vs 4 bytes) and a few pins such as BHE/SS0.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m030",
+   "questionText": "After a reset, from which physical address does the 8086 fetch its first instruction?",
+   "options": [
+    "FFFFFH",
+    "00000H",
+    "FFFF0H",
+    "0FFFFH"
+   ],
+   "correctIndex": 2,
+   "explanation": "Reset loads CS = FFFFH and IP = 0000H, so PA = FFFF0H + 0000H = FFFF0H, 16 bytes below the top of memory.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m031",
+   "questionText": "An 8086 program must read port 3F8H. Which instruction form must be used?",
+   "options": [
+    "IN AL, 3F8H",
+    "IN AL, BX with BX = 03F8H",
+    "IN CL, DX with DX = 03F8H",
+    "IN AL, DX with DX = 03F8H"
+   ],
+   "correctIndex": 3,
+   "explanation": "Direct port addressing takes only an 8-bit port number (00H–FFH). Ports above FFH need the port address in DX, and the data register must be AL or AX.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m032",
+   "questionText": "Which register holds the shift count when an 8086 instruction shifts AX by more than one position, as in SHL AX, CL?",
+   "options": [
+    "CL",
+    "CH",
+    "BL",
+    "DL"
+   ],
+   "correctIndex": 0,
+   "explanation": "For multi-bit shifts and rotates the 8086 takes the count from CL; a count of 1 can be coded as an immediate.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m033",
+   "questionText": "An 8086 program executes CLI. Which interrupt requests can still be recognised?",
+   "options": [
+    "Only INTR",
+    "None at all",
+    "NMI and software interrupts (INT n)",
+    "INTR and NMI but not INT n"
+   ],
+   "correctIndex": 2,
+   "explanation": "CLI clears IF, which masks only the INTR pin; NMI is non-maskable and INT n instructions are executed regardless of IF.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m034",
+   "questionText": "On the 8086, DF = 1 when MOVSB is executed. What happens to SI and DI after the byte is moved?",
+   "options": [
+    "Both are decremented by 1",
+    "Both are incremented by 1",
+    "SI is incremented and DI is decremented",
+    "Both are decremented by 2"
+   ],
+   "correctIndex": 0,
+   "explanation": "DF = 1 selects auto-decrement; a byte string instruction changes SI and DI by 1 (by 2 for word instructions such as MOVSW).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m035",
+   "questionText": "On the 8086, SP = 2000H. The instructions PUSH AX, PUSH BX and POP CX are executed in that order. What is SP afterwards?",
+   "options": [
+    "1FFCH",
+    "1FFFH",
+    "2002H",
+    "1FFEH"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each PUSH subtracts 2 and each POP adds 2: 2000H − 2 − 2 + 2 = 1FFEH.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m036",
+   "questionText": "Which kind of address does the Execution Unit of the 8086 compute and pass to the BIU for a memory operand?",
+   "options": [
+    "The 20-bit physical address",
+    "The 16-bit effective address (offset)",
+    "The 16-bit segment base value",
+    "The 32-bit segment:offset pair"
+   ],
+   "correctIndex": 1,
+   "explanation": "The EU calculates only the offset (effective address) from the addressing mode; the BIU adds segment × 10H to form the 20-bit physical address.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i42_m037",
+   "questionText": "On the 8086, AL = 7FH and BL = 01H. After ADD AL, BL, which set of results is correct?",
+   "options": [
+    "AL = 80H, CF = 1, OF = 0, SF = 1, PF = 0",
+    "AL = 80H, CF = 0, OF = 0, SF = 1, PF = 1",
+    "AL = 00H, CF = 1, OF = 1, SF = 0, PF = 1",
+    "AL = 80H, CF = 0, OF = 1, SF = 1, PF = 0"
+   ],
+   "correctIndex": 3,
+   "explanation": "7FH + 01H = 80H with no carry out (CF = 0). Two positive numbers gave a negative result, so OF = 1; bit 7 is 1 so SF = 1; 80H has one 1-bit (odd) so PF = 0.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m038",
+   "questionText": "The 8086 flag register contains 0A85H. Which flags are set?",
+   "options": [
+    "CF, PF, SF, IF, OF",
+    "CF, AF, SF, DF, OF",
+    "CF, PF, ZF, TF, OF",
+    "PF, SF, IF, DF, OF"
+   ],
+   "correctIndex": 0,
+   "explanation": "0A85H = 0000 1010 1000 0101: bits 0, 2, 7, 9 and 11 are 1, which are CF, PF, SF, IF and OF.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m039",
+   "questionText": "The 8086 reads a 16-bit word from odd physical address 12345H. How is the access carried out?",
+   "options": [
+    "One bus cycle with BHE = 0 and A0 = 1, both bytes on D0–D15",
+    "Two bus cycles: byte at 12345H from the odd bank on D8–D15 (BHE = 0, A0 = 1), then byte at 12346H from the even bank on D0–D7 (BHE = 1, A0 = 0)",
+    "Two bus cycles: byte at 12344H from the even bank, then byte at 12345H from the odd bank",
+    "Two bus cycles: byte at 12345H from the even bank on D0–D7, then byte at 12346H from the odd bank on D8–D15"
+   ],
+   "correctIndex": 1,
+   "explanation": "A misaligned word spans both banks at different A1–A19 values, so it needs two cycles: the low byte (12345H, odd) via D8–D15, then the high byte (12346H, even) via D0–D7.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m040",
+   "questionText": "An 8086 system needs 128 KB of RAM built from 16K × 8 chips. How many chips go in each bank, and which processor address lines drive the chips' address inputs?",
+   "options": [
+    "8 chips per bank; A0–A13",
+    "4 chips per bank; A0–A13",
+    "4 chips per bank; A1–A14",
+    "8 chips per bank; A1–A14"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each bank holds 128 KB / 2 = 64 KB = 4 chips of 16 KB. A 16K chip needs 14 address lines; since A0 selects the bank, they are A1–A14.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m041",
+   "questionText": "On the 8086, AX = 0100H and BX = 0200H. After MUL BX, what do DX and AX contain?",
+   "options": [
+    "DX = 0000H, AX = 2000H",
+    "DX = 0000H, AX = 0002H",
+    "DX = 0020H, AX = 0000H",
+    "DX = 0002H, AX = 0000H"
+   ],
+   "correctIndex": 3,
+   "explanation": "0100H × 0200H = 256 × 512 = 131072 = 00020000H; the high word 0002H goes to DX and the low word 0000H to AX (CF = OF = 1 because DX ≠ 0).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m042",
+   "questionText": "On the 8086, AL = 05H and BL = 07H. After CMP AL, BL, which statement is correct?",
+   "options": [
+    "AL = FEH, CF = 1, ZF = 0, SF = 1",
+    "AL = 05H, CF = 1, ZF = 0, SF = 1",
+    "AL = 05H, CF = 0, ZF = 0, SF = 0",
+    "AL = 02H, CF = 0, ZF = 0, SF = 0"
+   ],
+   "correctIndex": 1,
+   "explanation": "CMP computes 05H − 07H = FEH without storing it, so AL stays 05H. A borrow occurs (CF = 1), the result is non-zero (ZF = 0) and bit 7 of FEH is 1 (SF = 1).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m043",
+   "questionText": "On the 8086, AX = 1234H is stored as a word at physical address 20000H. Where is the byte 12H held, and on which data lines is it transferred?",
+   "options": [
+    "At 20001H in the odd bank, on D8–D15",
+    "At 20000H in the even bank, on D0–D7",
+    "At 20001H in the even bank, on D0–D7",
+    "At 20000H in the odd bank, on D8–D15"
+   ],
+   "correctIndex": 0,
+   "explanation": "Little-endian storage puts the low byte 34H at 20000H (even bank, D0–D7) and the high byte 12H at 20001H (odd bank, D8–D15); both move in one bus cycle.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m044",
+   "questionText": "On the 8086, AL = 38H and BL = 29H. After ADD AL, BL, what are AL, AF and PF?",
+   "options": [
+    "AL = 61H, AF = 0, PF = 1",
+    "AL = 67H, AF = 0, PF = 0",
+    "AL = 61H, AF = 1, PF = 0",
+    "AL = 61H, AF = 1, PF = 1"
+   ],
+   "correctIndex": 2,
+   "explanation": "38H + 29H = 61H. The low nibbles 8 + 9 = 17 exceed 15, so a carry passes from bit 3 to bit 4 (AF = 1). 61H = 0110 0001 has three 1-bits (odd), so PF = 0. 67H is the decimal sum 38 + 29.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i42_m045",
+   "questionText": "An 8086 at 8 MHz (no wait states) reads an array of 50 words. How much time is saved if the array starts at an even address instead of an odd address?",
+   "options": [
+    "25 µs",
+    "50 µs",
+    "6.25 µs",
+    "12.5 µs"
+   ],
+   "correctIndex": 0,
+   "explanation": "Odd-aligned: 50 × 2 cycles × 500 ns = 50 µs. Even-aligned: 50 × 1 × 500 ns = 25 µs. Saving = 25 µs. 50 µs is the total misaligned time, not the saving.",
+   "difficulty": "hard"
+  }
+ ]
+}

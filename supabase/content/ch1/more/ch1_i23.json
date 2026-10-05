@@ -1,0 +1,695 @@
+{
+  "topicId": "ch1_i23",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Norton's Theorem"
+    },
+    {
+      "type": "paragraph",
+      "text": "Norton's theorem follows directly from Thevenin's. Rearranging the terminal line V = V_th − R_th I for the current gives I = V_th/R_th − V/R_th, which is exactly the equation of a current source I_N = V_th/R_th feeding the terminals with a resistance R_N = R_th connected in parallel. The two equivalents are therefore the same straight line on the V-I plane, read once from the voltage axis and once from the current axis."
+    },
+    {
+      "type": "formula",
+      "latex": "I = I_N - \\frac{V}{R_N}",
+      "plainText": "I = I_N − V/R_N (terminal line in Norton form)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The Norton form is the natural choice when branches meet in parallel. Parallel Norton sources simply add their currents and their conductances, which is the basis of nodal analysis and Millman's theorem. It is also the standard model for devices that behave like current sources, such as the collector of a BJT or the drain of a MOSFET in saturation, modelled as a controlled current source in parallel with an output resistance r_o."
+    },
+    {
+      "type": "formula",
+      "latex": "I_N = \\sum_k I_k, \\qquad \\frac{1}{R_N} = \\sum_k \\frac{1}{R_k}",
+      "plainText": "Parallel Norton sources: I_N = sum of I_k; 1/R_N = sum of 1/R_k"
+    },
+    {
+      "type": "code",
+      "text": "Example 1: 36 V source with 6 Ω to node X, 12 Ω from X to B, 4 Ω from X to A.\nI_N: short A-B. 4 || 12 = 3 Ω, total 6 + 3 = 9 Ω, source current 36/9 = 4 A\n  current divider into the short: I_N = 4 × 12/(12 + 4) = 3 A\nR_N: short the source: (6 || 12) + 4 = 4 + 4 = 8 Ω\nCheck: V_oc = 36 × 12/18 = 24 V = I_N R_N = 3 × 8 V\nLoad 8 Ω: I_L = 3 × 8/(8 + 8) = 1.5 A",
+      "language": "text"
+    },
+    {
+      "type": "code",
+      "text": "Example 2: branch 1 = 10 V in series with 2 Ω, branch 2 = 3 A source || 4 Ω,\nboth across A-B and both driving current towards A. Load 4 Ω.\nBranch 1 in Norton form: 10/2 = 5 A || 2 Ω\nCombine: I_N = 5 + 3 = 8 A,  R_N = 2 || 4 = 1.333 Ω\nI_L = 8 × 1.333/(1.333 + 4) = 2 A,  V_L = 2 × 4 = 8 V",
+      "language": "text"
+    },
+    {
+      "type": "code",
+      "text": "Example 3 (dependent source): 12 V source, 4 Ω carrying i_x into node A,\na CCCS draws 0.5·i_x from A to B.\nOpen circuit: i_x = 0.5 i_x  ->  i_x = 0, so V_oc = 12 V\nShort circuit: i_x = 12/4 = 3 A, CCCS takes 1.5 A, I_N = 3 − 1.5 = 1.5 A\nR_N = V_oc/I_N = 12/1.5 = 8 Ω   (killing the CCCS would wrongly give 4 Ω)",
+      "language": "text"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Property",
+          "Thevenin form",
+          "Norton form"
+        ],
+        [
+          "Terminals open",
+          "No internal loss (no current)",
+          "Loss I_N² R_N inside R_N"
+        ],
+        [
+          "Terminals shorted",
+          "Loss V_th² / R_th inside R_th",
+          "No internal loss (R_N shorted)"
+        ],
+        [
+          "Ideal limit",
+          "R_th → 0: ideal voltage source",
+          "R_N → ∞: ideal current source"
+        ],
+        [
+          "Cannot represent",
+          "An ideal current source",
+          "An ideal voltage source"
+        ],
+        [
+          "Convenient with",
+          "Series loads, mesh analysis",
+          "Parallel loads, nodal analysis"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "In AC circuits the Norton current is the phasor short-circuit current and R_N becomes the complex impedance Z_N = Z_th; the conversion I_N = V_th/Z_th needs complex division, so both magnitude and angle change. The load current is then I_N Z_N/(Z_N + Z_L)."
+    },
+    {
+      "type": "bulletList",
+      "text": "Special cases and common mistakes:",
+      "items": [
+        "An ideal current source in series with a resistor is still just that ideal current source; the resistor affects neither I_N nor R_N.",
+        "Any resistor connected directly across A-B carries no current when A-B is shorted, but it does appear in R_N.",
+        "Dependent sources stay active when finding both I_N and R_N.",
+        "The direction of I_N matters: combining two Norton sources that drive opposite ways means subtracting their currents."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "The Thevenin and Norton equivalents dissipate different internal power for the same load, so neither can be used to find the efficiency or losses of the original network; they are valid only for what happens at the terminals and in the load."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i23_m001",
+      "questionText": "For the same pair of terminals, the Norton resistance R_N and the Thevenin resistance R_th of a network are related by:",
+      "options": [
+        "R_N = 1/R_th",
+        "R_N = R_th",
+        "R_N = 2R_th",
+        "R_N = R_th/2"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both are the resistance of the dead network seen from the terminals, equal to V_oc/I_sc, so they are identical.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m002",
+      "questionText": "Norton's theorem is the dual of:",
+      "options": [
+        "The superposition theorem",
+        "The maximum power transfer theorem",
+        "Kirchhoff's current law",
+        "Thevenin's theorem"
+      ],
+      "correctIndex": 3,
+      "explanation": "Thevenin uses a voltage source with a series resistance; Norton uses the dual arrangement, a current source with a parallel resistance.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m003",
+      "questionText": "A Norton equivalent of 5 A in parallel with 4 Ω has its terminals left open. The terminal voltage is:",
+      "options": [
+        "20 V",
+        "1.25 V",
+        "0.8 V",
+        "9 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "With no load, all of I_N flows through R_N: V_oc = I_N R_N = 5 × 4 = 20 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m004",
+      "questionText": "A Norton equivalent of 2.5 A in parallel with 8 Ω is converted to a Thevenin equivalent. The result is:",
+      "options": [
+        "3.2 V in series with 8 Ω",
+        "2.5 V in series with 8 Ω",
+        "20 V in series with 8 Ω",
+        "20 V in series with 0.125 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_th = I_N R_N = 2.5 × 8 = 20 V and R_th = R_N = 8 Ω. Dividing (8/2.5 = 3.2 V) or inverting the resistance are slips.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m005",
+      "questionText": "A 24 V source is in series with 6 Ω to terminal A, and a 3 Ω resistor connects A to terminal B (the source's negative terminal). The Norton equivalent at A-B is:",
+      "options": [
+        "4 A in parallel with 2 Ω",
+        "2.67 A in parallel with 2 Ω",
+        "4 A in parallel with 9 Ω",
+        "8 A in parallel with 3 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "Shorting A-B bypasses the 3 Ω, so I_N = 24/6 = 4 A. R_N = 6 || 3 = 2 Ω. 24/9 = 2.67 A wrongly keeps the 3 Ω in the short-circuit path.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m006",
+      "questionText": "An ideal 10 A current source is in parallel with 5 Ω; a further 5 Ω resistor connects the top of this pair to terminal A, and terminal B is the bottom of the pair. The Norton equivalent at A-B is:",
+      "options": [
+        "10 A in parallel with 10 Ω",
+        "5 A in parallel with 2.5 Ω",
+        "10 A in parallel with 5 Ω",
+        "5 A in parallel with 10 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "With A-B shorted the 10 A divides equally between the two 5 Ω paths, so I_N = 10 × 5/(5 + 5) = 5 A. Opening the source gives R_N = 5 + 5 = 10 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m007",
+      "questionText": "When the terminals of a Norton equivalent circuit are short-circuited, the current through R_N is:",
+      "options": [
+        "I_N",
+        "Zero",
+        "I_N/2",
+        "I_N × R_N"
+      ],
+      "correctIndex": 1,
+      "explanation": "The short puts zero volts across R_N, so R_N carries no current and all of I_N flows through the short.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m008",
+      "questionText": "A Norton equivalent of 10 A in parallel with 10 Ω supplies a 15 Ω load. The power delivered to the load is:",
+      "options": [
+        "540 W",
+        "1500 W",
+        "240 W",
+        "160 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_L = 10 × 10/(10 + 15) = 4 A, so P_L = 4² × 15 = 240 W. Using the other branch current (6 A) gives 540 W; 1500 W uses the full I_N.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m009",
+      "questionText": "A Norton equivalent of 3 A in parallel with 12 Ω supplies a 6 Ω load. The load voltage is:",
+      "options": [
+        "36 V",
+        "12 V",
+        "18 V",
+        "54 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_N and R_L share the same voltage: V_L = I_N × (12 || 6) = 3 × 4 = 12 V. 36 V is the open-circuit voltage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m010",
+      "questionText": "Two branches are connected in parallel across terminals A-B: branch 1 is 12 V in series with 4 Ω, branch 2 is 24 V in series with 12 Ω, both with positive terminals towards A. A 7 Ω load is connected across A-B. Using Norton's theorem, the load current is:",
+      "options": [
+        "3.5 A",
+        "2.14 A",
+        "5 A",
+        "1.5 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each branch converts to a Norton source: 12/4 = 3 A and 24/12 = 2 A, so I_N = 5 A with R_N = 4 || 12 = 3 Ω. I_L = 5 × 3/(3 + 7) = 1.5 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m011",
+      "questionText": "A 10 V source in series with 5 Ω delivers current i_x into node A; terminal B is the source's negative terminal. A current-controlled current source between A and B draws 0.5·i_x from A to B. The Norton equivalent at A-B is:",
+      "options": [
+        "1 A in parallel with 10 Ω",
+        "2 A in parallel with 5 Ω",
+        "1 A in parallel with 5 Ω",
+        "2 A in parallel with 10 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "Short circuit: i_x = 10/5 = 2 A, the dependent source takes 1 A, so I_N = 1 A. Open circuit: i_x = 0.5 i_x forces i_x = 0 and V_oc = 10 V. R_N = 10/1 = 10 Ω; killing the dependent source would wrongly give 5 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m012",
+      "questionText": "A 12 V source in series with 3 Ω is connected to terminal A; a 6 Ω resistor and a voltage-controlled current source that draws V_AB/6 amperes from A to B are both connected across A-B (B is the source's negative terminal). The Norton equivalent at A-B is:",
+      "options": [
+        "4 A in parallel with 2 Ω",
+        "6 A in parallel with 1.5 Ω",
+        "4 A in parallel with 1.5 Ω",
+        "4 A in parallel with 3 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "Short circuit: V_AB = 0, so the 6 Ω and the dependent source carry nothing and I_N = 12/3 = 4 A. Open circuit: (12 − V)/3 = V/6 + V/6 gives V_oc = 6 V. R_N = 6/4 = 1.5 Ω; ignoring the dependent source gives 3 || 6 = 2 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m013",
+      "questionText": "For which of the following does a Norton equivalent NOT exist?",
+      "options": [
+        "An ideal current source on its own",
+        "A single resistor",
+        "A current source in parallel with a resistor",
+        "An ideal voltage source on its own"
+      ],
+      "correctIndex": 3,
+      "explanation": "An ideal voltage source has zero internal resistance, so its short-circuit current is infinite and it cannot be written as a finite I_N in parallel with R_N.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m014",
+      "questionText": "Which statement about the Thevenin and Norton equivalents of the same network is NOT correct?",
+      "options": [
+        "The power dissipated inside the two equivalents is always equal for the same load",
+        "Both deliver the same current to any load",
+        "Both have the same resistance",
+        "I_N × R_N equals the open-circuit voltage"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two are equivalent only at the terminals. With the terminals open, for instance, R_th dissipates nothing while R_N dissipates I_N²R_N.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m015",
+      "questionText": "A Norton equivalent of 2 A in parallel with 10 Ω has its terminals open. The power dissipated inside R_N is:",
+      "options": [
+        "0 W",
+        "40 W",
+        "20 W",
+        "400 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "With no load all 2 A flows in R_N: P = 2² × 10 = 40 W. The Thevenin equivalent would dissipate 0 W in the same condition.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m016",
+      "questionText": "As the Norton resistance R_N of a source becomes very large compared with the load, the source behaves more and more like:",
+      "options": [
+        "An ideal voltage source",
+        "A short circuit",
+        "An ideal current source",
+        "An open circuit with no output"
+      ],
+      "correctIndex": 2,
+      "explanation": "When R_N ≫ R_L almost all of I_N flows into the load whatever its value, which is the behaviour of an ideal current source.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m017",
+      "questionText": "A current source of 10 mA with a Norton resistance of 100 kΩ supplies a 1 kΩ load. The load current is:",
+      "options": [
+        "9.90 mA",
+        "0.099 mA",
+        "5 mA",
+        "1 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_L = 10 × 100/(100 + 1) = 9.90 mA. Because R_N ≫ R_L nearly the whole source current reaches the load; 0.099 mA uses the wrong resistor in the divider.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m018",
+      "questionText": "A Norton equivalent of 8 A in parallel with 6 Ω is to deliver 2 A to a load. The load resistance required is:",
+      "options": [
+        "24 Ω",
+        "6 Ω",
+        "2 Ω",
+        "18 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "2 = 8 × 6/(6 + R_L) gives 6 + R_L = 24, so R_L = 18 Ω. Taking 24 Ω forgets to subtract R_N.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m019",
+      "questionText": "A 12 V source feeds two parallel arms. Arm 1 is 2 Ω (top) in series with 4 Ω (bottom); arm 2 is 4 Ω (top) in series with 2 Ω (bottom). The Norton equivalent seen between the two arm midpoints is:",
+      "options": [
+        "4.5 A in parallel with 2.67 Ω",
+        "1.5 A in parallel with 6 Ω",
+        "1.5 A in parallel with 2.67 Ω",
+        "3 A in parallel with 2.67 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_oc = 12 × 4/6 − 12 × 2/6 = 8 − 4 = 4 V. With the source shorted, R_N = (2 || 4) + (4 || 2) = 1.333 + 1.333 = 2.67 Ω, so I_N = 4/2.67 = 1.5 A. 4.5 A is the total source current with the midpoints shorted.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m020",
+      "questionText": "The Norton form of a network is especially convenient when:",
+      "options": [
+        "The load is connected in series with an ideal voltage source",
+        "Several loads or branches are connected in parallel across the terminals",
+        "The network contains no resistors at all",
+        "Only the internal losses of the original network are needed"
+      ],
+      "correctIndex": 1,
+      "explanation": "In parallel the voltage is common and branch currents add, so a current source with a parallel resistance combines directly with parallel loads and with nodal analysis.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m021",
+      "questionText": "Two Norton sources are connected in parallel with the same polarity: 4 A in parallel with 6 Ω, and 2 A in parallel with 3 Ω. The combined Norton equivalent is:",
+      "options": [
+        "6 A in parallel with 9 Ω",
+        "6 A in parallel with 2 Ω",
+        "2 A in parallel with 2 Ω",
+        "3 A in parallel with 4.5 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "Parallel current sources add: I_N = 4 + 2 = 6 A. The resistances are in parallel: 6 || 3 = 2 Ω. 9 Ω is the series mistake and 2 A would apply only if the sources opposed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m022",
+      "questionText": "A 5 A source in parallel with 10 Ω and a 3 A source in parallel with 10 Ω are connected across the same terminals with the two current sources driving in opposite directions. A 5 Ω load is connected across the terminals. The load current is:",
+      "options": [
+        "4 A",
+        "1.6 A",
+        "1 A",
+        "2 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Opposing sources subtract: I_N = 5 − 3 = 2 A, with R_N = 10 || 10 = 5 Ω. I_L = 2 × 5/(5 + 5) = 1 A. Adding the currents (8 A) gives 4 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m023",
+      "questionText": "When the terminals of a Norton equivalent are left open, the terminal voltage equals:",
+      "options": [
+        "Zero",
+        "I_N / R_N",
+        "I_N² × R_N",
+        "I_N × R_N"
+      ],
+      "correctIndex": 3,
+      "explanation": "With no external path, all of I_N flows through R_N, so the open-circuit voltage is I_N R_N, which is also V_th.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m024",
+      "questionText": "While calculating the Norton current, a resistor that is connected directly across the terminals A-B:",
+      "options": [
+        "Carries no current and drops out of the I_N calculation",
+        "Carries the whole of I_N",
+        "Must be moved in series with the source",
+        "Doubles the short-circuit current"
+      ],
+      "correctIndex": 0,
+      "explanation": "The short across A-B also shorts that resistor, so it carries zero current. It does, however, appear in parallel when R_N is found.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m025",
+      "questionText": "An ideal 2 A current source in series with a 50 Ω resistor is connected to terminals A-B. As seen from A-B, this combination is equivalent to:",
+      "options": [
+        "100 V in series with 50 Ω",
+        "2 A in parallel with 50 Ω",
+        "An ideal 2 A current source alone",
+        "2 A in parallel with 25 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "An ideal current source forces 2 A whatever is in series with it, so the 50 Ω has no effect on the terminals and R_N is infinite. A source transformation applies only to a parallel resistor.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m026",
+      "questionText": "An ideal ammeter connected across terminals A-B of a linear network reads 3 A, and an ideal voltmeter across the same terminals reads 18 V. The Norton equivalent is:",
+      "options": [
+        "3 A in parallel with 6 Ω",
+        "3 A in parallel with 54 Ω",
+        "18 A in parallel with 6 Ω",
+        "6 A in parallel with 3 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "The ammeter reads I_sc = I_N = 3 A and the voltmeter reads V_oc = 18 V, so R_N = 18/3 = 6 Ω.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m027",
+      "questionText": "A 30 V source is in series with 5 Ω to node X. A 20 Ω resistor connects X to terminal B (the source's negative terminal), and a 4 Ω resistor runs from X to terminal A. The Norton equivalent at A-B is:",
+      "options": [
+        "6 A in parallel with 8 Ω",
+        "3 A in parallel with 8 Ω",
+        "3.6 A in parallel with 8 Ω",
+        "3 A in parallel with 29 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "Short A-B: 4 || 20 = 3.33 Ω, total 8.33 Ω, source current 30/8.33 = 3.6 A, of which 3.6 × 20/24 = 3 A flows in the short. R_N = (5 || 20) + 4 = 8 Ω. Check: V_oc = 30 × 20/25 = 24 V = 3 × 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m028",
+      "questionText": "An ideal 4 A current source injects current into node A from terminal B. Also connected are a 6 Ω resistor from A to B and a 12 V source in series with 3 Ω from B to A (positive towards A). A 6 Ω load is connected across A-B. Using Norton's theorem, the load current is:",
+      "options": [
+        "8 A",
+        "2.67 A",
+        "6 A",
+        "2 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "Short A-B: the 6 Ω is bypassed, I_N = 4 + 12/3 = 8 A. R_N = 6 || 3 = 2 Ω. I_L = 8 × 2/(2 + 6) = 2 A; 2.67 A (8 × 2/6) wrongly divides by R_L alone instead of R_N + R_L.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m029",
+      "questionText": "When a Thevenin equivalent is converted to its Norton form, the arrow of the Norton current source:",
+      "options": [
+        "Points towards the terminal that is negative in the Thevenin form",
+        "Can be drawn in either direction",
+        "Points towards the terminal that is positive in the Thevenin form",
+        "Points along R_N"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_N is the current that would flow out of the positive terminal into a short circuit, so the source must push current towards that terminal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m030",
+      "questionText": "In a Norton equivalent with a load connected across its terminals, R_N and the load always have the same:",
+      "options": [
+        "Voltage across them",
+        "Current through them",
+        "Power dissipated",
+        "Resistance"
+      ],
+      "correctIndex": 0,
+      "explanation": "R_N and R_L are in parallel, so they share one voltage while I_N divides between them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m031",
+      "questionText": "A network has a Thevenin equivalent of 50∠0° V in series with (3 + j4) Ω. Its Norton equivalent is:",
+      "options": [
+        "10∠53.13° A in parallel with (3 + j4) Ω",
+        "10∠−53.13° A in parallel with (3 + j4) Ω",
+        "7.14∠0° A in parallel with (3 + j4) Ω",
+        "12.5∠0° A in parallel with 4 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_N = V_th/Z_th = 50∠0°/(5∠53.13°) = 10∠−53.13° A, and Z_N = Z_th = 3 + j4 Ω. 7.14 A comes from wrongly adding 3 + 4 = 7 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m032",
+      "questionText": "A 100∠0° V source is in series with a 10 Ω resistor, and a capacitive reactance of −j10 Ω is connected across terminals A-B at the far end. The Norton equivalent at A-B is:",
+      "options": [
+        "10∠0° A in parallel with (10 − j10) Ω",
+        "7.07∠45° A in parallel with (5 − j5) Ω",
+        "10∠0° A in parallel with (5 + j5) Ω",
+        "10∠0° A in parallel with (5 − j5) Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "Shorting A-B bypasses the capacitor: I_N = 100/10 = 10∠0° A. Z_N = 10 || (−j10) = −j100/(10 − j10) = 5 − j5 Ω. 7.07∠45° A is the source current with the capacitor left in circuit.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m033",
+      "questionText": "When finding the Norton current of a circuit that contains a dependent source, the dependent source is:",
+      "options": [
+        "Replaced by a short circuit",
+        "Replaced by an open circuit",
+        "Kept active in the circuit",
+        "Replaced by its controlling resistor"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dependent sources are never killed; their values change with the circuit conditions and must be recalculated with the terminals shorted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m034",
+      "questionText": "A Norton equivalent of 12 mA in parallel with 2 kΩ supplies a 2 kΩ load. The load voltage is:",
+      "options": [
+        "24 V",
+        "6 V",
+        "48 V",
+        "12 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "The parallel combination is 2 || 2 = 1 kΩ, so V_L = 12 mA × 1 kΩ = 12 V. 24 V is the open-circuit voltage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m035",
+      "questionText": "A linear network delivers 2 A into a short circuit across its terminals and 1.5 A into a 4 Ω load. Its Norton resistance is:",
+      "options": [
+        "12 Ω",
+        "3 Ω",
+        "4 Ω",
+        "16 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_N = 2 A. Then 1.5 = 2 × R_N/(R_N + 4) gives 1.5R_N + 6 = 2R_N, so R_N = 12 Ω. Check: V_oc = 24 V, 24/(12 + 4) = 1.5 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m036",
+      "questionText": "A Norton equivalent of 9 A in parallel with 3 Ω supplies a 6 Ω load. The current flowing through R_N is:",
+      "options": [
+        "3 A",
+        "6 A",
+        "9 A",
+        "1.5 A"
+      ],
+      "correctIndex": 1,
+      "explanation": "By the current divider, I_RN = 9 × 6/(3 + 6) = 6 A; the load takes the other 3 A. The smaller resistance takes the larger share.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m037",
+      "questionText": "If the load resistance is much smaller than the Norton resistance (R_L ≪ R_N), the load current is approximately:",
+      "options": [
+        "Zero",
+        "Equal to I_N/2",
+        "Equal to I_N R_N/R_L",
+        "Equal to I_N"
+      ],
+      "correctIndex": 3,
+      "explanation": "I_L = I_N R_N/(R_N + R_L) → I_N when R_L ≪ R_N: nearly all the current takes the low-resistance path.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m038",
+      "questionText": "A 12 V battery has an internal resistance of 0.05 Ω. Its Norton equivalent is:",
+      "options": [
+        "240 A in parallel with 0.05 Ω",
+        "0.6 A in parallel with 0.05 Ω",
+        "12 A in parallel with 0.05 Ω",
+        "240 A in parallel with 12 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_N = V/R = 12/0.05 = 240 A in parallel with the same 0.05 Ω; this is also the battery's short-circuit current. 0.6 A multiplies instead of dividing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m039",
+      "questionText": "A 20 V source in series with 10 Ω is connected to terminal A; terminal B is its negative terminal. Also across A-B are a 10 Ω resistor and an ideal 1 A current source that draws current out of A into B. The Norton equivalent at A-B is:",
+      "options": [
+        "3 A in parallel with 5 Ω",
+        "2 A in parallel with 5 Ω",
+        "1 A in parallel with 5 Ω",
+        "1 A in parallel with 10 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "Short A-B: the source branch gives 20/10 = 2 A and the current source removes 1 A, so I_N = 1 A. R_N = 10 || 10 = 5 Ω (current source opened).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m040",
+      "questionText": "The open-circuit voltage of a linear network is 30 V. A 10 Ω load connected to it draws 2 A. The Norton equivalent of the network is:",
+      "options": [
+        "2 A in parallel with 15 Ω",
+        "6 A in parallel with 5 Ω",
+        "3 A in parallel with 10 Ω",
+        "6 A in parallel with 15 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "2 = 30/(R + 10) gives R = 5 Ω, so I_N = V_oc/R = 30/5 = 6 A in parallel with 5 Ω. Using the load current as I_N or 30/10 = 3 A are common mistakes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m041",
+      "questionText": "Which statement about Norton's theorem is NOT correct?",
+      "options": [
+        "The Norton current depends on the value of the load resistance",
+        "R_N is equal to the Thevenin resistance",
+        "I_N equals V_oc/R_th",
+        "It applies to linear bilateral networks"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_N is the short-circuit current with the load removed, a property of the network alone; only the load's share of it depends on R_L.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m042",
+      "questionText": "An ideal 6 A current source, a 3 Ω resistor and a 6 Ω resistor are all connected in parallel across terminals A-B. The Norton equivalent at A-B is:",
+      "options": [
+        "6 A in parallel with 9 Ω",
+        "6 A in parallel with 2 Ω",
+        "2 A in parallel with 2 Ω",
+        "12 A in parallel with 2 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "The circuit is already in Norton form: I_N = 6 A (both resistors are bypassed by the short) and R_N = 3 || 6 = 2 Ω.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i23_m043",
+      "questionText": "A 20 V source is in series with 4 Ω to node X; a 4 Ω resistor connects X to terminal B (the source's negative terminal), an ideal 3 A current source injects current into X from B, and a 2 Ω resistor runs from X to terminal A. The Norton equivalent at A-B is:",
+      "options": [
+        "8 A in parallel with 4 Ω",
+        "4 A in parallel with 10 Ω",
+        "2.5 A in parallel with 4 Ω",
+        "4 A in parallel with 4 Ω"
+      ],
+      "correctIndex": 3,
+      "explanation": "Short A-B, nodal at X: (20 − V)/4 + 3 = V/4 + V/2 gives 8 = V, so I_N = 8/2 = 4 A. R_N = (4 || 4) + 2 = 4 Ω. Check: V_oc from (20 − V)/4 + 3 = V/4 is 16 V = 4 × 4. Ignoring the 3 A source gives 2.5 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i23_m044",
+      "questionText": "For a fixed Norton equivalent, as the load resistance is increased, the current through R_N:",
+      "options": [
+        "Decreases towards zero",
+        "Stays equal to I_N",
+        "Increases towards I_N",
+        "Stays equal to the load current"
+      ],
+      "correctIndex": 2,
+      "explanation": "I_RN = I_N R_L/(R_N + R_L), which grows with R_L; on open circuit all of I_N flows in R_N.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m045",
+      "questionText": "In small-signal analysis the output of a BJT amplifier is often modelled as a controlled current source g_m·v_be in parallel with an output resistance r_o. This model is an example of:",
+      "options": [
+        "A Norton equivalent",
+        "A Thevenin equivalent",
+        "A star-delta transformation",
+        "A superposition of two independent sources"
+      ],
+      "correctIndex": 0,
+      "explanation": "A current source with a parallel resistance is the Norton form; it suits the transistor because the collector current is nearly independent of the load.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i23_m046",
+      "questionText": "A network with V_th = 15 V and R_th = 2.5 Ω is converted to Norton form and then connected to a 5 Ω load. The load current is:",
+      "options": [
+        "6 A",
+        "2 A",
+        "4 A",
+        "3 A"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_N = 15/2.5 = 6 A in parallel with 2.5 Ω. I_L = 6 × 2.5/(2.5 + 5) = 2 A, the same as 15/(2.5 + 5) from the Thevenin form. 4 A uses the wrong resistor in the divider.",
+      "difficulty": "medium"
+    }
+  ]
+}

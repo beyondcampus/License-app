@@ -1,0 +1,714 @@
+{
+  "topicId": "ch4_i21",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Storage Timing, RAID and Virtual Memory"
+    },
+    {
+      "type": "paragraph",
+      "text": "A memory hierarchy is judged by two averages. If level 1 holds S1 bits at a cost of C1 per bit and level 2 holds S2 bits at C2 per bit, the average cost per bit of the system is weighted by size, so a small expensive level hardly changes it when S1 is much smaller than S2. The access efficiency T1/Ts compares the access time of the fast level with the average access time the processor actually sees; it approaches 1 only when level 1 satisfies almost every reference, because a reference that goes to disk is many thousands of times slower. Together the two numbers state the goal of the hierarchy: speed close to T1 at a cost close to C2."
+    },
+    {
+      "type": "formula",
+      "latex": "C_s = \\frac{C_1 S_1 + C_2 S_2}{S_1 + S_2},\\quad E = \\frac{T_1}{T_s}",
+      "plainText": "Average cost per bit C_s = (C1 × S1 + C2 × S2) / (S1 + S2); access efficiency E = T1 / Ts, where Ts is the average access time seen by the processor"
+    },
+    {
+      "type": "paragraph",
+      "text": "Disk capacity is the product of recording surfaces, tracks per surface, sectors per track and bytes per sector; a double-sided platter contributes two surfaces, and the number of cylinders equals the number of tracks per surface. Older drives use constant angular velocity (CAV) with the same number of sectors on every track, so the longer outer tracks are recorded at a lower bit density; modern drives use multiple-zone recording and put more sectors on the outer zones. Because one whole track passes under the head in every revolution, the sustained transfer rate equals the bytes per track multiplied by the revolutions per second (rpm / 60). A file stored on adjacent tracks pays the seek only once, while scattered sectors pay a seek and a rotational latency each, which is why disk layout matters so much."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: sequential versus random reading\nDisk: average seek 8 ms, 6000 rpm, 250 sectors of 512 B per track\nRevolution = 60 / 6000 s = 10 ms, average latency = 5 ms\nOne sector passes the head in 10 / 250 = 0.04 ms\nFile of 1000 sectors on 4 adjacent full tracks:\n  track 1:     8 + 5 + 10 = 23 ms\n  tracks 2-4:  3 x (5 + 10) = 45 ms   (track-to-track seek ignored)\n  total      = 68 ms\nSame 1000 sectors scattered at random:\n  per sector:  8 + 5 + 0.04 = 13.04 ms\n  total      = 1000 x 13.04 ms = 13.04 s (about 192 times slower)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Level",
+          "Organisation",
+          "Usable capacity (n disks of size C)",
+          "Failures survived"
+        ],
+        [
+          "RAID 0",
+          "Block striping, no redundancy",
+          "nC",
+          "0"
+        ],
+        [
+          "RAID 1",
+          "Mirroring: every block written to two disks",
+          "nC / 2",
+          "1 per mirrored pair"
+        ],
+        [
+          "RAID 2",
+          "Bit striping with Hamming-code check disks",
+          "(n − m)C, m check disks growing with log2 of the data disks",
+          "1"
+        ],
+        [
+          "RAID 3",
+          "Byte or bit striping, one dedicated parity disk",
+          "(n − 1)C",
+          "1"
+        ],
+        [
+          "RAID 4",
+          "Block striping, one dedicated parity disk",
+          "(n − 1)C",
+          "1"
+        ],
+        [
+          "RAID 5",
+          "Block striping, parity rotated over all disks",
+          "(n − 1)C",
+          "1"
+        ],
+        [
+          "RAID 6",
+          "Block striping, two independent check blocks P and Q",
+          "(n − 2)C",
+          "2"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: RAID 5 parity (one byte per block, hex)\nStripe: D0 = B2, D1 = 6C, D2 = 1F\nParity P = D0 xor D1 xor D2 = B2 xor 6C xor 1F = DE xor 1F = C1\nDisk holding D1 fails, rebuild it from the survivors:\n  D1 = P xor D0 xor D2 = C1 xor B2 xor 1F = 73 xor 1F = 6C\nSmall write, D2 changes from 1F to 20 (read-modify-write):\n  read old D2 and old P                    2 reads\n  P' = P xor D2old xor D2new = C1 xor 1F xor 20 = FE\n  write new D2 and new P'                  2 writes\n  total = 4 disk accesses for one small write\nCheck: B2 xor 6C xor 20 = FE"
+    },
+    {
+      "type": "bulletList",
+      "text": "Details of semiconductor and optical storage that calculations rely on:",
+      "items": [
+        "DRAM refresh overhead: with R rows, a retention period T_ref and a time t_r per row refresh, the fraction of time lost is R × t_r / T_ref. Burst refresh does all rows back to back; distributed refresh issues one row refresh every T_ref / R, for example 64 ms / 4096 rows = 15.6 µs.",
+        "NOR flash connects cells in parallel, giving random byte reads and execute-in-place for firmware; NAND flash connects cells in series strings, giving higher density with page reads and writes and block erase, the medium of SSDs and memory cards.",
+        "A flash cell storing n bits must distinguish 2^n charge levels: SLC 1 bit (2 levels), MLC 2 bits (4), TLC 3 bits (8), QLC 4 bits (16). More bits per cell lower the cost per bit but also the endurance and the write speed.",
+        "An SSD cannot overwrite a page in place: it writes the new data to an erased page, marks the old page invalid and later garbage-collects whole blocks; wear levelling spreads the program/erase cycles evenly over all blocks.",
+        "Optical discs record along one spiral track at constant linear velocity (CLV), so the drive spins faster near the centre. The laser wavelength limits the pit size: CD 780 nm (about 700 MB), DVD 650 nm (4.7 GB per layer), Blu-ray 405 nm (25 GB per layer)."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Virtual memory adds one more level below main memory, which then acts as a cache for pages kept on disk or SSD. A virtual address is split into a virtual page number and an offset; the page table, indexed by the page number, supplies the physical frame number, and the offset is copied unchanged, so physical address = frame × page size + offset. If the entry is marked not present, a page fault traps to the operating system, which loads the page (replacing another one if memory is full) and restarts the instruction. Every translation would otherwise cost an extra memory access to read the page table, so recent translations are cached in a translation lookaside buffer (TLB)."
+    },
+    {
+      "type": "formula",
+      "latex": "EAT = (1 - p)\\,t_{m} + p\\,t_{fault}",
+      "plainText": "EAT = (1 − p) × t_m + p × t_fault, where p = page-fault rate, t_m = memory access time and t_fault = page-fault service time"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: paging arithmetic\n32-bit virtual address, 8 KB pages, 4-byte page-table entries\n  offset = log2 8192 = 13 bits, page number = 32 - 13 = 19 bits\n  page table = 2^19 entries x 4 B = 2 MB per process\nTranslate VA 0000 5A3C (hex); the table maps page 2 to frame 7\n  page = 5A3C >> 13 = 2, offset = 5A3C - 4000 = 1A3C\n  PA = 7 x 2000 + 1A3C = E000 + 1A3C = 0000 FA3C (hex)\nPage faults: t_m = 60 ns, t_fault = 5 ms, p = 2 x 10^-6\n  EAT = (1 - p) x 60 + p x 5,000,000 = 59.99988 + 10 = about 70 ns\nTLB: lookup 5 ns, hit ratio 0.95, one-level page table\n  EAT = 0.95 x (5 + 60) + 0.05 x (5 + 60 + 60) = 61.75 + 6.25 = 68 ns"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips in storage calculations: using rpm as revolutions per second (divide by 60 first); taking a full revolution instead of half of one as the average rotational latency; forgetting that a double-sided platter has two surfaces; mixing bits with bytes or 10^9 with 2^30; quoting the RAID 1 capacity as the sum of both disks; charging the average seek to every track of a file stored on adjacent tracks; and writing 8 ms as 8,000 ns in page-fault problems (it is 8,000,000 ns)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i21_m001",
+      "questionText": "Moving down the memory hierarchy from CPU registers towards magnetic tape, which of the following does NOT happen?",
+      "options": [
+        "The access time increases",
+        "The cost per bit decreases",
+        "The frequency of access by the processor increases",
+        "The capacity increases"
+      ],
+      "correctIndex": 2,
+      "explanation": "Going down the hierarchy the access time and capacity rise and the cost per bit falls, while the processor accesses the lower levels less often, not more. That falling access frequency is what lets the small fast levels serve most references.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m002",
+      "questionText": "A loop counter i is read and updated in every iteration of a loop. Keeping i in a register or in the cache after its first use exploits which property of programs?",
+      "options": [
+        "Temporal locality",
+        "Spatial locality",
+        "Sequential locality",
+        "Memory interleaving"
+      ],
+      "correctIndex": 0,
+      "explanation": "Temporal locality means that a location referenced now is likely to be referenced again soon; the repeated use of the same variable i is the classic example. Spatial and sequential locality concern neighbouring addresses such as successive array elements or instructions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m003",
+      "questionText": "A two-level storage system has 1 GB of level-1 memory costing $10 per GB and 99 GB of level-2 memory costing $0.10 per GB. What is the average cost per GB of the whole system?",
+      "options": [
+        "$0.199",
+        "$5.05",
+        "$0.10",
+        "$1.99"
+      ],
+      "correctIndex": 0,
+      "explanation": "Average cost C_s = (C1 S1 + C2 S2) / (S1 + S2) = (10 × 1 + 0.10 × 99) / (1 + 99) = 19.9 / 100 = $0.199 per GB, close to the price of the large cheap level. Averaging the two prices ($5.05) ignores the sizes of the levels.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m004",
+      "questionText": "A single dynamic RAM (DRAM) storage cell consists of:",
+      "options": [
+        "A cross-coupled flip-flop of about six transistors",
+        "One transistor and one capacitor",
+        "A floating-gate transistor that traps charge",
+        "A fusible link that is blown during programming"
+      ],
+      "correctIndex": 1,
+      "explanation": "A DRAM cell stores the bit as charge on a capacitor reached through one access transistor, which makes it dense and cheap but forces periodic refresh. Six-transistor flip-flops are SRAM cells, floating gates are EPROM/flash cells and fuses are PROM cells.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m005",
+      "questionText": "Which statement about SRAM and DRAM is NOT correct?",
+      "options": [
+        "SRAM needs periodic refresh because the charge in its flip-flop slowly leaks away",
+        "DRAM is denser and cheaper per bit because each cell needs only one transistor and one capacitor",
+        "Both SRAM and DRAM are volatile",
+        "SRAM is faster than DRAM, which is why it is used for cache memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "SRAM keeps each bit in a bistable flip-flop that holds its state as long as power is applied, so it needs no refresh. It is DRAM whose capacitor charge leaks and must be refreshed every few milliseconds; the other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m006",
+      "questionText": "Why is the cycle time of a DRAM longer than its access time?",
+      "options": [
+        "The DRAM must wait for the next refresh period after every access",
+        "The data must pass through an ECC circuit before they can be sent to the processor",
+        "The column address can be decoded only after the data of the previous access have been removed from the bus",
+        "A read discharges the cells of the selected row, so the row must be restored and the bit lines precharged before the next access can begin"
+      ],
+      "correctIndex": 3,
+      "explanation": "Access time is the delay from address to data out, whereas cycle time is the minimum interval between the starts of two accesses. The DRAM read is destructive, so the sense amplifiers write the row back and the bit lines are precharged after the data appear, which makes the cycle time exceed the access time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m007",
+      "questionText": "A 256M × 1 DRAM chip multiplexes its row and column addresses over the same pins using RAS and CAS, with equal numbers of row and column address bits. How many address pins does it need?",
+      "options": [
+        "28",
+        "16",
+        "7",
+        "14"
+      ],
+      "correctIndex": 3,
+      "explanation": "256M = 2^28 cells need a 28-bit address. With 2^14 rows × 2^14 columns, the 14-bit row address is latched by RAS and then the 14-bit column address by CAS over the same 14 pins, halving the pin count.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m008",
+      "questionText": "A DDR SDRAM module has a 64-bit data bus and a 200 MHz bus clock. What is its peak transfer rate? (1 GB/s = 10^9 bytes per second)",
+      "options": [
+        "1.6 GB/s",
+        "3.2 GB/s",
+        "25.6 GB/s",
+        "6.4 GB/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "DDR moves data on both clock edges: 200 × 10^6 × 2 transfers/s × 8 bytes = 3.2 × 10^9 bytes/s = 3.2 GB/s (the DDR-400 or PC-3200 rating). Ignoring the double data rate gives 1.6 GB/s, and 25.6 is the figure in gigabits per second.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m009",
+      "questionText": "A DRAM has 8192 rows, each of which must be refreshed every 64 ms, and one row refresh keeps the chip busy for 50 ns. What fraction of the time is the DRAM busy refreshing, and what is the interval between row refreshes if they are spread evenly (distributed refresh)?",
+      "options": [
+        "6.4%; one row every 7.8 µs",
+        "0.64%; one row every 7.8 µs",
+        "0.64%; one row every 78 µs",
+        "0.064%; one row every 0.78 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Refresh work per period = 8192 × 50 ns = 409.6 µs, and 409.6 µs / 64 ms = 0.0064 = 0.64% of the time. Spread evenly, the rows are refreshed every 64 ms / 8192 = 7.8125 µs, about 7.8 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m010",
+      "questionText": "How is a conventional EPROM erased?",
+      "options": [
+        "Electrically, one byte at a time, while the chip stays in the circuit",
+        "Electrically, one block at a time, by commands from the processor",
+        "By exposing the chip to ultraviolet light through its quartz window, which erases the whole chip",
+        "It cannot be erased, because its bit pattern is fixed by a photomask"
+      ],
+      "correctIndex": 2,
+      "explanation": "An EPROM is erased by ultraviolet light, typically for several minutes, and the entire chip is cleared at once. Electrical byte erase describes EEPROM, electrical block erase describes flash, and a fixed photomask describes mask ROM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m011",
+      "questionText": "Which statement correctly distinguishes flash memory from EEPROM?",
+      "options": [
+        "Flash is erased electrically a whole block at a time, whereas EEPROM can be erased and rewritten a byte at a time",
+        "Flash is erased by ultraviolet light, whereas EEPROM is erased electrically",
+        "Flash is volatile, whereas EEPROM is non-volatile",
+        "Flash can be programmed only once, whereas EEPROM can be rewritten many times"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both are electrically erasable and non-volatile. Flash gives up byte-level erasure in exchange for a smaller, denser cell and erases a block (sector) at a time, which is why it replaced EEPROM for bulk storage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m012",
+      "questionText": "Which statement about NOR and NAND flash is correct?",
+      "options": [
+        "NOR flash allows random byte reads and execute-in-place, so it suits program code; NAND flash is denser and is read and written in pages, so it suits bulk storage such as SSDs",
+        "NAND flash allows execute-in-place and random byte reads, while NOR flash is used in SSDs because it is denser",
+        "NOR and NAND flash differ only in their supply voltage",
+        "NAND flash can be erased one byte at a time, whereas NOR flash can only be erased as a whole chip"
+      ],
+      "correctIndex": 0,
+      "explanation": "NOR cells sit in parallel on the bit lines, giving fast random reads so the processor can execute firmware directly from the chip. NAND cells form series strings, giving a smaller cell and higher density, with page reads and writes and block erase, which makes NAND the medium for SSDs, USB drives and memory cards.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m013",
+      "questionText": "Which of the following memories retains its contents when the power is removed?",
+      "options": [
+        "SRAM",
+        "DRAM",
+        "SDRAM",
+        "NAND flash"
+      ],
+      "correctIndex": 3,
+      "explanation": "Flash stores charge on an insulated floating gate that stays for years without power, so it is non-volatile. SRAM, DRAM and SDRAM (a synchronous DRAM) all lose their contents when power is removed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m014",
+      "questionText": "A QLC NAND flash cell stores 4 bits. How many distinct charge (threshold-voltage) levels must the cell be able to hold and distinguish?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "32"
+      ],
+      "correctIndex": 2,
+      "explanation": "n bits per cell need 2^n distinguishable levels: SLC 2, MLC 4, TLC 8 and QLC 2^4 = 16. More levels raise the density but shrink the margin between levels, which lowers endurance and speed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m015",
+      "questionText": "An SSD controller receives a request to overwrite a logical page that already holds data. What normally happens?",
+      "options": [
+        "The page is erased and rewritten in place, because flash can be erased one page at a time",
+        "The new data are written to a free, already erased page, the old page is marked invalid, and garbage collection later erases whole blocks to reclaim space",
+        "The whole SSD is erased and then rewritten with the new data",
+        "The data are kept only in the SSD's DRAM cache and never reach the flash"
+      ],
+      "correctIndex": 1,
+      "explanation": "Flash cannot be rewritten in place: a page must be erased before it is programmed again, and erasure works only on whole blocks of many pages. The controller therefore maps the logical page to a fresh physical page and reclaims stale pages later, while wear levelling spreads the writes evenly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m016",
+      "questionText": "A byte is stored with a 12-bit Hamming SEC code whose check bits occupy bit positions 1, 2, 4 and 8. On a read, the syndrome C8 C4 C2 C1 is 0101. Assuming at most one bit is in error, which statement is correct?",
+      "options": [
+        "Check bits C4 and C1 are both in error",
+        "Bit position 5, which holds a data bit, is in error and is corrected by inverting it",
+        "Bit position 10, which holds a data bit, is in error",
+        "There is no error, because the syndrome contains an even number of 1s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Read as a binary number, the syndrome is the position of the flipped bit: 0101 = 5. Position 5 is not a power of two, so it is a data bit, and inverting it restores the word; reading the syndrome in reverse bit order would wrongly give 1010 = 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m017",
+      "questionText": "An ECC memory module protects each 64-bit data word with a SEC-DED (single-error-correcting, double-error-detecting) Hamming code. How many bits are stored per word?",
+      "options": [
+        "72",
+        "71",
+        "70",
+        "128"
+      ],
+      "correctIndex": 0,
+      "explanation": "SEC needs k check bits with 2^k ≥ 64 + k + 1: k = 6 gives 64 < 71 (fails) and k = 7 gives 128 ≥ 72. One more overall parity bit adds double-error detection, so 64 + 7 + 1 = 72 bits are stored; 71 bits would give SEC only.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m018",
+      "questionText": "On a multi-platter magnetic disk, the set of tracks that lie at the same radius on all recording surfaces is called a:",
+      "options": [
+        "Sector",
+        "Cluster",
+        "Zone",
+        "Cylinder"
+      ],
+      "correctIndex": 3,
+      "explanation": "All heads move together on one arm, so the tracks under them at one arm position form a cylinder and can be read without another seek. A sector is part of one track, a cluster is a file-system allocation unit, and a zone is a band of adjacent tracks in multiple-zone recording.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m019",
+      "questionText": "A server disk spins at 15,000 rpm. What is its average rotational latency?",
+      "options": [
+        "4 ms",
+        "2 ms",
+        "1 ms",
+        "0.2 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "15,000 rpm = 250 revolutions per second, so one revolution takes 1/250 s = 4 ms. On average the wanted sector is half a revolution away: 4 / 2 = 2 ms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m020",
+      "questionText": "A disk drive has 4 platters, both surfaces of each used for data, with 20,000 tracks per surface, 500 sectors per track and 512 bytes per sector. What is its capacity? (1 GB = 10^9 bytes)",
+      "options": [
+        "20.48 GB",
+        "40.96 GB",
+        "5.12 GB",
+        "327.68 GB"
+      ],
+      "correctIndex": 1,
+      "explanation": "Capacity = surfaces × tracks per surface × sectors per track × bytes per sector = 8 × 20,000 × 500 × 512 = 40,960,000,000 bytes = 40.96 GB. Counting only 4 surfaces gives 20.48 GB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m021",
+      "questionText": "A disk has an average seek time of 4 ms, rotates at 10,000 rpm and has 500 sectors per track. What is the average time to read one randomly located sector? (Ignore controller overhead.)",
+      "options": [
+        "7.012 ms",
+        "10.012 ms",
+        "4.012 ms",
+        "3.012 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "One revolution takes 60 / 10,000 s = 6 ms, so the average rotational latency is 3 ms and one sector passes the head in 6 / 500 = 0.012 ms. T = 4 + 3 + 0.012 = 7.012 ms; using a full revolution as the latency gives 10.012 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m022",
+      "questionText": "A disk spins at 12,000 rpm and every track holds 256 KB. What is its maximum sustained transfer rate when reading whole tracks? (1 KB = 1024 bytes, 1 MB = 1024 KB)",
+      "options": [
+        "50 MB/s",
+        "25 MB/s",
+        "3000 MB/s",
+        "400 MB/s"
+      ],
+      "correctIndex": 0,
+      "explanation": "12,000 rpm = 200 revolutions per second, and one full track passes the head in each revolution: 256 KB × 200 = 51,200 KB/s = 50 MB/s. Forgetting to divide the rpm by 60 gives 3000 MB/s, and 400 is the rate in megabits per second.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m023",
+      "questionText": "A magnetic disk uses constant angular velocity (CAV) with the same number of sectors on every track. Which statement is correct?",
+      "options": [
+        "Outer tracks hold more bits than inner tracks, so the transfer rate is higher on the outer tracks",
+        "The disk slows down whenever the head moves to the outer tracks",
+        "Outer tracks are longer but hold the same number of bits, so their bit density is lower and capacity is wasted; multiple-zone recording addresses this",
+        "The innermost tracks cannot be used because their bit density would be too high"
+      ],
+      "correctIndex": 2,
+      "explanation": "With CAV and equal sectors per track, a sector is easy to locate by track and sector number, but the outermost track stores no more than the innermost one. Multiple-zone recording divides the surface into zones and gives the outer zones more sectors per track to raise the capacity.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m024",
+      "questionText": "A disk has 16 recording surfaces, 1024 tracks per surface, 256 sectors per track and 512 bytes per sector, and rotates at 6000 rpm. What are its capacity and its maximum data transfer rate? (1 KB = 1024 bytes, 1 MB = 1024 KB, 1 GB = 1024 MB)",
+      "options": [
+        "2 GB and 750 MB/s",
+        "128 MB and 12.5 MB/s",
+        "16 GB and 100 MB/s",
+        "2 GB and 12.5 MB/s"
+      ],
+      "correctIndex": 3,
+      "explanation": "Capacity = 16 × 1024 × 256 × 512 = 2^31 bytes = 2 GB. One track holds 256 × 512 B = 128 KB and passes the head 6000 / 60 = 100 times per second, so the rate is 12,800 KB/s = 12.5 MB/s; not dividing the rpm by 60 gives 750 MB/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m025",
+      "questionText": "A disk has an average seek time of 5 ms, rotates at 10,000 rpm and has 400 sectors of 512 bytes per track. A file of 1600 sectors occupies 4 complete adjacent tracks. Assuming the track-to-track seek time is negligible and that each track needs an average rotational latency before reading starts, how long does it take to read the file sequentially?",
+      "options": [
+        "56 ms",
+        "32 ms",
+        "41 ms",
+        "53 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "One revolution = 60 / 10,000 s = 6 ms, the average latency is 3 ms, and a full track is read in one revolution. First track: 5 + 3 + 6 = 14 ms; each of the other 3 tracks: 3 + 6 = 9 ms; total = 14 + 3 × 9 = 41 ms. Charging the full seek to every track gives 4 × 14 = 56 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m026",
+      "questionText": "A disk has an average seek time of 5 ms, rotates at 10,000 rpm and has 400 sectors per track. The 1600 sectors of a file are scattered at random over the disk, so every sector needs its own seek and rotational latency. How long does it take to read the whole file?",
+      "options": [
+        "About 17.62 s",
+        "About 12.82 s",
+        "About 8.02 s",
+        "About 4.82 s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Per sector: 5 ms seek + 3 ms average latency (half of 6 ms) + 6 / 400 = 0.015 ms transfer = 8.015 ms. For 1600 sectors: 1600 × 8.015 ms = 12,824 ms ≈ 12.82 s. Using a full revolution as the latency gives 17.62 s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m027",
+      "questionText": "Compared with a magnetic hard disk, which components of the access time are essentially absent in a solid-state drive (SSD)?",
+      "options": [
+        "Transfer time and controller overhead",
+        "Rotational latency only; an SSD still has a seek time",
+        "Seek time only; an SSD still has a rotational latency",
+        "Seek time and rotational latency"
+      ],
+      "correctIndex": 3,
+      "explanation": "An SSD has no moving arm and no spinning platters, so there is no mechanical seek and no wait for a sector to rotate under a head. Only the controller overhead, the flash read time and the transfer time remain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m028",
+      "questionText": "Which statement correctly describes constant linear velocity (CLV) recording as used on a CD-ROM?",
+      "options": [
+        "The disc spins at a constant rpm, so the outer part of the track holds fewer bits per millimetre",
+        "Data are recorded on concentric tracks that all have the same number of sectors",
+        "The spiral track passes the laser at a constant speed, so the disc spins faster when the head reads near the centre than near the outer edge",
+        "The laser head moves at a constant speed while the disc stays stationary"
+      ],
+      "correctIndex": 2,
+      "explanation": "With CLV the bit density is uniform along the single spiral track, which maximises the capacity. To keep the linear speed constant, the rotation rate must fall as the head moves outwards (roughly 500 rpm at the centre to 200 rpm at the edge for a 1× CD); constant rpm with lower outer density describes CAV.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m029",
+      "questionText": "Why can a Blu-ray disc hold much more data per layer than a CD or a DVD of the same diameter?",
+      "options": [
+        "It spins at constant angular velocity, so its outer tracks hold more data",
+        "It uses a shorter-wavelength (405 nm blue-violet) laser, which allows smaller pits and a narrower track pitch",
+        "It stores the data magnetically instead of as pits and lands",
+        "It records data on both surfaces of the disc at the same time"
+      ],
+      "correctIndex": 1,
+      "explanation": "The smallest spot a laser can be focused to scales with its wavelength (CD 780 nm, DVD 650 nm, Blu-ray 405 nm), and Blu-ray also uses a lens with a larger numerical aperture. Smaller pits on a tighter spiral raise the capacity from about 0.7 GB (CD) and 4.7 GB (DVD) to 25 GB per layer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m030",
+      "questionText": "Which storage medium offers only sequential access, so that the time to reach a record depends strongly on where it is stored?",
+      "options": [
+        "Magnetic tape",
+        "Magnetic hard disk",
+        "Solid-state drive",
+        "DRAM main memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "Tape must be wound past all the data in between to reach a record, which is sequential access. A disk gives direct access (seek to a track, then wait for the sector), and RAM gives random access with the same access time for every location.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m031",
+      "questionText": "A tape drive needs on average 30 s to position the tape at the start of a file and then transfers data at 300 MB/s. How long does it take to read a 6 GB file? (1 GB = 1000 MB)",
+      "options": [
+        "20 s",
+        "50 s",
+        "30.02 s",
+        "190 s"
+      ],
+      "correctIndex": 1,
+      "explanation": "For a sequential-access device T_N = T_A + n / R = 30 s + 6000 MB / (300 MB/s) = 30 + 20 = 50 s. Omitting the positioning time gives 20 s, and reading the rate as 300 Mbit/s gives 30 + 160 = 190 s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m032",
+      "questionText": "Which RAID level stripes data blocks across several disks but stores no redundant information at all?",
+      "options": [
+        "RAID 1",
+        "RAID 4",
+        "RAID 0",
+        "RAID 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "RAID 0 only stripes, giving high throughput and 100% usable capacity, but the failure of any one disk loses the data of the array. RAID 1 mirrors, and RAID 4 and RAID 5 add parity.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m033",
+      "questionText": "Two 4 TB disks are configured as a RAID 1 mirrored pair. Which statement about the array is correct?",
+      "options": [
+        "It provides 8 TB of usable space and survives the failure of either disk",
+        "It provides 4 TB of usable space and survives the failure of either disk",
+        "It provides 4 TB of usable space but cannot survive any disk failure",
+        "It provides 2 TB of usable space and survives the failure of both disks"
+      ],
+      "correctIndex": 1,
+      "explanation": "RAID 1 writes every block to both disks, so the usable space equals one disk: 2 × 4 TB / 2 = 4 TB. Because each disk holds a complete copy, the array keeps working if either disk fails.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m034",
+      "questionText": "Which RAID level uses block-level striping with all parity blocks on one dedicated disk, so that this parity disk becomes a bottleneck when many small writes occur?",
+      "options": [
+        "RAID 4",
+        "RAID 3",
+        "RAID 5",
+        "RAID 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "RAID 4 uses large (block) strips and a single parity disk that every write must update, so small writes queue up on it. RAID 5 removes the bottleneck by rotating the parity over all disks, and RAID 3 uses bit- or byte-level strips with parallel access.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m035",
+      "questionText": "Which RAID level stripes data at the bit level and uses a Hamming code, stored on several check disks, to correct errors?",
+      "options": [
+        "RAID 2",
+        "RAID 1",
+        "RAID 3",
+        "RAID 6"
+      ],
+      "correctIndex": 0,
+      "explanation": "RAID 2 spreads very small strips over synchronised disks and computes a Hamming code across corresponding bits, which needs several check disks. Since drives already have internal error correction it is not used in practice; RAID 3 needs only a single parity disk.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m036",
+      "questionText": "Five 2 TB disks form a RAID 5 array. What is its usable capacity, and how many simultaneous disk failures can it survive?",
+      "options": [
+        "10 TB; one failure",
+        "6 TB; two failures",
+        "8 TB; one failure",
+        "5 TB; two failures"
+      ],
+      "correctIndex": 2,
+      "explanation": "RAID 5 uses one disk's worth of space for distributed parity: (5 − 1) × 2 TB = 8 TB. The parity can rebuild any single failed disk, but a second failure before the rebuild finishes loses data; 6 TB with two-failure tolerance would be RAID 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m037",
+      "questionText": "Six 4 TB disks are configured as RAID 6. What is the usable capacity?",
+      "options": [
+        "20 TB",
+        "12 TB",
+        "24 TB",
+        "16 TB"
+      ],
+      "correctIndex": 3,
+      "explanation": "RAID 6 keeps two independent check blocks (P and Q) in every stripe, which costs two disks' worth of space: (6 − 2) × 4 TB = 16 TB. In return it survives any two simultaneous disk failures; 20 TB would be RAID 5 and 24 TB RAID 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m038",
+      "questionText": "An array is to be built from four identical disks and must survive the failure of any one disk. Which RAID level gives the largest usable capacity?",
+      "options": [
+        "RAID 10 (striped mirrored pairs)",
+        "RAID 6",
+        "RAID 0",
+        "RAID 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "With 4 disks RAID 5 keeps 3 disks of data (75%), while mirrored pairs (RAID 10) and RAID 6 keep only 2 disks of data (50%). RAID 0 keeps all 4 disks but cannot survive any failure, so it does not meet the requirement.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m039",
+      "questionText": "In a RAID 5 stripe the data blocks and the parity block hold (one byte of each shown, in hexadecimal) D0 = 5A, D1 = 3C, D2 = F0 and P = 96. The application overwrites D1 with 0F. Using the read-modify-write method, what is the new parity byte and how many disk accesses does this small write need?",
+      "options": [
+        "A5; 2 accesses (write new D1 and new P)",
+        "A5; 4 accesses (read old D1 and old P, then write new D1 and new P)",
+        "99; 4 accesses (read old D1 and old P, then write new D1 and new P)",
+        "33; 3 accesses (read old D1, then write new D1 and new P)"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_new = P_old ⊕ D1_old ⊕ D1_new = 96 ⊕ 3C ⊕ 0F = AA ⊕ 0F = A5, which matches 5A ⊕ 0F ⊕ F0 = A5. The old data and old parity must be read before the new data and parity are written, so one small write costs 2 reads + 2 writes = 4 accesses.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m040",
+      "questionText": "In a virtual memory system, a page fault occurs when:",
+      "options": [
+        "The required block is not in the cache and must be fetched from main memory",
+        "The TLB has no entry for the page, although the page is in main memory",
+        "Two processes try to access the same physical frame at the same time",
+        "The referenced page is not in main memory, so it must be brought in from secondary storage"
+      ],
+      "correctIndex": 3,
+      "explanation": "A page fault is raised when the page-table entry shows that the page is not resident; the operating system then loads it from disk or SSD. A cache miss and a TLB miss are far cheaper events that need no transfer from secondary storage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m041",
+      "questionText": "The translation lookaside buffer (TLB) is best described as:",
+      "options": [
+        "A buffer that holds dirty cache lines until they are written back to main memory",
+        "The area of the disk that holds pages swapped out of main memory",
+        "A register that holds the starting address of the page table",
+        "A small, fast cache of recently used page-table entries that speeds up virtual-to-physical address translation"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without a TLB every memory reference would need an extra memory access to read the page table; the TLB keeps recent translations so most references are translated almost instantly. The swap area and the page-table base register are separate structures.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i21_m042",
+      "questionText": "A system uses 1 KB pages (1 KB = 1024 bytes) and byte addresses. Virtual page 4 of a process is mapped to physical frame 9. Which physical address corresponds to virtual address 5000 (decimal)?",
+      "options": [
+        "9216",
+        "14216",
+        "10120",
+        "9904"
+      ],
+      "correctIndex": 2,
+      "explanation": "Page number = 5000 div 1024 = 4 and offset = 5000 − 4 × 1024 = 904. Page 4 is in frame 9, so the physical address = 9 × 1024 + 904 = 9216 + 904 = 10120.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i21_m043",
+      "questionText": "A system has 32-bit virtual byte addresses, 4 KB pages (1 KB = 1024 bytes) and a single-level page table with 4-byte entries. How many bits form the virtual page number, and how large is the full page table of one process?",
+      "options": [
+        "20 bits; 1 MB",
+        "12 bits; 16 KB",
+        "20 bits; 4 MB",
+        "22 bits; 16 MB"
+      ],
+      "correctIndex": 2,
+      "explanation": "The offset is log2(4096) = 12 bits, so the page number has 32 − 12 = 20 bits and the table has 2^20 entries. Its size is 2^20 × 4 bytes = 4 MB (1 MB = 1024 KB); forgetting the 4-byte entry size gives 1 MB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m044",
+      "questionText": "Main memory access time is 100 ns and servicing a page fault takes 8 ms. If one memory access in 100,000 causes a page fault, what is the effective access time, using EAT = (1 − p) × memory access time + p × page-fault service time? (Ignore TLB and cache effects.)",
+      "options": [
+        "About 100.08 ns",
+        "About 80 ns",
+        "About 900 ns",
+        "About 180 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "EAT = (1 − p) × 100 ns + p × 8 ms with p = 10^-5: 0.99999 × 100 + 10^-5 × 8,000,000 ns = 99.999 + 80 ≈ 180 ns. Even such rare faults slow memory by about 80%, because each costs 80,000 normal accesses; writing 8 ms as 8,000 ns gives the 100.08 ns distractor.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m045",
+      "questionText": "Main memory access time is 200 ns, a page fault takes 10 ms to service, and EAT = (1 − p) × 200 ns + p × 10 ms, where p is the page-fault rate. To keep the slowdown caused by page faults below 5% (EAT below 210 ns), p must be below about:",
+      "options": [
+        "1 fault per 100,000 accesses",
+        "1 fault per 1,000 accesses",
+        "1 fault per 1,000,000 accesses",
+        "1 fault per 20 accesses"
+      ],
+      "correctIndex": 2,
+      "explanation": "Require (1 − p) × 200 + p × 10,000,000 < 210 ns, so p × 9,999,800 < 10 and p < 1.0 × 10^-6: at most about one fault per 1,000,000 accesses. Writing 10 ms as 1,000,000 ns gives the 1-in-100,000 distractor.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i21_m046",
+      "questionText": "A paged system has a TLB with a lookup time of 10 ns and a hit ratio of 90%, a main-memory access time of 100 ns and a single-level page table held in main memory. The TLB is searched first; on a TLB miss the page-table entry is read from memory before the data access. Ignoring page faults and caches, what is the effective memory access time?",
+      "options": [
+        "120 ns",
+        "110 ns",
+        "210 ns",
+        "200 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "TLB hit: 10 + 100 = 110 ns; TLB miss: 10 + 100 (page-table entry) + 100 (data) = 210 ns. EAT = 0.9 × 110 + 0.1 × 210 = 99 + 21 = 120 ns, compared with 200 ns if there were no TLB at all.",
+      "difficulty": "hard"
+    }
+  ]
+}

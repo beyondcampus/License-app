@@ -1,0 +1,738 @@
+{
+  "topicId": "ch4_i32",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Counting Switches, Links, Paths and Bus Load"
+    },
+    {
+      "type": "paragraph",
+      "text": "An N×N omega network (N = 2^n) needs n = log₂N stages because each stage of 2×2 switches settles one bit of the destination address, and each stage has N/2 switches because every switch serves two lines. Before each stage the lines are wired as a perfect shuffle, which moves line a(n−1)…a1a0 to line a(n−2)…a0a(n−1), a one-bit left rotation of the line number, like riffling a deck of cards. After n shuffles and n switch decisions every source bit has been replaced by a destination bit, so each source reaches each destination by exactly one path. With two useful settings per switch (straight or exchange) the network has 2^((N/2)log₂N) = N^(N/2) settings in total, so an 8×8 omega network realises only 2^12 = 4096 of the 8! = 40,320 permutations, which is why some request patterns block."
+    },
+    {
+      "type": "formula",
+      "latex": "2^{\\frac{N}{2}\\log_2 N} = N^{N/2};\\quad 8\\times 8:\\ 2^{12} = 4096 < 8! = 40320",
+      "plainText": "Omega settings = 2^((N/2)·log2 N) = N^(N/2); for 8×8 that is 2^12 = 4096 realisable permutations out of 8! = 40,320"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: routing and blocking in an 8 x 8 omega network\nRule: stage i uses destination bit i counted from the MSB; 0 = upper, 1 = lower\nLine after stage i = last 3 bits of (source shifted left i places,\n                     with the first i destination bits shifted in)\nRequest A: source 010 -> destination 110\n  stage 1: line 101 (bit 1, lower)\n  stage 2: line 011 (bit 1, lower)\n  stage 3: line 110 (bit 0, upper) = destination\nRequest B: source 110 -> destination 100\n  stage 1: line 101 (bit 1, lower) -> the same output line as A\nA and B collide at stage 1, so one must wait: the network is blocking.\nCost: 3 stages x 4 switches = 12 switches (48 crosspoints) vs 64 in a crossbar"
+    },
+    {
+      "type": "paragraph",
+      "text": "In an n-cube with N = 2^n nodes each node has n neighbours, one per address bit, and because every link joins two nodes the link count is n·2^n ÷ 2 = n·2^(n−1) = (N log₂N)/2. The distance between two nodes is the Hamming distance of their addresses, so exactly C(n, k) nodes lie k hops from any node and the farthest node, the bitwise complement, is n hops away. Cutting the cube across one dimension leaves two (n−1)-cubes joined by 2^(n−1) = N/2 links; this bisection width measures how much traffic can cross the middle of the machine. The usual deterministic routing, e-cube routing, corrects the differing bits in a fixed order (lowest dimension first), giving a unique shortest path that is also deadlock-free."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: a 4-cube (16 nodes)\nLinks = 4 x 2^3 = 32; bisection width = 2^3 = 8; diameter = 4\nRoute 0101 -> 1110: 0101 XOR 1110 = 1011, so the distance is 3 hops\ne-cube order (bit 0 first): 0101 -> 0100 -> 0110 -> 1110\nNodes at distance 0..4 from 0000: 1, 4, 6, 4, 1 (= C(4,k), total 16)\nAverage distance to the other 15 nodes = (4 + 12 + 12 + 4) / 15 = 2.13"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Static network (N nodes)",
+          "Links",
+          "Node degree",
+          "Diameter"
+        ],
+        [
+          "Linear array",
+          "N − 1",
+          "1 or 2",
+          "N − 1"
+        ],
+        [
+          "Ring",
+          "N",
+          "2",
+          "⌊N/2⌋"
+        ],
+        [
+          "2-D mesh, √N × √N (no wraparound)",
+          "2(N − √N)",
+          "2 to 4",
+          "2(√N − 1)"
+        ],
+        [
+          "Hypercube, N = 2^n",
+          "(N/2)·log₂N",
+          "log₂N",
+          "log₂N"
+        ],
+        [
+          "Fully connected",
+          "N(N − 1)/2",
+          "N − 1",
+          "1"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A time-shared bus saturates when the processors together demand more than all of its time. If each processor makes r memory references per second, a fraction m of them miss in its private cache and each miss holds the bus for t_bus, one processor keeps the bus busy for the fraction r·m·t_bus, and the bus can carry at most 1/(r·m·t_bus) processors, rounded down. With 50 million references per second, a 5% miss ratio and 50 ns of bus time per miss, each processor uses 12.5% of the bus, so 8 processors saturate it. Private caches that cut m are therefore essential in bus-based SMPs, and larger systems move to crossbars, multistage networks or NUMA."
+    },
+    {
+      "type": "formula",
+      "latex": "N\\,r\\,m\\,t_{bus} \\le 1 \\Rightarrow N_{max} = \\left\\lfloor \\frac{1}{r\\,m\\,t_{bus}} \\right\\rfloor",
+      "plainText": "Bus utilisation U = N × r × m × t_bus must not exceed 1, so N_max = floor(1 / (r × m × t_bus))"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Event (X = 10 in memory)",
+          "P1 cache",
+          "P2 cache",
+          "Memory"
+        ],
+        [
+          "P1 reads X",
+          "10",
+          "not cached",
+          "10"
+        ],
+        [
+          "P2 reads X",
+          "10",
+          "10",
+          "10"
+        ],
+        [
+          "Then P1 writes 15 (option a: write-through, no protocol)",
+          "15",
+          "10 (stale)",
+          "15"
+        ],
+        [
+          "Then P1 writes 15 (option b: write-back, no protocol)",
+          "15 (dirty)",
+          "10 (stale)",
+          "10 (stale)"
+        ],
+        [
+          "Then P1 writes 15 (option c: write-back with write-invalidate snooping)",
+          "15 (modified)",
+          "invalid",
+          "10 until written back"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "SMP, NUMA, multiport memory and speed-up in numbers:",
+      "items": [
+        "SMP (Stallings): two or more similar processors of comparable capability share main memory and I/O over a bus or other interconnect with about the same access time, all can perform the same functions, and one integrated operating system controls them. A master–slave arrangement in which only one processor runs the OS is not symmetric.",
+        "NUMA average access time = p_local × t_local + (1 − p_local) × t_remote; with 90% local references at 80 ns and 10% remote at 500 ns it is 72 + 50 = 122 ns, so the OS tries to place a process's pages in its own node's memory. CC-NUMA adds hardware cache coherence, usually with a directory.",
+        "Multiport memory with P processors and M modules needs P ports on every module and P × M processor–module paths, with fixed port priorities resolving conflicts; this is why it suits only small systems.",
+        "Amdahl's law rearranged gives the parallel fraction needed for a target speed-up S on N processors: f = (1 − 1/S) / (1 − 1/N). For S = 6 on N = 8, f = (5/6) / (7/8) = 0.952, so less than 5% of the work may stay serial.",
+        "Sources of cache incoherence (Hwang): sharing of writable data, process migration from one processor to another, and I/O or DMA that writes memory behind the caches."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: counting crossbar crosspoints as N + M instead of N × M; forgetting that one 2×2 switch contains four crosspoints; writing hypercube links as n·2^n, which counts every link twice; giving the node count 2^n as the diameter; treating the NUMA remote time as an extra delay on top of the local time; and rounding the bus limit 1/(r·m·t_bus) up instead of down."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i32_m001",
+      "questionText": "In Flynn's classification, into which class does a shared-memory multiprocessor fall, given that each of its processors runs its own instruction stream on its own data?",
+      "options": [
+        "SIMD",
+        "MISD",
+        "SISD",
+        "MIMD"
+      ],
+      "correctIndex": 3,
+      "explanation": "Multiple processors each executing their own instruction stream on their own data form a multiple-instruction, multiple-data (MIMD) machine. SIMD describes array and vector processors that apply one instruction to many data items.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m002",
+      "questionText": "According to Mano, which kind of multiprocessor can tolerate a higher degree of interaction between tasks?",
+      "options": [
+        "A loosely coupled (distributed-memory) multiprocessor",
+        "A tightly coupled (shared-memory) multiprocessor",
+        "A cluster of computers linked by a local area network",
+        "A hypercube message-passing multicomputer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Tightly coupled processors exchange data through shared memory quickly, so they cope with frequent interaction; loosely coupled systems, which communicate by messages, are most efficient when interaction between tasks is minimal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m003",
+      "questionText": "Which statement correctly distinguishes a multicomputer from a multiprocessor?",
+      "options": [
+        "A multicomputer has several CPUs on one chip sharing a single cache",
+        "A multiprocessor has only one CPU but several I/O processors",
+        "In a multicomputer each node has private memory and the nodes communicate by message passing, whereas a multiprocessor's CPUs share main memory",
+        "In a multicomputer all nodes share one global address space with uniform access time"
+      ],
+      "correctIndex": 2,
+      "explanation": "A multicomputer is a set of complete computers (processor plus private memory) joined by a network and cooperating by messages; a multiprocessor's processors share one main memory and one operating system.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m004",
+      "questionText": "One CPU of a multiprocessor fails, yet the system keeps running at reduced performance on the remaining CPUs. Which characteristic of multiprocessors does this illustrate?",
+      "options": [
+        "Cache coherence",
+        "Uniform memory access",
+        "Improved reliability through graceful degradation",
+        "Increased bus contention"
+      ],
+      "correctIndex": 2,
+      "explanation": "Because the processors are interchangeable and share memory and I/O, the failure of one leaves the others able to carry on; this fault tolerance is one of the main benefits of multiprocessors.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m005",
+      "questionText": "How many crosspoint switches does a crossbar contain if it connects 16 processors to 32 memory modules?",
+      "options": [
+        "48",
+        "512",
+        "256",
+        "1024"
+      ],
+      "correctIndex": 1,
+      "explanation": "A crossbar has one crosspoint at every processor–module intersection: 16 × 32 = 512. Adding the counts (48) or squaring either one (256, 1024) is wrong.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m006",
+      "questionText": "What is the main limitation of a time-shared common bus in a multiprocessor?",
+      "options": [
+        "Every memory module needs a separate port for each processor",
+        "It needs N × M crosspoint switches",
+        "Processors cannot share any memory over it",
+        "Only one processor can transfer over the bus at a time, so contention grows as processors are added"
+      ],
+      "correctIndex": 3,
+      "explanation": "All units share one path, so while one transfer is in progress every other processor must wait; the bus is the cheapest interconnection but becomes the bottleneck. Separate ports belong to multiport memory and N × M crosspoints to the crossbar.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m007",
+      "questionText": "In a bus-based multiprocessor each processor keeps the shared bus busy for 15% of the time on average. What is the largest number of processors the bus can support without the total demand exceeding 100%?",
+      "options": [
+        "7",
+        "15",
+        "6",
+        "85"
+      ],
+      "correctIndex": 2,
+      "explanation": "N_max = floor(1 ÷ 0.15) = floor(6.67) = 6; six processors use 90% of the bus while seven would demand 105%. Rounding up to 7 overloads the bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m008",
+      "questionText": "Each processor of a bus-based SMP issues 80 × 10^6 memory references per second and its private cache has a hit ratio of 97.5%. Every miss moves a 32-byte block over a 64-bit bus with a 10 ns bus cycle. Ignoring all other traffic, how many processors can the bus support before it saturates?",
+      "options": [
+        "13",
+        "6",
+        "40",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "Misses = 80 × 10^6 × 0.025 = 2 × 10^6 per second; bus time per miss = (32 ÷ 8) × 10 ns = 40 ns; one processor uses 2 × 10^6 × 40 ns = 8% of the bus, so floor(1 ÷ 0.08) = floor(12.5) = 12. A 32-bit bus would give 6, and 40 is just 1 ÷ miss ratio.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m009",
+      "questionText": "In a multiprocessor where every processor has a local bus with its own local memory and I/O, connected through a system bus controller to a common system bus, what is the system bus mainly used for?",
+      "options": [
+        "Reaching the shared memory and communicating with the other processors",
+        "Fetching every instruction of every processor",
+        "Carrying the local cache's tag comparisons",
+        "Connecting the processor to its own local memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "Local memory and local I/O are reached over the local bus, which keeps most traffic off the common bus; only accesses to the shared memory on the system bus, and hence interprocessor communication, need the system bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m010",
+      "questionText": "A multiport memory system connects 4 processors to 8 memory modules. How many ports does each memory module need, and how many separate processor–module paths are there?",
+      "options": [
+        "4 ports per module and 32 paths",
+        "8 ports per module and 32 paths",
+        "4 ports per module and 12 paths",
+        "1 port per module and 8 paths"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every module has one port for each processor, so 4 ports per module, and every processor has its own bus to every module: 4 × 8 = 32 paths. Adding 4 + 8 = 12 counts units, not connections.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m011",
+      "questionText": "In a multiport memory system, how are simultaneous requests from several processors to the same memory module resolved?",
+      "options": [
+        "By a daisy chain running through all the processors",
+        "By the destination tags of an omega network",
+        "By the operating system's round-robin scheduler",
+        "By fixed priorities assigned to the module's ports"
+      ],
+      "correctIndex": 3,
+      "explanation": "Mano's multiport memory resolves access conflicts inside each module by giving its ports fixed priorities; the processor on the highest-priority port wins.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m012",
+      "questionText": "Which interconnection gives each processor its own separate address, data and control buses into every memory module?",
+      "options": [
+        "Time-shared common bus",
+        "Multiport memory",
+        "Omega network",
+        "Hypercube"
+      ],
+      "correctIndex": 1,
+      "explanation": "In multiport memory each module has one port per processor, each with its own address, data and control lines; that gives a high transfer rate at the cost of much wiring and control logic.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m013",
+      "questionText": "According to Mano, what does each crosspoint of a crossbar switch contain?",
+      "options": [
+        "A small cache holding recently used memory words",
+        "Multiplexers and arbitration logic that set up the path and resolve simultaneous requests for the same module",
+        "A complete processor that forwards messages",
+        "Only a fixed wire joining one processor permanently to one module"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each switch point examines the address on the processor bus to see whether its module is addressed, connects the path through multiplexers and resolves multiple requests for that module on a priority basis.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m014",
+      "questionText": "A crossbar connects 8 processors to 4 memory modules. What is the maximum number of simultaneous processor–memory transfers, and how many crosspoints does it have?",
+      "options": [
+        "8 transfers and 32 crosspoints",
+        "4 transfers and 12 crosspoints",
+        "32 transfers and 32 crosspoints",
+        "4 transfers and 32 crosspoints"
+      ],
+      "correctIndex": 3,
+      "explanation": "Crosspoints = 8 × 4 = 32. Each module can serve only one processor at a time, so at most min(8, 4) = 4 transfers proceed at once, with the other processors waiting.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m015",
+      "questionText": "How many stages and how many 2×2 switches does a 16×16 omega network need?",
+      "options": [
+        "4 stages and 32 switches",
+        "4 stages and 64 switches",
+        "8 stages and 64 switches",
+        "4 stages and 16 switches"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stages = log₂16 = 4, each with 16 ÷ 2 = 8 switches, so 4 × 8 = 32 switches. 64 counts one switch per line per stage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m016",
+      "questionText": "A 64×64 network is built either as a crossbar or as an omega network of 2×2 switches. Counting each 2×2 switch as 4 crosspoints, how many crosspoints does each design need (omega versus crossbar)?",
+      "options": [
+        "192 versus 4096",
+        "768 versus 4096",
+        "1536 versus 4096",
+        "768 versus 128"
+      ],
+      "correctIndex": 1,
+      "explanation": "Omega: log₂64 = 6 stages × 32 switches = 192 switches, × 4 = 768 crosspoints; crossbar: 64 × 64 = 4096. 192 forgets the 4 crosspoints per switch, and 128 counts the crossbar as N + M.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m017",
+      "questionText": "A 2×2 interchange switch connects its upper input to its lower output and its lower input to its upper output. What is this setting called?",
+      "options": [
+        "Exchange (cross)",
+        "Straight (through)",
+        "Upper broadcast",
+        "Lower broadcast"
+      ],
+      "correctIndex": 0,
+      "explanation": "The four states of a 2×2 switch are straight, exchange (cross), upper broadcast and lower broadcast; swapping the two lines is the exchange state.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m018",
+      "questionText": "In an 8-line perfect-shuffle connection, to which line is line 6 (binary 110) connected?",
+      "options": [
+        "Line 3 (011)",
+        "Line 7 (111)",
+        "Line 5 (101)",
+        "Line 4 (100)"
+      ],
+      "correctIndex": 2,
+      "explanation": "The perfect shuffle rotates the line number left by one bit: 110 becomes 101 = 5. Rotating right gives 011, flipping the last bit (the exchange) gives 111, and shifting left without wrapping the MSB round gives 100.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m019",
+      "questionText": "In an 8×8 omega network with destination-tag routing (destination bits used from the MSB in stages 1 to 3, 0 = upper output, 1 = lower output), processor 111 requests memory module 011. Which switch outputs does the request take in stages 1, 2 and 3?",
+      "options": [
+        "Lower, lower, upper",
+        "Lower, upper, upper",
+        "Upper, lower, lower",
+        "Lower, lower, lower"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only the destination 011 matters: bit 0 → upper at stage 1, bit 1 → lower at stage 2, bit 1 → lower at stage 3. Reading the destination from the LSB gives lower, lower, upper, and following the source bits gives lower, lower, lower.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m020",
+      "questionText": "In an 8×8 omega network (perfect shuffle before each stage, destination-tag routing with the destination bits used from the MSB in stages 1 to 3, 0 = upper output, 1 = lower output), which pair of simultaneous requests cannot both be connected because they need the same link?",
+      "options": [
+        "P1 → M5 and P3 → M4",
+        "P0 → M1 and P1 → M0",
+        "P2 → M3 and P5 → M7",
+        "P4 → M0 and P0 → M7"
+      ],
+      "correctIndex": 0,
+      "explanation": "The line after stage i is the source shifted left i places with the first i destination bits shifted in. For P1 (001) → M5 (101) and P3 (011) → M4 (100) the stage-1 lines are 011 and 111, but after stage 2 both are on line 110, so they collide; the other pairs use different lines at every stage.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m021",
+      "questionText": "Each 2×2 switch of an 8×8 omega network is set either straight or exchange. How many different settings of the whole network are possible, each giving a different permutation of the 8 inputs?",
+      "options": [
+        "40,320",
+        "4096",
+        "16,777,216",
+        "64"
+      ],
+      "correctIndex": 1,
+      "explanation": "There are 3 × 4 = 12 switches with 2 settings each, so 2^12 = 4096 permutations, far fewer than the 8! = 40,320 possible ones; 16,777,216 = 4^12 wrongly counts the broadcast states as permutations.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m022",
+      "questionText": "Which one of these claims about an N×N omega network is false?",
+      "options": [
+        "There is exactly one path from each source to each destination",
+        "It is non-blocking, so any permutation of connections can be set up in one pass",
+        "It uses (N/2)·log₂N switches of size 2×2",
+        "Each switch can set itself from one bit of the destination address"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because the path between a source and a destination is unique and there are only 2^((N/2)log₂N) settings, some request patterns conflict inside the network, so the omega network is blocking. The other statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m023",
+      "questionText": "Why is an omega network described as self-routing?",
+      "options": [
+        "Each processor stores a routing table for every possible destination",
+        "Messages are flooded to every output and discarded by the wrong modules",
+        "Each switch sets itself from one bit of the destination tag carried by the request, so no central controller is needed",
+        "The operating system reprograms the switches before every transfer"
+      ],
+      "correctIndex": 2,
+      "explanation": "At stage i a switch looks at bit i of the destination (counted from the MSB) and chooses its upper output for 0 or its lower output for 1, so the route is fixed by the destination address alone.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m024",
+      "questionText": "Which statement best describes a single-stage shuffle-exchange network?",
+      "options": [
+        "A crossbar with N × N crosspoints that never blocks",
+        "A shared bus on which every processor snoops the others' transfers",
+        "A binary n-cube in which each node links to the nodes differing in one bit",
+        "One stage of perfect-shuffle wiring followed by exchange switches, through which data recirculate up to log₂N times to reach their destination"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each pass through the stage rotates the line number left (shuffle) and may flip its last bit (exchange); after log₂N passes every bit of the line number can be set to the destination bit. Unrolling those passes into separate stages gives the omega network.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m025",
+      "questionText": "A hypercube multicomputer has 128 processors. What is its dimension, and how many links does each node have?",
+      "options": [
+        "Dimension 7 with 14 links per node",
+        "Dimension 6 with 6 links per node",
+        "Dimension 7 with 7 links per node",
+        "Dimension 128 with 127 links per node"
+      ],
+      "correctIndex": 2,
+      "explanation": "2^n = 128 gives n = 7, and a node in an n-cube has one neighbour per address bit, so 7 links. 127 links per node would describe a fully connected network.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m026",
+      "questionText": "How many communication links does a 6-dimensional hypercube have in total?",
+      "options": [
+        "192",
+        "384",
+        "64",
+        "36"
+      ],
+      "correctIndex": 0,
+      "explanation": "Links = n × 2^(n−1) = 6 × 32 = 192, since each of the 64 nodes has 6 links and each link is shared by two nodes. 384 = 6 × 64 counts every link twice.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m027",
+      "questionText": "In a 4-dimensional hypercube, what is the minimum number of hops between nodes 0110 and 1011?",
+      "options": [
+        "5",
+        "4",
+        "3",
+        "2"
+      ],
+      "correctIndex": 2,
+      "explanation": "The distance is the number of 1 bits in 0110 XOR 1011 = 1101, which is 3. 5 is the difference of the decimal values 11 − 6, and 4 is the diameter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m028",
+      "questionText": "A message travels from node 1010 to node 0111 in a 4-cube using e-cube routing, which corrects the differing address bits starting with the lowest-numbered dimension. Which path does it follow?",
+      "options": [
+        "1010 → 1011 → 1111 → 0111",
+        "1010 → 0010 → 0110 → 0111",
+        "1010 → 1110 → 1111 → 0111",
+        "1010 → 1111 → 0111"
+      ],
+      "correctIndex": 0,
+      "explanation": "1010 XOR 0111 = 1101, so dimensions 0, 2 and 3 differ; correcting bit 0, then bit 2, then bit 3 gives 1011, 1111, 0111. The second path corrects the highest dimension first, and the last one changes two bits in one hop, which is not a link.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m029",
+      "questionText": "In a 5-dimensional hypercube, how many nodes are exactly 2 hops away from a given node?",
+      "options": [
+        "5",
+        "10",
+        "20",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "A node 2 hops away differs in exactly 2 of the 5 address bits, and there are C(5, 2) = 10 ways to choose them. 20 counts each pair of bits twice (ordered pairs).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m030",
+      "questionText": "What is the bisection width (number of links cut when the machine is split into two equal halves across one dimension) of a 6-dimensional hypercube?",
+      "options": [
+        "64",
+        "6",
+        "32",
+        "192"
+      ],
+      "correctIndex": 2,
+      "explanation": "Splitting across one dimension leaves two 5-cubes joined by one link per pair of matching nodes: 2^(6−1) = 32 links. 64 is the node count and 192 is the total number of links.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m031",
+      "questionText": "Which statement about a hypercube (binary n-cube) multiprocessor is NOT correct?",
+      "options": [
+        "All processors share one global memory that they reach through the cube links",
+        "Each node has its own local memory and nodes cooperate by message passing",
+        "Two nodes are directly linked when their addresses differ in exactly one bit",
+        "The diameter grows only as log₂ of the number of nodes"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hypercube is a loosely coupled structure: each node is a processor with private memory and I/O, and data move between nodes as messages. The other three statements are standard properties of the n-cube.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m032",
+      "questionText": "How many point-to-point links are needed to connect 12 processors in a fully connected network?",
+      "options": [
+        "132",
+        "66",
+        "144",
+        "11"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each pair of processors needs one link: 12 × 11 ÷ 2 = 66. 132 counts every link twice, and 11 is the number of links per node.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m033",
+      "questionText": "How many links does an 8 × 8 two-dimensional mesh without wraparound connections have?",
+      "options": [
+        "128",
+        "112",
+        "64",
+        "256"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each of the 8 rows has 7 horizontal links and each of the 8 columns has 7 vertical links: 2 × 8 × 7 = 112. 128 = 2N is the count for a torus, which adds wraparound links.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m034",
+      "questionText": "Sixteen processors are connected as a ring, as a 4 × 4 mesh without wraparound, and as a 4-dimensional hypercube. What are the diameters of the three networks, in that order?",
+      "options": [
+        "15, 6 and 4",
+        "8, 8 and 4",
+        "8, 6 and 16",
+        "8, 6 and 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Ring: ⌊16/2⌋ = 8; 4 × 4 mesh: 2(4 − 1) = 6 hops corner to corner; 4-cube: n = 4. 15 is the diameter of a 16-node linear array, and 16 is the hypercube's node count.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m035",
+      "questionText": "How does a NUMA multiprocessor differ from a UMA multiprocessor?",
+      "options": [
+        "NUMA has no shared address space, so processors exchange messages",
+        "In UMA each processor can reach only its own private memory",
+        "NUMA is simply another name for a loosely coupled cluster",
+        "In NUMA all memories form one shared address space, but a processor reaches remote memory more slowly than its local memory"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both UMA and NUMA are shared-memory designs; in UMA every word takes the same time from every processor, while in NUMA the latency depends on whether the word is in the processor's own node or a remote one.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m036",
+      "questionText": "Which of the following is NOT a characteristic of a symmetric multiprocessor (SMP) as defined by Stallings?",
+      "options": [
+        "Only one master processor runs the operating system kernel while the others run user tasks as slaves",
+        "Two or more similar processors of comparable capability share main memory and I/O",
+        "Memory access time is approximately the same for every processor",
+        "The system is controlled by a single integrated operating system"
+      ],
+      "correctIndex": 0,
+      "explanation": "In an SMP all processors can perform the same functions, including running the OS, which is what makes it symmetric; a master–slave arrangement is asymmetric multiprocessing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m037",
+      "questionText": "What distinguishes a cache-only memory architecture (COMA)?",
+      "options": [
+        "Each node's local memory acts as a large cache, and data migrate to whichever node uses them without a fixed home location",
+        "It has no caches at all, only a central shared memory",
+        "Each processor has a private cache but no access to other nodes' memory",
+        "Every memory access goes to one global cache shared over a bus"
+      ],
+      "correctIndex": 0,
+      "explanation": "In COMA the distributed memories behave as attraction memories: a block is not tied to one home node but moves to and is replicated in the nodes that reference it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m038",
+      "questionText": "In a NUMA multiprocessor a local memory access takes 100 ns and a remote access 400 ns. If 80% of a program's references are local, what is its average memory access time?",
+      "options": [
+        "250 ns",
+        "340 ns",
+        "160 ns",
+        "180 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "t_avg = 0.8 × 100 + 0.2 × 400 = 80 + 80 = 160 ns. 250 ns is the plain average, 340 ns swaps the fractions, and 180 ns wrongly adds the local time to every remote access.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m039",
+      "questionText": "On a NUMA machine a local access takes 100 ns and a remote access 600 ns. What minimum fraction of references must be local for the average access time to be no more than 150 ns?",
+      "options": [
+        "75%",
+        "90%",
+        "83.3%",
+        "10%"
+      ],
+      "correctIndex": 1,
+      "explanation": "100p + 600(1 − p) ≤ 150 gives 600 − 500p ≤ 150, so p ≥ 450 ÷ 500 = 0.9 = 90%. 10% is the largest remote fraction allowed, not the local one.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m040",
+      "questionText": "Which statement about the cache coherence problem is correct?",
+      "options": [
+        "Coherence problems arise only with write-through caches",
+        "Coherence is guaranteed if all caches use the same block size",
+        "A write-back cache cannot cause coherence problems because memory is updated later",
+        "Write-through keeps main memory up to date, but other caches may still hold the old value, so write-through alone does not ensure coherence"
+      ],
+      "correctIndex": 3,
+      "explanation": "With write-through the writer's cache and memory are consistent, but copies in other processors' caches are not updated; with write-back even memory is stale. Some protocol, such as snooping or a directory, is needed in both cases.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m041",
+      "questionText": "Memory location X holds 10. Processors P1 and P2 each read X into their private write-back caches, and there is no coherence protocol. P1 then writes 15 to X, after which P2 reads X again. What does P2 read, and what does main memory hold at that moment?",
+      "options": [
+        "P2 reads 15, and memory holds 15",
+        "P2 reads 10, and memory holds 15",
+        "P2 reads 15 from P1's cache, and memory holds 10",
+        "P2 reads 10 from its own cache, and memory still holds 10"
+      ],
+      "correctIndex": 3,
+      "explanation": "P1's write-back cache updates only its own copy (now dirty), so memory keeps 10 until that line is evicted, and P2 hits on its stale copy of 10. Memory would hold 15 only with write-through, and P2 would see 15 only if a coherence protocol invalidated or updated its copy.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m042",
+      "questionText": "Which of the following does NOT cause a cache coherence problem in a shared-memory multiprocessor?",
+      "options": [
+        "Two processors writing to the same shared variable",
+        "A process migrating from one processor to another",
+        "Several processors reading the same read-only program code",
+        "A DMA device writing memory behind the caches"
+      ],
+      "correctIndex": 2,
+      "explanation": "Coherence problems come from sharing writable data, process migration and I/O that modifies memory; copies of read-only code are never written, so they always stay identical.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m043",
+      "questionText": "5% of a program is strictly sequential and the rest parallelises perfectly. According to Amdahl's law, what is the maximum speed-up obtainable with any number of processors?",
+      "options": [
+        "95",
+        "5",
+        "1.05",
+        "20"
+      ],
+      "correctIndex": 3,
+      "explanation": "As N grows without limit, S = 1 ÷ ((1 − f) + f/N) approaches 1 ÷ (1 − f) = 1 ÷ 0.05 = 20. 1.05 is 1 ÷ 0.95, which inverts the parallel fraction instead of the serial one.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i32_m044",
+      "questionText": "A program is 90% parallelisable. According to Amdahl's law, what is the parallel efficiency when it runs on 8 processors?",
+      "options": [
+        "58.8%",
+        "91.3%",
+        "13.7%",
+        "90.0%"
+      ],
+      "correctIndex": 0,
+      "explanation": "S = 1 ÷ (0.1 + 0.9/8) = 1 ÷ 0.2125 = 4.71, so E = S/N = 4.71 ÷ 8 = 58.8%. 91.3% comes from the scaled (Gustafson) speed-up 0.1 + 0.9 × 8 = 7.3, and 13.7% from swapping the serial and parallel parts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i32_m045",
+      "questionText": "What fraction of a program must be parallelisable for it to reach a speed-up of 12 on 16 processors, according to Amdahl's law?",
+      "options": [
+        "97.8%",
+        "75.0%",
+        "91.7%",
+        "93.8%"
+      ],
+      "correctIndex": 0,
+      "explanation": "From 1/S = (1 − f) + f/N: f = (1 − 1/12) ÷ (1 − 1/16) = 0.9167 ÷ 0.9375 = 0.978 = 97.8%. 75% is simply 12 ÷ 16, and 91.7% ignores the 1/N term.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i32_m046",
+      "questionText": "Which statement about Amdahl's law is NOT correct?",
+      "options": [
+        "The speed-up can never exceed 1/(1 − f), however many processors are used",
+        "If the whole program is parallelisable (f = 1), the speed-up equals N",
+        "Parallel efficiency S/N always increases as more processors are added",
+        "A small serial fraction severely limits the speed-up on large machines"
+      ],
+      "correctIndex": 2,
+      "explanation": "For f < 1, S grows more slowly than N, so the efficiency S/N falls as processors are added; for example with f = 0.9 it drops from 0.53 at N = 10 to 0.09 at N = 100. The other statements follow directly from S = 1 ÷ ((1 − f) + f/N).",
+      "difficulty": "medium"
+    }
+  ]
+}

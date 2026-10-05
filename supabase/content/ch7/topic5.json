@@ -1,0 +1,313 @@
+{
+  "parent": {"id": "ch7_p5", "title": "Operating Systems & Process Management"},
+  "subtopics": [
+    {
+      "id": "ch7_t5",
+      "title": "OS Evolution, Types, Structure & Services",
+      "subtitle": "What an OS does, how it evolved, kernel structures, services, system calls and modes",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "What an Operating System Is"},
+          {"type": "paragraph", "text": "An operating system (OS) is the layer of system software that sits between the hardware and application programs. It acts as a resource manager, allocating CPU time, memory, storage and I/O devices fairly and efficiently among competing programs, and as an extended machine, hiding messy hardware details behind clean abstractions such as processes, files and sockets. The always-resident core of the OS is the kernel; everything else (shells, utilities, libraries) runs on top of it. Its goals are convenience for users, efficient use of hardware and the ability to evolve."},
+          {"type": "heading", "text": "Evolution of Operating Systems"},
+          {"type": "table", "rows": [
+            ["Generation", "Key idea", "Main drawback solved or introduced"],
+            ["Serial processing (1940s-50s)", "Programmer loads program by hand, no OS", "Huge setup time, CPU idle while scheduling machine"],
+            ["Simple batch", "Resident monitor runs jobs in sequence from cards/tape", "CPU idle during slow I/O"],
+            ["Multiprogrammed batch", "Several jobs in memory; CPU switches when one waits for I/O", "Better CPU use, but no user interaction"],
+            ["Time-sharing", "CPU time sliced among interactive terminals (CTSS, MULTICS, UNIX)", "Goal: short response time"],
+            ["Personal / desktop", "Single-user GUI systems (MS-DOS, Windows, macOS)", "Convenience over utilisation"],
+            ["Distributed and network", "Many machines cooperate, resources shared over a network", "Transparency, fault tolerance"],
+            ["Real-time and mobile", "Deadline-driven control (VxWorks, QNX); battery-aware phones (Android, iOS)", "Predictability; power and touch UI"]
+          ]},
+          {"type": "bulletList", "text": "Common types of operating system:", "items": [
+            "Batch OS: groups similar jobs, no interaction during execution; aims at throughput.",
+            "Multiprogramming / multitasking OS: keeps several processes in memory and switches between them; time-sharing is multitasking with a small time quantum for interactivity.",
+            "Multiprocessor (parallel) OS: symmetric (SMP, every CPU runs the kernel) or asymmetric (master-slave) on tightly coupled CPUs sharing memory.",
+            "Distributed OS: loosely coupled computers appear to users as one system; network OS instead lets users see and log in to separate machines.",
+            "Real-time OS: hard real-time must meet every deadline (airbag, pacemaker); soft real-time tolerates occasional misses (video streaming).",
+            "Embedded and mobile OS: small footprint, power management, often real-time features."
+          ]},
+          {"type": "bulletList", "text": "Major OS components (managers):", "items": [
+            "Process manager: creates and deletes processes, schedules the CPU, provides synchronisation and communication.",
+            "Memory manager: tracks which memory is in use, allocates and frees space, implements paging, segmentation and virtual memory.",
+            "File manager: files and directories, naming, protection, mapping onto secondary storage.",
+            "I/O (device) manager: device drivers, buffering, caching and spooling; disk scheduling.",
+            "Security and protection manager: authentication, access control, isolation of processes.",
+            "Networking manager: protocol stacks and sockets so processes on different machines can communicate."
+          ]},
+          {"type": "heading", "text": "Operating System Structures"},
+          {"type": "table", "rows": [
+            ["Structure", "Organisation", "Pros / cons", "Example"],
+            ["Monolithic", "Whole OS is one large kernel binary in kernel mode", "Fast calls; a bug can crash everything, hard to maintain", "Early UNIX, MS-DOS"],
+            ["Layered", "Layer n uses only services of layer n-1; hardware is layer 0", "Easy to debug and verify; overhead, hard to define layers", "THE system, MULTICS"],
+            ["Microkernel", "Minimal kernel (IPC, basic scheduling, low-level memory); servers in user space", "Reliable, secure, extensible; message-passing overhead", "Mach, QNX, MINIX 3"],
+            ["Modular", "Core kernel plus loadable kernel modules", "Flexible like microkernel, fast like monolithic", "Linux, Solaris"],
+            ["Hybrid", "Mix of microkernel design with performance-critical services in kernel", "Balance of speed and modularity", "Windows NT, macOS XNU"]
+          ]},
+          {"type": "bulletList", "text": "Services an OS provides to users and programs:", "items": [
+            "User interface (CLI, GUI, batch), program execution, I/O operations and file-system manipulation.",
+            "Communication between processes (shared memory or message passing) and error detection.",
+            "For the system itself: resource allocation, accounting (usage statistics) and protection and security."
+          ]},
+          {"type": "paragraph", "text": "A system call is the programmatic interface through which a process requests a kernel service. Programs usually call a library wrapper (the C library or the Win32 API), which places a call number and parameters in registers, a memory block or the stack and executes a trap instruction. The kernel looks up the call number in the system-call table, runs the handler in kernel mode and returns the result to user mode."},
+          {"type": "table", "rows": [
+            ["Category", "Typical UNIX calls", "Purpose"],
+            ["Process control", "fork, exec, exit, wait, kill", "Create, run and end processes"],
+            ["File management", "open, read, write, close, lseek", "Manipulate files"],
+            ["Device management", "ioctl, read, write", "Request and control devices"],
+            ["Information maintenance", "getpid, time, alarm, sleep", "Get or set system data"],
+            ["Communication", "pipe, socket, shmget, msgsnd", "Inter-process communication"],
+            ["Protection", "chmod, chown, umask", "Control access to resources"]
+          ]},
+          {"type": "paragraph", "text": "Hardware provides dual-mode operation with a mode bit: user mode (1) runs applications, and kernel (supervisor, privileged) mode (0) runs the OS. Privileged instructions such as I/O, setting the timer or changing page tables can execute only in kernel mode; attempting them in user mode causes a trap. An interrupt is an asynchronous hardware signal (timer, disk completion, keyboard) while a trap or exception is a synchronous software-generated event (system call, divide by zero, page fault); both switch the CPU to kernel mode and transfer control through the interrupt vector to a handler, after which the saved state is restored."},
+          {"type": "formula", "latex": "U_{CPU} = 1 - p^{n}", "plainText": "CPU utilisation = 1 - p^n (n processes, each waiting for I/O a fraction p of time)"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "U_{CPU} = 1 - p^{n}", "plainText": "CPU utilisation = 1 - p^n"},
+          {"type": "formula", "latex": "R_{max} \\le (n-1)\\,q", "plainText": "Worst wait for a time slice in time-sharing <= (n - 1) x q"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Microkernel = minimal kernel with services (file system, drivers) as user-space servers communicating by message passing; its selling point is reliability, its cost is IPC overhead. MCQs often contrast it with monolithic kernels."},
+          {"type": "note", "text": "Multiprogramming aims to keep the CPU busy (utilisation); time-sharing aims at short response time for interactive users; real-time aims at meeting deadlines."},
+          {"type": "warning", "text": "A system call is not an ordinary function call: it crosses from user mode to kernel mode through a trap, which is why it costs more than a library call."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_t5_01", "title": "Multiprogramming CPU utilisation", "latex": "U_{CPU} = 1 - p^{n}", "plainText": "CPU utilisation = 1 - p^n", "description": "Probability that at least one of n independent processes (each I/O-bound a fraction p of the time) is ready to use the CPU."},
+        {"id": "f_ch7_t5_02", "title": "Time-sharing worst-case wait", "latex": "R_{max} \\le (n-1)\\,q", "plainText": "Maximum wait <= (n - 1) x q", "description": "With n ready users and quantum q, a user waits at most (n - 1) quanta before getting the CPU again."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_t5_01", "front": "What runs inside a microkernel, and what runs outside it?", "back": "Only minimal services run in the kernel: IPC, basic scheduling and low-level memory management. File systems, device drivers and networking run as user-space servers.", "difficulty": "medium"},
+        {"id": "fc_ch7_t5_02", "front": "Difference between an interrupt and a trap?", "back": "An interrupt is an asynchronous hardware signal from a device or timer; a trap is a synchronous software event such as a system call or an exception like divide by zero.", "difficulty": "easy"},
+        {"id": "fc_ch7_t5_03", "front": "Hard vs soft real-time OS?", "back": "Hard real-time guarantees every deadline is met (missing one is a failure); soft real-time gives critical tasks priority but tolerates occasional deadline misses.", "difficulty": "easy"},
+        {"id": "fc_ch7_t5_04", "front": "Which system-call category do fork, exec and wait belong to?", "back": "Process control.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_t5_n01", "questionText": "Switching the CPU from user mode to kernel mode in a controlled way is normally done by:", "options": ["Executing a trap (system call) instruction", "Calling a function in the C library", "Writing to the program counter directly", "Increasing the process priority"], "correctIndex": 0, "explanation": "A system call executes a trap instruction that sets the mode bit to kernel mode and jumps to a fixed handler through the interrupt vector.", "difficulty": "easy"},
+        {"id": "q_ch7_t5_n02", "questionText": "Four processes are in memory and each spends 50% of its time waiting for I/O. Assuming independence, the CPU utilisation is approximately:", "options": ["50%", "75%", "93.75%", "100%"], "correctIndex": 2, "explanation": "Utilisation = 1 - p^n = 1 - 0.5^4 = 1 - 0.0625 = 0.9375, i.e. 93.75%.", "difficulty": "medium"},
+        {"id": "q_ch7_t5_n03", "questionText": "Which OS structure places each layer so that it uses only the services of the layer directly below it?", "options": ["Monolithic", "Microkernel", "Layered", "Hybrid"], "correctIndex": 2, "explanation": "In a layered OS, layer n calls only layer n-1, with hardware at layer 0; this simplifies debugging but adds overhead.", "difficulty": "easy"},
+        {"id": "q_ch7_t5_n04", "questionText": "An operating system for an aircraft flight-control unit, where missing a single deadline is a system failure, must be a:", "options": ["Batch operating system", "Soft real-time operating system", "Time-sharing operating system", "Hard real-time operating system"], "correctIndex": 3, "explanation": "Hard real-time systems guarantee that critical tasks complete within their deadlines; soft real-time only prioritises them.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i51",
+      "title": "Processes, Threads & CPU Scheduling",
+      "subtitle": "PCB, process states, fork/exec, threads, schedulers and FCFS/SJF/SRTF/Priority/RR",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Process, Program and the PCB"},
+          {"type": "paragraph", "text": "A program is a passive file of instructions on disk; a process is a program in execution, an active entity with its own program counter, registers and memory image (text, data, heap and stack). One program can give rise to several processes. The OS describes each process by a Process Control Block (PCB), also called a task control block, which it keeps in the kernel and saves and restores on every context switch."},
+          {"type": "bulletList", "text": "Fields held in a Process Control Block:", "items": [
+            "Process identifier (PID), parent PID and process state.",
+            "Program counter and CPU registers (saved on a context switch).",
+            "CPU-scheduling information: priority, pointers to scheduling queues.",
+            "Memory-management information: base/limit registers, page or segment tables.",
+            "Accounting information (CPU time used, time limits) and I/O status (open files, allocated devices)."
+          ]},
+          {"type": "bulletList", "text": "Five-state model and transitions:", "items": [
+            "New -> Ready: admitted by the long-term scheduler.",
+            "Ready -> Running: dispatched by the short-term scheduler.",
+            "Running -> Ready: pre-empted (time quantum expired or a higher-priority process arrived).",
+            "Running -> Waiting (blocked): requests I/O or waits for an event; Waiting -> Ready when the event completes.",
+            "Running -> Terminated: exit. A suspended (swapped-out) ready or blocked state is added in the seven-state model by the medium-term scheduler."
+          ]},
+          {"type": "paragraph", "text": "Process control covers creation, termination and switching. In UNIX a parent calls fork(), which creates a child that is a near-copy of the parent; fork returns 0 in the child and the child's PID in the parent. The child typically calls exec() to replace its memory image with a new program, and the parent calls wait() to collect the child's exit status. A process terminates by exit() or by being killed; a finished child not yet waited for is a zombie, and a child whose parent died first is an orphan adopted by init/systemd. A context switch saves the running process's state in its PCB and loads another's; it is pure overhead."},
+          {"type": "code", "language": "c", "text": "pid_t pid = fork();\nif (pid < 0) {\n    perror(\"fork failed\");\n} else if (pid == 0) {            /* child */\n    execlp(\"/bin/ls\", \"ls\", NULL);\n} else {                          /* parent */\n    wait(NULL);                   /* wait for child */\n    printf(\"Child %d done\\n\", pid);\n}"},
+          {"type": "heading", "text": "Threads"},
+          {"type": "paragraph", "text": "A thread is a lightweight unit of CPU execution within a process. Threads of one process share its code, data, heap and open files, but each thread has its own thread ID, program counter, register set and stack. User-level threads are managed by a library without kernel knowledge (fast switching, but one blocking call blocks the whole process); kernel-level threads are scheduled by the kernel and can run in parallel on multiple CPUs. Multithreading models: many-to-one (many user threads on one kernel thread, no parallelism), one-to-one (each user thread gets a kernel thread, as in Linux and Windows) and many-to-many (m user threads multiplexed on n kernel threads)."},
+          {"type": "table", "rows": [
+            ["Aspect", "Process", "Thread"],
+            ["Weight", "Heavyweight", "Lightweight"],
+            ["Memory", "Separate address space", "Shares address space of its process"],
+            ["Creation and switch cost", "High", "Low"],
+            ["Communication", "IPC needed (pipes, messages, shared memory)", "Directly through shared variables"],
+            ["Isolation", "Crash usually affects only itself", "Faulty thread can crash the whole process"],
+            ["Private state", "PCB, memory, files", "Stack, registers, program counter"]
+          ]},
+          {"type": "bulletList", "text": "Schedulers and scheduling criteria:", "items": [
+            "Long-term (job) scheduler: chooses which jobs enter memory; controls the degree of multiprogramming.",
+            "Medium-term scheduler: swaps processes out and in to reduce load or improve the process mix.",
+            "Short-term (CPU) scheduler: picks the next ready process very frequently; the dispatcher then performs the context switch.",
+            "Maximise CPU utilisation and throughput; minimise turnaround, waiting and response time.",
+            "Non-pre-emptive: a process keeps the CPU until it blocks or ends (FCFS, SJF). Pre-emptive: the OS can take the CPU away (SRTF, RR, pre-emptive priority)."
+          ]},
+          {"type": "table", "rows": [
+            ["Algorithm", "Rule", "Notes"],
+            ["FCFS", "Run in arrival order; non-pre-emptive", "Simple; convoy effect behind long jobs"],
+            ["SJF", "Shortest next CPU burst first; non-pre-emptive", "Optimal average waiting time; starvation; burst must be estimated"],
+            ["SRTF", "Pre-emptive SJF: shortest remaining time", "Pre-empts on arrival of shorter job"],
+            ["Priority", "Highest priority first; either mode", "Starvation cured by ageing"],
+            ["Round Robin", "FCFS with time quantum q; pre-emptive", "Good response; large q -> FCFS, tiny q -> overhead"],
+            ["Multilevel (feedback) queue", "Separate queues by class; feedback moves jobs between queues", "Favours short interactive jobs; most general"]
+          ]},
+          {"type": "paragraph", "text": "Worked example: P1, P2, P3, P4 all arrive at time 0 with bursts 6, 8, 7 and 3 ms. FCFS (P1 P2 P3 P4): Gantt 0-6-14-21-24; waiting 0, 6, 14, 21, average 10.25 ms; turnaround 6, 14, 21, 24, average 16.25 ms. SJF (P4 P1 P3 P2): Gantt 0-3-9-16-24; waiting P1 3, P2 16, P3 9, P4 0, average 7 ms; turnaround 9, 24, 16, 3, average 13 ms. Round Robin q = 2 is traced below; completions P1 17, P2 23, P3 24, P4 15, so turnaround average 79/4 = 19.75 ms and waiting 11, 15, 17, 12, average 13.75 ms."},
+          {"type": "code", "language": "text", "text": "RR, q = 2   bursts P1=6 P2=8 P3=7 P4=3\n| P1 | P2 | P3 | P4 | P1 | P2 | P3 | P4 | P1 | P2 | P3 | P2 | P3 |\n0    2    4    6    8    10   12   14   15   17   19   21   23   24\nCompletion: P1=17 P2=23 P3=24 P4=15\nTAT = CT - AT : 17 23 24 15  -> avg 19.75\nWT  = TAT - BT: 11 15 17 12  -> avg 13.75"},
+          {"type": "formula", "latex": "TAT = CT - AT,\\quad WT = TAT - BT", "plainText": "Turnaround = completion - arrival; waiting = turnaround - burst"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "TAT = CT - AT", "plainText": "Turnaround time = completion time - arrival time"},
+          {"type": "formula", "latex": "WT = TAT - BT", "plainText": "Waiting time = turnaround time - burst time"},
+          {"type": "formula", "latex": "RT = t_{first\\,run} - AT", "plainText": "Response time = time of first run - arrival time"},
+          {"type": "formula", "latex": "\\text{Throughput} = \\frac{n}{T_{total}}", "plainText": "Throughput = processes completed / total time"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For scheduling numericals draw the Gantt chart first, write completion times, then use TAT = CT - AT and WT = TAT - BT for each process. In RR, a newly arriving process is conventionally queued before the process just pre-empted."},
+          {"type": "note", "text": "n successive fork() calls with no conditions create 2^n processes in total (2^n - 1 children)."},
+          {"type": "warning", "text": "Threads share heap and global data but NOT stacks or registers; a common MCQ trap asks which item is private to a thread."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i51_01", "title": "Turnaround time", "latex": "TAT = CT - AT", "plainText": "Turnaround = completion - arrival", "description": "Total time a process spends in the system from arrival to completion."},
+        {"id": "f_ch7_i51_02", "title": "Waiting time", "latex": "WT = TAT - BT", "plainText": "Waiting = turnaround - burst", "description": "Time a process spends in the ready queue, excluding its own execution."},
+        {"id": "f_ch7_i51_03", "title": "Response time", "latex": "RT = t_{first\\,run} - AT", "plainText": "Response = first run - arrival", "description": "Delay until a process first gets the CPU; the key metric for interactive systems."},
+        {"id": "f_ch7_i51_04", "title": "Processes after n forks", "latex": "N = 2^{n}", "plainText": "Total processes = 2^n", "description": "Each unconditional fork doubles the number of running processes."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i51_01", "front": "What does fork() return in parent and child?", "back": "It returns the child's PID (> 0) in the parent, 0 in the child, and -1 if creation failed.", "difficulty": "easy"},
+        {"id": "fc_ch7_i51_02", "front": "What is the convoy effect?", "back": "In FCFS, short processes wait behind one long CPU-bound process, lowering CPU and device utilisation.", "difficulty": "easy"},
+        {"id": "fc_ch7_i51_03", "front": "What does a thread have privately, and what does it share?", "back": "Private: thread ID, program counter, registers and stack. Shared with sibling threads: code, data, heap and open files.", "difficulty": "medium"},
+        {"id": "fc_ch7_i51_04", "front": "How is starvation in priority scheduling prevented?", "back": "By ageing: gradually increasing the priority of processes that have waited a long time.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i51_n01", "questionText": "Three processes arrive at time 0 in order P1, P2, P3 with CPU bursts 10, 5 and 8 ms. Under FCFS, the average waiting time is:", "options": ["7.67 ms", "8.33 ms", "6.00 ms", "11.00 ms"], "correctIndex": 1, "explanation": "Waiting times are 0, 10 and 15 ms, so the average is 25/3 = 8.33 ms.", "difficulty": "medium"},
+        {"id": "q_ch7_i51_n02", "questionText": "How many processes in total exist after the code fork(); fork(); fork(); runs from a single process?", "options": ["3", "6", "7", "8"], "correctIndex": 3, "explanation": "Each fork doubles the processes: 2^3 = 8 in total, of which 7 are newly created children.", "difficulty": "medium"},
+        {"id": "q_ch7_i51_n03", "questionText": "Which of the following is NOT shared among threads of the same process?", "options": ["Global variables", "Stack", "Open files", "Code section"], "correctIndex": 1, "explanation": "Each thread has its own stack, registers and program counter; code, data, heap and open files are shared.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i52",
+      "title": "Concurrency: Critical Sections, Semaphores, Mutexes & Monitors",
+      "subtitle": "Race conditions, critical-section rules, Peterson, semaphores, mutexes, messages, monitors",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Principles of Concurrency"},
+          {"type": "paragraph", "text": "Concurrency means several processes or threads make progress in overlapping time, either interleaved on one CPU or truly in parallel on many. When they share data, the result can depend on the exact interleaving, which the programmer cannot control. Concurrency therefore needs mechanisms for mutual exclusion, synchronisation (ordering events) and communication, while avoiding deadlock and starvation."},
+          {"type": "paragraph", "text": "A race condition occurs when two or more processes access shared data concurrently and the outcome depends on the order of execution. Example: counter = 5; a producer executes counter++ and a consumer counter--. Each is really three machine steps (load into a register, modify, store). If the producer loads 5, the consumer loads 5, the producer stores 6 and the consumer stores 4, the final value is 4 instead of 5. The fix is to make each update a critical section executed under mutual exclusion."},
+          {"type": "bulletList", "text": "A solution to the critical-section problem must satisfy three requirements:", "items": [
+            "Mutual exclusion: at most one process executes in its critical section at a time.",
+            "Progress: if no process is in the critical section, only processes wanting to enter take part in the decision, and the choice cannot be postponed indefinitely.",
+            "Bounded waiting: there is a limit on how many times other processes may enter before a waiting process is admitted (no starvation).",
+            "Structure of every process: entry section, critical section, exit section, remainder section."
+          ]},
+          {"type": "paragraph", "text": "Peterson's algorithm is a classic software solution for two processes using a shared boolean array flag[2] and an integer turn. A process announces interest by setting its flag, then politely gives the turn to the other, and waits only while the other is interested and it is the other's turn. It satisfies all three requirements, although on modern CPUs it needs memory barriers because of instruction reordering."},
+          {"type": "code", "language": "c", "text": "/* Peterson's solution for process i (j = 1 - i) */\nbool flag[2] = {false, false};\nint turn;\n\nflag[i] = true;\nturn = j;\nwhile (flag[j] && turn == j)\n    ;                 /* busy wait */\n/* critical section */\nflag[i] = false;\n/* remainder section */"},
+          {"type": "bulletList", "text": "Hardware support for mutual exclusion:", "items": [
+            "Disabling interrupts: prevents pre-emption on a uniprocessor, but is unsafe to give to user programs and does not work on multiprocessors.",
+            "Test-and-set: atomically returns the old value of a lock word and sets it to true; while (test_and_set(&lock)); builds a spinlock.",
+            "Compare-and-swap (and exchange): atomically replaces a value only if it equals an expected value; the basis of lock-free structures.",
+            "These simple spinlocks satisfy mutual exclusion but not necessarily bounded waiting."
+          ]},
+          {"type": "heading", "text": "Semaphores"},
+          {"type": "paragraph", "text": "A semaphore (Dijkstra) is an integer variable accessed only through two atomic operations: wait, also P or down, and signal, also V or up. A counting semaphore can range over any integer and controls access to a pool of identical resources; a binary semaphore takes only 0 and 1. The busy-waiting (spinlock) version loops while S <= 0; the blocking version decrements S and, if the result is negative, puts the caller on the semaphore's queue, so a negative value -k means k processes are blocked."},
+          {"type": "code", "language": "c", "text": "void wait(semaphore *S) {          /* P */\n    S->value--;\n    if (S->value < 0) {\n        add this process to S->list;\n        block();\n    }\n}\nvoid signal(semaphore *S) {        /* V */\n    S->value++;\n    if (S->value <= 0) {\n        remove a process P from S->list;\n        wakeup(P);\n    }\n}"},
+          {"type": "table", "rows": [
+            ["Aspect", "Mutex", "Semaphore"],
+            ["Nature", "Lock object (locked / unlocked)", "Integer counter"],
+            ["Ownership", "Only the thread that locked it may unlock", "Any process may signal"],
+            ["Values", "Binary", "Binary or counting (0..n)"],
+            ["Typical use", "Mutual exclusion on a critical section", "Resource counting and signalling between processes"],
+            ["Operations", "lock / unlock (acquire / release)", "wait (P) / signal (V)"]
+          ]},
+          {"type": "bulletList", "text": "Message passing and monitors:", "items": [
+            "Message passing uses send(destination, msg) and receive(source, msg); it works across machines and needs no shared memory.",
+            "Direct communication names the partner process; indirect communication sends to a mailbox or port that several processes may share.",
+            "Synchronous (blocking) send/receive gives a rendezvous; asynchronous (non-blocking) send uses a buffer so the sender continues.",
+            "A monitor is a high-level language construct grouping shared data and the procedures that operate on it; only one process can be active inside at a time, so mutual exclusion is automatic.",
+            "Condition variables inside a monitor: x.wait() suspends the caller and releases the monitor; x.signal() resumes exactly one waiting process and does nothing if none is waiting (unlike a semaphore V)."
+          ]},
+          {"type": "paragraph", "text": "Deadlock is a state in which each process of a set waits for an event that only another process in the set can cause. It can arise only if all four Coffman conditions hold together: mutual exclusion (non-sharable resources), hold and wait, no pre-emption, and circular wait. Deadlock is handled by prevention (break one condition), avoidance (Banker's algorithm), detection and recovery, or ignoring it (the ostrich approach). Starvation differs: a process waits indefinitely while others continue to progress."},
+          {"type": "formula", "latex": "S_{final} = S_{0} - N_{P} + N_{V}", "plainText": "Final semaphore value = initial - number of wait(P) + number of signal(V)"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "S_{final} = S_{0} - N_{P} + N_{V}", "plainText": "Final value = initial - P operations + V operations"},
+          {"type": "formula", "latex": "S < 0 \\Rightarrow |S| = \\text{blocked processes}", "plainText": "If S < 0 then |S| processes are blocked on the semaphore"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Semaphore numericals: start with the initial value, subtract one for every P (wait) and add one for every V (signal). A negative final value tells how many processes are blocked."},
+          {"type": "warning", "text": "Swapping the order of two wait() calls, or forgetting a signal(), easily causes deadlock; semaphores are powerful but error-prone, which motivated monitors."},
+          {"type": "note", "text": "Strict alternation using only a turn variable guarantees mutual exclusion but violates progress; Peterson's algorithm adds the flag array to fix this."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i52_01", "title": "Semaphore final value", "latex": "S_{final} = S_{0} - N_{P} + N_{V}", "plainText": "S_final = S0 - P count + V count", "description": "Net effect of a sequence of wait and signal operations on a counting semaphore."},
+        {"id": "f_ch7_i52_02", "title": "Blocked processes", "latex": "S < 0 \\Rightarrow |S| = \\text{blocked processes}", "plainText": "If S < 0, |S| processes are waiting", "description": "In the blocking implementation a negative value counts the processes queued on the semaphore."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i52_01", "front": "State the three requirements of a critical-section solution.", "back": "Mutual exclusion, progress and bounded waiting.", "difficulty": "easy"},
+        {"id": "fc_ch7_i52_02", "front": "What shared variables does Peterson's solution use?", "back": "A boolean array flag[2] showing interest and an integer turn showing whose turn it is to defer.", "difficulty": "medium"},
+        {"id": "fc_ch7_i52_03", "front": "Name the four Coffman conditions for deadlock.", "back": "Mutual exclusion, hold and wait, no pre-emption and circular wait; all four must hold simultaneously.", "difficulty": "easy"},
+        {"id": "fc_ch7_i52_04", "front": "How does monitor signal differ from semaphore signal?", "back": "x.signal() has no effect if no process is waiting, whereas semaphore V always increments the value and is remembered.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i52_n01", "questionText": "A counting semaphore is initialised to 10. Then 6 P (wait) operations and 4 V (signal) operations are performed. The final value of the semaphore is:", "options": ["0", "8", "12", "4"], "correctIndex": 1, "explanation": "Final value = 10 - 6 + 4 = 8.", "difficulty": "easy"},
+        {"id": "q_ch7_i52_n02", "questionText": "A solution that allows processes to enter the critical section only in strict alternation, even when the other process does not want to enter, violates which requirement?", "options": ["Mutual exclusion", "Bounded waiting", "Progress", "Atomicity"], "correctIndex": 2, "explanation": "A process not interested in entering blocks the other from entering, so the decision is postponed by a non-competing process, violating progress.", "difficulty": "medium"},
+        {"id": "q_ch7_i52_n03", "questionText": "Which of the following is NOT one of the necessary conditions for deadlock?", "options": ["Hold and wait", "Circular wait", "No pre-emption", "Pre-emptive scheduling"], "correctIndex": 3, "explanation": "The Coffman conditions are mutual exclusion, hold and wait, no pre-emption and circular wait; pre-emptive CPU scheduling is not one of them.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i53",
+      "title": "Classical Problems of Synchronization",
+      "subtitle": "Producer-consumer, readers-writers, dining philosophers, sleeping barber and Banker's",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Bounded-Buffer (Producer-Consumer) Problem"},
+          {"type": "paragraph", "text": "A producer puts items into a shared buffer of n slots and a consumer removes them. The producer must wait when the buffer is full, the consumer must wait when it is empty, and both must not manipulate the buffer at the same time. The standard solution uses three semaphores: empty = n counts free slots, full = 0 counts filled slots, and mutex = 1 protects the buffer."},
+          {"type": "code", "language": "c", "text": "semaphore mutex = 1, empty = N, full = 0;\n\nvoid producer(void) {           void consumer(void) {\n  while (1) {                     while (1) {\n    item = produce();               wait(&full);\n    wait(&empty);                   wait(&mutex);\n    wait(&mutex);                   item = remove_item();\n    insert_item(item);              signal(&mutex);\n    signal(&mutex);                 signal(&empty);\n    signal(&full);                  consume(item);\n  }                               }\n}                               }"},
+          {"type": "warning", "text": "If the producer calls wait(&mutex) before wait(&empty) and the buffer is full, it sleeps holding the mutex, the consumer can never enter, and the system deadlocks. Always wait on the counting semaphore first."},
+          {"type": "heading", "text": "Readers-Writers Problem"},
+          {"type": "paragraph", "text": "Many readers may read a shared database simultaneously, but a writer needs exclusive access. The first readers-writers (readers-preference) solution uses semaphore rw_mutex = 1 for writers, semaphore mutex = 1 protecting an integer read_count = 0. The first reader to arrive locks rw_mutex and the last reader to leave releases it, so while any reader is active writers wait. Writers can therefore starve; the second (writers-preference) solution makes readers wait whenever a writer is waiting, which can starve readers instead. Reader-writer locks in modern systems implement this pattern."},
+          {"type": "code", "language": "c", "text": "/* reader */                       /* writer */\nwait(&mutex);                      wait(&rw_mutex);\nread_count++;                      /* write data */\nif (read_count == 1)               signal(&rw_mutex);\n    wait(&rw_mutex);\nsignal(&mutex);\n/* read data */\nwait(&mutex);\nread_count--;\nif (read_count == 0) signal(&rw_mutex);\nsignal(&mutex);"},
+          {"type": "heading", "text": "Dining Philosophers and Sleeping Barber"},
+          {"type": "paragraph", "text": "Five philosophers sit round a table with one chopstick between each pair; a philosopher needs both neighbouring chopsticks to eat. Representing each chopstick as a semaphore initialised to 1 and having everyone pick up the left then the right can deadlock if all five pick up their left chopstick at once. Fixes: allow at most four philosophers at the table at a time, make pick-up asymmetric (odd philosophers take left first, even take right first), pick up both chopsticks only if both are free inside a critical section, or use a monitor with states THINKING, HUNGRY, EATING where a philosopher eats only when neither neighbour is eating. The monitor solution is deadlock-free but can still starve a philosopher."},
+          {"type": "paragraph", "text": "In the sleeping barber problem, a barber sleeps when there are no customers; an arriving customer wakes the barber, sits in one of n waiting chairs if the barber is busy, or leaves if all chairs are full. It is solved with semaphores customers = 0, barbers = 0, mutex = 1 and a counter of waiting customers, and models client-server queueing with a bounded waiting room."},
+          {"type": "table", "rows": [
+            ["Problem", "Semaphores (initial values)", "Main pitfall"],
+            ["Bounded buffer", "mutex = 1, empty = n, full = 0", "Wrong wait order causes deadlock"],
+            ["Readers-writers (first)", "rw_mutex = 1, mutex = 1, read_count = 0", "Writer starvation"],
+            ["Dining philosophers", "chopstick[5] = 1 each", "Deadlock when all take left chopstick; starvation"],
+            ["Sleeping barber", "customers = 0, barbers = 0, mutex = 1", "Lost wake-ups and races on the waiting count"]
+          ]},
+          {"type": "heading", "text": "Banker's Algorithm (Deadlock Avoidance)"},
+          {"type": "paragraph", "text": "The Banker's algorithm grants a request only if the resulting state is safe, meaning there exists a sequence in which every process can obtain its maximum need and finish. Safety check: set Work = Available and Finish[i] = false; repeatedly find a process with Finish[i] = false and Need_i <= Work, then set Work = Work + Allocation_i and Finish[i] = true. If all processes finish, the state is safe and the order found is a safe sequence."},
+          {"type": "table", "rows": [
+            ["Process", "Allocation (A B C)", "Max (A B C)", "Need (A B C)"],
+            ["P0", "0 1 0", "7 4 3", "7 3 3"],
+            ["P1", "2 0 0", "3 2 2", "1 2 2"],
+            ["P2", "3 0 2", "6 0 2", "3 0 0"],
+            ["Available", "3 3 2", "Total 8 4 4", "Work starts at 3 3 2"]
+          ]},
+          {"type": "paragraph", "text": "Worked safety check: Work = (3, 3, 2). P1's need (1, 2, 2) fits, so P1 finishes and Work = (3, 3, 2) + (2, 0, 0) = (5, 3, 2). P0's need (7, 3, 3) does not fit, but P2's need (3, 0, 0) does, so Work = (5, 3, 2) + (3, 0, 2) = (8, 3, 4). Now P0's need (7, 3, 3) fits and Work becomes (8, 4, 4). All finish, so the state is safe with safe sequence <P1, P2, P0>."},
+          {"type": "formula", "latex": "Need_{i} = Max_{i} - Allocation_{i}", "plainText": "Need = Max - Allocation (per process, per resource type)"}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "Need_{i} = Max_{i} - Allocation_{i}", "plainText": "Need = Max - Allocation"},
+          {"type": "formula", "latex": "Need_{i} \\le Work \\Rightarrow Work = Work + Allocation_{i}", "plainText": "If Need_i <= Work, process i can finish and Work = Work + Allocation_i"},
+          {"type": "formula", "latex": "R \\ge n(k-1) + 1", "plainText": "Minimum resources for no deadlock: R >= n(k - 1) + 1"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For the producer-consumer MCQ remember the initial values empty = n, full = 0, mutex = 1, and that wait on empty/full must come before wait on mutex."},
+          {"type": "note", "text": "An unsafe state is not necessarily a deadlock; it only means deadlock is possible. A safe state guarantees deadlock can be avoided."},
+          {"type": "examTip", "text": "If n processes each need at most k units of one resource type, R = n(k - 1) + 1 units guarantee freedom from deadlock: even when every process holds k - 1 units, one spare unit lets someone finish."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i53_01", "title": "Banker's need matrix", "latex": "Need_{i} = Max_{i} - Allocation_{i}", "plainText": "Need = Max - Allocation", "description": "Remaining resources each process may still request before finishing."},
+        {"id": "f_ch7_i53_02", "title": "Safety-check step", "latex": "Need_{i} \\le Work \\Rightarrow Work = Work + Allocation_{i}", "plainText": "If Need_i <= Work then Work += Allocation_i", "description": "A process whose need fits in Work can finish and release everything it holds."},
+        {"id": "f_ch7_i53_03", "title": "Deadlock-free resource count", "latex": "R \\ge n(k-1) + 1", "plainText": "R >= n(k - 1) + 1", "description": "Minimum units of a single resource type that make deadlock impossible for n processes each needing up to k units."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i53_01", "front": "Initial values of the semaphores in the bounded-buffer solution?", "back": "mutex = 1, empty = n (number of slots), full = 0.", "difficulty": "easy"},
+        {"id": "fc_ch7_i53_02", "front": "Who can starve in the first readers-writers solution?", "back": "Writers, because a continuous stream of readers keeps read_count above zero and rw_mutex locked.", "difficulty": "medium"},
+        {"id": "fc_ch7_i53_03", "front": "Name two ways to prevent deadlock in dining philosophers.", "back": "Allow at most four philosophers to sit at once, or use asymmetric pick-up (odd take left first, even take right first); a monitor that picks up both chopsticks together also works.", "difficulty": "medium"},
+        {"id": "fc_ch7_i53_04", "front": "What is a safe state?", "back": "A state in which there is at least one order (safe sequence) in which all processes can obtain their maximum needs and finish.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i53_n01", "questionText": "In the semaphore solution of the bounded-buffer problem with a buffer of n slots, the initial values of mutex, empty and full are respectively:", "options": ["1, 0, n", "1, n, 0", "0, n, 1", "n, 1, 0"], "correctIndex": 1, "explanation": "mutex = 1 for mutual exclusion, empty = n because all slots are free, and full = 0 because no item has been produced.", "difficulty": "easy"},
+        {"id": "q_ch7_i53_n02", "questionText": "A system has 3 processes, each needing at most 4 units of one resource type. The minimum number of units that guarantees no deadlock is:", "options": ["10", "12", "9", "7"], "correctIndex": 0, "explanation": "R = n(k - 1) + 1 = 3 x 3 + 1 = 10; with 10 units at least one process can always get its 4th unit and finish.", "difficulty": "medium"},
+        {"id": "q_ch7_i53_n03", "questionText": "In the dining philosophers problem where each philosopher picks up the left chopstick and then the right, deadlock occurs when:", "options": ["One philosopher eats twice in a row", "Two adjacent philosophers think simultaneously", "All philosophers pick up their left chopstick at the same time", "A philosopher releases chopsticks in reverse order"], "correctIndex": 2, "explanation": "If all pick up their left chopstick simultaneously, each waits forever for the right one held by a neighbour, a circular wait.", "difficulty": "easy"},
+        {"id": "q_ch7_i53_n04", "questionText": "In a Banker's algorithm table, process P has Max = (7, 5, 3) and Allocation = (0, 1, 0). Its Need is:", "options": ["(7, 6, 3)", "(0, 1, 0)", "(7, 5, 3)", "(7, 4, 3)"], "correctIndex": 3, "explanation": "Need = Max - Allocation = (7 - 0, 5 - 1, 3 - 0) = (7, 4, 3).", "difficulty": "easy"}
+      ]
+    }
+  ]
+}

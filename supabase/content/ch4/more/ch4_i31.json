@@ -1,0 +1,700 @@
+{
+  "topicId": "ch4_i31",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Transfer Costs, Priority Hardware and DMA Timing"
+    },
+    {
+      "type": "paragraph",
+      "text": "The CPU cost of every transfer mode fits one equation: the fraction of processor time used equals the number of CPU-handled events per second multiplied by the cycles each event costs, divided by the clock frequency. For programmed I/O an event is one poll, and the device must be polled at least as often as it produces data or words are lost. For interrupt-driven I/O an event is one interrupt per word, so no time is wasted while the device is idle, but the save, service and restore overhead is paid for every word. For DMA an event is a whole block, costing only the controller set-up and the completion interrupt, which is why it wins for fast block devices."
+    },
+    {
+      "type": "formula",
+      "latex": "F_{CPU} = \\frac{r_{event} \\times c_{event}}{f_{clk}}",
+      "plainText": "Fraction of CPU time = events per second × CPU cycles per event / clock frequency (event = one poll, one interrupt or one DMA block)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: one disk, three transfer modes\nCPU 200 MHz; disk sends 4-byte words at 2 MB/s (1 MB = 10^6 B)\nWords per second = 2,000,000 / 4 = 500,000\nPolling at the word rate, 150 cycles per poll:\n  500,000 x 150 = 75 x 10^6 cycles/s  -> 37.5 % of the CPU\nInterrupt per word, 250 cycles (save + ISR + restore):\n  500,000 x 250 = 125 x 10^6 cycles/s -> 62.5 % of the CPU\nDMA with 4 KB blocks (4096 B), 1500 set-up + 800 completion cycles:\n  2,000,000 / 4096 = 488.28 blocks/s\n  488.28 x 2300 = 1.12 x 10^6 cycles/s -> 0.56 % of the CPU\nFor this fast device interrupts cost even more than polling."
+    },
+    {
+      "type": "paragraph",
+      "text": "The DMA modes differ in how often the bus changes master. Every change costs a bus request/bus grant handshake, so burst mode pays it once per block while cycle stealing pays it once per word; burst therefore finishes a block sooner, but the CPU cannot use the bus until the burst ends. In cycle stealing the CPU loses one bus cycle per word, so its slowdown is the stolen cycle time divided by the interval between device words. Transparent DMA uses only bus cycles the CPU leaves idle, so its top rate is the idle fraction times the bus cycle rate. When a controller buffers a block and then bursts it, the CPU is shut out for burst time divided by buffer-fill time, which equals device rate divided by burst rate."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: burst versus cycle stealing for one block\nClock 50 MHz (20 ns); block of 512 words\nAcquire bus (BR -> BG) = 2 clocks, release = 1 clock, 1 word = 2 clocks\nBurst:          2 + 512 x 2 + 1   = 1027 clocks = 20.54 µs\nCycle stealing: 512 x (2 + 2 + 1) = 2560 clocks = 51.2 µs of bus use,\n                spread over the time the device needs to supply 512 words\nBuffered burst: device fills 2 KB at 128 KB/s -> one block per 15.625 ms\n  burst of 1024 16-bit words x 50 ns = 51.2 µs\n  CPU shut out 51.2 µs / 15,625 µs = 0.33 % of the time"
+    },
+    {
+      "type": "bulletList",
+      "text": "When the CPU responds to an interrupt and when to a DMA request:",
+      "items": [
+        "An interrupt request is recognised only at the end of the current instruction's execute phase, so the worst-case latency is the rest of the longest instruction plus the interrupt (acknowledge) cycle plus the context saving done before the first useful ISR instruction.",
+        "A DMA request can be granted at any DMA breakpoint, that is after any bus cycle, even in the middle of an instruction. The CPU saves no registers, because it only pauses and its program state is not disturbed.",
+        "Mano's basic computer performs the interrupt cycle as RT0: AR ← 0, TR ← PC; RT1: M[AR] ← TR, PC ← 0; RT2: PC ← PC + 1, IEN ← 0, R ← 0, SC ← 0. The return address goes to location 0 and a branch to the ISR is kept in location 1.",
+        "IEN is cleared by hardware so that a second interrupt cannot overwrite the saved return address before the ISR has dealt with it; the ISR re-enables interrupts (ION) just before it returns, or earlier if nesting is allowed.",
+        "Interrupt sources (Mano): external (I/O devices, timers, power failure), internal or traps (overflow, divide by zero, invalid opcode, stack overflow, protection violation) and software interrupts (a supervisor-call instruction that switches to supervisor mode for an OS service). A non-maskable interrupt (NMI) cannot be disabled by the program and is kept for events such as power failure."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "PI (priority in)",
+          "RF (request flag)",
+          "PO (priority out)",
+          "Result for this device"
+        ],
+        [
+          "0",
+          "0",
+          "0",
+          "No acknowledge reached it; passes 0 down the chain"
+        ],
+        [
+          "0",
+          "1",
+          "0",
+          "Request waits; a device nearer the CPU is being served"
+        ],
+        [
+          "1",
+          "0",
+          "1",
+          "No request here; acknowledge passed to the next device"
+        ],
+        [
+          "1",
+          "1",
+          "0",
+          "This device wins and places its VAD on the data bus"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "In the parallel priority scheme each interrupt register bit is ANDed with its mask bit and the results drive a priority encoder. With four inputs and I0 the highest, the encoder gives x = I0'I1' and y = I0'I1 + I0'I2', plus IST = I0 + I1 + I2 + I3 to tell the CPU that a valid request exists. The code xy is inserted into a fixed vector pattern: placing it in bits 3 and 2 of an 8-bit vector with all other bits 0 gives vectors 0, 4, 8 and 12, leaving four words per device for a jump to its routine. Changing mask bits under program control changes which devices may interrupt, with no rewiring."
+    },
+    {
+      "type": "bulletList",
+      "text": "How DMA modules and I/O processors are connected and commanded (Stallings, Mano):",
+      "items": [
+        "Single-bus, detached DMA: the DMA module, the I/O modules and memory share the one system bus, so each word crosses the bus twice (I/O module to DMA, DMA to memory) and costs two bus cycles.",
+        "Single-bus, integrated DMA and I/O: the DMA logic is part of the I/O module or reaches the devices by its own path, so each word uses the system bus only once.",
+        "Separate I/O bus: all devices attach to an I/O bus behind the DMA module, which then needs a single system-bus interface and again uses one system-bus cycle per word.",
+        "CPU and IOP (Mano): the CPU tests the I/O path, then issues start I/O with the address of the IOP program in memory and goes on with other work. The IOP fetches its commands from memory (IBM channel command words hold a command code, data address, flags and byte count), moves the data by cycle stealing, stores a status word in memory and interrupts the CPU when the whole job is done."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: mixing bits and bytes (a 32-bit bus moves 4 bytes per transfer, so 4 KB is 1024 transfers, not 4096); mixing 1 KB = 1024 B for block sizes with 1 MB/s = 10^6 B/s for rates when the question fixes only one convention; forgetting the completion interrupt in DMA overhead; confusing the CPU time consumed with the bus time a transfer takes; and assuming an interrupt can be accepted in the middle of an instruction."
+    },
+    {
+      "type": "examTip",
+      "text": "For percentage-of-CPU-time questions write F = events per second × cycles per event ÷ clock rate and first decide what one event is: a poll, one interrupt per word or one DMA block. For the percentage of time the CPU is blocked, use stolen cycle ÷ word interval in cycle stealing and device rate ÷ burst rate for a buffered burst."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i31_m001",
+      "questionText": "In programmed I/O the CPU repeatedly reads the interface's status register until the flag bit shows that the device is ready. What is this waiting called?",
+      "options": [
+        "Busy waiting (polling)",
+        "Cycle stealing",
+        "Handshaking",
+        "Burst transfer"
+      ],
+      "correctIndex": 0,
+      "explanation": "The CPU stays in a loop testing the flag and does no useful work until it changes, which is busy waiting or polling. Cycle stealing and burst are DMA modes, and handshaking is a two-wire timing protocol between two units.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m002",
+      "questionText": "Which method of I/O data transfer needs the least additional hardware in the computer?",
+      "options": [
+        "Interrupt-driven I/O with vectored priority",
+        "Direct memory access",
+        "Programmed I/O",
+        "An I/O processor (channel)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Programmed I/O needs only a status flag in the interface that software tests. Interrupts add request lines and priority logic, DMA adds a controller with address, count and control registers, and an IOP is a complete processor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m003",
+      "questionText": "A printer must be polled 2,000 times per second, and each poll costs 250 clock cycles on a 100 MHz CPU. What percentage of CPU time is spent polling the printer?",
+      "options": [
+        "0.5%",
+        "5%",
+        "0.05%",
+        "50%"
+      ],
+      "correctIndex": 0,
+      "explanation": "F = polls per second × cycles per poll ÷ clock = 2000 × 250 ÷ (100 × 10^6) = 500,000 ÷ 100,000,000 = 0.005 = 0.5%.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m004",
+      "questionText": "Under programmed I/O each 16-bit word costs the CPU 40 clock cycles (status test, read, store and pointer update) on a 200 MHz processor. Ignoring all other work, what is the highest data rate the CPU can sustain (1 MB = 10^6 bytes)?",
+      "options": [
+        "5 MB/s",
+        "10 MB/s",
+        "20 MB/s",
+        "80 MB/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Words per second = 200 × 10^6 ÷ 40 = 5 × 10^6; with 2 bytes per word that is 10 × 10^6 B/s = 10 MB/s. 5 MB/s forgets that a word is 2 bytes, and 80 is the rate in megabits per second.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m005",
+      "questionText": "A network interface buffers incoming data in a 16-byte FIFO and receives 2 MB/s (1 MB = 10^6 bytes). The CPU polls it just often enough never to overflow: every poll finds a full FIFO and empties it at a cost of 400 clock cycles on a 500 MHz CPU. What percentage of CPU time does this take?",
+      "options": [
+        "10%",
+        "40%",
+        "2.5%",
+        "0.625%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Polls per second = 2 × 10^6 ÷ 16 = 125,000; cycles per second = 125,000 × 400 = 5 × 10^7; fraction = (5 × 10^7) ÷ (5 × 10^8) = 10%. Polling once per 4-byte word instead would give 40%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m006",
+      "questionText": "When does a CPU normally check for, and accept, a pending enabled interrupt request?",
+      "options": [
+        "Immediately, in the middle of the current bus cycle",
+        "At the end of the current instruction's execute phase, before the next fetch",
+        "Only when the running program executes a return instruction",
+        "At the start of every memory read cycle"
+      ],
+      "correctIndex": 1,
+      "explanation": "The interrupt is tested after the execute phase of each instruction, so the interrupted instruction is always complete and only the PC and status need saving. DMA requests, by contrast, may be granted between bus cycles.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m007",
+      "questionText": "A device transfers 12,500 bytes per second, one byte at a time. Under program-controlled I/O the CPU busy-waits for every byte; under interrupt-driven I/O each byte costs only a 5 µs interrupt overhead (the transfer itself is negligible). By what factor does interrupt-driven I/O reduce the CPU time spent per byte?",
+      "options": [
+        "16",
+        "80",
+        "400",
+        "6.25"
+      ],
+      "correctIndex": 0,
+      "explanation": "Interval per byte = 1 ÷ 12,500 s = 80 µs, all of which is wasted in busy waiting; interrupt I/O costs 5 µs, so the gain is 80 ÷ 5 = 16. 6.25 is the interrupt overhead as a percentage of the interval (5 ÷ 80).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m008",
+      "questionText": "Each interrupt from a device costs 10 µs of CPU time in total (context save, service and restore), and the device raises 40,000 interrupts per second. What percentage of CPU time does the device consume?",
+      "options": [
+        "4%",
+        "25%",
+        "40%",
+        "60%"
+      ],
+      "correctIndex": 2,
+      "explanation": "CPU time per second = 40,000 × 10 µs = 0.4 s, i.e. 40% of the CPU. 60% is the time left for other programs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m009",
+      "questionText": "A 1 KB block (1 KB = 1024 bytes) is read with one interrupt per byte. Each interrupt costs 2 µs to save the context, 3 µs to run the service routine and 1 µs to restore. How much CPU time does the whole block cost?",
+      "options": [
+        "3.072 ms",
+        "6.144 ms",
+        "5.12 ms",
+        "49.152 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Per byte: 2 + 3 + 1 = 6 µs; for 1024 bytes: 1024 × 6 µs = 6144 µs = 6.144 ms. Counting only the routine gives 3.072 ms, forgetting the restore gives 5.12 ms, and counting bits (8192) gives 49.152 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m010",
+      "questionText": "A 50 MHz CPU checks for interrupts only at the end of an instruction. Its longest instruction takes 20 clock cycles, the interrupt acknowledge cycle takes 4 cycles, and the hardware then pushes 6 registers at 2 cycles each before the first ISR instruction. What is the worst-case interrupt latency?",
+      "options": [
+        "0.32 µs",
+        "0.48 µs",
+        "0.72 µs",
+        "0.60 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "Worst case = 20 + 4 + 6 × 2 = 36 cycles; at 20 ns per cycle that is 36 × 20 ns = 0.72 µs. Leaving out the instruction gives 0.32 µs, leaving out the pushes 0.48 µs, and one cycle per push 0.60 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m011",
+      "questionText": "In Mano's basic computer, what happens during the interrupt cycle?",
+      "options": [
+        "The return address (PC) is stored in memory location 0, PC is set to 1 and IEN is cleared",
+        "PC is pushed onto a stack, PC is loaded with a vector supplied by the device and IEN is set",
+        "The accumulator is stored in location 0 and PC is set to 0",
+        "PC is stored in location 1, PC is set to 0 and IEN is set"
+      ],
+      "correctIndex": 0,
+      "explanation": "The interrupt cycle is RT0: AR ← 0, TR ← PC; RT1: M[AR] ← TR, PC ← 0; RT2: PC ← PC + 1, IEN ← 0. The return address is saved in location 0, execution continues at location 1 (which holds a branch to the ISR) and further interrupts are disabled.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m012",
+      "questionText": "A program attempts to divide by zero and the processor responds with an interrupt. How is this interrupt classified?",
+      "options": [
+        "External interrupt",
+        "Software interrupt (supervisor call)",
+        "DMA completion interrupt",
+        "Internal interrupt (trap)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Internal interrupts, also called traps, arise from erroneous use of an instruction or data, such as overflow, divide by zero or an invalid opcode. External interrupts come from devices and timers, and software interrupts are requested deliberately by an instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m013",
+      "questionText": "What is a software interrupt normally used for?",
+      "options": [
+        "Switching from user mode to supervisor mode to request an operating-system service",
+        "Signalling that a peripheral has finished a transfer",
+        "Reporting an imminent power failure that cannot be masked",
+        "Handing the system bus to a DMA controller"
+      ],
+      "correctIndex": 0,
+      "explanation": "A software interrupt is initiated by an instruction in the program, most commonly a supervisor-call instruction that switches the CPU to supervisor mode so the OS can perform a service. Device completion is an external interrupt and power failure uses a non-maskable interrupt.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m014",
+      "questionText": "Which kind of interrupt input is normally reserved for catastrophic events such as an impending power failure, because the program cannot disable it?",
+      "options": [
+        "Maskable interrupt request (INTR)",
+        "Non-maskable interrupt (NMI)",
+        "Software interrupt",
+        "DMA request (DRQ)"
+      ],
+      "correctIndex": 1,
+      "explanation": "A non-maskable interrupt bypasses the interrupt-enable flag and the mask register, so it is always recognised; that makes it suitable for power-fail or memory-parity emergencies.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m015",
+      "questionText": "In a vectored interrupt system, where does the CPU obtain the starting address of the interrupt service routine?",
+      "options": [
+        "From a fixed memory location that is the same for every device",
+        "From the interrupting device, which places a vector address on the data bus during the interrupt acknowledge cycle",
+        "From the program counter value saved on the stack",
+        "From the DMA controller's address register"
+      ],
+      "correctIndex": 1,
+      "explanation": "With vectored interrupts the source supplies its own vector (VAD) during the acknowledge cycle, so the CPU branches directly to that device's routine. A fixed branch location for all devices describes a non-vectored interrupt.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m016",
+      "questionText": "Five devices, D1 (nearest the CPU) to D5, are daisy-chained on the interrupt acknowledge line. D2 and D4 have pending requests when the CPU acknowledges. Which statement is correct?",
+      "options": [
+        "D4 places its vector because the acknowledge enters the chain from the far end",
+        "D1 blocks the acknowledge because it is the device nearest the CPU",
+        "Both D2 and D4 place their vectors on the bus and the CPU accepts the lower one",
+        "D2 places its vector address on the bus and sets its PO to 0, so D3, D4 and D5 receive PI = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "D1 has no request, so with PI = 1 and RF = 0 it passes PO = 1. D2 has PI = 1 and RF = 1, so it enables its VAD and sets PO = 0; every device after it, including D4, sees PI = 0 and waits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m017",
+      "questionText": "Which is a disadvantage of daisy-chain priority interrupt compared with the parallel priority scheme?",
+      "options": [
+        "It needs a separate interrupt request line and mask bit for every device",
+        "Priorities are fixed by the physical position of the devices and cannot be changed by software",
+        "It cannot supply a vector address to the CPU",
+        "Devices far from the CPU always receive the fastest service"
+      ],
+      "correctIndex": 1,
+      "explanation": "In a daisy chain the device nearest the CPU always wins, so priority is set by wiring; a low-priority device can also be delayed indefinitely. The parallel scheme, which does use one request line and mask bit per device, lets software alter priorities through the mask register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m018",
+      "questionText": "In a parallel priority interrupt unit, what is the purpose of the mask register?",
+      "options": [
+        "It stores the vector address supplied by the device",
+        "It holds the return address of the interrupted program",
+        "It lets the program enable or disable each interrupt request individually",
+        "It counts how many times each device has interrupted"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each interrupt register bit is ANDed with its mask bit before the priority encoder, so software can disable or re-enable individual sources and thereby change the effective priority set.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m019",
+      "questionText": "A 4-input priority encoder with I0 as the highest priority produces x = I0'I1', y = I0'I1 + I0'I2' and IST = I0 + I1 + I2 + I3. What are its outputs when I0 I1 I2 I3 = 0 0 1 1?",
+      "options": [
+        "x y = 1 1 and IST = 1",
+        "x y = 0 1 and IST = 1",
+        "x y = 1 0 and IST = 0",
+        "x y = 1 0 and IST = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "x = I0'I1' = 1·1 = 1; y = I0'I1 + I0'I2' = 1·0 + 1·0 = 0; IST = 1 because at least one request is present. Code 10 selects I2, the highest-priority active input; 11 would wrongly select I3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m020",
+      "questionText": "Four devices use a parallel priority interrupt with I0 the highest priority. Requests are pending on I1, I2 and I3, and the mask register (1 = enabled) holds M0 M1 M2 M3 = 1 0 1 1. The priority encoder output xy forms the vector as VAD = 40h + 4 × xy. Which vector address does the CPU receive?",
+      "options": [
+        "44h",
+        "4Ch",
+        "48h",
+        "42h"
+      ],
+      "correctIndex": 2,
+      "explanation": "Masking removes I1, leaving I2 and I3; I2 has the higher priority, so xy = 10 (binary) = 2 and VAD = 40h + 4 × 2 = 48h. Ignoring the mask would select I1 (44h), and forgetting the factor 4 gives 42h.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m021",
+      "questionText": "Eight devices share one interrupt line, and the service routine identifies the source by testing device flags in priority order at 0.4 µs per test; a device's routine starts as soon as its flag test succeeds. If only the lowest-priority device (tested last) is requesting, how much time is spent testing flags before its routine starts?",
+      "options": [
+        "2.8 µs",
+        "0.4 µs",
+        "0.05 µs",
+        "3.2 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "The routine tests all eight flags, the last one successfully: 8 × 0.4 µs = 3.2 µs. Counting only the seven failed tests gives 2.8 µs; this delay is why software polling is the slowest priority method.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m022",
+      "questionText": "Why is interrupt-driven I/O unsuitable for a high-speed disk that delivers a word every few hundred nanoseconds?",
+      "options": [
+        "The save, service and restore overhead is paid for every word and can exceed the interval between words",
+        "Disk interfaces cannot generate interrupt requests",
+        "Interrupt-driven I/O needs more main memory than DMA",
+        "An interrupt can be recognised only once per program"
+      ],
+      "correctIndex": 0,
+      "explanation": "With one interrupt per word the CPU spends its time entering and leaving service routines; when that overhead approaches or exceeds the word interval the CPU is swamped or data is lost. DMA moves the whole block with one interrupt at the end.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m023",
+      "questionText": "What does a CPU do when a DMA controller activates the bus request (BR or HOLD) line?",
+      "options": [
+        "It saves its registers on the stack and jumps to a DMA service routine",
+        "It completes the current bus cycle, places its buses in the high-impedance state and asserts bus grant (BG or HLDA)",
+        "It aborts the current instruction and restarts it after the transfer",
+        "It sends the starting address and word count to the controller over the data bus"
+      ],
+      "correctIndex": 1,
+      "explanation": "The CPU finishes the bus cycle in progress, floats its address, data and read/write lines and answers with bus grant; the controller then becomes bus master. The registers are programmed earlier, not at the bus request.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m024",
+      "questionText": "Which pairs of signals does a DMA controller use to coordinate with the CPU and with the I/O device respectively?",
+      "options": [
+        "DMA request and DMA acknowledge with the CPU; bus request and bus grant with the device",
+        "Bus request and bus grant with the CPU; DMA request and DMA acknowledge with the device",
+        "Interrupt request and interrupt acknowledge with the CPU; a strobe with the device",
+        "Read and write with the CPU; bus request and bus grant with the device"
+      ],
+      "correctIndex": 1,
+      "explanation": "The controller asks the CPU for the buses with BR and waits for BG; with the device it exchanges DMA request (the device is ready) and DMA acknowledge (the transfer is being made). An interrupt goes to the CPU only when the count reaches zero.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m025",
+      "questionText": "How many DMA transfers are needed to move an 8 KB buffer (1 KB = 1024 bytes) over a 16-bit data bus, one bus-width word per transfer?",
+      "options": [
+        "8192",
+        "2048",
+        "4096",
+        "65,536"
+      ],
+      "correctIndex": 2,
+      "explanation": "8 KB = 8192 bytes; a 16-bit bus moves 2 bytes per transfer, so 8192 ÷ 2 = 4096 transfers. 8192 counts bytes, 2048 assumes a 32-bit bus and 65,536 counts bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m026",
+      "questionText": "A DMA controller must be able to address any byte of a 64 MB byte-addressable memory (1 MB = 2^20 bytes) and hold word counts up to 5000. What are the minimum widths of its address and word-count registers?",
+      "options": [
+        "26 bits and 13 bits",
+        "26 bits and 12 bits",
+        "29 bits and 13 bits",
+        "24 bits and 13 bits"
+      ],
+      "correctIndex": 0,
+      "explanation": "64 MB = 2^6 × 2^20 = 2^26 bytes, so 26 address bits; 5000 lies between 2^12 = 4096 and 2^13 = 8192, so 13 count bits. 29 bits would count bits instead of bytes, and 12 bits holds only up to 4095.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m027",
+      "questionText": "A DMA controller's address register is loaded with 1000h and its word-count register with 200 (decimal). Memory is byte-addressable and each transfer moves one 32-bit word, so the address increases by 4 and the word count decreases by 1 per transfer. What do the two registers hold after 120 transfers?",
+      "options": [
+        "Address 1078h, count 80",
+        "Address 11E0h, count 120",
+        "Address 1480h, count 80",
+        "Address 11E0h, count 80"
+      ],
+      "correctIndex": 3,
+      "explanation": "Address = 1000h + 120 × 4 = 1000h + 480 = 1000h + 1E0h = 11E0h; count = 200 − 120 = 80. Incrementing by 1 gives 1078h, and adding 480 as if it were hexadecimal gives 1480h.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m028",
+      "questionText": "Which sequence correctly orders a DMA input transfer?",
+      "options": [
+        "Controller interrupts CPU → CPU loads address and count → device raises DMA request → words move → controller releases bus",
+        "CPU loads address, count and control registers → device raises DMA request → controller gets bus grant → words move with address incremented and count decremented → controller interrupts CPU at count zero",
+        "Device raises DMA request → CPU copies each word to the controller → controller writes memory → CPU decrements the count",
+        "CPU asserts bus request → controller grants the bus → CPU loads address and count → words move → device interrupts the controller"
+      ],
+      "correctIndex": 1,
+      "explanation": "The CPU first programs the controller through programmed I/O and carries on; the device's DMA request makes the controller ask for and receive the bus, the data moves directly between device and memory, and the only interrupt comes when the word count reaches zero.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m029",
+      "questionText": "Which statement correctly contrasts the points at which a CPU can respond to a DMA request and to an interrupt?",
+      "options": [
+        "Both are recognised only at the end of an instruction",
+        "An interrupt can be taken after any bus cycle, while a DMA request waits for the end of the program",
+        "A DMA request is recognised only when the interrupt enable flag IEN is 1",
+        "A DMA request can be granted after any bus cycle, even mid-instruction, whereas an interrupt is recognised only at the end of an instruction"
+      ],
+      "correctIndex": 3,
+      "explanation": "Granting the bus does not disturb the program state, so the CPU can pause at any DMA breakpoint between bus cycles; an interrupt changes the flow of control and is therefore taken only at an instruction boundary.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m030",
+      "questionText": "A DMA controller in burst mode moves 4000 bytes over a 16-bit data bus, one bus-width word per 250 ns memory cycle. For how long is the CPU kept off the bus?",
+      "options": [
+        "1 ms",
+        "250 µs",
+        "500 µs",
+        "125 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "Transfers = 4000 ÷ 2 = 2000; time = 2000 × 250 ns = 500 µs. Counting bytes gives 1 ms; assuming a 32-bit or 64-bit bus gives 250 µs or 125 µs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m031",
+      "questionText": "Which DMA mode moves a whole block in one continuous bus tenure, giving the highest transfer rate but keeping the CPU off the bus until the block is finished?",
+      "options": [
+        "Burst (block transfer) mode",
+        "Cycle-stealing mode",
+        "Transparent mode",
+        "Interrupt-driven mode"
+      ],
+      "correctIndex": 0,
+      "explanation": "In burst mode the controller keeps the bus until the word count reaches zero, so the block moves at memory speed while the CPU cannot use the bus. Cycle stealing interleaves single words with CPU cycles, and transparent DMA uses only idle cycles.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m032",
+      "questionText": "Which statement about cycle-stealing DMA is NOT correct?",
+      "options": [
+        "The controller takes the bus for one word and then returns it to the CPU",
+        "The CPU saves its registers before each stolen cycle and restores them afterwards",
+        "The CPU may be delayed by one memory cycle for each word transferred",
+        "For a whole block it is slower than burst mode because the bus changes hands for every word"
+      ],
+      "correctIndex": 1,
+      "explanation": "A stolen cycle only pauses the CPU's bus activity; no context is saved because no program switch occurs. The other statements are true: one word per grant, one lost cycle per word, and extra request/grant overhead per word.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m033",
+      "questionText": "Which statement about transparent (hidden) DMA is correct?",
+      "options": [
+        "It halts the CPU for the whole block but hides the transfer from the operating system",
+        "It uses the CPU registers to hold the data, so no DMA controller is needed",
+        "It is the fastest DMA mode because it needs no bus arbitration",
+        "It transfers only in bus cycles the CPU is not using, so the CPU is never slowed, but its rate is the lowest of the DMA modes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Transparent DMA needs logic that detects idle bus cycles (for example while the CPU decodes or executes internally) and uses only those, so there is no slowdown at all; the price is the slowest transfer rate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m034",
+      "questionText": "A cycle-stealing DMA controller transfers 32-bit words from a device producing 10 MB/s (1 MB = 10^6 bytes), and each stolen memory cycle lasts 80 ns. By what fraction is the CPU slowed, assuming it would otherwise use every bus cycle?",
+      "options": [
+        "80%",
+        "40%",
+        "10%",
+        "20%"
+      ],
+      "correctIndex": 3,
+      "explanation": "Words per second = 10 × 10^6 ÷ 4 = 2.5 × 10^6, so one word every 400 ns; slowdown = 80 ns ÷ 400 ns = 20%. Treating each byte as a transfer gives 80%, and 16-bit or 64-bit words give 40% or 10%.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m035",
+      "questionText": "In cycle-stealing mode the CPU slowdown must not exceed 10%. Each stolen memory cycle takes 50 ns and moves one 32-bit word. What is the highest device data rate the DMA controller can serve (1 MB = 10^6 bytes)?",
+      "options": [
+        "2 MB/s",
+        "8 MB/s",
+        "4 MB/s",
+        "64 MB/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Allowed stolen time is 0.1 s per second, so words per second = 0.1 ÷ 50 ns = 2 × 10^6; with 4 bytes per word that is 8 × 10^6 B/s = 8 MB/s. 2 MB/s forgets the 4 bytes per word, and 64 is the rate in megabits per second.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m036",
+      "questionText": "A system bus has a 100 ns cycle and the CPU uses 60% of all bus cycles. What is the maximum rate at which a transparent-mode DMA controller can move words?",
+      "options": [
+        "6 × 10^6 words/s",
+        "10 × 10^6 words/s",
+        "2.5 × 10^6 words/s",
+        "4 × 10^6 words/s"
+      ],
+      "correctIndex": 3,
+      "explanation": "Bus cycles per second = 1 ÷ 100 ns = 10^7; transparent DMA may use only the 40% the CPU leaves idle, so 0.4 × 10^7 = 4 × 10^6 words/s. 6 × 10^6 uses the busy fraction and 10^7 assumes the whole bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m037",
+      "questionText": "A 256-word block is moved by DMA. Acquiring the bus (bus request to bus grant) takes 3 clock cycles, releasing it takes 1 cycle and each word transfer takes 2 cycles. How many clock cycles of bus activity does the block need in burst mode and in cycle-stealing mode (bus acquired and released for every word)?",
+      "options": [
+        "512 in burst mode and 1536 in cycle stealing",
+        "516 in burst mode and 1024 in cycle stealing",
+        "516 in burst mode and 1536 in cycle stealing",
+        "1536 in burst mode and 516 in cycle stealing"
+      ],
+      "correctIndex": 2,
+      "explanation": "Burst: 3 + 256 × 2 + 1 = 516 cycles. Cycle stealing: 256 × (3 + 2 + 1) = 1536 cycles, because the handover overhead is repeated for every word. Leaving out the handover in burst mode gives 512.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m038",
+      "questionText": "A device produces data at 256 KB/s into a DMA controller's buffer (1 KB = 1024 bytes). Each time 4 KB has accumulated, the controller bursts it into memory over a 32-bit bus at one word per 100 ns memory cycle. For what percentage of the time is the CPU denied the bus?",
+      "options": [
+        "2.62%",
+        "1.31%",
+        "0.66%",
+        "99.34%"
+      ],
+      "correctIndex": 2,
+      "explanation": "Burst = (4096 ÷ 4) × 100 ns = 102.4 µs; filling the buffer takes 4 KB ÷ 256 KB/s = 15.625 ms; blocked fraction = 102.4 µs ÷ 15,625 µs = 0.66%. Counting bytes gives 2.62%, a 16-bit bus 1.31%, and 99.34% is the time the CPU keeps the bus.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m039",
+      "questionText": "A DMA controller's 16-bit byte-count register allows at most 65,536 bytes per programming. At minimum, how many times must it be programmed (acquiring the bus once each time in burst mode) to move a 20,000 KB file (1 KB = 1024 bytes)?",
+      "options": [
+        "312",
+        "313",
+        "306",
+        "625"
+      ],
+      "correctIndex": 1,
+      "explanation": "File = 20,000 × 1024 = 20,480,000 bytes; 20,480,000 ÷ 65,536 = 312.5, which must be rounded up to 313. Rounding down leaves bytes unmoved, 306 comes from 1 KB = 1000 bytes, and 625 assumes only 32,768 bytes per programming.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m040",
+      "questionText": "A disk streams data at 8 MB/s into memory by DMA in 16 KB blocks (1 KB = 1024 bytes, 1 MB = 1024 KB). Each block costs the 500 MHz CPU 1000 cycles to set up the controller and 500 cycles for the completion interrupt. What fraction of CPU time is spent on the disk?",
+      "options": [
+        "0.102%",
+        "0.051%",
+        "0.154%",
+        "1.54%"
+      ],
+      "correctIndex": 2,
+      "explanation": "Blocks per second = 8 MB/s ÷ 16 KB = 8192 KB ÷ 16 KB = 512; cycles = 512 × (1000 + 500) = 768,000 per second; fraction = 768,000 ÷ (500 × 10^6) = 0.154%. Using only the set-up gives 0.102% and only the completion 0.051%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m041",
+      "questionText": "An interrupt service routine moves 1000 bytes from a device to memory. After two set-up instructions (initialise address, initialise count) it loops: load byte from device; store byte to memory; increment address; decrement count; branch if count ≠ 0. Load and store take 2 clock cycles each and every other instruction 1 cycle. A DMA controller would need 50 cycles of initialisation plus 2 cycles per byte. What is the approximate speed-up of the DMA design?",
+      "options": [
+        "3.42",
+        "3.50",
+        "2.44",
+        "0.29"
+      ],
+      "correctIndex": 0,
+      "explanation": "Program: 2 + 1000 × (2 + 2 + 1 + 1 + 1) = 7002 cycles; DMA: 50 + 1000 × 2 = 2050 cycles; speed-up = 7002 ÷ 2050 ≈ 3.42. Ignoring both overheads gives 3.50, and counting load and store as 1 cycle gives 2.44.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i31_m042",
+      "questionText": "In a single-bus, detached DMA configuration each word is first read from the I/O module into the DMA module and then written to memory, one bus cycle each. How much bus time is used to move 1500 words if one bus cycle is 80 ns?",
+      "options": [
+        "240 µs",
+        "120 µs",
+        "480 µs",
+        "60 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each word crosses the bus twice: 1500 × 2 × 80 ns = 240 µs. 120 µs would apply to an integrated or I/O-bus configuration where each word uses the system bus once.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m043",
+      "questionText": "A DMA controller writes a disk block into main memory while the CPU has a write-back data cache. Which problem can occur, and what is a standard remedy?",
+      "options": [
+        "The address register may overflow, so the block must always be split into 256-byte pieces",
+        "The CPU loses its program counter, so it must be saved before every DMA transfer",
+        "Main memory becomes read-only during DMA, so the CPU must wait for the completion interrupt",
+        "The cache may still hold old copies of those memory words, so the affected lines must be invalidated or the cache must snoop the DMA writes"
+      ],
+      "correctIndex": 3,
+      "explanation": "DMA updates memory behind the cache, so any cached copy of that region becomes stale; the OS invalidates those lines before reading the buffer, or cache hardware snoops the bus and invalidates matching lines. For DMA output from memory, dirty lines must first be written back.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m044",
+      "questionText": "What is a channel called that serves one high-speed device at a time, staying dedicated to it until its whole I/O operation is finished?",
+      "options": [
+        "Multiplexer channel",
+        "Daisy-chain channel",
+        "Transparent DMA channel",
+        "Selector channel"
+      ],
+      "correctIndex": 3,
+      "explanation": "A selector channel connects to one fast device, such as a disk, for the whole transfer before it can select another. A multiplexer channel interleaves many slow devices.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i31_m045",
+      "questionText": "A channel must serve three devices with data rates of 10 KB/s, 20 KB/s and 50 KB/s. What minimum rate must it support if it is a multiplexer channel with all three active at once, and if it is a selector channel serving one device at a time?",
+      "options": [
+        "80 KB/s as a multiplexer channel and 50 KB/s as a selector channel",
+        "50 KB/s as a multiplexer channel and 80 KB/s as a selector channel",
+        "80 KB/s as a multiplexer channel and 80 KB/s as a selector channel",
+        "26.7 KB/s as a multiplexer channel and 50 KB/s as a selector channel"
+      ],
+      "correctIndex": 0,
+      "explanation": "A multiplexer channel interleaves all active devices, so it needs their sum: 10 + 20 + 50 = 80 KB/s. A selector channel handles one device at a time, so it needs only the fastest rate, 50 KB/s; 26.7 KB/s is merely the average.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i31_m046",
+      "questionText": "Which statement about communication between the CPU and an I/O processor (IOP), as described by Mano, is NOT correct?",
+      "options": [
+        "The CPU first tests the I/O path and then issues a start I/O instruction",
+        "The IOP reads its commands from main memory",
+        "The CPU executes each channel command itself and passes every data word to the IOP",
+        "When finished, the IOP interrupts the CPU, which then checks a status word the IOP stored in memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "The point of an IOP is that it fetches and executes the I/O program (channel commands) itself and moves the data by DMA-style cycle stealing, leaving the CPU free. The other three statements follow Mano's CPU–IOP sequence.",
+      "difficulty": "medium"
+    }
+  ]
+}

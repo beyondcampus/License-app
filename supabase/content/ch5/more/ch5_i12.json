@@ -1,0 +1,488 @@
+{
+  "topicId": "ch5_i12",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Media Choices, Fibre Optics and Channel Limits"
+    },
+    {
+      "type": "bulletList",
+      "text": "Guided (wired) media at a glance, from cheapest to most capable:",
+      "items": [
+        "Twisted pair: two insulated copper wires twisted together; the cheapest and easiest to install, used for telephone lines and Ethernet (Cat5e, Cat6, Cat6a), but limited to short runs of about 100 m per Ethernet segment.",
+        "Coaxial cable: a central conductor, insulation, a braided shield and an outer jacket; better shielded and higher in bandwidth than twisted pair, used for cable TV and cable broadband and for the old 10Base2/10Base5 Ethernet; medium distances.",
+        "Optical fibre: carries light instead of electric current; the highest bandwidth and lowest attenuation, immune to electromagnetic interference, and used for Internet backbones, fibre-to-the-home and data-centre links over long distances, but the most costly to install and splice.",
+        "Correction to a common note: fibre is not 'faster' in propagation. Light in glass travels at about 2 x 10^8 m/s, roughly the speed of signals in copper; fibre's advantage is bandwidth (bits per second) and low loss, not a shorter delay, and it still suffers attenuation and dispersion even though it picks up no electrical interference."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Unguided (wireless) media, and where everyday systems fit:",
+      "items": [
+        "Radio waves (about 3 kHz to 1 GHz in Forouzan's split): omnidirectional, long range and able to pass through walls; used for AM/FM radio, TV and paging.",
+        "Wi-Fi (2.4, 5 and 6 GHz), Bluetooth (2.4 GHz) and mobile networks are called radio systems in everyday speech; by the same split most of their carriers lie in the microwave range, but they use omnidirectional antennas and still pass through walls, with more loss at higher frequencies.",
+        "Microwaves (1 to 300 GHz) with dish or horn antennas: highly directional and need line of sight; used for point-to-point terrestrial links and satellite communication.",
+        "Infrared (300 GHz to 400 THz): very short range and blocked by walls, so neighbouring rooms do not interfere; used in TV remotes and the old IrDA links between phones and laptops.",
+        "Satellites: the lower the orbit, the shorter the delay, but the more satellites are needed to cover the Earth and the faster each one moves across the sky."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Orbit",
+          "Altitude",
+          "Ground-satellite-ground delay (minimum: stations directly below, 3 x 10^8 m/s)",
+          "Example"
+        ],
+        [
+          "GEO (geostationary)",
+          "35,786 km",
+          "About 239 ms",
+          "TV broadcasting, VSAT"
+        ],
+        [
+          "MEO (medium Earth orbit)",
+          "About 20,200 km",
+          "About 135 ms",
+          "GPS navigation"
+        ],
+        [
+          "LEO (low Earth orbit)",
+          "About 550 km",
+          "About 3.7 ms",
+          "Starlink broadband"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Light passing from a denser medium (index n1) into a less dense one (n2 < n1) bends away from the normal, following Snell's law n1 sin θ1 = n2 sin θ2. At the critical angle the refracted ray just grazes the boundary (θ2 = 90°), and at any larger angle of incidence all the light is reflected back into the core; this is total internal reflection. The numerical aperture (NA) measures the cone of light a fibre accepts: a larger index difference gives a larger NA, which eases coupling but increases modal dispersion in multimode fibre."
+    },
+    {
+      "type": "formula",
+      "latex": "\\theta_c = \\sin^{-1}\\left(\\frac{n_2}{n_1}\\right), \\quad NA = \\sqrt{n_1^2 - n_2^2}",
+      "plainText": "Critical angle θc = arcsin(n2 / n1); numerical aperture NA = sqrt(n1^2 - n2^2), where n1 is the core index and n2 the cladding index"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: critical angle and NA of a fibre\nCore n1 = 1.48, cladding n2 = 1.46\nn2 / n1 = 1.46 / 1.48 = 0.98649\nθc = arcsin(0.98649) = 80.6°  (rays hitting the wall above 80.6° stay in)\nNA = sqrt(1.48^2 - 1.46^2) = sqrt(2.1904 - 2.1316) = sqrt(0.0588) = 0.242\nAcceptance half-angle in air = arcsin(0.242) = 14.0°"
+    },
+    {
+      "type": "paragraph",
+      "text": "Decibels turn the multiplication of gains and losses into addition: a loss of 3 dB halves the power, 10 dB divides it by 10 and 20 dB by 100. Cable loss is quoted in dB per km (about 0.2 to 0.35 dB/km for single-mode fibre, far more for copper at high frequencies), so the total loss is the rate times the length plus connector and splice losses. Absolute power is often given in dBm, decibels relative to 1 mW: 0 dBm = 1 mW, 10 dBm = 10 mW and -30 dBm = 1 µW."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: a power budget in dB\nTransmitter power              = 10 dBm (10 mW)\n5 km of cable at 3 dB/km       = -15 dB\nAmplifier                      = +10 dB\nTwo connectors at 0.5 dB each  = -1 dB\nOutput = 10 - 15 + 10 - 1      = 4 dBm\nIn milliwatts: 10^(4/10) mW    = 2.51 mW"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: Shannon limit first, then Nyquist levels\nB = 2 MHz, SNR = 24 dB -> S/N = 10^(24/10) = 251.2\nC = B log2(1 + S/N) = 2 x 10^6 x log2(252.2) = 2 x 10^6 x 7.98 = 15.96 Mbps\nChoose a safer rate below the limit, e.g. 12 Mbps\nNyquist: 12 x 10^6 = 2 x 2 x 10^6 x log2 L -> log2 L = 3 -> L = 8 levels\nMore levels cannot push the rate above 15.96 Mbps on this channel"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 4: bandwidth-delay product and bit length\nFibre link 4,000 km, v = 2 x 10^8 m/s, R = 1 Gbps\nTp  = 4 x 10^6 m / 2 x 10^8 m/s        = 20 ms\nBDP = R x Tp = 10^9 x 0.02            = 2 x 10^7 bits (2.5 MB) in flight\nOver a full round trip: 2 x BDP        = 4 x 10^7 bits\nLength of one bit = v / R = 2 x 10^8 / 10^9 = 0.2 m\nA 1,500-byte frame (12,000 bits) fills only 2.4 km of the 4,000 km"
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: convert dB to a ratio before using Shannon (S/N = 10^(dB/10)); keep bandwidth in Hz and data rate in bit/s apart; use 1 Mbps = 10^6 bit/s and multiply bytes by 8; do not double a one-way propagation delay unless a round trip is asked for; and remember that adding signal levels (Nyquist) helps only up to the Shannon limit, never beyond it."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i12_m001",
+      "questionText": "Which multiplexing technique was designed for optical fibre and is conceptually the same as FDM, but applied to light?",
+      "options": [
+        "Time division multiplexing (TDM)",
+        "Statistical TDM",
+        "Wavelength division multiplexing (WDM)",
+        "Space division multiplexing (SDM)"
+      ],
+      "correctIndex": 2,
+      "explanation": "WDM sends several signals on different wavelengths (colours) of light through one fibre and separates them again at the receiver, exactly as FDM uses different carrier frequencies. Dense WDM carries dozens of channels on a single fibre.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m002",
+      "questionText": "Which guided medium is the cheapest and most widely used for connecting desktop computers to an Ethernet LAN?",
+      "options": [
+        "Coaxial cable",
+        "Unshielded twisted pair (UTP)",
+        "Single-mode fibre",
+        "Multimode fibre"
+      ],
+      "correctIndex": 1,
+      "explanation": "UTP (Cat5e/Cat6) is cheap, flexible and easy to terminate with RJ-45 connectors, so it dominates desktop LAN connections up to 100 m. Fibre costs more and is used for backbones and long runs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m003",
+      "questionText": "What principle keeps light confined inside the core of an optical fibre?",
+      "options": [
+        "Diffraction at the core-cladding boundary",
+        "Absorption of stray light by the cladding",
+        "Magnetic induction in the core",
+        "Total internal reflection at the core-cladding boundary"
+      ],
+      "correctIndex": 3,
+      "explanation": "The core has a higher refractive index than the cladding, so light striking the boundary at more than the critical angle is reflected completely back into the core.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m004",
+      "questionText": "Which connector is used on twisted-pair Ethernet cables?",
+      "options": [
+        "RJ-45",
+        "BNC",
+        "RJ-11",
+        "SC"
+      ],
+      "correctIndex": 0,
+      "explanation": "Twisted-pair Ethernet uses the 8-pin RJ-45 connector. RJ-11 is the smaller telephone connector, BNC is used on coaxial cable and SC is a fibre-optic connector.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m005",
+      "questionText": "Which kind of optical fibre has a very narrow core and uses a laser source, making it suitable for long-distance links?",
+      "options": [
+        "Step-index multimode fibre",
+        "Single-mode fibre",
+        "Graded-index multimode fibre",
+        "Plastic optical fibre"
+      ],
+      "correctIndex": 1,
+      "explanation": "Single-mode fibre has a core of about 8-10 µm, so only one path (mode) propagates and there is no modal dispersion; with a laser source it spans tens to hundreds of kilometres.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m006",
+      "questionText": "A cable made of a central copper conductor, an insulating layer, a braided metal shield and an outer plastic jacket is:",
+      "options": [
+        "Twisted-pair cable",
+        "Optical fibre",
+        "Coaxial cable",
+        "Ribbon cable"
+      ],
+      "correctIndex": 2,
+      "explanation": "That is the construction of coaxial cable; the braided outer conductor shields the centre conductor, giving better noise immunity and bandwidth than twisted pair. It is used for cable TV and cable broadband.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m007",
+      "questionText": "Which wireless medium uses highly directional dish antennas that need line of sight, with relay towers spaced tens of kilometres apart?",
+      "options": [
+        "Terrestrial microwave",
+        "Infrared",
+        "AM radio",
+        "Bluetooth"
+      ],
+      "correctIndex": 0,
+      "explanation": "Terrestrial microwave links send a narrow beam between dish antennas, so the towers must see each other; because of the Earth's curvature, repeaters are needed roughly every 50 km.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m008",
+      "questionText": "Which of the following is an unguided (wireless) transmission medium?",
+      "options": [
+        "Optical fibre",
+        "Coaxial cable",
+        "Shielded twisted pair",
+        "A satellite microwave link"
+      ],
+      "correctIndex": 3,
+      "explanation": "Unguided media carry electromagnetic waves through air or space with no physical conductor, as a satellite link does. Fibre, coax and twisted pair all guide the signal along a physical path.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m009",
+      "questionText": "Why are the two wires in a twisted pair twisted around each other?",
+      "options": [
+        "To make the cable mechanically stronger and harder to break",
+        "To increase the speed at which the signal propagates along the wire",
+        "To allow the cable to carry light pulses as well as electric current",
+        "So that noise and crosstalk affect both wires almost equally and cancel at the receiver"
+      ],
+      "correctIndex": 3,
+      "explanation": "Twisting places both wires alternately nearer to and farther from any noise source, so they pick up nearly the same interference; the receiver reads the difference between the wires, and the common noise cancels.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i12_m010",
+      "questionText": "A noiseless channel has a bandwidth of 3,000 Hz and uses binary signalling (two signal levels). What is its maximum bit rate according to the Nyquist formula?",
+      "options": [
+        "3 kbps",
+        "6 kbps",
+        "12 kbps",
+        "1.5 kbps"
+      ],
+      "correctIndex": 1,
+      "explanation": "Nyquist: C = 2B log2 L = 2 x 3000 x log2 2 = 6,000 bit/s = 6 kbps. Forgetting the factor 2 gives 3 kbps.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m011",
+      "questionText": "What is the minimum number of signal levels needed to send 48 kbps over a noiseless channel with a bandwidth of 4 kHz?",
+      "options": [
+        "64",
+        "6",
+        "12",
+        "4096"
+      ],
+      "correctIndex": 0,
+      "explanation": "48,000 = 2 x 4000 x log2 L, so log2 L = 6 and L = 2^6 = 64 levels. 6 is the number of bits per level, and 4096 = 2^12 comes from forgetting the factor 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m012",
+      "questionText": "A line with 2 MHz of usable bandwidth has a measured signal-to-noise ratio of 20 dB. What is the maximum error-free data rate it can support, according to Shannon?",
+      "options": [
+        "About 8.8 Mbps",
+        "About 26.6 Mbps",
+        "About 13.3 Mbps",
+        "About 6.9 Mbps"
+      ],
+      "correctIndex": 2,
+      "explanation": "20 dB means S/N = 10^(20/10) = 100, so C = 2 x 10^6 x log2(101) = 2 x 10^6 x 6.66 = 13.3 Mbps. Using 20 directly as the ratio gives 8.8 Mbps.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m013",
+      "questionText": "A signal loses half of its power as it travels along a cable. What is the attenuation in decibels?",
+      "options": [
+        "About -6 dB",
+        "About -0.3 dB",
+        "About -3 dB",
+        "About -10 dB"
+      ],
+      "correctIndex": 2,
+      "explanation": "Attenuation = 10 log10(P2 / P1) = 10 log10(0.5) = -3.01 dB, so about -3 dB. -6 dB would be half the voltage (20 log10), and -0.3 dB forgets the factor 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m014",
+      "questionText": "How long does it take to transmit a 1 MB file onto a 100 Mbps link, ignoring headers? Take 1 MB = 10^6 bytes and 1 Mbps = 10^6 bit/s.",
+      "options": [
+        "80 ms",
+        "76.3 ms",
+        "83.9 ms",
+        "10 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "Transmission delay = L / R = (10^6 x 8) bits / 10^8 bit/s = 0.08 s = 80 ms. 10 ms forgets to convert bytes to bits, and 83.9 ms or 76.3 ms mix in powers of 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m015",
+      "questionText": "What is the propagation delay over a 3,000 km optical fibre link if light travels at 2 x 10^8 m/s in the fibre?",
+      "options": [
+        "10 ms",
+        "15 ms",
+        "30 ms",
+        "1.5 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Propagation delay = d / v = 3 x 10^6 m / 2 x 10^8 m/s = 0.015 s = 15 ms. 10 ms wrongly uses the speed of light in vacuum, and 30 ms is the round trip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m016",
+      "questionText": "A signal passes through 4 km of cable with a loss of 3 dB/km and then through an amplifier with a gain of 7 dB. What is the overall gain of the path?",
+      "options": [
+        "+5 dB",
+        "-12 dB",
+        "-19 dB",
+        "-5 dB"
+      ],
+      "correctIndex": 3,
+      "explanation": "Decibels add: 4 x (-3) + 7 = -12 + 7 = -5 dB, a net loss. -12 dB ignores the amplifier and -19 dB wrongly counts it as a loss.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m017",
+      "questionText": "What mainly limits the distance and data rate of multimode fibre compared with single-mode fibre?",
+      "options": [
+        "Modal dispersion: rays on different paths arrive at different times and spread each pulse",
+        "Electromagnetic interference picked up from power cables along the route",
+        "Crosstalk between neighbouring pairs of wires inside the cable",
+        "Its inability to carry more than one wavelength of light at a time"
+      ],
+      "correctIndex": 0,
+      "explanation": "In a wide multimode core, rays that zigzag at steep angles travel farther than axial rays, so each light pulse spreads out and adjacent pulses overlap. Fibre is immune to EMI, and crosstalk between wire pairs is a copper problem.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m018",
+      "questionText": "How does graded-index multimode fibre reduce modal dispersion compared with step-index multimode fibre?",
+      "options": [
+        "Its core is made of plastic, which slows every ray by the same amount so they stay together",
+        "Its thicker cladding absorbs the slower high-angle rays before they reach the receiver",
+        "Its core index is highest at the centre and falls towards the cladding, so rays on longer paths travel faster and arrive at about the same time",
+        "Its core is narrowed until only one ray can travel, exactly as in single-mode fibre"
+      ],
+      "correctIndex": 2,
+      "explanation": "Light travels faster where the refractive index is lower, so the rays that curve out towards the edge of the core make up for their longer path. This equalises arrival times far better than a step-index core.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m019",
+      "questionText": "Which band of electromagnetic waves is omnidirectional, travels long distances and can pass through walls, making it suitable for AM/FM broadcasting?",
+      "options": [
+        "Infrared",
+        "Radio waves",
+        "Visible light",
+        "Millimetre-wave microwaves"
+      ],
+      "correctIndex": 1,
+      "explanation": "Radio waves (about 3 kHz to 1 GHz) spread in all directions and penetrate buildings, which suits broadcasting. Infrared and visible light are blocked by walls, and millimetre waves need line of sight.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m020",
+      "questionText": "A signal goes from a ground station up to a geostationary satellite at an altitude of 35,786 km and back down to another ground station. Assuming both stations are directly below the satellite and the signal travels at 3 x 10^8 m/s, what is the propagation delay?",
+      "options": [
+        "About 119 ms",
+        "About 477 ms",
+        "About 358 ms",
+        "About 239 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "The path is 2 x 35,786 km = 71,572 km, so the delay = 7.1572 x 10^7 / 3 x 10^8 = 0.2386 s, about 239 ms. 119 ms is the uplink only, 477 ms a full request-and-reply round trip, and 358 ms uses 2 x 10^8 m/s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m021",
+      "questionText": "Which is the lowest twisted-pair category rated to carry 10GBase-T (10 Gbps) over the full 100 m channel?",
+      "options": [
+        "Cat5e",
+        "Cat6a",
+        "Cat6",
+        "Cat3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Cat6a (500 MHz) supports 10GBase-T up to 100 m. Cat6 manages 10 Gbps only up to about 55 m, Cat5e (100 MHz) was designed for 1000Base-T and Cat3 for 10 Mbps.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m022",
+      "questionText": "The unwanted coupling of a signal from one pair of wires into a neighbouring pair is called:",
+      "options": [
+        "Crosstalk",
+        "Attenuation",
+        "Thermal noise",
+        "Distortion"
+      ],
+      "correctIndex": 0,
+      "explanation": "Crosstalk is noise induced by the signal on an adjacent wire. Attenuation is loss of energy with distance, thermal noise comes from random electron motion, and distortion is a change of shape.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m023",
+      "questionText": "A signal made of several frequency components changes shape because its components travel at different speeds and arrive at slightly different times. This impairment is called:",
+      "options": [
+        "Attenuation",
+        "Impulse noise",
+        "Crosstalk",
+        "Distortion"
+      ],
+      "correctIndex": 3,
+      "explanation": "Distortion is a change in the signal's shape caused by the different delays of its frequency components. Attenuation only reduces the strength, while impulse noise and crosstalk add unwanted energy.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m024",
+      "questionText": "Which statement about optical fibre is correct?",
+      "options": [
+        "Light in glass travels at about 3 x 10^8 m/s, so fibre gives a much lower propagation delay than copper",
+        "Fibre suffers no attenuation at all, so optical links never need repeaters or amplifiers",
+        "Its strengths are high bandwidth, low loss and immunity to EMI, but light in glass travels at only about 2 x 10^8 m/s",
+        "Fibre is easy to tap without being detected, which makes it less secure than copper"
+      ],
+      "correctIndex": 2,
+      "explanation": "Glass has a refractive index of about 1.5, so light in it moves at roughly 2 x 10^8 m/s, much like signals in copper. Fibre still attenuates (about 0.2-0.35 dB/km in single-mode fibre) and is hard to tap unnoticed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i12_m025",
+      "questionText": "A channel has a bandwidth of 4 MHz and a signal-to-noise ratio of 255. Using the Nyquist formula, how many signal levels are needed to transmit at the channel's Shannon capacity?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "256"
+      ],
+      "correctIndex": 2,
+      "explanation": "Shannon: C = 4 x 10^6 x log2(256) = 32 Mbps. Nyquist: 32 x 10^6 = 2 x 4 x 10^6 x log2 L, so log2 L = 4 and L = 16. 256 is 1 + S/N, and 8 is log2(1 + S/N).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i12_m026",
+      "questionText": "A 1,000-byte frame is sent on a 1 Gbps link with a propagation speed of 2 x 10^8 m/s. At what link length does the propagation delay equal the transmission delay?",
+      "options": [
+        "0.2 km",
+        "1.6 km",
+        "0.8 km",
+        "2.4 km"
+      ],
+      "correctIndex": 1,
+      "explanation": "Transmission delay = 8,000 bits / 10^9 bit/s = 8 µs. Setting d / v = 8 µs gives d = 2 x 10^8 x 8 x 10^-6 = 1,600 m = 1.6 km. 0.2 km treats bytes as bits, and 2.4 km uses 3 x 10^8 m/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i12_m027",
+      "questionText": "A 5,000 km fibre link runs at 1 Gbps with a propagation speed of 2 x 10^8 m/s. How many bits are in flight on the link at one time (one way), and how long is each bit on the fibre?",
+      "options": [
+        "2.5 x 10^7 bits, 0.2 m",
+        "5 x 10^7 bits, 0.2 m",
+        "2.5 x 10^7 bits, 5 m",
+        "3.125 x 10^6 bits, 0.2 m"
+      ],
+      "correctIndex": 0,
+      "explanation": "Tp = 5 x 10^6 / 2 x 10^8 = 25 ms, so the bandwidth-delay product = 10^9 x 0.025 = 2.5 x 10^7 bits. Bit length = v / R = 2 x 10^8 / 10^9 = 0.2 m; 5 x 10^7 is the round-trip figure and 3.125 x 10^6 is the result in bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i12_m028",
+      "questionText": "A transmitter launches 20 dBm into a 40 km single-mode fibre with a loss of 0.25 dB/km, and the link has two connectors with a loss of 0.5 dB each. What optical power reaches the receiver?",
+      "options": [
+        "9.00 mW",
+        "10.0 mW",
+        "79.4 mW",
+        "7.94 mW"
+      ],
+      "correctIndex": 3,
+      "explanation": "Received power = 20 - 40 x 0.25 - 2 x 0.5 = 20 - 10 - 1 = 9 dBm, and 10^(9/10) mW = 7.94 mW. 10.0 mW ignores the connectors, 79.4 mW (19 dBm) ignores the fibre loss, and 9.00 mW reads dBm as mW.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i12_m029",
+      "questionText": "An optical fibre has a core index of 1.50 and a cladding index of 1.45. What is the critical angle at the core-cladding boundary, measured from the normal?",
+      "options": [
+        "41.8°",
+        "75.2°",
+        "14.8°",
+        "43.6°"
+      ],
+      "correctIndex": 1,
+      "explanation": "θc = arcsin(n2 / n1) = arcsin(1.45 / 1.50) = arcsin(0.9667) = 75.2°. 41.8° is the glass-to-air critical angle arcsin(1 / 1.5), and 14.8° is the complement 90° - 75.2°.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i12_m030",
+      "questionText": "A telephone channel has a bandwidth of 3 kHz and a signal-to-noise ratio of 20 dB, and the modem uses 4 signal levels. What is the highest bit rate it can achieve?",
+      "options": [
+        "12 kbps",
+        "6 kbps",
+        "20.0 kbps",
+        "13.2 kbps"
+      ],
+      "correctIndex": 0,
+      "explanation": "Nyquist with 4 levels allows 2 x 3000 x log2 4 = 12 kbps; Shannon allows 3000 x log2(1 + 100) = 19.97 kbps. The achievable rate is the smaller limit, 12 kbps; 20.0 kbps would need more levels.",
+      "difficulty": "hard"
+    }
+  ]
+}

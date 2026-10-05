@@ -1,0 +1,2979 @@
+{
+  "parent": {
+    "id": "ch3_p5",
+    "title": "Virtual Functions & File Handling"
+  },
+  "subtopics": [
+    {
+      "id": "ch3_t5",
+      "title": "Virtual Functions, Dynamic Binding & Abstract Classes",
+      "subtitle": "Run-time polymorphism via base pointers, vtables, virtual destructors and abstract classes",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Polymorphism: One Interface, Many Forms"
+          },
+          {
+            "type": "paragraph",
+            "text": "Polymorphism (Greek: \"many forms\") lets the same function call behave differently depending on the object it acts on. C++ offers two kinds. Compile-time (static) polymorphism is achieved with function overloading, operator overloading and templates: the compiler picks the function from the argument types while compiling. Run-time (dynamic) polymorphism is achieved with virtual functions called through a base-class pointer or reference: the function actually executed is chosen while the program runs, from the real type of the object being pointed to."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Compile-time polymorphism",
+                "Run-time polymorphism"
+              ],
+              [
+                "Also called",
+                "Early or static binding",
+                "Late or dynamic binding"
+              ],
+              [
+                "Achieved by",
+                "Function overloading, operator overloading, templates",
+                "Virtual functions called through base pointers or references"
+              ],
+              [
+                "Decided",
+                "At compile time from the static type of the expression",
+                "At run time from the dynamic type of the object"
+              ],
+              [
+                "Mechanism",
+                "Overload resolution and name mangling",
+                "Hidden vptr in the object plus a per-class vtable"
+              ],
+              [
+                "Run-time cost",
+                "None",
+                "One pointer per object and one indirection per call"
+              ],
+              [
+                "Example",
+                "int add(int,int) and double add(double,double)",
+                "Shape *s = new Circle; s->area() runs Circle::area"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Pointers to Base and Static Binding"
+          },
+          {
+            "type": "paragraph",
+            "text": "Under public inheritance a derived object is-a base object, so a base-class pointer or reference may point to a derived object without any cast (upcasting is implicit). The reverse needs an explicit cast. When a member function is not virtual, the compiler resolves p->show() from the declared type of p, so the base version runs even though p points to a derived object. This is static (early) binding, and it is the default in C++."
+          },
+          {
+            "type": "code",
+            "text": "class Base {\npublic:\n    void show() { cout << \"Base\\n\"; }        // NOT virtual\n};\nclass Derived : public Base {\npublic:\n    void show() { cout << \"Derived\\n\"; }     // hides Base::show\n};\nint main() {\n    Derived d;\n    Base *p = &d;    // base pointer -> derived object (implicit upcast)\n    p->show();       // prints \"Base\": chosen from the pointer type (static binding)\n    d.show();        // prints \"Derived\": chosen from the object type\n}",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Virtual Functions and Dynamic Binding"
+          },
+          {
+            "type": "bulletList",
+            "text": "A virtual function is a base-class member function declared with the keyword virtual; it tells the compiler to defer the choice of function to run time. Rules:",
+            "items": [
+              "Declare it virtual in the base class only; once virtual, it stays virtual in every derived class even if the keyword is omitted there.",
+              "The derived version must have the same name, the same parameter list, the same const-ness and the same (or covariant) return type; a different parameter list creates an unrelated overload that hides the base function instead of overriding it.",
+              "C++11 override after the parameter list asks the compiler to verify that the function really overrides a base virtual; final forbids further overriding.",
+              "Dynamic binding happens only when the call goes through a pointer or reference to the base; calling through an object (b.f()) is always resolved statically by slicing.",
+              "A virtual function cannot be static (no this pointer) and cannot be a friend (friends are not members); a constructor cannot be virtual, but a destructor can and usually should be.",
+              "If the derived class does not override, the base version is inherited and used; the base implementation can be called explicitly as Base::f().",
+              "Default arguments are bound statically from the pointer type, so keep them identical in base and derived versions."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Mechanism in outline: for every class with at least one virtual function the compiler builds one virtual table (vtable), an array of function pointers holding the address of the most-derived override of each virtual function. Every object of such a class carries a hidden pointer (vptr) that the constructor sets to its class's vtable. A call p->area() becomes: read p->vptr, take the entry for area in that table, call it. The lookup is constant time but is one indirection slower than a direct call and adds one pointer (4 or 8 bytes) to each object."
+          },
+          {
+            "type": "code",
+            "text": "class Shape {\npublic:\n    virtual double area() const { return 0; }  // virtual: run-time dispatch\n    virtual ~Shape() {}                        // virtual destructor\n};\nclass Circle : public Shape {\n    double r;\npublic:\n    Circle(double r0) : r(r0) {}\n    double area() const override { return 3.14159 * r * r; }\n};\n// class Rect : public Shape is written the same way; area() returns w * h\nShape *s[2] = { new Circle(2.0), new Rect(3.0, 4.0) };\nfor (int i = 0; i < 2; i++) cout << s[i]->area() << '\\n';  // 12.5664 then 12\nfor (int i = 0; i < 2; i++) delete s[i];   // ~Circle / ~Rect run because ~Shape is virtual",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Virtual Destructors"
+          },
+          {
+            "type": "paragraph",
+            "text": "When a derived object is deleted through a base-class pointer, the destructor that runs is chosen exactly like any other member call. If the base destructor is not virtual, only ~Base runs, the derived part is never cleaned up and the behaviour is formally undefined. Declaring the base destructor virtual makes delete p look up the real destructor in the vtable, so ~Derived runs first and then ~Base, as usual. Rule of thumb: any class that has one virtual function, or is meant to be used polymorphically, must also have a virtual destructor."
+          },
+          {
+            "type": "code",
+            "text": "class Base {\npublic:\n    ~Base() { cout << \"~Base\\n\"; }             // NOT virtual\n};\nclass Derived : public Base {\n    int *buf;\npublic:\n    Derived() : buf(new int[100]) {}\n    ~Derived() { delete[] buf; cout << \"~Derived\\n\"; }\n};\nint main() {\n    Base *p = new Derived;\n    delete p;      // prints only \"~Base\"; buf leaks (undefined behaviour)\n}                  // fix: virtual ~Base() {}  -> \"~Derived\" then \"~Base\"",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Pure Virtual Functions and Abstract Classes"
+          },
+          {
+            "type": "bulletList",
+            "text": "A pure virtual function is declared by appending = 0 to the virtual declaration. The class then becomes an abstract class:",
+            "items": [
+              "An abstract class contains at least one pure virtual function and cannot be instantiated: Shape s; and new Shape are compile errors.",
+              "Pointers and references to an abstract class are allowed, and this is exactly how polymorphic code is written: Shape *p = new Circle(2).",
+              "A derived class must override every pure virtual function to become concrete; if it leaves any unoverridden it is itself abstract.",
+              "A pure virtual function may still have a body defined outside the class (Shape::area() { ... }); derived classes can call it as Shape::area(), but the class stays abstract.",
+              "An abstract class can have data members, constructors (called from derived constructors) and ordinary member functions.",
+              "A class whose members are all pure virtual functions plus a virtual destructor acts as an interface: it fixes what derived classes must provide without supplying any implementation."
+            ]
+          },
+          {
+            "type": "code",
+            "text": "class Animal {                        // abstract class\npublic:\n    virtual void speak() const = 0;   // pure virtual: no body required\n    virtual ~Animal() {}\n};\nclass Dog : public Animal {\npublic:\n    void speak() const override { cout << \"Woof\\n\"; }\n};\nint main() {\n    // Animal a;          // error: cannot declare variable of abstract type\n    Animal *p = new Dog;  // pointer to abstract type is fine\n    p->speak();           // Woof\n    delete p;\n}",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: How a Virtual Call Is Resolved"
+          },
+          {
+            "type": "paragraph",
+            "text": "Every expression that names an object has a static type, fixed by its declaration, and the object it refers to has a dynamic type, the class it was actually created as. For a call p->f() the compiler always uses the static type to find the name, check access and pick among overloads; only if the chosen function is virtual is the body finally taken from the dynamic type, through the vptr. The function that runs is the final overrider: the most-derived override on the path from the static class to the object's class. Three situations make even a virtual call run a base version when the object is really a Derived: calling through a base-class object instead of a pointer or reference, qualifying the name as Base::f(), and calling from inside a base constructor or destructor."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() { cout << \"Bf \"; }\n    void g() { cout << \"Bg \"; f(); }\n};\nstruct Der : Base {\n    void f() override { cout << \"Df \"; }\n    void g() { cout << \"Dg \"; }\n};\nint main() {\n    Der d; Base *p = &d; Base b = d;\n    p->g(); p->Base::f(); b.f(); d.g();\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: Bg Df Bf Bf Dg\n\np->g()      g is non-virtual: Base::g runs, prints Bg\n            inside it f() is this->f(), virtual: prints Df\np->Base::f() qualified name, no dispatch: prints Bf\nb.f()       b is a sliced copy whose dynamic type is Base: Bf\nd.g()       static type Der: Der::g hides Base::g, prints Dg"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Call situation",
+                "Function that runs",
+                "Reason"
+              ],
+              [
+                "p->f(), f virtual in Base",
+                "Final overrider for *p's real class",
+                "Looked up through the vptr at run time"
+              ],
+              [
+                "p->f(), f not virtual",
+                "Base::f",
+                "Bound from the static type of p"
+              ],
+              [
+                "obj.f() on a Base object",
+                "Base::f",
+                "Object's dynamic type is its declared type"
+              ],
+              [
+                "p->Base::f()",
+                "Base::f",
+                "Qualified name suppresses dispatch"
+              ],
+              [
+                "Virtual call inside ~Base or Base()",
+                "Base's version",
+                "Derived part not built yet or already destroyed"
+              ],
+              [
+                "Default argument of p->f()",
+                "Base's default value",
+                "Defaults are bound at compile time"
+              ],
+              [
+                "Derived f with different parameters or const",
+                "Base::f through the pointer",
+                "Not an override; it only hides the name"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Construction and destruction explain the constructor rule. A Robot is built base first: while Machine() runs, the vptr points to Machine's vtable, so name() gives the Machine version. Robot() then resets the vptr to Robot's table before its body runs. Destruction reverses the steps: ~Robot's body, then its members, then ~Machine, with the vptr switched back to Machine's table before ~Machine's body. A virtual destructor is what lets delete m start at ~Robot even though m is a Machine pointer."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\nusing namespace std;\nstruct Part { ~Part() { cout << \"~Part \"; } };\nstruct Machine {\n    Machine() { cout << \"M:\" << name() << \" \"; }\n    virtual ~Machine() { cout << \"~M:\" << name() << \" \"; }\n    virtual const char *name() const { return \"machine\"; }\n};\nstruct Robot : Machine {\n    Part arm;\n    Robot() { cout << \"R:\" << name() << \" \"; }\n    ~Robot() { cout << \"~R \"; }\n    const char *name() const override { return \"robot\"; }\n};\nint main() { Machine *m = new Robot; delete m; }"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: M:machine R:robot ~R ~Part ~M:machine\n\nnew Robot   Machine() runs first, vptr = Machine table: M:machine\n            Robot() runs, vptr = Robot table:         R:robot\ndelete m    ~Machine is virtual, so ~Robot runs first:  ~R\n            member arm is destroyed after the body:   ~Part\n            ~Machine runs with vptr back on Machine:  ~M:machine"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{sizeof(obj)} = \\left\\lceil \\frac{d + p}{a} \\right\\rceil \\times a",
+            "plainText": "sizeof(obj) = ceil((d + p) / a) x a, where d = bytes of data members (assuming no padding is needed between them), p = vptr size, a = the largest alignment requirement among the members and the vptr. Implementation-dependent: this assumes the usual model of one vptr per object; on a typical 64-bit system (4-byte int, 8-byte vptr with 8-byte alignment) one int plus the vptr gives ceil(12/8) x 8 = 16 bytes"
+          },
+          {
+            "type": "bulletList",
+            "text": "Checklist for a correct override, and what happens when a rule is broken:",
+            "items": [
+              "Same name, parameter types and const or ref qualifiers as the base virtual function; any difference creates a new function that hides the base one.",
+              "Return type identical, or covariant: Base* or Base& in the base may become Derived* or Derived& in the override; any other change is a compile error.",
+              "Access may differ: a private override is still called through a public base pointer, because access is checked against the static type.",
+              "Mark every override with override so mismatches become compile errors, and use final to stop further overriding or further derivation.",
+              "A pure virtual destructor, virtual ~Shape() = 0;, still needs a definition such as Shape::~Shape() {}, because every derived destructor calls it."
+            ]
+          },
+          {
+            "type": "warning",
+            "text": "Three frequent bugs: a derived function missing the const of the base version (it silently stops overriding), deleting a derived object through a base pointer whose destructor is not virtual (undefined behaviour), and storing derived objects by value in a base-class array or parameter (slicing). Pointers, references and override avoid all three."
+          },
+          {
+            "type": "examTip",
+            "text": "For an output question, first note the static type of each pointer or reference and the class each object was created as. Then check three things: is the function virtual at that static level, is the call made through a pointer or reference, and is a constructor or destructor running at that moment. Only when all three favour dispatch does the derived version run."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{virtual } T\\ f(\\ldots) = 0;",
+            "plainText": "virtual T f(...) = 0;  (pure virtual; class becomes abstract)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{sizeof(obj)} = \\text{data members} + \\text{sizeof(vptr)}",
+            "plainText": "sizeof(object) = data members + sizeof(vptr) when the class has any virtual function"
+          },
+          {
+            "type": "formula",
+            "latex": "p \\rightarrow vptr \\rightarrow vtable[i] \\rightarrow f()",
+            "plainText": "virtual call: p -> vptr -> vtable[i] -> f(), one indirection, O(1)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "warning",
+            "text": "Deleting a derived object through a base pointer whose destructor is not virtual is undefined behaviour and typically leaks the derived part. Any polymorphic base class needs virtual ~Base()."
+          },
+          {
+            "type": "examTip",
+            "text": "Output-prediction trap: with Base *p = &d, p->f() runs Derived::f only if f is virtual in Base; otherwise Base::f runs. A call through an object (Base b = d; b.f()) always runs Base::f because the derived part is sliced off."
+          },
+          {
+            "type": "note",
+            "text": "Overloading = same name, different parameter list, resolved at compile time (compile-time polymorphism). Overriding = same signature, virtual, redefined in a derived class, resolved at run time. Redefining a non-virtual function in a derived class is hiding, not overriding."
+          },
+          {
+            "type": "warning",
+            "text": "Constructors, static member functions and friend functions can never be virtual; a virtual call made from inside a constructor uses the constructor's own class version because the derived part does not exist yet."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_t5_01",
+          "title": "Pure virtual declaration",
+          "latex": "\\text{virtual } T\\ f(\\ldots) = 0;",
+          "plainText": "virtual T f(...) = 0;",
+          "description": "Appending = 0 makes the function pure virtual and the enclosing class abstract; derived classes must override it to be instantiable."
+        },
+        {
+          "id": "f_ch3_t5_02",
+          "title": "Object size with vptr",
+          "latex": "\\text{sizeof(obj)} = \\text{data members} + \\text{sizeof(vptr)}",
+          "plainText": "sizeof(object) = data members + sizeof(vptr)",
+          "description": "A class with any virtual function carries one hidden pointer, so a class holding a single int plus a virtual function is 8 bytes on a 32-bit build and 16 bytes on a 64-bit build after alignment."
+        },
+        {
+          "id": "f_ch3_t5_03",
+          "title": "Virtual call resolution",
+          "latex": "p \\rightarrow vptr \\rightarrow vtable[i] \\rightarrow f()",
+          "plainText": "p -> vptr -> vtable[i] -> f()",
+          "description": "A virtual call reads the object's vptr, indexes the class vtable and jumps to the stored address: constant time, one indirection more than a direct call."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_t5_01",
+          "front": "What is the difference between static and dynamic binding in C++?",
+          "back": "Static (early) binding resolves a call at compile time from the declared type of the pointer or object; dynamic (late) binding resolves a virtual function call at run time from the actual type of the object pointed to.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_t5_02",
+          "front": "Why should a polymorphic base class have a virtual destructor?",
+          "back": "So that delete through a base pointer runs the derived destructor first and then the base one; without it only the base destructor runs and the behaviour is undefined.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_t5_03",
+          "front": "Can you create objects, pointers and references of an abstract class?",
+          "back": "Objects no (compile error), but pointers and references yes; they are the normal way to hold derived objects polymorphically.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_t5_04",
+          "front": "What does the vtable contain and where is the vptr stored?",
+          "back": "The vtable is a per-class array of pointers to the most-derived override of each virtual function; the vptr is a hidden data member in every object of a polymorphic class, set by the constructor to its class's vtable.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_t5_m001",
+          "questionText": "Which of the following calls is resolved at compile time (static or early binding) in C++?",
+          "options": [
+            "The destructor selected by delete on a base-class pointer when the base destructor is virtual",
+            "A virtual function called through a base-class pointer",
+            "A virtual function called through a base-class reference",
+            "A call to an overloaded function, where add(2, 3) selects add(int, int) from the argument types"
+          ],
+          "correctIndex": 3,
+          "explanation": "Overload resolution uses the static types of the arguments, so the compiler fixes the call while compiling. The other three calls go through the vtable and depend on the dynamic type of the object, which is known only at run time.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m002",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() { cout << \"B\"; }\n    void g() { cout << \"B\"; }\n};\nstruct Der : Base {\n    void f() { cout << \"D\"; }\n    void g() { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->f(); p->g();\n}",
+          "options": [
+            "BB",
+            "DD",
+            "DB",
+            "BD"
+          ],
+          "correctIndex": 2,
+          "explanation": "f is virtual, so p->f() uses the dynamic type Der and prints D. g is not virtual, so p->g() is bound from the pointer type Base and prints B.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m003",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { virtual void show() const { cout << \"Base \"; } };\nstruct Derived : Base { void show() const override { cout << \"Derived \"; } };\nvoid byRef(const Base &b) { b.show(); }\nvoid byVal(Base b) { b.show(); }\nint main() {\n    Derived d;\n    byRef(d);\n    byVal(d);\n}",
+          "options": [
+            "Derived Base",
+            "Derived Derived",
+            "Base Base",
+            "Base Derived"
+          ],
+          "correctIndex": 0,
+          "explanation": "byRef receives a reference to the real Derived object, so the virtual call reaches Derived::show. byVal copies only the Base part of d into a new Base parameter (object slicing), and that object's dynamic type is Base.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m004",
+          "questionText": "A base class declares virtual void draw();. A publicly derived class declares void draw(); without the keyword virtual. What is the status of the derived draw()?",
+          "options": [
+            "It is non-virtual, so a call through a base pointer runs Base::draw",
+            "It is virtual and overrides Base::draw, because a function with the same signature inherits virtual-ness",
+            "It is a compile error, because virtual must be repeated in every derived class",
+            "It overrides Base::draw only if the override keyword is also written"
+          ],
+          "correctIndex": 1,
+          "explanation": "A derived function with the same name, parameter list and const-qualification as a base virtual function overrides it and is itself virtual, whether or not the keyword is repeated. override is optional; it only asks the compiler to check the match.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m005",
+          "questionText": "Which line of this code fragment fails to compile?\n\nstruct Base {\n    virtual void f(int) {}\n    virtual void g() const {}\n    virtual void h(double) {}\n};\nstruct Der : Base {\n    void f(int) override {}      // line A\n    void g() override {}         // line B\n    void h(double) override {}   // line C\n};",
+          "options": [
+            "Line A",
+            "Line B",
+            "Line C",
+            "None; all three lines compile"
+          ],
+          "correctIndex": 1,
+          "explanation": "Der::g lacks the const of Base::g, so it has a different signature and overrides nothing; the override specifier turns that into a compile error. Lines A and C match their base functions exactly.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m006",
+          "questionText": "What happens when this program is compiled?\n\nstruct A { virtual void f() {} };\nstruct B : A { void f() final {} };\nstruct C : B { void f() {} };\nint main() { C c; }",
+          "options": [
+            "It compiles; final only stops B itself from being used as a base class",
+            "It compiles; C::f simply hides B::f",
+            "Compile error: final can be applied only to a class, not to a function",
+            "Compile error: C::f tries to override B::f, which is declared final"
+          ],
+          "correctIndex": 3,
+          "explanation": "final written after a virtual function's parameter list forbids any further overriding of that function. C::f has the same signature, so it would override B::f, and the compiler rejects it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m007",
+          "questionText": "What does the declaration class Leaf final : public Node { /* ... */ }; guarantee?",
+          "options": [
+            "Leaf cannot override any virtual function of Node",
+            "Leaf cannot be instantiated",
+            "No class can be derived from Leaf",
+            "All member functions of Leaf become virtual"
+          ],
+          "correctIndex": 2,
+          "explanation": "final after the class name forbids using Leaf as a base class. Leaf can still be instantiated and can still override the virtual functions it inherits from Node.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m008",
+          "questionText": "Which numbered line of this program causes a compile error?\n\nstruct Shape {\n    virtual double area() const = 0;\n    virtual double perim() const = 0;\n};\nstruct Sq : Shape { double area() const override { return 4; } };\nstruct Cube : Sq { double perim() const override { return 8; } };\nint main() {\n    Shape *p = nullptr;   // line 1\n    Cube c;               // line 2\n    Sq s;                 // line 3\n    Shape &r = c;         // line 4\n}",
+          "options": [
+            "Line 1",
+            "Line 2",
+            "Line 3",
+            "Line 4"
+          ],
+          "correctIndex": 2,
+          "explanation": "Sq overrides area but not perim, so it still has a pure virtual function and is abstract; declaring an Sq object is an error. Cube overrides the remaining function and is concrete, and pointers or references to abstract types are always allowed.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m009",
+          "questionText": "Which member declaration, written inside class X, is a compile error?",
+          "options": [
+            "virtual static void f();",
+            "virtual ~X();",
+            "virtual void g() const = 0;",
+            "virtual X *clone() const;"
+          ],
+          "correctIndex": 0,
+          "explanation": "A static member function has no this pointer and no object to dispatch on, so it cannot be virtual. Destructors, const pure virtual functions and functions returning pointers can all be virtual.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m010",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct M { ~M() { cout << \"~M \"; } };\nstruct A { virtual ~A() { cout << \"~A \"; } };\nstruct B : A { M m; ~B() { cout << \"~B \"; } };\nstruct C : B { ~C() { cout << \"~C \"; } };\nint main() {\n    A *p = new C;\n    delete p;\n}",
+          "options": [
+            "~M ~C ~B ~A",
+            "~C ~B ~A ~M",
+            "~A",
+            "~C ~B ~M ~A"
+          ],
+          "correctIndex": 3,
+          "explanation": "Because ~A is virtual, delete p starts with the most-derived destructor ~C. Each destructor body runs before its class's members and bases are destroyed, so ~B's body is followed by the member m (~M) and then the base A (~A).",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m011",
+          "questionText": "Base has a public non-virtual destructor and Derived is publicly derived from Base. According to the C++ standard, what is the result of Base *p = new Derived; delete p;?",
+          "options": [
+            "Well-defined: only ~Base runs",
+            "Undefined behaviour",
+            "Well-defined: ~Derived runs and then ~Base",
+            "A compile error, because the destructor is not virtual"
+          ],
+          "correctIndex": 1,
+          "explanation": "Deleting an object through a pointer to a base class whose destructor is not virtual is undefined behaviour. Many compilers happen to run only ~Base, but nothing is guaranteed; the fix is to declare virtual ~Base().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m012",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    Base() { hello(); }\n    virtual void hello() { cout << \"Base \"; }\n};\nstruct Der : Base {\n    Der() { hello(); }\n    void hello() override { cout << \"Der \"; }\n};\nint main() { Der d; }",
+          "options": [
+            "Base Der",
+            "Der Der",
+            "Base Base",
+            "Der Base"
+          ],
+          "correctIndex": 0,
+          "explanation": "While Base's constructor runs the object is still only a Base (its vptr refers to Base's vtable), so hello() calls Base::hello. By the time Der's constructor body runs the object is a Der, so Der::hello is called.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m013",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void id() { cout << \"B\"; }\n    virtual ~Base() { id(); }\n};\nstruct Der : Base {\n    void id() override { cout << \"D\"; }\n    ~Der() { id(); }\n};\nint main() {\n    Base *p = new Der;\n    p->id();\n    delete p;\n}",
+          "options": [
+            "DDD",
+            "DDB",
+            "DBB",
+            "BDB"
+          ],
+          "correctIndex": 1,
+          "explanation": "p->id() dispatches to Der::id and prints D, and delete p then runs ~Der, whose id() call also prints D. Once ~Der has finished the object is treated as a Base again, so the id() call inside ~Base prints B.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m014",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Animal { virtual char tag() const { return 'A'; } };\nstruct Cat : Animal { char tag() const override { return 'C'; } };\nstruct Dog : Animal { char tag() const override { return 'D'; } };\nint main() {\n    Cat c; Dog d;\n    Animal arr[2] = { c, d };\n    Animal *ptr[2] = { &c, &d };\n    for (int i = 0; i < 2; i++)\n        cout << arr[i].tag() << ptr[i]->tag() << \" \";\n}",
+          "options": [
+            "AA AA",
+            "CC DD",
+            "AC AD",
+            "CA DA"
+          ],
+          "correctIndex": 2,
+          "explanation": "arr holds Animal objects copied from c and d, so each element is sliced and calls Animal::tag. ptr holds the addresses of the original objects, so those virtual calls reach Cat::tag and Dog::tag.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m015",
+          "questionText": "Class A has a virtual function, and classes B and C are both publicly derived from A. main creates one A, two B and three C objects. In the usual implementation (one vtable per polymorphic class, one vptr per object, single inheritance), how many vtables and vptrs exist?",
+          "options": [
+            "1 vtable and 6 vptrs",
+            "6 vtables and 6 vptrs",
+            "3 vtables and 3 vptrs",
+            "3 vtables and 6 vptrs"
+          ],
+          "correctIndex": 3,
+          "explanation": "Each polymorphic class (A, B and C) has one vtable shared by all of its objects, giving 3 tables. Each of the 1 + 2 + 3 = 6 objects carries its own vptr.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m016",
+          "questionText": "Assume int is 4 bytes, pointers are 8 bytes with 8-byte alignment, and virtual functions are implemented with a vptr. What does this program print?\n\n#include <iostream>\nusing namespace std;\nclass A { int x; public: void f() {} };\nclass B { int x; public: virtual void f() {} };\nint main() {\n    cout << sizeof(A) << \" \" << sizeof(B);\n}",
+          "options": [
+            "4 16",
+            "4 12",
+            "4 8",
+            "8 16"
+          ],
+          "correctIndex": 0,
+          "explanation": "A contains only the int, so sizeof(A) = 4. B also holds a hidden 8-byte vptr: 8 + 4 = 12 bytes, rounded up to a multiple of the 8-byte alignment, gives 16.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m017",
+          "questionText": "In the usual vtable implementation, when does an object's hidden vptr get its value?",
+          "options": [
+            "At load time, when the linker fixes all addresses in the program",
+            "In the constructors, while the object is being built, ending with the vtable of the object's own class",
+            "On the first virtual function call made through the object",
+            "In the new operator, from the type of the pointer that receives the address"
+          ],
+          "correctIndex": 1,
+          "explanation": "Each constructor stores its own class's vtable address in the vptr before its body runs, so after the most-derived constructor the vptr refers to that class's table. This is also why a virtual call inside a base constructor runs the base version.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m018",
+          "questionText": "In the usual implementation of virtual functions, what does a class's vtable contain?",
+          "options": [
+            "The names of all member functions, searched by name at run time",
+            "The current values of the data members of every object",
+            "The addresses of all objects created from that class",
+            "The addresses of the functions to run for each virtual function of that class"
+          ],
+          "correctIndex": 3,
+          "explanation": "A vtable is a per-class table of function pointers, one slot per virtual function, each holding the final overrider for that class. Objects reach it through their vptr; it stores no data members and no object addresses.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m019",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void show(int n = 1) { cout << \"B\" << n << \" \"; }\n};\nstruct Der : Base {\n    void show(int n = 2) override { cout << \"D\" << n << \" \"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->show();\n    d.show();\n}",
+          "options": [
+            "D1 D2",
+            "D2 D2",
+            "B1 D2",
+            "D1 D1"
+          ],
+          "correctIndex": 0,
+          "explanation": "The function body is chosen at run time (Der::show both times), but default arguments are taken at compile time from the static type of the call expression. p->show() uses Base's default 1 and prints D1, while d.show() uses Der's default 2 and prints D2.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m020",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Shape {\n    virtual void draw() = 0;\n};\nvoid Shape::draw() { cout << \"outline \"; }\nstruct Box : Shape {\n    void draw() override { Shape::draw(); cout << \"box\"; }\n};\nint main() {\n    Box b;\n    Shape &s = b;\n    s.draw();\n}",
+          "options": [
+            "Compile error: a pure virtual function cannot have a body",
+            "box",
+            "outline box",
+            "box outline"
+          ],
+          "correctIndex": 2,
+          "explanation": "A pure virtual function may be defined outside the class; Shape stays abstract, but a derived class can call the definition with the qualified name Shape::draw(). s.draw() runs Box::draw, which prints outline first and then box.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m021",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { void f() { cout << \"A\"; } };\nstruct B : A { virtual void f() { cout << \"B\"; } };\nstruct C : B { void f() { cout << \"C\"; } };\nint main() {\n    C c;\n    A *pa = &c;\n    B *pb = &c;\n    pa->f();\n    pb->f();\n}",
+          "options": [
+            "AC",
+            "CC",
+            "AB",
+            "BC"
+          ],
+          "correctIndex": 0,
+          "explanation": "f is not virtual in A, so pa->f() is bound statically to A::f. f becomes virtual from B downwards, so pb->f() is dispatched to the final overrider C::f.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m022",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { virtual void f() { cout << \"A\"; } };\nstruct B : A { };\nstruct C : B { void f() override { cout << \"C\"; } };\nint main() {\n    B b;\n    C c;\n    A *p = &b;\n    p->f();\n    p = &c;\n    p->f();\n}",
+          "options": [
+            "BC",
+            "AC",
+            "AA",
+            "CC"
+          ],
+          "correctIndex": 1,
+          "explanation": "B does not override f, so it inherits A::f and a call on a B object runs A::f. C overrides f, so after p is re-pointed to c the same call runs C::f.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m023",
+          "questionText": "Which statement about function overriding in C++ is correct?",
+          "options": [
+            "Overriding can take place between two member functions of the same class",
+            "The derived function must have a different parameter list from the base function",
+            "The derived function has the same name and parameter list as a base virtual function, and the call is chosen at run time",
+            "Overriding is resolved at compile time from the argument types"
+          ],
+          "correctIndex": 2,
+          "explanation": "Overriding redefines a base-class virtual function with the same signature in a derived class and is resolved by dynamic binding. Functions with different parameter lists in the same scope are overloads, which are resolved at compile time.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m024",
+          "questionText": "Which statement about an abstract class in C++ is correct?",
+          "options": [
+            "A class derived from it becomes concrete even if it overrides none of the pure virtual functions",
+            "It cannot declare any data members",
+            "All of its member functions must be pure virtual",
+            "Its constructor runs whenever an object of a concrete class derived from it is created"
+          ],
+          "correctIndex": 3,
+          "explanation": "Apart from having at least one pure virtual function, an abstract class is an ordinary base class: it may have data members, constructors and normal functions, and its constructor runs for the base part of every derived object. A derived class stays abstract until every pure virtual function has been overridden.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m025",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Shape {\n    Shape() { cout << \"S \"; }\n    virtual ~Shape() { cout << \"~S \"; }\n    virtual void draw() const = 0;\n};\nstruct Circle : Shape {\n    Circle() { cout << \"C \"; }\n    ~Circle() { cout << \"~C \"; }\n    void draw() const override { cout << \"draw \"; }\n};\nint main() {\n    Shape *p = new Circle; p->draw(); delete p;\n}",
+          "options": [
+            "C draw ~C",
+            "S C draw ~C ~S",
+            "S C draw ~S",
+            "C S draw ~S ~C"
+          ],
+          "correctIndex": 1,
+          "explanation": "Construction runs the base part first (S) and then the derived part (C), and draw() is dispatched to Circle. Because ~Shape is virtual, delete p runs ~Circle before ~Shape.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m026",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { int n = 0; virtual void f() { cout << \"B\" << n; } };\nstruct D1 : Base { void f() override { cout << \"X\" << n; } };\nstruct D2 : Base { void f() override { cout << \"Y\" << n; } };\nint main() {\n    D1 a;\n    D2 b;\n    b.n = 5;\n    Base &r = a;\n    r = b;\n    r.f();\n}",
+          "options": [
+            "X0",
+            "Y5",
+            "X5",
+            "B5"
+          ],
+          "correctIndex": 2,
+          "explanation": "A reference cannot be re-seated: r = b calls Base's copy assignment and copies only the Base part (n = 5) of b into a. The vptr is not copied, so r still refers to a D1 object and r.f() prints X5.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m027",
+          "questionText": "What is object slicing in C++?",
+          "options": [
+            "Accessing only the public members of an object through a pointer",
+            "Splitting a large class into several smaller base classes",
+            "Deleting a derived object through a base pointer that has no virtual destructor",
+            "Copying a derived-class object into a base-class object, so the derived part is lost"
+          ],
+          "correctIndex": 3,
+          "explanation": "When a derived object is assigned to, or passed by value as, a base-class object, only the base subobject is copied; the extra members and the derived behaviour are sliced off. Pointers and references avoid slicing.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m028",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    void run() { step(); cout << \"|\"; }\n    virtual void step() { cout << \"B\"; }\n};\nstruct Der : Base {\n    void step() override { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base b;\n    d.run();\n    b.run();\n}",
+          "options": [
+            "D|B|",
+            "B|B|",
+            "D|D|",
+            "B|D|"
+          ],
+          "correctIndex": 0,
+          "explanation": "run() is not virtual, but inside it step() means this->step(), which is a virtual call through the this pointer. For d the dynamic type is Der, printing D; for b it is Base, printing B.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m029",
+          "questionText": "Base declares virtual Base *clone() const;. Which declaration inside class Der (publicly derived from Base) correctly overrides it?",
+          "options": [
+            "void *clone() const override;",
+            "Der clone() const override;",
+            "Base *clone() override;",
+            "Der *clone() const override;"
+          ],
+          "correctIndex": 3,
+          "explanation": "An override may change the return type only covariantly, to a pointer or reference to a class derived from the original, so Der * is allowed. Returning Der by value or void * conflicts with the base return type, and dropping const means the function overrides nothing, which override reports as an error.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m030",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A { virtual int v() const { return 1; } };\nstruct B : A { int v() const override { return 10; } };\nstruct C : B { int v() const override { return 100 + B::v(); } };\nint main() {\n    A a; B b; C c;\n    A *p[] = { &a, &b, &c, &b };\n    int s = 0;\n    for (A *q : p) s += q->v();\n    cout << s;\n}",
+          "options": [
+            "131",
+            "4",
+            "121",
+            "122"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each call dispatches on the pointed-to object: a gives 1, b gives 10, c gives 100 + B::v() = 110 (the qualified call is not virtual), and b again gives 10. s = 1 + 10 + 110 + 10 = 131.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m031",
+          "questionText": "Given the fragment below, which call runs Base::f rather than Der::f?\n\nstruct Base { virtual void f(); };\nstruct Der : Base { void f() override; };\nDer d;\nBase *p = &d;",
+          "options": [
+            "(*p).f();",
+            "p->f();",
+            "p->Base::f();",
+            "static_cast<Base &>(d).f();"
+          ],
+          "correctIndex": 2,
+          "explanation": "A call qualified with the class name, Base::f, suppresses the virtual mechanism and is bound at compile time. Calls through the pointer, through *p or through a Base reference are all virtual and reach Der::f.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m032",
+          "questionText": "Which C++11 specifier, written after a member function's parameter list, makes the compiler report an error if the function does not actually override a base-class virtual function?",
+          "options": [
+            "final",
+            "override",
+            "virtual",
+            "explicit"
+          ],
+          "correctIndex": 1,
+          "explanation": "override asks the compiler to confirm that a matching base virtual function exists, which catches typos and signature mismatches. final forbids further overriding, virtual performs no such check, and explicit applies to constructors and conversion functions.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m033",
+          "questionText": "In a base class Shape, why is area() usually declared as virtual double area() const = 0; rather than virtual double area() const { return 0; }?",
+          "options": [
+            "A pure virtual function needs no vtable slot, so objects become smaller",
+            "A pure virtual call runs faster than an ordinary virtual call",
+            "Every concrete derived class is forced to provide its own area(), and Shape itself cannot be instantiated",
+            "A pure virtual function can be called without creating any object"
+          ],
+          "correctIndex": 2,
+          "explanation": "Making area() pure virtual turns Shape into an abstract class: it cannot be instantiated, and a derived class stays abstract until it overrides area(). The dummy body would silently return 0 for any class that forgot to override it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m034",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Vehicle { virtual void wheels() { cout << 4; } };\nstruct Bike : Vehicle { void wheels() override { cout << 2; } };\nvoid show(Vehicle &v) { v.wheels(); }\nint main() {\n    Vehicle car;\n    Bike bike;\n    show(car);\n    show(bike);\n}",
+          "options": [
+            "24",
+            "44",
+            "22",
+            "42"
+          ],
+          "correctIndex": 3,
+          "explanation": "v is a reference, so v.wheels() is bound at run time to the actual object: Vehicle::wheels for car (4) and Bike::wheels for bike (2).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m035",
+          "questionText": "Compared with a call to a non-virtual member function, what does a virtual function call through a base pointer typically add?",
+          "options": [
+            "A run-time search through the class's member functions by name",
+            "A hidden vptr in each object and one extra indirection through the vtable on each call",
+            "No run-time cost at all, because the compiler resolves the call",
+            "An extra copy of the object on every call"
+          ],
+          "correctIndex": 1,
+          "explanation": "The call loads the object's vptr, fetches the function address from a fixed vtable slot and calls it: constant time, but one indirection more than a direct call. The memory cost is one pointer per object plus one table per class.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m036",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nclass Base {\npublic:\n    virtual void f() { cout << \"B\"; }\n};\nclass Der : public Base {\nprivate:\n    void f() override { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    Base *p = &d;\n    p->f();\n}",
+          "options": [
+            "D",
+            "B",
+            "Compile error: Der::f is private",
+            "Run-time error"
+          ],
+          "correctIndex": 0,
+          "explanation": "Access is checked at compile time against the static type, and Base::f is public, so p->f() compiles. The call is still dispatched at run time to the final overrider Der::f even though it is private in Der; writing d.f() would be the compile error.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m037",
+          "questionText": "A C++ class has no data members, a virtual destructor and only pure virtual member functions. What is such a class commonly used as?",
+          "options": [
+            "A template class",
+            "An interface that derived classes implement",
+            "A friend class",
+            "A concrete class for creating objects directly"
+          ],
+          "correctIndex": 1,
+          "explanation": "With only pure virtual functions it states which operations derived classes must provide but supplies no implementation, which is how C++ expresses an interface. It is abstract, so it cannot be instantiated directly.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m038",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f(int) { cout << \"Bi \"; }\n    virtual void f(double) { cout << \"Bd \"; }\n};\nstruct Der : Base {\n    void f(int) override { cout << \"Di \"; }\n};\nint main() {\n    Der d;\n    Base &r = d;\n    r.f(2.5);\n    d.f(2.5);\n}",
+          "options": [
+            "Bd Bd",
+            "Di Di",
+            "Bd Di",
+            "Di Bd"
+          ],
+          "correctIndex": 2,
+          "explanation": "r.f(2.5) is resolved in Base, where f(double) is the best match; Der does not override it, so Base::f(double) runs. For d.f(2.5) name lookup stops in Der, whose f(int) hides both Base versions, so 2.5 is converted to 2 and Der::f(int) runs.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m039",
+          "questionText": "Which is the correct way to declare a virtual destructor inside class Shape?",
+          "options": [
+            "~Shape() virtual;",
+            "~virtual Shape();",
+            "virtual Shape::~();",
+            "virtual ~Shape();"
+          ],
+          "correctIndex": 3,
+          "explanation": "The keyword virtual goes before the destructor name ~Shape, exactly as for any other virtual member function. The other three forms are not valid C++ syntax.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m040",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Animal { virtual void speak() = 0; virtual ~Animal() {} };\nstruct Dog : Animal { void speak() override { cout << \"Woof \"; } };\nstruct Cow : Animal { void speak() override { cout << \"Moo \"; } };\nint main() {\n    Animal *a[] = { new Cow, new Dog, new Cow };\n    for (Animal *p : a) {\n        p->speak();\n        delete p;\n    }\n}",
+          "options": [
+            "Moo Woof Moo",
+            "Woof Moo Woof",
+            "Moo Moo Moo",
+            "Compile error: pointers to the abstract class Animal are not allowed"
+          ],
+          "correctIndex": 0,
+          "explanation": "Pointers to an abstract class are allowed, and each element here points to a concrete object. speak() is dispatched to each object's own class in array order: Cow, Dog, Cow.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_t5_m041",
+          "questionText": "Base declares three virtual functions f, g and h. Derived (public, single inheritance) overrides only g and declares two new virtual functions p and q. In the usual implementation, ignoring destructor and RTTI entries, how many slots does Derived's vtable have, and how many still point to Base's code?",
+          "options": [
+            "3 slots, 2 pointing to Base's code",
+            "5 slots, 2 pointing to Base's code",
+            "5 slots, 3 pointing to Base's code",
+            "6 slots, 1 pointing to Base's code"
+          ],
+          "correctIndex": 1,
+          "explanation": "Derived's table keeps Base's three slots in the same order and appends p and q: 3 + 2 = 5 slots. Only g's slot is replaced by Derived::g, so the slots for f and h (2 slots) still hold Base's functions.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_t5_m042",
+          "questionText": "Derived is publicly derived from the polymorphic class Base. After Derived d; Base b = d;, which vtable does b's vptr refer to?",
+          "options": [
+            "Derived's vtable until d is destroyed, and Base's vtable after that",
+            "Derived's vtable, copied from d together with the data members",
+            "None, because a sliced object has no vptr",
+            "Base's vtable, because b is constructed as a Base object"
+          ],
+          "correctIndex": 3,
+          "explanation": "b is created by Base's copy constructor, which sets its vptr to Base's vtable; the vptr is never copied from the source object. That is why a virtual call on a sliced object always runs the base version.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_t5_m043",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base {\n    virtual void f() const { cout << \"B\"; }\n};\nstruct Der : Base {\n    void f() { cout << \"D\"; }\n};\nint main() {\n    Der d;\n    const Base &r = d;\n    r.f();\n    d.f();\n}",
+          "options": [
+            "BD",
+            "DD",
+            "BB",
+            "DB"
+          ],
+          "correctIndex": 0,
+          "explanation": "Der::f lacks const, so it is a different function that hides Base::f instead of overriding it; r.f() therefore runs Base::f (B). d.f() finds Der::f by name lookup (D), and writing override on Der::f would have exposed the mistake at compile time.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch3_i51",
+      "title": "C++ Streams & Formatted Console I/O",
+      "subtitle": "ios hierarchy, cin/cout/cerr/clog, get/put/read/write, ios flags and manipulators",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Stream Class Hierarchy"
+          },
+          {
+            "type": "paragraph",
+            "text": "A stream is a sequence of bytes flowing between a program and a device; C++ wraps every device (keyboard, screen, file, string) in the same class family so the operators << and >> work everywhere. The base class ios holds the formatting flags (width, precision, fill, base) and the error-state bits. istream adds input (>>, get, getline, read) and ostream adds output (<<, put, write); iostream inherits from both by multiple inheritance. The buffering itself is done by a separate streambuf object owned by the stream. The header <iostream> declares four ready-made objects."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Object",
+                "Class",
+                "Connected to",
+                "Buffered"
+              ],
+              [
+                "cin",
+                "istream",
+                "Standard input (keyboard)",
+                "Yes"
+              ],
+              [
+                "cout",
+                "ostream",
+                "Standard output (screen)",
+                "Yes"
+              ],
+              [
+                "cerr",
+                "ostream",
+                "Standard error (screen)",
+                "No: written immediately"
+              ],
+              [
+                "clog",
+                "ostream",
+                "Standard error (screen)",
+                "Yes"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Unformatted I/O Functions"
+          },
+          {
+            "type": "paragraph",
+            "text": "Unformatted functions transfer raw characters without interpreting them and without skipping whitespace, so they are the tools for reading a full line, a single keystroke or a block of bytes. The formatted operators >> and << instead convert between text and typed values, and >> skips leading whitespace and stops at the next whitespace, which is why cin >> name reads only one word. peek() returns the next character without removing it and putback(ch) pushes one back, both useful for look-ahead; the free function std::getline(cin, str) does for std::string what cin.getline() does for char arrays."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Function",
+                "Stream",
+                "What it does"
+              ],
+              [
+                "get()  /  get(ch)",
+                "istream",
+                "Reads one character, including spaces and newlines"
+              ],
+              [
+                "get(buf, n, delim)",
+                "istream",
+                "Reads up to n-1 characters into buf, stops before delim (default \\n) and leaves it in the stream"
+              ],
+              [
+                "getline(buf, n, delim)",
+                "istream",
+                "Same as get(buf, n) but extracts and discards the delimiter"
+              ],
+              [
+                "read(buf, n)",
+                "istream",
+                "Reads exactly n raw bytes (binary I/O)"
+              ],
+              [
+                "put(ch)",
+                "ostream",
+                "Writes one character; returns the stream so calls chain"
+              ],
+              [
+                "write(buf, n)",
+                "ostream",
+                "Writes exactly n bytes, ignoring any null character"
+              ],
+              [
+                "ignore(n, delim)",
+                "istream",
+                "Discards up to n characters or until delim is consumed"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "text": "char c, name[20], line[80];\nc = cin.get();             // one character, whitespace included\ncin.get(name, 20);         // up to 19 chars or until '\\n'; the '\\n' stays in the stream\ncin.ignore(100, '\\n');     // throw away the rest of that line\ncin.getline(line, 80);     // whole line; the '\\n' is consumed and not stored\ncout.put('A').put('\\n');   // chained single characters\ncout.write(line, 5);       // exactly 5 bytes, even past a '\\0'",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Formatted I/O with ios Member Functions"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Member function",
+                "Effect",
+                "Default"
+              ],
+              [
+                "width(n)",
+                "Minimum field width for the NEXT insertion only; pads, never truncates",
+                "0"
+              ],
+              [
+                "precision(n)",
+                "Significant digits (general) or digits after the point (fixed/scientific)",
+                "6"
+              ],
+              [
+                "fill(c)",
+                "Padding character used when width is larger than the output",
+                "space"
+              ],
+              [
+                "setf(flag)",
+                "Turns a formatting flag on",
+                "flags = skipws | dec"
+              ],
+              [
+                "setf(flag, field)",
+                "Clears the whole group (basefield, floatfield, adjustfield) then sets flag",
+                "dec, general, right"
+              ],
+              [
+                "unsetf(flag)",
+                "Turns a flag off",
+                "none"
+              ],
+              [
+                "flags() / flags(f)",
+                "Reads or replaces the complete flag word",
+                "skipws | dec"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Formatting flags are bits of the class ios; group flags must be set with the two-argument setf so the previous member of the group is cleared first:",
+            "items": [
+              "ios::left, ios::right, ios::internal (group ios::adjustfield): where padding goes; internal puts it between sign and digits.",
+              "ios::dec, ios::hex, ios::oct (group ios::basefield): integer base; ios::showbase prefixes 0x or 0.",
+              "ios::fixed, ios::scientific (group ios::floatfield): decimal or exponent notation; neither set means general notation.",
+              "ios::showpoint: always print the decimal point and trailing zeros; ios::showpos: print + before positive numbers.",
+              "ios::uppercase: E, and hex digits A-F, in upper case; ios::boolalpha: bool as true/false instead of 1/0.",
+              "ios::skipws: >> skips leading whitespace (on by default); ios::unitbuf: flush after every insertion (as cerr does)."
+            ]
+          },
+          {
+            "type": "code",
+            "text": "cout.setf(ios::showpos);  cout << 42 << '\\n';            // +42\ncout.unsetf(ios::showpos);\ncout.setf(ios::hex, ios::basefield);                     // two-arg form clears dec first\ncout << 255 << '\\n';                                     // ff\ncout.setf(ios::uppercase); cout << 255 << '\\n';          // FF\ncout.setf(ios::dec, ios::basefield);\ncout.setf(ios::fixed, ios::floatfield); cout.precision(2);\ncout << 3.14159 << '\\n';                                 // 3.14\ncout.setf(ios::boolalpha); cout << true << '\\n';         // true",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Manipulators"
+          },
+          {
+            "type": "paragraph",
+            "text": "Manipulators are functions inserted into the stream with << (or >>) that change its state without a separate statement, so formatting can be written inline: cout << setw(8) << x. The parameter-less ones (endl, hex, fixed, left, ws) live in <iostream>; the parameterised ones (setw, setfill, setprecision, setiosflags, resetiosflags, setbase) need <iomanip>."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Manipulator",
+                "Equivalent ios member call",
+                "Header"
+              ],
+              [
+                "endl / ends / flush",
+                "put('\\n') then flush() / put('\\0') / flush()",
+                "<iostream>"
+              ],
+              [
+                "ws",
+                "Skips leading whitespace on input",
+                "<iostream>"
+              ],
+              [
+                "dec / hex / oct",
+                "setf(ios::dec|hex|oct, ios::basefield)",
+                "<iostream>"
+              ],
+              [
+                "left / right / internal",
+                "setf(ios::left|right|internal, ios::adjustfield)",
+                "<iostream>"
+              ],
+              [
+                "fixed / scientific / showpoint / showpos / boolalpha",
+                "setf(ios::fixed, ios::floatfield) etc.",
+                "<iostream>"
+              ],
+              [
+                "setw(n) / setfill(c) / setprecision(n)",
+                "width(n) / fill(c) / precision(n)",
+                "<iomanip>"
+              ],
+              [
+                "setiosflags(f) / resetiosflags(f) / setbase(b)",
+                "setf(f) / unsetf(f) / base 8, 10 or 16",
+                "<iomanip>"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Only width is consumed by a single insertion and then reset to 0; fill, precision and every flag stay in force until changed. Precision means the total number of significant digits in the default (general) notation but the number of digits after the decimal point once fixed or scientific is set. A user-defined manipulator is just a function taking and returning ostream&, e.g. ostream& tab(ostream& o) { return o << '\\t'; }, and is used exactly like endl: cout << tab; parameterised versions need a small helper class or the setiosflags-style templates."
+          },
+          {
+            "type": "code",
+            "text": "#include <iomanip>\ncout << setw(8) << 123 << '|' << 45 << '\\n';               // \"     123|45\"  (width used once)\ncout << left << setw(6) << \"ab\" << '|' << '\\n';             // \"ab    |\"\ncout << right << setfill('0') << setw(5) << 42 << '\\n';     // \"00042\"\ncout << setfill(' ') << fixed << setprecision(3) << 2.5 << '\\n';   // \"2.500\"\ncout << scientific << 1234.56 << '\\n';                      // \"1.235e+03\"  (precision 3 sticky)\ncout << hex << 255 << ' ' << oct << 8 << ' ' << dec << 255 << '\\n'; // \"ff 10 255\"\ncout.unsetf(ios::floatfield);\ncout << showpoint << 5.0 << '\\n';                           // \"5.00\"  (3 significant digits)",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: How Streams Format and Read"
+          },
+          {
+            "type": "paragraph",
+            "text": "Each insertion with << reads the stream's current state: the flags, the width, the precision and the fill character. The value is first converted to text using the flags and precision, then padded with the fill character to the width, and finally the width is reset to 0, while every other setting stays until it is changed. In general notation (neither fixed nor scientific) the precision P is the number of significant digits, and the library chooses between plain and exponent form from the decimal exponent X of the rounded value, exactly like printf with %g. Trailing zeros are then removed unless showpoint is set."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{general: fixed style if } -4 \\le X < P,\\ \\text{else scientific}",
+            "plainText": "General notation with precision P (0 counts as 1): if the decimal exponent X of the rounded value satisfies -4 <= X < P, print in fixed style with P - 1 - X decimals, otherwise in scientific style with P - 1 decimals"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\n#include <iomanip>\nusing namespace std;\nint main() {\n    cout << fixed << setprecision(2) << setfill('.');\n    cout << left << setw(8) << \"Rice\" << right << setw(8) << 95.5 << '\\n';\n    cout << left << setw(8) << \"Lentils\" << right << setw(8) << 160.0 << '\\n';\n    cout << setfill(' ') << hex << showbase << 255 << ' ' << dec << 255 << '\\n';\n    cout << scientific << setprecision(3) << 0.000123456 << '\\n';\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output:\nRice.......95.50\nLentils...160.00\n0xff 255\n1.235e-04\n\nRice      left in 8 columns, fill '.': Rice....\n95.5      fixed 2 -> 95.50, right in 8:     ...95.50\nLentils   7 chars + 1 dot; 160.00 needs 2 dots\n255       hex + showbase -> 0xff; dec restores 255\n0.000123456  scientific 3 -> 1.235e-04 (1.23456 rounds up)"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    int roll; char grade; string name; char city[6];\n    cin >> roll;              // line 1 of input: 42\n    cin.get(grade);           // reads the '\\n' left behind by >>\n    cin >> grade;             // skips whitespace, reads A\n    cin.ignore(100, '\\n');    // discards the rest of line 2\n    getline(cin, name);       // line 3: Sita Rai\n    cin.getline(city, 6);     // line 4: Biratnagar, only 5 chars fit\n    cout << roll << '|' << grade << '|' << name << '|' << city << '|' << cin.fail();\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Input (4 lines):\n42\nA\nSita Rai\nBiratnagar\n\nOutput:\n42|A|Sita Rai|Birat|1\n\ncin.get(grade) first receives '\\n', so the second read is needed\ngetline(cin, name) keeps the space in Sita Rai\ngetline(city, 6) fills 5 chars, stops before the newline, sets failbit"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Input call",
+                "Skips leading whitespace?",
+                "What happens at the newline"
+              ],
+              [
+                "cin >> x",
+                "Yes",
+                "Stops before it; the newline stays in the stream"
+              ],
+              [
+                "cin >> ws",
+                "Yes, that is its only job",
+                "Discards it along with spaces and tabs"
+              ],
+              [
+                "cin.get(ch)",
+                "No",
+                "Reads it as an ordinary character"
+              ],
+              [
+                "cin.get(buf, n)",
+                "No",
+                "Stops before it; an immediate newline gives an empty string and failbit"
+              ],
+              [
+                "cin.getline(buf, n)",
+                "No",
+                "Extracts and discards it; sets failbit if the array fills before the newline"
+              ],
+              [
+                "getline(cin, str)",
+                "No",
+                "Extracts and discards it; std::string has no length limit"
+              ],
+              [
+                "cin.ignore(n, '\\n')",
+                "No",
+                "Discards characters up to and including it, at most n in total"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Rules that decide many output questions:",
+            "items": [
+              "setf(flag) only adds a bit: setf(ios::hex) with dec still on prints decimal; use setf(ios::hex, ios::basefield) or the hex manipulator.",
+              "unsetf(ios::floatfield) returns to general notation, and unsetf(ios::basefield) leaves no base bit set, which also prints decimal.",
+              "precision(n), width(n) and fill(c) return the old value, and flags() returns the whole flag word, so settings can be saved and restored.",
+              "internal padding applies only to numbers: it goes after a sign or a 0x prefix; strings are padded as if right-justified.",
+              "uppercase affects the e of scientific notation, the x of 0x and the hex digits a to f, but never ordinary letters in strings."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A manipulator without arguments is simply a function with the signature ostream &name(ostream &). ostream has an operator<< overload that accepts a pointer to such a function and calls it with the stream; endl works this way, and hex or fixed use a sibling overload for functions taking ios_base &. Whatever settings the function changes stay in force afterwards. A manipulator with an argument needs a small helper: for example a struct stars holding a count, plus an operator<< for stars that writes that many asterisks, so that cout << stars{3} reads just like setw(3)."
+          },
+          {
+            "type": "warning",
+            "text": "Mixing cin >> with getline is the most common input bug: the newline left by >> makes the next getline return an empty string. Add cin.ignore(100, '\\n') or cin >> ws before getline. Also remember that setw on input limits a char array read to n - 1 characters, while setw on output never truncates."
+          },
+          {
+            "type": "examTip",
+            "text": "For a formatting question, trace the state left to right: note the flags, precision and fill that are in force, apply setw only to the very next item, and check which notation is active before rounding. Write the result inside brackets while working so that padding spaces are counted exactly."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{printed length} = \\max(n,\\ \\text{len(value)})",
+            "plainText": "printed length = max(width n, length of the value): width pads but never truncates"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{general: } p \\text{ sig. digits};\\quad \\text{fixed: } p \\text{ decimals}",
+            "plainText": "precision p = significant digits in general notation; digits after the decimal point in fixed or scientific"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{flags} \\leftarrow (\\text{flags} \\land \\lnot\\text{field}) \\lor \\text{flag}",
+            "plainText": "setf(flag, field): flags = (flags AND NOT field) OR flag"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{width} = 0,\\quad \\text{precision} = 6,\\quad \\text{fill} = \\text{space}",
+            "plainText": "defaults: width 0, precision 6, fill character space, base dec, right-adjusted"
+          }
+        ],
+        "notes": [
+          {
+            "type": "warning",
+            "text": "setw()/width() applies to the next insertion only and is then reset to 0. cout << setw(5) << 1 << 2 prints \"    12\", not \"    1    2\"."
+          },
+          {
+            "type": "examTip",
+            "text": "Precision without fixed counts significant digits: setprecision(3) prints 3.14159 as 3.14 and 1234.5 as 1.23e+03. With fixed it counts decimals: 3.142 and 1234.500."
+          },
+          {
+            "type": "note",
+            "text": "cerr is unbuffered, so error messages appear immediately even if the program crashes next; clog is the buffered sibling. endl writes a newline and flushes, '\\n' only writes a newline."
+          },
+          {
+            "type": "warning",
+            "text": "After cin >> n, the newline is still in the input buffer; a following getline() reads an empty line. Insert cin.ignore() (or cin.ignore(100, '\\n')) before getline()."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_i51_01",
+          "title": "Field width",
+          "latex": "\\text{printed length} = \\max(n,\\ \\text{len(value)})",
+          "plainText": "printed length = max(n, len(value))",
+          "description": "width(n)/setw(n) pads the next item with the fill character up to n columns but never cuts a longer value; it resets to 0 after one use."
+        },
+        {
+          "id": "f_ch3_i51_02",
+          "title": "Precision meaning",
+          "latex": "\\text{general: } p \\text{ sig. digits};\\quad \\text{fixed: } p \\text{ decimals}",
+          "plainText": "general notation: p significant digits; fixed/scientific: p digits after the point",
+          "description": "setprecision(3) prints 3.14159 as 3.14 by default but as 3.142 after fixed, and 1234.5 becomes 1.23e+03 in general notation."
+        },
+        {
+          "id": "f_ch3_i51_03",
+          "title": "Two-argument setf",
+          "latex": "\\text{flags} \\leftarrow (\\text{flags} \\land \\lnot\\text{field}) \\lor \\text{flag}",
+          "plainText": "flags = (flags AND NOT field) OR flag",
+          "description": "setf(ios::hex, ios::basefield) first clears dec/hex/oct then sets hex; the one-argument setf(ios::hex) would leave dec set as well."
+        },
+        {
+          "id": "f_ch3_i51_04",
+          "title": "Stream defaults",
+          "latex": "\\text{width} = 0,\\quad \\text{precision} = 6,\\quad \\text{fill} = \\text{space}",
+          "plainText": "width 0, precision 6, fill space, flags skipws | dec",
+          "description": "The state every stream starts with; cout << 3.14159265 therefore prints 3.14159 (6 significant digits) with no padding."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_i51_01",
+          "front": "Name the four standard stream objects and the one that is unbuffered.",
+          "back": "cin (istream), cout, cerr and clog (all ostream); cerr is unbuffered so its output appears immediately, clog is buffered.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_i51_02",
+          "front": "Which formatting setting is not sticky, and which header do parameterised manipulators need?",
+          "back": "width()/setw() applies only to the next insertion; fill, precision and flags persist. setw, setfill, setprecision and setiosflags come from <iomanip>.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_i51_03",
+          "front": "What is the difference between cin.get(buf, n) and cin.getline(buf, n)?",
+          "back": "Both read up to n-1 characters or until newline; get() leaves the newline in the stream while getline() extracts and discards it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i51_04",
+          "front": "How do you write a user-defined manipulator such as cout << tab?",
+          "back": "Define a function ostream& tab(ostream& o) { return o << '\\t'; } — the same signature as endl — and insert it with << like any other manipulator.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_i51_n01",
+          "questionText": "What is printed by the following statement?\n\ncout << setw(6) << setfill('*') << 42 << 7;",
+          "options": [
+            "****427",
+            "****42*****7",
+            "****42******7",
+            "427"
+          ],
+          "correctIndex": 0,
+          "explanation": "setw(6) applies only to the next insertion, so 42 is padded with * to six columns (****42); the width then resets to 0 and 7 is printed with no padding.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_n02",
+          "questionText": "What is the output of the following code?\n\ncout << setprecision(3) << 3.14159 << \" \" << 1234.5;",
+          "options": [
+            "3.140 1234.500",
+            "3.14 1234.5",
+            "3.14 1.23e+03",
+            "3.142 1235"
+          ],
+          "correctIndex": 2,
+          "explanation": "Without fixed, precision is the number of significant digits (like printf %g): 3.14159 becomes 3.14 and 1234.5 needs more than 3 digits before the point, so it switches to scientific notation 1.23e+03.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m001",
+          "questionText": "In the C++ stream class hierarchy, which classes does iostream inherit from directly?",
+          "options": [
+            "fstream and ios",
+            "ifstream and ofstream",
+            "streambuf only",
+            "istream and ostream"
+          ],
+          "correctIndex": 3,
+          "explanation": "iostream is derived from both istream and ostream by multiple inheritance, so it supports both >> and <<. ios is the common base further up, while ifstream, ofstream and fstream are file classes derived further down.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m002",
+          "questionText": "Why is ios declared as a virtual base class of both istream and ostream?",
+          "options": [
+            "So that ios itself can never be instantiated",
+            "So that the ios member functions can be overridden and dispatched at run time",
+            "So that iostream, which inherits from both, holds only one copy of the ios state such as flags, width and error bits",
+            "So that cin and cout are forced to share one buffer"
+          ],
+          "correctIndex": 2,
+          "explanation": "iostream inherits from istream and ostream, and both of them derive from ios. Making ios a virtual base gives an iostream object a single shared ios subobject, so there is one set of formatting flags and one stream state instead of two conflicting copies.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m003",
+          "questionText": "In the C++ stream library, what is the job of the streambuf class?",
+          "options": [
+            "It manages the buffer and the actual transfer of characters to and from the device",
+            "It stores formatting flags such as hex and left",
+            "It provides the >> operator for the built-in types",
+            "It converts numbers into text for the << operator"
+          ],
+          "correctIndex": 0,
+          "explanation": "Every stream object holds a pointer to a streambuf, which keeps the buffered characters and reads or writes them to the console, a file or a string. Formatting state and the >> and << operators belong to ios, istream and ostream.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m004",
+          "questionText": "Which statement about the standard stream object clog is correct?",
+          "options": [
+            "It writes to the standard output device and is unbuffered",
+            "It writes to the standard error device and is buffered",
+            "It reads diagnostic input from the keyboard",
+            "It is simply another name for cerr"
+          ],
+          "correctIndex": 1,
+          "explanation": "clog and cerr are both ostream objects attached to standard error: cerr is unbuffered so each message appears at once, while clog is buffered, which suits logging. cout writes to standard output and cin reads standard input.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m005",
+          "questionText": "A program executes cout << \"Enter n: \"; cin >> n; with no endl or flush after the prompt. Why is the prompt guaranteed to appear before the program waits for input?",
+          "options": [
+            "cin is tied to cout, so cout is flushed before each input operation on cin",
+            "cout is unbuffered, just like cerr",
+            "The >> operator always prints a newline before it reads",
+            "A string literal inserted into cout is sent to cerr instead"
+          ],
+          "correctIndex": 0,
+          "explanation": "By default cin.tie() returns &cout, and a tied output stream is flushed before every input operation on the stream it is tied to. That is what makes prompts appear even without endl.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m006",
+          "questionText": "Which of the following is an unformatted input operation?",
+          "options": [
+            "cin >> hex >> n with int n",
+            "cin >> ch with char ch",
+            "cin >> n with int n",
+            "cin.get(ch) with char ch"
+          ],
+          "correctIndex": 3,
+          "explanation": "get() transfers the next character exactly as it is, including spaces and newlines, without any conversion. The >> operator is formatted input: it skips leading whitespace and converts text to the target type, and hex only changes that conversion.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m007",
+          "questionText": "The user types Hari Prasad and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar name[20];\ncin >> name;\ncout << \"[\" << name << \"]\";",
+          "options": [
+            "[Hari Prasad]",
+            "[Hari]",
+            "[H]",
+            "[Prasad]"
+          ],
+          "correctIndex": 1,
+          "explanation": ">> skips leading whitespace and then reads characters only up to the next whitespace, so name receives Hari. The rest of the line, starting with the space, stays in the input buffer.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m008",
+          "questionText": "The user types x y z and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar a, b, c;\ncin >> a >> b;\ncin.get(c);\ncout << a << b << '[' << c << ']';",
+          "options": [
+            "x [y]",
+            "xy[z]",
+            "xy[ ]",
+            "x y[z]"
+          ],
+          "correctIndex": 2,
+          "explanation": ">> skips whitespace, so a = 'x' and b = 'y'. get(c) does not skip whitespace, so it reads the space that follows y.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m009",
+          "questionText": "The user types Ram, presses Enter, types Shyam and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar a[10], b[10];\ncin.get(a, 10);\ncin.get(b, 10);\ncout << \"[\" << a << \"][\" << b << \"]\";",
+          "options": [
+            "[Ram][Shyam]",
+            "[Ram][]",
+            "[][Ram]",
+            "[Ram][S]"
+          ],
+          "correctIndex": 1,
+          "explanation": "get(a, 10) stops at the newline and leaves it in the stream, so the second get(b, 10) meets that newline at once, stores an empty string and sets failbit. Using getline for the first read, or calling cin.ignore() between the two calls, would let b receive Shyam.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m010",
+          "questionText": "The user types Kathmandu,Nepal and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included, using namespace std; is in effect and characters use the ASCII codes.\n\nchar city[20];\ncin.getline(city, 20, ',');\nint next = cin.get();\ncout << city << \"|\" << next;",
+          "options": [
+            "Kathmandu|44",
+            "Kathmandu|N",
+            "Kathmandu|78",
+            "Kathmandu,Nepal|10"
+          ],
+          "correctIndex": 2,
+          "explanation": "getline stops at the delimiter ',' and extracts and discards it, so city holds Kathmandu. cin.get() with no argument returns the next character as an int, here 'N', whose ASCII code is 78.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m011",
+          "questionText": "The user types Pokhara and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar s[6];\ncin.getline(s, 6);\ncout << s << \" \" << cin.fail();",
+          "options": [
+            "Pokhara 0",
+            "Pokhar 0",
+            "Pokha 0",
+            "Pokha 1"
+          ],
+          "correctIndex": 3,
+          "explanation": "getline(s, 6) stores at most 5 characters plus the terminating '\\0', so s holds Pokha. Because it stopped with the array full before reaching the newline, it also sets failbit, and cin.fail() prints 1.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m012",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included, using namespace std; is in effect and characters use the ASCII codes.\n\nchar ch = 'x';\ncout.put(65).put('B' + 1);\ncout.put(ch - 32);",
+          "options": [
+            "ACX",
+            "656788",
+            "ABX",
+            "AC88"
+          ],
+          "correctIndex": 0,
+          "explanation": "put() writes one character, so each int argument is converted to char: in ASCII 65 is 'A', 'B' + 1 is 67 = 'C' and 'x' - 32 is 88 = 'X'. put() returns the stream, which is why the first two calls can be chained.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m013",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nconst char *s = \"Programming\";\ncout.write(s, 7).put('|');\ncout.write(s + 3, 4);",
+          "options": [
+            "Programming|gram",
+            "Program|gram",
+            "Progra|ramm",
+            "Program|gramming"
+          ],
+          "correctIndex": 1,
+          "explanation": "write(s, 7) sends exactly the first 7 characters, Program, and returns the stream so put('|') can follow. s + 3 points to the fourth character, so write(s + 3, 4) sends gram.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m014",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.fill('#');\ncout.width(5);\ncout << 12 << '|';\ncout.width(4);\ncout << 7 << '|' << 8;",
+          "options": [
+            "###12|###7|###8",
+            "###12|7|8",
+            "###12|###7|8",
+            "12###|7###|8"
+          ],
+          "correctIndex": 2,
+          "explanation": "fill('#') stays in force, but each width() call affects only the next insertion. 12 is padded to 5 columns and 7 to 4 columns on the left (right alignment is the default), while '|' and 8 are printed with width 0.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m015",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << 3.14159265 << \" \";\ncout << 2.50 << \" \";\ncout << 100.0 / 3;",
+          "options": [
+            "3.14159 2.50 33.3333",
+            "3.141593 2.500000 33.333333",
+            "3.14 2.50 33.33",
+            "3.14159 2.5 33.3333"
+          ],
+          "correctIndex": 3,
+          "explanation": "The default precision is 6 significant digits in general notation, with trailing zeros dropped: 3.14159, 2.5 and 33.3333. Six digits after the point would require fixed.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m016",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << fixed << setprecision(2);\ncout << 2.346 << \" \" << 10.0 << \" \";\ncout << 7.0 / 3;",
+          "options": [
+            "2.35 10.00 2.33",
+            "2.3 10 2.3",
+            "2.35 10 2.33",
+            "2.346 10.00 2.333"
+          ],
+          "correctIndex": 0,
+          "explanation": "With fixed, the precision is the number of digits after the decimal point and trailing zeros are kept. 2.346 rounds to 2.35, 10.0 prints as 10.00 and 7/3 = 2.333... prints as 2.33.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m017",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << scientific;\ncout << setprecision(2);\ncout << 12345.678 << \" \" << 0.000456;",
+          "options": [
+            "1.2e+04 4.6e-04",
+            "1.23e+04 4.56e-04",
+            "12345.68 0.00",
+            "1.235e+04 4.560e-04"
+          ],
+          "correctIndex": 1,
+          "explanation": "In scientific notation the precision is the number of digits after the decimal point of the mantissa. 12345.678 = 1.2345678 x 10^4 prints as 1.23e+04 and 0.000456 = 4.56 x 10^-4 prints as 4.56e-04.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m018",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setprecision(4) << 3.14159 << \" \";\ncout << fixed << 3.14159 << \" \";\ncout.unsetf(ios::fixed);\ncout << 31.4159;",
+          "options": [
+            "3.142 3.142 31.42",
+            "3.1416 3.1416 31.4159",
+            "3.142 3.1416 31.4159",
+            "3.142 3.1416 31.42"
+          ],
+          "correctIndex": 3,
+          "explanation": "Precision 4 stays in force throughout. In general notation it means 4 significant digits (3.142), with fixed it means 4 decimals (3.1416), and after unsetf(ios::fixed) the notation is general again, so 31.4159 becomes 31.42.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m019",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showpoint;\ncout << 2.0 << \" \";\ncout << setprecision(3) << 7.0;",
+          "options": [
+            "2.00000 7.00",
+            "2 7",
+            "2.0 7.0",
+            "2.000000 7.000"
+          ],
+          "correctIndex": 0,
+          "explanation": "showpoint forces the decimal point and trailing zeros in general notation, so the number of digits shown equals the precision in significant digits. With the default precision 6, 2.0 prints as 2.00000; with precision 3, 7.0 prints as 7.00.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m020",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << hex << 255 << \" \";\ncout << oct << 64 << \" \";\ncout << dec << 0x1F;",
+          "options": [
+            "ff 100 1f",
+            "FF 64 1F",
+            "ff 100 31",
+            "255 64 31"
+          ],
+          "correctIndex": 2,
+          "explanation": "hex prints 255 as ff (lower case by default), and oct prints 64 as 100 because 64 = 1 x 8^2. dec prints the literal 0x1F, whose value is 31, in decimal.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m021",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint n = 26;\ncout << hex << n << \" \";\ncout << n + 1 << \" \";\ncout << dec << n;",
+          "options": [
+            "1a 1b 26",
+            "1a 27 26",
+            "1a 1b 1a",
+            "26 27 26"
+          ],
+          "correctIndex": 0,
+          "explanation": "The base manipulators are sticky: after hex every integer is printed in hexadecimal until another base is chosen. 26 is 1a and 27 is 1b, and dec switches back so the last value prints as 26.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m022",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showbase << uppercase;\ncout << hex << 254 << \" \";\ncout << oct << 8;",
+          "options": [
+            "0xfe 010",
+            "0XFE 010",
+            "FE 10",
+            "0XFE 0X10"
+          ],
+          "correctIndex": 1,
+          "explanation": "showbase adds the base prefix and uppercase turns both the x and the hex digits into capitals, so 254 prints as 0XFE. In octal the prefix is a single 0, and 8 is 10 in octal, giving 010.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m023",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showpos;\ncout << 5 << \" \" << -5 << \" \";\ncout << 0 << \" \" << 2.5;",
+          "options": [
+            "5 -5 0 2.5",
+            "+5 -5 0 +2.5",
+            "+5 -5 +0 +2.5",
+            "+5 +-5 +0 +2.5"
+          ],
+          "correctIndex": 2,
+          "explanation": "showpos prints a + sign in front of every non-negative number, including zero and floating-point values. Negative numbers keep their usual - sign.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m024",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << '[' << setw(6) << left << -42 << ']';\ncout << '[' << setw(6) << right << -42 << ']';\ncout << '[' << setw(6) << internal << -42 << ']';",
+          "options": [
+            "[   -42][-42   ][-   42]",
+            "[-42   ][   -42][   -42]",
+            "[-42][-42][-42]",
+            "[-42   ][   -42][-   42]"
+          ],
+          "correctIndex": 3,
+          "explanation": "In a 6-column field, left pads after the value, right pads before it, and internal puts the padding between the sign and the digits. setw(6) is repeated for each value because the width resets after every insertion.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m025",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setfill('0') << internal;\ncout << showbase << hex;\ncout << setw(8) << 255;",
+          "options": [
+            "00000xff",
+            "0x0000ff",
+            "0x000000ff",
+            "0xff0000"
+          ],
+          "correctIndex": 1,
+          "explanation": "0xff is 4 characters, so 8 - 4 = 4 fill characters are needed. internal places them after the base prefix 0x and before the digits, giving 0x0000ff; with right alignment the result would be 00000xff.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m026",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << left << setfill('.');\ncout << setw(8) << \"Ram\" << \"|\";\ncout << setw(3) << 12345 << \"|\";",
+          "options": [
+            "Ram.....|123|",
+            ".....Ram|12345|",
+            "Ram.....|12345|",
+            "Ram.....|12345...|"
+          ],
+          "correctIndex": 2,
+          "explanation": "left pads Ram with five dots to fill 8 columns. setw(3) is smaller than the 5 digits of 12345, and a field width never truncates, so the number is printed in full with no padding.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m027",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.setf(ios::hex, ios::basefield);\ncout << 100 << \" \";\ncout.setf(ios::oct, ios::basefield);\ncout << 100 << \" \";\ncout.unsetf(ios::basefield);\ncout << 100;",
+          "options": [
+            "64 64 100",
+            "100 100 100",
+            "64 144 144",
+            "64 144 100"
+          ],
+          "correctIndex": 3,
+          "explanation": "The two-argument setf clears the whole basefield group before setting the new flag, so 100 prints as 64 in hex and 144 in octal. After unsetf(ios::basefield) no base flag is set, and integers are then printed in decimal.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m028",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.setf(ios::hex);\ncout << 255 << \" \";\ncout.setf(ios::hex, ios::basefield);\ncout << 255;",
+          "options": [
+            "255 ff",
+            "ff ff",
+            "255 255",
+            "ff 255"
+          ],
+          "correctIndex": 0,
+          "explanation": "The one-argument setf(ios::hex) only adds the hex bit, so dec (on by default) is still set; with two base bits set the base is not purely hex and the value prints in decimal. The two-argument form first clears dec from basefield, so 255 then prints as ff.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m029",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nios::fmtflags old = cout.flags();\ncout << hex << showbase << 16 << \" \";\ncout.flags(old);\ncout << 16;",
+          "options": [
+            "16 16",
+            "0x10 0x10",
+            "10 16",
+            "0x10 16"
+          ],
+          "correctIndex": 3,
+          "explanation": "flags() returns the whole flag word, which is saved in old before hex and showbase are switched on. flags(old) restores it, so the second 16 is printed in plain decimal.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m030",
+          "questionText": "Which of these manipulators is available when only <iostream> is included, without <iomanip>?",
+          "options": [
+            "hex",
+            "setw(5)",
+            "setfill('*')",
+            "setprecision(2)"
+          ],
+          "correctIndex": 0,
+          "explanation": "Manipulators without arguments, such as hex, fixed, left and endl, come with <iostream>. The parameterised ones, setw, setfill, setprecision, setiosflags, resetiosflags and setbase, are declared in <iomanip>.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m031",
+          "questionText": "What does the manipulator endl do that inserting '\\n' does not?",
+          "options": [
+            "It resets the field width to 0",
+            "It writes a carriage return and a line feed on every system",
+            "It also flushes the output buffer",
+            "It clears all the formatting flags"
+          ],
+          "correctIndex": 2,
+          "explanation": "endl inserts a newline and then calls flush(), so the buffered output reaches the device at once. Inserting '\\n' only adds the newline character and leaves flushing to the buffer.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m032",
+          "questionText": "Which formatting setting applies only to the next output item and is then reset automatically?",
+          "options": [
+            "The fill character set by fill() or setfill()",
+            "The field width set by width() or setw()",
+            "The precision set by precision() or setprecision()",
+            "The number base set by hex, oct or dec"
+          ],
+          "correctIndex": 1,
+          "explanation": "Every formatted insertion resets the width to 0 after using it, so setw() must be repeated for each item. The fill character, the precision and the base flags stay in force until they are changed.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m033",
+          "questionText": "After cout << fixed; has been executed, what does setprecision(3) control?",
+          "options": [
+            "The minimum field width",
+            "The total number of significant digits",
+            "The number of digits printed after the decimal point",
+            "The number of digits printed before the decimal point"
+          ],
+          "correctIndex": 2,
+          "explanation": "In fixed (and scientific) notation the precision counts the digits after the decimal point, so 2.5 prints as 2.500. Only in the default general notation does it count significant digits.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m034",
+          "questionText": "Of which class is the standard object cout an instance?",
+          "options": [
+            "ofstream",
+            "istream",
+            "iostream",
+            "ostream"
+          ],
+          "correctIndex": 3,
+          "explanation": "cout, cerr and clog are ostream objects (ostream is basic_ostream<char>), and cin is an istream. iostream is the class for streams that work in both directions and ofstream is the output-file class.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m035",
+          "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nostream &rs(ostream &os) {\n    os.setf(ios::fixed, ios::floatfield);\n    os.precision(2);\n    return os << \"Rs. \";\n}\nint main() {\n    cout << rs << 250.5 << \" \" << 3.0;\n}",
+          "options": [
+            "Rs. 250.5 3",
+            "Rs. 250.50 3.00",
+            "Rs. 250.50 3",
+            "Rs. 250.500000 3.000000"
+          ],
+          "correctIndex": 1,
+          "explanation": "rs has the manipulator signature ostream &(ostream &), so cout << rs simply calls rs(cout). It switches on fixed with precision 2 and prints the prefix, and those settings stay in force, so both 250.5 and 3.0 are printed with two decimals.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m036",
+          "questionText": "Which definition allows cout << tab; to work as a user-defined manipulator that inserts a tab character?",
+          "options": [
+            "ostream &tab(ostream &os) { return os << '\\t'; }",
+            "void tab() { cout << '\\t'; }",
+            "ostream &tab() { return cout << '\\t'; }",
+            "char tab(ostream &os) { return '\\t'; }"
+          ],
+          "correctIndex": 0,
+          "explanation": "ostream has an operator<< that takes a pointer to a function of type ostream &(ostream &) and calls it with the stream, which is exactly how endl works. With any other signature cout << tab does not call the function; the function pointer is converted to bool and 1 is printed.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m037",
+          "questionText": "The user types 25 and presses Enter, then types Kathmandu preceded by three spaces and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint n;\nstring s;\ncin >> n >> ws;\ngetline(cin, s);\ncout << n << \"[\" << s << \"]\";",
+          "options": [
+            "25[]",
+            "25[Kathmandu]",
+            "25[   Kathmandu]",
+            "25[25]"
+          ],
+          "correctIndex": 1,
+          "explanation": "cin >> n leaves the newline after 25 in the buffer, so without ws the getline call would read an empty line. The ws manipulator discards all leading whitespace (the newline and the three spaces), so getline reads Kathmandu.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m038",
+          "questionText": "The user types ABCDEF and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar c;\ncin.ignore(3);\nc = cin.peek();\ncout << c;\ncin.get(c);\ncout << c;\ncin.get(c);\ncout << c;",
+          "options": [
+            "ADE",
+            "DEF",
+            "DDE",
+            "CDE"
+          ],
+          "correctIndex": 2,
+          "explanation": "ignore(3) discards A, B and C. peek() returns D without removing it, so the following get(c) reads the same D, and the next get(c) reads E.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m039",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setprecision(2);\ncout << 0.00012345 << \" \" << 0.000012345 << \" \";\ncout << 99.9;",
+          "options": [
+            "0.00012 0.000012 1e+02",
+            "0.00 0.00 99.90",
+            "1.2e-04 1.2e-05 99",
+            "0.00012 1.2e-05 1e+02"
+          ],
+          "correctIndex": 3,
+          "explanation": "In general notation precision 2 means 2 significant digits, and scientific form is used when the decimal exponent X is below -4 or at least the precision. 0.00012345 has X = -4 and stays fixed as 0.00012, 0.000012345 has X = -5 and becomes 1.2e-05, and 99.9 rounds up to 1.0 x 10^2, so X = 2 and it prints as 1e+02.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m040",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << boolalpha << (3 > 2) << \" \";\ncout << noboolalpha;\ncout << (2 > 3);",
+          "options": [
+            "true 0",
+            "1 0",
+            "true false",
+            "1 false"
+          ],
+          "correctIndex": 0,
+          "explanation": "boolalpha makes bool values print as true or false, and noboolalpha switches back to the default numeric form. So the first comparison prints true and the second prints 0.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i51_m041",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << fixed << setprecision(1) << setfill('*');\ncout << '|' << left << setw(6) << \"Tea\" << '|';\ncout << right << setw(7) << 45.37 << '|';",
+          "options": [
+            "|***Tea|45.4***|",
+            "|Tea***|***45.4|",
+            "|Tea***|**45.37|",
+            "|Tea***|45.4|"
+          ],
+          "correctIndex": 1,
+          "explanation": "Tea is left-justified in 6 columns with the sticky fill character *, giving Tea***. With fixed and precision 1, 45.37 becomes 45.4 (4 characters), which is right-justified in 7 columns as ***45.4; the '|' characters are printed with width 0.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m042",
+          "questionText": "The user types Biratnagar and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar buf[5];\ncin >> setw(5) >> buf;\ncout << buf << \"|\";\ncin >> setw(5) >> buf;\ncout << buf;",
+          "options": [
+            "Bira|nagar",
+            "Birat|nagar",
+            "Biratnagar|",
+            "Bira|tnag"
+          ],
+          "correctIndex": 3,
+          "explanation": "For a char array, setw(5) on input limits extraction to 5 - 1 = 4 characters so that the terminating '\\0' fits, so the first read gets Bira. The second read continues with the rest of the word and again takes 4 characters, tnag.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i51_m043",
+          "questionText": "The user types abc and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect. Use the C++11 (or later) rules.\n\nint n = 7;\ncin >> n;\ncout << n << \" \" << cin.fail();",
+          "options": [
+            "0 1",
+            "7 1",
+            "7 0",
+            "0 0"
+          ],
+          "correctIndex": 0,
+          "explanation": "abc cannot be converted to an int, so the extraction fails and sets failbit, and since C++11 the target is then set to 0. cin.fail() therefore returns true, which is printed as 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m044",
+          "questionText": "Which statement prints 3.14159 as 3.14, right-justified in a field of 8 columns? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.",
+          "options": [
+            "cout << setw(2) << setprecision(8) << 3.14159;",
+            "cout << setprecision(2) << setw(8) << 3.14159;",
+            "cout << fixed << setprecision(2) << setw(8) << 3.14159;",
+            "cout << fixed << setw(8) << 3.14159 << setprecision(2);"
+          ],
+          "correctIndex": 2,
+          "explanation": "fixed makes precision 2 mean two decimal places, giving 3.14, and setw(8) pads it on the left to 8 columns. Without fixed, precision 2 means two significant digits and prints 3.1, and a precision set after the value has no effect on it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m045",
+          "questionText": "A program writes results to cout and error messages to cerr, and it is run from the command line as prog > out.txt. Where do the cerr messages appear?",
+          "options": [
+            "In out.txt, after all of the cout output",
+            "On the screen, because cerr writes to standard error, which was not redirected",
+            "Nowhere, because cerr output is discarded when output is redirected",
+            "In out.txt, at the points where they were written"
+          ],
+          "correctIndex": 1,
+          "explanation": "The > operator redirects only standard output, which is what cout uses. cerr and clog write to standard error, which still goes to the console unless it is redirected separately, for example with 2> err.txt.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i51_m046",
+          "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint old = cout.precision(3);\ncout << old << \" \";\ncout << 2.0 / 3;",
+          "options": [
+            "3 0.67",
+            "3 0.667",
+            "6 0.666667",
+            "6 0.667"
+          ],
+          "correctIndex": 3,
+          "explanation": "precision(n) sets the new precision and returns the previous one, which is the default 6. With 3 significant digits, 2/3 = 0.6666... prints as 0.667.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch3_i52",
+      "title": "C++ File Handling",
+      "subtitle": "ifstream/ofstream/fstream, open modes, error states, text, binary and random access",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "File Stream Classes"
+          },
+          {
+            "type": "paragraph",
+            "text": "File handling in C++ reuses the console stream hierarchy: the header <fstream> derives ifstream from istream (input files), ofstream from ostream (output files) and fstream from iostream (files opened for both). Each owns a filebuf that talks to the operating system. Because they are ordinary streams, everything that works with cin and cout — the operators >> and <<, get(), getline(), read(), write(), manipulators and formatting flags — works unchanged on a file."
+          },
+          {
+            "type": "heading",
+            "text": "Defining, Opening and Closing a File"
+          },
+          {
+            "type": "paragraph",
+            "text": "A file is defined by declaring a stream object and opened by associating that object with a file name, either in the constructor or later with open(name, mode). Opening creates the file when writing and fails when a file to be read does not exist; failure sets the failbit, so the stream should be tested right after opening. close() flushes buffered output and releases the file; the destructor does the same automatically when the object goes out of scope, but closing explicitly frees the file handle early and makes the intention clear."
+          },
+          {
+            "type": "code",
+            "text": "#include <fstream>\nofstream fout(\"out.txt\");                     // 1) constructor opens (mode ios::out)\nifstream fin;\nfin.open(\"in.txt\", ios::in);                  // 2) open() later\nfstream f(\"data.dat\", ios::in | ios::out | ios::binary);   // modes combined with |\nif (!fin) cerr << \"cannot open in.txt\\n\";     // open failure sets failbit\nfout << \"hello \" << 42 << '\\n';               // same operators as cout\nfout.close(); fin.close(); f.close();         // flush and release the file",
+            "language": "cpp"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Mode flag",
+                "Effect",
+                "Typical use"
+              ],
+              [
+                "ios::in",
+                "Open for reading; the file must already exist",
+                "Default for ifstream"
+              ],
+              [
+                "ios::out",
+                "Open for writing; creates the file; alone it truncates",
+                "Default for ofstream"
+              ],
+              [
+                "ios::app",
+                "Append: every write goes to the end of the file",
+                "Log files"
+              ],
+              [
+                "ios::ate",
+                "Start positioned AT End, but seeking elsewhere is allowed",
+                "Read the size, then update"
+              ],
+              [
+                "ios::trunc",
+                "Discard existing contents on open",
+                "Fresh output file"
+              ],
+              [
+                "ios::binary",
+                "No newline translation; bytes are copied exactly",
+                "Records via read()/write()"
+              ],
+              [
+                "ios::in | ios::out",
+                "Read and write the same file without truncating",
+                "Default for fstream; updates"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Default and combined modes to remember:",
+            "items": [
+              "ifstream defaults to ios::in, ofstream to ios::out, fstream to ios::in | ios::out.",
+              "ios::out on its own behaves as ios::out | ios::trunc: an existing file is emptied. Add ios::app, ios::ate or ios::in to keep the contents.",
+              "ios::app forces all writes to the end even after seekp(); ios::ate only sets the starting position and later seeks are honoured.",
+              "ios::in | ios::out with fstream fails if the file does not exist; add ios::trunc to create it.",
+              "Use ios::binary for read()/write() of structures on Windows, where text mode converts \\n to \\r\\n and treats Ctrl-Z as end of file."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Checking Streams and Error Handling During I/O"
+          },
+          {
+            "type": "paragraph",
+            "text": "Every stream carries a state made of three bits: eofbit (end of input reached), failbit (an operation could not do what was asked, e.g. reading a word into an int, or open() failed) and badbit (a serious error such as a lost device). While all are clear the stream is good. Once failbit or badbit is set all further operations are ignored until clear() resets the state, which is why a loop must test the stream itself rather than eof() alone. Testing the stream in a boolean context (if (!fin), while (fin >> x)) is the idiomatic check. Alternatively stream.exceptions(mask) selects which bits should throw std::ios::failure instead, to be caught with try { } catch (ios::failure &e) { }; eofbit is normally left out of the mask because it is set together with failbit at the end of every input file."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Function",
+                "True when / effect"
+              ],
+              [
+                "is_open()",
+                "The file was opened successfully and is still open"
+              ],
+              [
+                "good()",
+                "No state bit is set; the next operation may succeed"
+              ],
+              [
+                "eof()",
+                "A read tried to go past the end of the file"
+              ],
+              [
+                "fail()",
+                "failbit or badbit is set (format error, failed open, past end)"
+              ],
+              [
+                "bad()",
+                "badbit is set: unrecoverable I/O error"
+              ],
+              [
+                "clear()",
+                "Resets all state bits so the stream is usable again"
+              ],
+              [
+                "!stream  /  if (stream)",
+                "Shorthand for fail() / !fail()"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "text": "ifstream fin(\"marks.txt\");\nif (!fin.is_open()) { cerr << \"open failed\\n\"; return 1; }\nint m;\nwhile (fin >> m)             // stops on end of file or on a non-integer token\n    cout << m << ' ';\nif (fin.eof())  cout << \"\\nreached end of file\\n\";\nelse if (fin.fail()) { cout << \"\\nbad data\\n\"; fin.clear(); }   // clear() resets the state\nfin.exceptions(ios::failbit | ios::badbit);   // from now on those errors throw ios::failure",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Sequential Text I/O"
+          },
+          {
+            "type": "code",
+            "text": "ofstream fout(\"students.txt\");\nfout << \"Ram \" << 78 << '\\n' << \"Sita \" << 91 << '\\n';\nfout.close();\nifstream fin(\"students.txt\");\nstring name; int marks;\nwhile (fin >> name >> marks)              // formatted extraction, whitespace separated\n    cout << name << \": \" << marks << '\\n';\nfin.clear(); fin.seekg(0);                // rewind to read the file again\nstring line;\nwhile (getline(fin, line)) cout << line << '\\n';   // one line at a time",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Binary I/O and Random Access"
+          },
+          {
+            "type": "bulletList",
+            "text": "Sequential text I/O stores numbers as readable characters in variable-length records, so the n-th record cannot be located directly. Binary I/O copies the bytes of an object with write() and read(), and random access moves the file position pointers before the transfer:",
+            "items": [
+              "write(reinterpret_cast<char*>(&obj), sizeof(obj)) and read(reinterpret_cast<char*>(&obj), sizeof(obj)) transfer whole records; the object must be plain data (no pointers, no std::string).",
+              "Input streams have a get pointer moved by seekg() and reported by tellg(); output streams have a put pointer moved by seekp() and reported by tellp(); fstream has both.",
+              "seekg(offset, origin) with origin ios::beg (start), ios::cur (current position, offset may be negative) or ios::end (end of file); seekg(n) alone means from the beginning.",
+              "Fixed-size records make random access arithmetic simple: record n starts at byte (n - 1) * sizeof(record) and the record count is the file size divided by sizeof(record).",
+              "Updating a record: seekp to its offset, write the new bytes; deleting usually means copying all other records to a new file."
+            ]
+          },
+          {
+            "type": "code",
+            "text": "struct Student { char name[20]; int roll; float gpa; };   // plain data: fixed size, no pointers\nStudent s = {\"Ram\", 1, 3.6f}, t;\nfstream f(\"stu.dat\", ios::in | ios::out | ios::binary | ios::trunc);\nf.write(reinterpret_cast<char*>(&s), sizeof(s));         // record 1\ns.roll = 2; f.write(reinterpret_cast<char*>(&s), sizeof(s));   // record 2\nf.seekg(0);                                               // get pointer back to start\nf.read(reinterpret_cast<char*>(&t), sizeof(t));           // read record 1\ncout << t.name << ' ' << t.roll << '\\n';                  // Ram 1\nint n = 2;                                                // update the n-th record\nf.seekp((n - 1) * sizeof(Student), ios::beg);\ns.gpa = 3.9f; f.write(reinterpret_cast<char*>(&s), sizeof(s));\nf.seekg(0, ios::end);\ncout << f.tellg() / sizeof(Student) << \" records\\n\";      // 2 records",
+            "language": "cpp"
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: File Streams in Practice"
+          },
+          {
+            "type": "paragraph",
+            "text": "The state bits change only when an input operation actually tries to read. eofbit is set when a read runs into the end of the file. In a file that ends with a newline this happens one attempt after the last item has been taken, not at the moment the last item is read. When an extraction with >> finds nothing but whitespace before the end, its sentry fails, failbit and eofbit are set and the target variable is left unchanged; getline() instead empties its string first. That is why a loop controlled by !in.eof() processes the last word or number twice (or an extra empty line with getline), while a loop controlled by the read itself, while (in >> x), stops at exactly the right moment."
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <fstream>\n#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    { ofstream out(\"colours.txt\"); out << \"red green\\nblue\\n\"; }\n    ifstream in(\"colours.txt\");\n    string w;\n    while (!in.eof()) {          // wrong test: eof is still clear after \"blue\"\n        in >> w;\n        cout << w << ',';\n    }\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: red,green,blue,blue,\n\npass 1  in >> w reads \"red\"            prints red,\npass 2  in >> w reads \"green\"          prints green,\npass 3  in >> w reads \"blue\" and stops before the final '\\n';\n        no read has failed yet, so eof() is still false: prints blue,\npass 4  in >> w skips '\\n', meets end of file, sets eofbit + failbit,\n        w keeps \"blue\": prints blue, a second time\nnow eof() is true and the loop ends\nFix:    while (in >> w) cout << w << ',';   prints red,green,blue,"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Call",
+                "What it reads",
+                "At end of file",
+                "Left in the stream"
+              ],
+              [
+                "in >> x",
+                "Skips leading whitespace, then one word or number",
+                "eofbit + failbit; x unchanged",
+                "The whitespace or newline after the token"
+              ],
+              [
+                "in.get(ch)",
+                "Exactly one character, whitespace included",
+                "eofbit + failbit",
+                "Everything after that character"
+              ],
+              [
+                "getline(in, s)",
+                "Characters up to '\\n'; the newline is removed and discarded",
+                "eofbit, plus failbit if nothing was read; s is emptied",
+                "Nothing of that line"
+              ],
+              [
+                "in.getline(buf, n)",
+                "At most n - 1 characters into a char array, then '\\0'",
+                "As getline; failbit also if the line is longer than n - 1",
+                "The unread rest of a long line"
+              ],
+              [
+                "in.read(buf, n)",
+                "Exactly n raw bytes, no formatting",
+                "eofbit + failbit; gcount() gives the bytes that did arrive",
+                "Everything after the bytes read"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The standard defines every legal combination of open-mode flags by the C fopen() mode it behaves like, which explains the rules that look arbitrary. ios::ate plays no part in that choice: it only moves to the end once the file is open, so ofstream f(name, ios::ate), which means ios::out | ios::ate, still truncates the file. ios::binary adds a b to the fopen mode. A combination that has no fopen equivalent, such as ios::in | ios::trunc or ios::app | ios::trunc, makes open() fail and sets failbit."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Mode combination",
+                "Behaves like fopen",
+                "File must exist?",
+                "Existing contents"
+              ],
+              [
+                "in",
+                "\"r\"",
+                "Yes",
+                "Kept; read only"
+              ],
+              [
+                "out, or out | trunc",
+                "\"w\"",
+                "No, it is created",
+                "Discarded"
+              ],
+              [
+                "app, or out | app",
+                "\"a\"",
+                "No, it is created",
+                "Kept; every write goes to the end"
+              ],
+              [
+                "in | out",
+                "\"r+\"",
+                "Yes",
+                "Kept; read and overwrite anywhere"
+              ],
+              [
+                "in | out | trunc",
+                "\"w+\"",
+                "No, it is created",
+                "Discarded"
+              ],
+              [
+                "in | app, or in | out | app",
+                "\"a+\"",
+                "No, it is created",
+                "Kept; writes go to the end"
+              ],
+              [
+                "in | trunc, app | trunc",
+                "None: open() fails",
+                "Not applicable",
+                "Not applicable (failbit set)"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "n = \\frac{\\text{pos}}{\\text{sizeof(rec)}} + 1",
+            "plainText": "a fixed-size record starting at byte pos is record number n = pos / sizeof(rec) + 1"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "#include <fstream>\n#include <iostream>\nusing namespace std;\nint main() {\n    fstream f(\"pos.bin\", ios::in | ios::out | ios::binary | ios::trunc);\n    f << \"0123456789\";\n    f.seekg(-4, ios::end);\n    char c; f.get(c);\n    cout << c << ' ' << f.tellg() << ' ';\n    f.seekp(2, ios::beg); f << \"AB\";\n    f.seekg(-2, ios::cur); f.get(c);\n    cout << c << ' ' << f.tellg();\n}"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Output: 6 7 A 3\n\nf << \"0123456789\"      10 bytes written, position = 10\nf.seekg(-4, ios::end)  position = 10 - 4 = 6\nf.get(c)               c = '6', position = 7        prints 6 7\nf.seekp(2, ios::beg)   position = 2 (an fstream has ONE shared position)\nf << \"AB\"              bytes 2 and 3 become A and B, position = 4\nf.seekg(-2, ios::cur)  position = 4 - 2 = 2\nf.get(c)               c = 'A', position = 3        prints A 3\nThe file now holds 01AB456789"
+          },
+          {
+            "type": "bulletList",
+            "text": "Common mistakes with file streams:",
+            "items": [
+              "Seeking back to the start after a read loop without calling clear() first: while failbit is set, seekg() and every later read are ignored.",
+              "Opening with ofstream f(name, ios::ate) to keep old data: the file is still truncated; use ios::app, or ios::in | ios::out (with ios::ate if needed).",
+              "Calling getline() right after in >> n: it returns the empty rest of the line; skip the newline first with in.ignore(1000, '\\n') or in >> ws.",
+              "Numbering record offsets from 1: record n starts at (n - 1) × sizeof(rec), so seekg(n * sizeof(rec)) lands on the record after the one intended.",
+              "Reading a file through a second stream while the ofstream that wrote it is still open and unflushed: the data may still be in the writer's buffer.",
+              "On an fstream, switching between writing and reading with no seek in between: the same rule as for C FILE applies, so call seekg() or seekp() before changing direction (after writing, flush() is also enough)."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "To find a file's size in one step, open it with ios::binary | ios::ate and call tellg(). In a text file on Windows each newline occupies two bytes (\\r\\n), so byte counts of text files are platform dependent; record arithmetic is safe only in binary mode."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{offset}_n = (n-1) \\times \\text{sizeof(record)}",
+            "plainText": "offset of the n-th fixed-size record = (n - 1) × sizeof(record)"
+          },
+          {
+            "type": "formula",
+            "latex": "N = \\frac{\\text{file size}}{\\text{sizeof(record)}}",
+            "plainText": "number of records = file size / sizeof(record), file size = tellg() after seekg(0, ios::end)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{ofstream f(name)} \\equiv \\text{f.open(name, ios::out)} \\Rightarrow \\text{trunc}",
+            "plainText": "ofstream f(name) is open(name, ios::out); out alone truncates an existing file"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{seekg(off, origin)},\\quad origin \\in \\{beg,\\ cur,\\ end\\}",
+            "plainText": "seekg(offset, origin) with origin ios::beg, ios::cur or ios::end"
+          }
+        ],
+        "notes": [
+          {
+            "type": "warning",
+            "text": "while (!fin.eof()) { fin >> x; ... } processes the last item twice because eof is set only after a read fails. Use while (fin >> x) instead."
+          },
+          {
+            "type": "examTip",
+            "text": "ios::app versus ios::ate: both start at the end of the file, but app forces every write to the end even after seekp(), while ate lets you seek and overwrite anywhere. ios::out alone erases an existing file."
+          },
+          {
+            "type": "warning",
+            "text": "write()/read() dump raw bytes, so a record containing a pointer or a std::string cannot be stored this way; use fixed char arrays. Always open such files with ios::binary."
+          },
+          {
+            "type": "note",
+            "text": "Opening a non-existent file with ifstream fails silently; the stream is left in a fail state and every read is ignored. Test if (!fin) immediately after opening."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch3_i52_01",
+          "title": "Record offset",
+          "latex": "\\text{offset}_n = (n-1) \\times \\text{sizeof(record)}",
+          "plainText": "offset_n = (n - 1) × sizeof(record)",
+          "description": "Byte position passed to seekg/seekp to reach the n-th fixed-size record counted from 1."
+        },
+        {
+          "id": "f_ch3_i52_02",
+          "title": "Record count",
+          "latex": "N = \\frac{\\text{file size}}{\\text{sizeof(record)}}",
+          "plainText": "N = file size / sizeof(record)",
+          "description": "Seek to ios::end, read tellg() to get the file size in bytes and divide by the record size."
+        },
+        {
+          "id": "f_ch3_i52_03",
+          "title": "Default open modes",
+          "latex": "\\text{ifstream}: in,\\quad \\text{ofstream}: out,\\quad \\text{fstream}: in\\,|\\,out",
+          "plainText": "ifstream -> ios::in, ofstream -> ios::out, fstream -> ios::in | ios::out",
+          "description": "What each class opens with when no mode is given; ios::out alone also truncates the file."
+        },
+        {
+          "id": "f_ch3_i52_04",
+          "title": "Random access call",
+          "latex": "\\text{seekg(off, origin)},\\quad origin \\in \\{beg,\\ cur,\\ end\\}",
+          "plainText": "seekg(offset, ios::beg | ios::cur | ios::end)",
+          "description": "Moves the get pointer; seekp does the same for the put pointer, and tellg/tellp report the current offsets."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch3_i52_01",
+          "front": "What is the difference between ios::app and ios::ate?",
+          "back": "Both open with the position at the end; ios::app makes every write go to the end regardless of seekp(), while ios::ate only sets the initial position and later seeks can move it anywhere.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i52_02",
+          "front": "What do seekg(), seekp(), tellg() and tellp() do?",
+          "back": "seekg/tellg move and report the get (read) pointer, seekp/tellp the put (write) pointer, each with an offset and an origin ios::beg, ios::cur or ios::end.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch3_i52_03",
+          "front": "Why is while (!fin.eof()) a bug when reading a file?",
+          "back": "eofbit is set only after a read fails, so the loop body runs once more with stale data; use while (fin >> x) or while (getline(fin, s)) which stop as soon as a read fails.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch3_i52_04",
+          "front": "How do you make a file stream throw on errors instead of setting flags?",
+          "back": "Call stream.exceptions(ios::failbit | ios::badbit); afterwards those conditions throw std::ios::failure, to be caught with try/catch.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch3_i52_n01",
+          "questionText": "A binary file rec.dat holds fixed-size records of 40 bytes each. Which call positions the get pointer at the start of the 5th record?",
+          "options": [
+            "fin.seekg(5 * 40, ios::beg);",
+            "fin.seekg(4 * 40, ios::beg);",
+            "fin.seekg(40, ios::cur);",
+            "fin.seekg(-5 * 40, ios::end);"
+          ],
+          "correctIndex": 1,
+          "explanation": "Records are numbered from 1 and offsets from 0, so record n starts at (n - 1) × size = 4 × 40 = 160 bytes from the beginning.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_n02",
+          "questionText": "data.txt already exists and contains 100 lines. What happens when the statement ofstream f(\"data.txt\"); is executed?",
+          "options": [
+            "The file is opened and new output is appended after the existing lines",
+            "The existing contents are discarded and the file becomes empty",
+            "The open fails because the file already exists",
+            "The file is opened read-only and writes are ignored"
+          ],
+          "correctIndex": 1,
+          "explanation": "ofstream defaults to ios::out, which without ios::app, ios::ate or ios::in truncates an existing file to zero length when it is opened.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m001",
+          "questionText": "Which standard header must be included to use the classes ifstream, ofstream and fstream?",
+          "options": [
+            "<fstream>",
+            "<iomanip>",
+            "<cstdio>",
+            "<sstream>"
+          ],
+          "correctIndex": 0,
+          "explanation": "<fstream> declares the three file stream classes. <iomanip> declares parameterised manipulators such as setw, <cstdio> declares the C FILE functions and <sstream> declares the string streams.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m002",
+          "questionText": "In the standard C++ stream class hierarchy, from which class is ofstream derived?",
+          "options": [
+            "istream",
+            "iostream",
+            "fstream",
+            "ostream"
+          ],
+          "correctIndex": 3,
+          "explanation": "ofstream is an output-only stream, so it derives from ostream and inherits <<, put() and write(). ifstream derives from istream, and fstream, which does both input and output, derives from iostream.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m003",
+          "questionText": "An fstream object is opened with only a file name, as in fstream f(\"data.txt\");. Which open mode is used?",
+          "options": [
+            "ios::in | ios::out",
+            "ios::in",
+            "ios::out | ios::trunc",
+            "ios::in | ios::out | ios::app"
+          ],
+          "correctIndex": 0,
+          "explanation": "The default mode argument of fstream's constructor and of its open() is ios::in | ios::out, so the file must already exist and its contents are kept. ifstream defaults to ios::in and ofstream to ios::out.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m004",
+          "questionText": "Which member function moves the put (write) pointer of an output file stream to a new position?",
+          "options": [
+            "seekg()",
+            "tellp()",
+            "seekp()",
+            "putback()"
+          ],
+          "correctIndex": 2,
+          "explanation": "seekp() (p for put) positions the next write and seekg() (g for get) the next read. tellp() only reports the put position, and putback() returns a character to an input stream.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m005",
+          "questionText": "Which second argument makes fin.seekg(offset, origin) measure the offset from the current position of the get pointer?",
+          "options": [
+            "ios::cur",
+            "ios::beg",
+            "ios::end",
+            "ios::ate"
+          ],
+          "correctIndex": 0,
+          "explanation": "The seek directions are ios::beg (start of file), ios::cur (current position) and ios::end (end of file). ios::ate is an open-mode flag, not a seek direction.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m006",
+          "questionText": "Which of the following is NOT an open-mode flag of standard C++17?",
+          "options": [
+            "ios::ate",
+            "ios::nocreate",
+            "ios::trunc",
+            "ios::binary"
+          ],
+          "correctIndex": 1,
+          "explanation": "Standard C++17 defines six open-mode flags: in, out, app, ate, trunc and binary. ios::nocreate existed only in old pre-standard libraries such as Turbo C++ and was never part of standard C++.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m007",
+          "questionText": "fin is an ifstream and ch is a char. Which statement extracts exactly one character from the file, even when that character is a space or a newline?",
+          "options": [
+            "fin >> ch;",
+            "ch = fin.peek();",
+            "fin.get(ch);",
+            "fin.putback(ch);"
+          ],
+          "correctIndex": 2,
+          "explanation": "get(ch) is an unformatted read that takes the next character whatever it is. fin >> ch skips whitespace first, peek() looks at the next character without extracting it, and putback() returns a character to the stream.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m008",
+          "questionText": "Assume the file no_such_file.txt does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nifstream fin(\"no_such_file.txt\");\nbool opened = fin.is_open();\ncout << opened << fin.fail() << fin.good();",
+          "options": [
+            "101",
+            "000",
+            "110",
+            "010"
+          ],
+          "correctIndex": 3,
+          "explanation": "Opening a missing file for input fails: no file is attached, so is_open() prints 0, and the constructor sets failbit, so fail() prints 1 and good() prints 0.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m009",
+          "questionText": "Assume the file new.dat does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nfstream f(\"new.dat\", ios::in | ios::out);\ncout << f.is_open();\nfstream g(\"new.dat\", ios::in | ios::out | ios::trunc);\ncout << g.is_open();",
+          "options": [
+            "11",
+            "10",
+            "00",
+            "01"
+          ],
+          "correctIndex": 3,
+          "explanation": "ios::in | ios::out behaves like fopen mode \"r+\", which requires an existing file, so the first open fails and prints 0. Adding ios::trunc gives \"w+\", which creates the file, so the second open succeeds and prints 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m010",
+          "questionText": "The file log.txt already exists. For which mode does fstream f(\"log.txt\", mode); fail to open the file?",
+          "options": [
+            "ios::out | ios::app",
+            "ios::in | ios::trunc",
+            "ios::in | ios::out",
+            "ios::out | ios::trunc | ios::binary"
+          ],
+          "correctIndex": 1,
+          "explanation": "ios::trunc is allowed only together with ios::out, so ios::in | ios::trunc has no fopen equivalent and open() fails, setting failbit. The other three behave like fopen modes \"a\", \"r+\" and \"wb\" and open normally.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m011",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"t.txt\"); f << \"AB\"; }\n{ ofstream f(\"t.txt\", ios::app); f.seekp(0); f << \"CD\"; }\nifstream in(\"t.txt\");\nstring s;\nin >> s;\ncout << s;",
+          "options": [
+            "CD",
+            "ABCD",
+            "CDAB",
+            "AB"
+          ],
+          "correctIndex": 1,
+          "explanation": "The first block writes AB. ios::app forces every write to the current end of the file, so seekp(0) does not change where CD goes and the file becomes ABCD. Overwriting from the start would need a mode without app, such as ios::in | ios::out.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m012",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"h.txt\"); f << \"HELLO\"; }\n{ ofstream f(\"h.txt\", ios::ate); f << \"X\"; }\nifstream in(\"h.txt\");\nstring s;\nin >> s;\ncout << s << \" \" << s.size();",
+          "options": [
+            "HELLOX 6",
+            "XELLO 5",
+            "X 1",
+            "HELLO 5"
+          ],
+          "correctIndex": 2,
+          "explanation": "ofstream always adds ios::out, and ios::out | ios::ate still opens like fopen \"w\": the file is truncated first and ate merely moves to the end of the now-empty file. So the file holds only X, size 1; keeping HELLO needs ios::app or ios::in | ios::out | ios::ate.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m013",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"w.txt\"); f << \"HELLO\"; }\nfstream f(\"w.txt\", ios::in | ios::out);\nf.seekp(1);\nf << \"AB\";\nf.seekg(0);\nstring s;\nf >> s;\ncout << s;",
+          "options": [
+            "ABLLO",
+            "HAB",
+            "HELLOAB",
+            "HABLO"
+          ],
+          "correctIndex": 3,
+          "explanation": "ios::in | ios::out opens the existing file without truncating it. seekp(1) moves to the second byte, so AB overwrites E and the first L, giving HABLO, which is read back after seekg(0).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m014",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"n.txt\"); f << \"4 5 6\\n\"; }\nifstream in(\"n.txt\");\nint x, sum = 0;\nwhile (in >> x) sum += x;\ncout << sum << \" \" << in.eof() << in.fail() << in.bad();",
+          "options": [
+            "15 100",
+            "15 110",
+            "15 010",
+            "15 000"
+          ],
+          "correctIndex": 1,
+          "explanation": "The loop adds 4 + 5 + 6 = 15. The fourth extraction skips the final newline, reaches end of file and reads nothing, so it sets both eofbit and failbit; badbit stays clear, giving 110.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m015",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"v.txt\"); f << \"10 20\"; }    // no newline after 20\nifstream in(\"v.txt\");\nint a, b;\nin >> a >> b;\ncout << in.eof() << in.fail() << in.good() << bool(in);",
+          "options": [
+            "0011",
+            "1100",
+            "1001",
+            "1000"
+          ],
+          "correctIndex": 2,
+          "explanation": "While reading 20 the stream looks for more digits and hits end of file, so eofbit is set, but 20 itself was read successfully, so failbit is not. good() is 0 because a bit is set, while bool(in) means !fail() and is 1.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m016",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"n3.txt\"); f << \"1 2 3\\n\"; }\nifstream in(\"n3.txt\");\nint x = 0, sum = 0, count = 0;\nwhile (!in.eof()) {\n    in >> x;\n    sum += x;\n    count++;\n}\ncout << count << \" \" << sum;",
+          "options": [
+            "4 9",
+            "3 6",
+            "3 9",
+            "5 12"
+          ],
+          "correctIndex": 0,
+          "explanation": "After 3 is read the newline is still unread, so eof() is false and the loop runs a fourth time. That extraction finds only end of file, sets eofbit and failbit and leaves x at 3, so count = 4 and sum = 1 + 2 + 3 + 3 = 9.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m017",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"l.txt\"); f << \"a\\nb\\nc\\n\"; }\nifstream in(\"l.txt\");\nstring line;\nint n = 0;\nwhile (!in.eof()) {\n    getline(in, line);\n    n++;\n}\ncout << n << \" [\" << line << \"]\";",
+          "options": [
+            "3 [c]",
+            "4 [c]",
+            "4 []",
+            "3 []"
+          ],
+          "correctIndex": 2,
+          "explanation": "The third getline reads c and consumes its newline without reaching end of file, so eof() is still false and the loop runs again. The fourth getline empties line, finds end of file and sets eofbit (and failbit), so n is 4 and line is empty.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m018",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"r.txt\"); f << \"x\\ny\\nz\\n\"; }\nifstream in(\"r.txt\");\nstring s;\nint first = 0, second = 0;\nwhile (getline(in, s)) first++;\nin.seekg(0);\nwhile (getline(in, s)) second++;\ncout << first << \" \" << second;",
+          "options": [
+            "3 3",
+            "3 0",
+            "3 1",
+            "0 3"
+          ],
+          "correctIndex": 1,
+          "explanation": "The first loop ends because getline failed at end of file, leaving failbit set. seekg() does nothing on a stream whose failbit is set and every later read is ignored, so the second count is 0; calling in.clear() before in.seekg(0) would give 3 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m019",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"c.txt\"); f << \"a b\\nc\\n\"; }\nifstream in(\"c.txt\");\nchar ch;\nint n1 = 0, n2 = 0;\nwhile (in.get(ch)) n1++;\nin.clear();\nin.seekg(0);\nwhile (in >> ch) n2++;\ncout << n1 << \" \" << n2;",
+          "options": [
+            "6 3",
+            "3 3",
+            "6 6",
+            "4 3"
+          ],
+          "correctIndex": 0,
+          "explanation": "get() counts every character: a, space, b, newline, c, newline = 6. After clear() and seekg(0) the >> operator skips all whitespace, so the second loop counts only a, b and c = 3.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m020",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"m.txt\"); f << \"42\\nRam Thapa\\n\"; }\nifstream in(\"m.txt\");\nint id;\nstring name;\nin >> id;\ngetline(in, name);\ncout << id << \" [\" << name << \"]\";",
+          "options": [
+            "42 [Ram Thapa]",
+            "42 []",
+            "42 [Ram]",
+            "0 [Ram Thapa]"
+          ],
+          "correctIndex": 1,
+          "explanation": "in >> id stops at the newline after 42 and leaves it in the stream, so getline() immediately meets that newline and stores an empty string. Skipping it first with in.ignore(1000, '\\n') or getline(in >> ws, name) would read Ram Thapa.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m021",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"abc.bin\", ios::binary); f << \"ABCDEFGHIJ\"; }\nifstream in(\"abc.bin\", ios::binary);\nchar c;\nin.seekg(3);\nin.get(c);\ncout << c << in.tellg() << \" \";\nin.seekg(-2, ios::cur);\nin.get(c);\ncout << c << \" \";\nin.seekg(-1, ios::end);\nin.get(c);\ncout << c;",
+          "options": [
+            "D3 B J",
+            "C3 A I",
+            "D4 B I",
+            "D4 C J"
+          ],
+          "correctIndex": 3,
+          "explanation": "Offsets start at 0, so seekg(3) reaches D and get() advances the pointer to 4. Moving back 2 from 4 gives offset 2, which is C. seekg(-1, ios::end) is offset 10 - 1 = 9, the last byte J.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m022",
+          "questionText": "Rec is plain data, so its bytes can be written and read directly. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct Rec { int id; double marks; };\nfstream f(\"rec.dat\", ios::in | ios::out | ios::binary | ios::trunc);\nfor (int i = 1; i <= 4; i++) {\n    Rec r = {i, i * 10.0};\n    f.write(reinterpret_cast<char*>(&r), sizeof r);\n}\nRec t;\nf.seekg(2 * sizeof(Rec));\nf.read(reinterpret_cast<char*>(&t), sizeof t);\ncout << t.id << \" \" << t.marks << \" \";\nf.seekg(-static_cast<long>(sizeof(Rec)), ios::end);\nf.read(reinterpret_cast<char*>(&t), sizeof t);\ncout << t.id << \" \" << f.tellg() / sizeof(Rec);",
+          "options": [
+            "2 20 4 4",
+            "3 30 4 4",
+            "3 30 3 3",
+            "3 30 4 3"
+          ],
+          "correctIndex": 1,
+          "explanation": "Offset 2 × sizeof(Rec) skips records 1 and 2, so record 3 (3 30) is read. Seeking one record back from the end reaches record 4; after reading it the get pointer is at the end of the file, 4 × sizeof(Rec), and the division gives 4.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m023",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct Item { int code; int qty; };\nfstream f(\"item.dat\", ios::in | ios::out | ios::binary | ios::trunc);\nItem it;\nfor (int i = 1; i <= 3; i++) {\n    it = {i, i * 5};\n    f.write(reinterpret_cast<char*>(&it), sizeof it);\n}\nf.seekg(sizeof(Item));\nf.read(reinterpret_cast<char*>(&it), sizeof it);\nit.qty += 100;\nf.seekp(-static_cast<long>(sizeof(Item)), ios::cur);\nf.write(reinterpret_cast<char*>(&it), sizeof it);\nf.seekg(0);\nwhile (f.read(reinterpret_cast<char*>(&it), sizeof it)) cout << it.qty << \";\";",
+          "options": [
+            "5;10;110;",
+            "5;110;15;",
+            "5;10;15;110;",
+            "105;10;15;"
+          ],
+          "correctIndex": 1,
+          "explanation": "seekg(sizeof(Item)) reaches record 2, and reading it leaves the shared file position at the start of record 3. seekp(-sizeof(Item), ios::cur) steps back to record 2, so the modified record (qty 10 + 100 = 110) overwrites it in place.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m024",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"s.bin\", ios::binary); f << \"Kathmandu\"; }\nifstream in(\"s.bin\", ios::binary | ios::ate);\ncout << in.tellg();",
+          "options": [
+            "9",
+            "0",
+            "10",
+            "8"
+          ],
+          "correctIndex": 0,
+          "explanation": "ios::ate positions the get pointer at the end of the file immediately after opening, so tellg() returns the file size: the 9 characters of Kathmandu (<< does not write the terminating '\\0').",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m025",
+          "questionText": "Assume int is 4 bytes. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nint n = 123456;\n{ ofstream ft(\"num.txt\"); ft << n; }\n{ ofstream fb(\"num.bin\", ios::binary); fb.write(reinterpret_cast<char*>(&n), sizeof n); }\nifstream it(\"num.txt\", ios::ate), ib(\"num.bin\", ios::binary | ios::ate);\ncout << it.tellg() << \" \" << ib.tellg();",
+          "options": [
+            "4 6",
+            "6 4",
+            "6 6",
+            "4 4"
+          ],
+          "correctIndex": 1,
+          "explanation": "<< stores the number as the six characters 123456, while write() copies the int's internal representation, sizeof(int) = 4 bytes. With ios::ate, tellg() reports each file's size: 6 and 4.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m026",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream f(\"p.bin\", ios::binary);\nf << \"ABCDEF\";\nf.seekp(2);\nf << \"xy\";\ncout << f.tellp() << \" \";\nf.seekp(0, ios::end);\ncout << f.tellp();",
+          "options": [
+            "8 8",
+            "2 6",
+            "4 6",
+            "4 8"
+          ],
+          "correctIndex": 2,
+          "explanation": "After seekp(2) the two characters xy overwrite C and D, leaving the put pointer at 2 + 2 = 4. The file is still ABxyEF, 6 bytes long, so seeking to the end gives 6.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m027",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"mix.txt\"); f << \"12 abc 34\\n\"; }\nifstream in(\"mix.txt\");\nint a = 0, b = 0;\nstring w;\nin >> a >> b;\ncout << a << \" \" << b << \" \" << in.fail() << \" \";\nin.clear();\nin >> w >> b;\ncout << \"[\" << w << \"] \" << b;",
+          "options": [
+            "12 0 1 [abc] 34",
+            "12 0 1 [] 0",
+            "12 0 1 [34] 0",
+            "12 0 0 [abc] 34"
+          ],
+          "correctIndex": 0,
+          "explanation": "Reading abc into the int b fails and sets failbit without consuming the word, so the first output is 12 0 1. clear() makes the stream usable again; then abc is read into w and 34 into b.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m028",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"six.bin\", ios::binary); f << \"ABCDEF\"; }\nifstream in(\"six.bin\", ios::binary);\nchar buf[10];\nin.read(buf, 4);\ncout << in.gcount() << \" \";\nin.read(buf, 4);\ncout << in.gcount() << \" \" << in.eof() << in.fail();",
+          "options": [
+            "4 2 11",
+            "4 4 00",
+            "4 2 10",
+            "4 0 11"
+          ],
+          "correctIndex": 0,
+          "explanation": "The first read() gets A to D. The second asks for 4 bytes but only E and F remain, so gcount() is 2, and because fewer bytes than requested arrived, both eofbit and failbit are set.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m029",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"g.txt\"); f << \"ABCDEFGH\\nXY\\n\"; }\nifstream in(\"g.txt\");\nchar buf[5];\nin.getline(buf, 5);\ncout << buf << \" \" << in.fail() << \" \";\nin.clear();\nin.getline(buf, 5);\ncout << buf;",
+          "options": [
+            "ABCD 0 EFGH",
+            "ABCD 1 XY",
+            "ABCDE 1 FGH",
+            "ABCD 1 EFGH"
+          ],
+          "correctIndex": 3,
+          "explanation": "getline(buf, 5) stores at most 4 characters plus '\\0'. The first call stops after ABCD before the line ends, which sets failbit. After clear(), the second call stores EFGH and then finds the newline, which it removes, so this time the read succeeds.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m030",
+          "questionText": "Assume the file missing.txt does not exist. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nifstream fin;\nfin.exceptions(ios::failbit | ios::badbit);\ntry {\n    fin.open(\"missing.txt\");\n    cout << \"opened \";\n} catch (const ios::failure &e) {\n    cout << \"caught \";\n}\ncout << \"end\";",
+          "options": [
+            "caught end",
+            "opened end",
+            "opened caught end",
+            "end"
+          ],
+          "correctIndex": 0,
+          "explanation": "exceptions(ios::failbit | ios::badbit) makes the stream throw ios::failure whenever one of those bits becomes set. The failed open() sets failbit, so the exception is thrown before \"opened\" is printed; it is caught and the program continues with end.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m031",
+          "questionText": "A program writes several lines through ofstream out(\"r.txt\"); and then, while out is still in scope and has been neither flushed nor closed, opens ifstream in(\"r.txt\"); to read them back. Why may the reader find the file empty or incomplete?",
+          "options": [
+            "An open ofstream locks the file, so the ifstream always fails to open it",
+            "The text may still be in out's buffer; it reaches the file only when the buffer is flushed or out is closed or destroyed",
+            "An ifstream always starts reading at the end of the file",
+            "Text written with << can be read back only through the same stream object"
+          ],
+          "correctIndex": 1,
+          "explanation": "File streams buffer their output. Data are passed to the file when the buffer fills, when flush() or endl is used, or when close() or the destructor runs, so the writer should be closed or flushed before the file is read.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m032",
+          "questionText": "Which statement about calling close() on a file stream object is correct?",
+          "options": [
+            "It deletes the file from the disk",
+            "It truncates the file to zero length",
+            "It flushes any buffered output and releases the file, after which the same object can open another file",
+            "It must be called explicitly, otherwise everything written to the file is lost"
+          ],
+          "correctIndex": 2,
+          "explanation": "close() flushes the buffer and detaches the file from the stream; the object itself remains and can be reused with open(). If close() is never called, the destructor closes the file anyway.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m033",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream f(\"a.txt\");\nf.open(\"b.txt\");            // a.txt is still open\ncout << f.fail() << \" \";\nf.close();\nf.clear();\nf.open(\"b.txt\");\ncout << f.is_open();",
+          "options": [
+            "0 1",
+            "1 0",
+            "0 0",
+            "1 1"
+          ],
+          "correctIndex": 3,
+          "explanation": "open() on a stream that already has a file attached fails and sets failbit, so the first output is 1. After close(), and clear() to reset the state, the same object can open b.txt, so is_open() is 1.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m034",
+          "questionText": "ifstream fin(\"data.txt\"); opened the file successfully, but a later fin >> x, where x is an int, failed because the next word in the file was abc. Which expression is still true?",
+          "options": [
+            "fin.good()",
+            "!fin.fail()",
+            "bool(fin)",
+            "fin.is_open()"
+          ],
+          "correctIndex": 3,
+          "explanation": "The failed extraction sets failbit, so good(), !fail() and bool(fin) are all false. is_open() only reports whether a file is attached, and the file stays attached until close().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m035",
+          "questionText": "Which of the following is NOT a correct way to detect that ifstream fin(\"data.txt\"); failed to open its file?",
+          "options": [
+            "if (!fin)",
+            "if (fin.eof())",
+            "if (fin.fail())",
+            "if (!fin.is_open())"
+          ],
+          "correctIndex": 1,
+          "explanation": "A failed open sets failbit, which !fin and fin.fail() test, and leaves no file attached, which !fin.is_open() tests. eofbit is set only when a read runs past the end of an open file, so eof() stays false after a failed open.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m036",
+          "questionText": "Objects of struct Emp { std::string name; int age; }; are saved with f.write(reinterpret_cast<char*>(&e), sizeof e) and read back with read() in a later run of the program. Why can the names not be relied on?",
+          "options": [
+            "write() can store only char arrays, so the int member age is lost",
+            "sizeof e counts only the int member, so the string is skipped",
+            "std::string is not plain data: the object normally holds a pointer to characters stored elsewhere, so write() saves internal addresses and bookkeeping rather than a self-contained copy of the text",
+            "Binary records written by one run of a program can never be read by another run"
+          ],
+          "correctIndex": 2,
+          "explanation": "write() copies the raw bytes of the object. For a std::string those bytes are its internal pointer, size and capacity, which mean nothing in another run; fixed char arrays must be used for records written this way.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m037",
+          "questionText": "In f.write(reinterpret_cast<char*>(&rec), sizeof rec); why is the address of rec cast to char*?",
+          "options": [
+            "write() takes a pointer to characters (bytes) and a byte count, so the record's address must be passed as a char pointer",
+            "The cast converts the numbers stored in rec into readable digits",
+            "The cast makes write() add a newline after each record",
+            "The cast is needed only when the file is opened in text mode"
+          ],
+          "correctIndex": 0,
+          "explanation": "ostream::write(const char *s, streamsize n) copies n bytes starting at s. The cast only reinterprets the record's address as a byte pointer; the bytes themselves are copied unchanged.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m038",
+          "questionText": "A binary file holds fixed-size records of 48 bytes each. After f.seekg(0, ios::end); the call f.tellg() returns 1200. How many records does the file contain, and at which byte offset does the last record begin?",
+          "options": [
+            "25 records; offset 1200",
+            "24 records; offset 1152",
+            "25 records; offset 1152",
+            "25 records; offset 1104"
+          ],
+          "correctIndex": 2,
+          "explanation": "N = file size / record size = 1200 / 48 = 25. The last record, number 25, starts at (25 - 1) × 48 = 1152, the same place that seekg(-48, ios::end) reaches.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m039",
+          "questionText": "A binary file stores 32-byte records. Just after a record has been read, f.tellg() returns 256. If f.seekg(-64, ios::cur); is executed next, which record (counting from 1) will the following read() return?",
+          "options": [
+            "The 7th record",
+            "The 6th record",
+            "The 8th record",
+            "The 9th record"
+          ],
+          "correctIndex": 0,
+          "explanation": "The new position is 256 - 64 = 192, and a record starting at byte 192 is number 192 / 32 + 1 = 7. The record just read was the 8th (bytes 224 to 255), so the pointer moved back two records.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m040",
+          "questionText": "The program runs on Windows, where a text-mode output stream stores each '\\n' as the two bytes '\\r' '\\n'. What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream t(\"t2.txt\"); t << \"AB\\nCD\\n\"; }\n{ ofstream b(\"b2.txt\", ios::binary); b << \"AB\\nCD\\n\"; }\nifstream t2(\"t2.txt\", ios::binary | ios::ate);\nifstream b2(\"b2.txt\", ios::binary | ios::ate);\ncout << t2.tellg() << \" \" << b2.tellg();",
+          "options": [
+            "6 6",
+            "6 8",
+            "8 6",
+            "8 8"
+          ],
+          "correctIndex": 2,
+          "explanation": "The text-mode stream turns each of the two newlines into \\r\\n, so t2.txt holds 4 letters + 4 bytes = 8 bytes. The binary stream copies the 6 characters unchanged. Opening with ios::ate and calling tellg() reports each file's size.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m041",
+          "questionText": "Which pair of member functions transfers a block of raw bytes, such as a whole structure, to and from a binary file stream?",
+          "options": [
+            "put() and get()",
+            "<< and >>",
+            "seekp() and seekg()",
+            "write() and read()"
+          ],
+          "correctIndex": 3,
+          "explanation": "write(p, n) and read(p, n) copy n bytes with no formatting. put() and get() move a single character, << and >> convert values to and from text, and the seek functions only move the file pointers.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m042",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\n{ ofstream f(\"para.txt\"); f << \"to be\\nor not\\n\"; }\nifstream in(\"para.txt\");\nchar ch;\nint lines = 0, words = 0, chars = 0;\nbool inWord = false;\nwhile (in.get(ch)) {\n    chars++;\n    if (ch == '\\n') lines++;\n    if (ch == ' ' || ch == '\\n') inWord = false;\n    else if (!inWord) { inWord = true; words++; }\n}\ncout << lines << \" \" << words << \" \" << chars;",
+          "options": [
+            "2 4 11",
+            "3 4 13",
+            "2 4 13",
+            "2 4 9"
+          ],
+          "correctIndex": 2,
+          "explanation": "get() reads every character: \"to be\" plus a newline is 6 and \"or not\" plus a newline is 7, so chars = 13. The two newlines give lines = 2, and a word starts at each letter that follows a space, a newline or the start: to, be, or, not = 4.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch3_i52_m043",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nofstream out(\"ch.txt\");\nfor (char c = 'a'; c <= 'e'; c += 2) out.put(c);\nout.close();\nifstream in(\"ch.txt\");\nchar c;\nstring s;\nwhile (in.get(c)) s = c + s;\ncout << s;",
+          "options": [
+            "ace",
+            "edcba",
+            "abcde",
+            "eca"
+          ],
+          "correctIndex": 3,
+          "explanation": "The loop writes a, c and e (c goes up by 2 each time), so the file holds ace. Each character read is placed in front of s, which reverses the order to eca.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch3_i52_m044",
+          "questionText": "What does opening a file with ios::binary change?",
+          "options": [
+            "Characters are transferred unchanged, without the newline and end-of-file translation that text mode may perform",
+            "Numbers written with << are stored in their internal binary form instead of as digits",
+            "Only read() and write() may be used on the stream",
+            "The file is opened for both input and output"
+          ],
+          "correctIndex": 0,
+          "explanation": "ios::binary only switches off text-mode translation, which on Windows maps \\n to \\r\\n and treats Ctrl-Z as end of file. << still writes numbers as characters; storing a value's internal bytes needs write().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m045",
+          "questionText": "Which situation sets badbit on a stream, rather than only failbit or eofbit?",
+          "options": [
+            "Reading letters into an int variable",
+            "An unrecoverable error in the stream buffer or device, such as a failed write to the disk",
+            "Reading past the last character of the file",
+            "Trying to open a file that does not exist"
+          ],
+          "correctIndex": 1,
+          "explanation": "badbit signals that the stream itself has lost integrity, for example a buffer or device error during a write. A format mismatch and a failed open set failbit, and running past the end of input sets eofbit, usually together with failbit.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch3_i52_m046",
+          "questionText": "What does this fragment print? It runs inside main() with <fstream>, <iostream> and <string> included and using namespace std; in effect.\n\nstruct P { char name[8]; int age; };\nP a = {\"Ram\", 20}, b = {\"Sita\", 22}, c = {\"Hari\", 25}, x;\nofstream f(\"p.dat\", ios::binary);\nf.write((char*)&a, sizeof a);\nf.write((char*)&b, sizeof b);\nf.close();\nf.open(\"p.dat\", ios::binary | ios::app);\nf.write((char*)&c, sizeof c);\nf.close();\nifstream in(\"p.dat\", ios::binary | ios::ate);\nlong n = in.tellg() / sizeof(P);\nin.seekg((n - 2) * sizeof(P));\nin.read((char*)&x, sizeof x);\ncout << n << \" \" << x.name << \" \" << x.age;",
+          "options": [
+            "3 Ram 20",
+            "3 Hari 25",
+            "1 Hari 25",
+            "3 Sita 22"
+          ],
+          "correctIndex": 3,
+          "explanation": "The second open uses ios::app, so Hari is added after Ram and Sita and the file holds 3 records: n = 3. Offset (n - 2) × sizeof(P) = 1 × sizeof(P) is the start of record 2, which is Sita 22.",
+          "difficulty": "hard"
+        }
+      ]
+    }
+  ]
+}

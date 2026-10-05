@@ -1,0 +1,502 @@
+{
+ "topicId": "ch5_i54",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Sockets & Servers"
+  },
+  {
+   "type": "bulletList",
+   "text": "Your socket notes, cleaned up and made precise:",
+   "items": [
+    "A socket is one endpoint of a communication channel, named by an IP address, a port and a transport protocol. Socket programming means writing network applications on this API, in C (Berkeley sockets, Winsock on Windows), Python (the socket module), Java (Socket, ServerSocket, DatagramSocket) and most other languages.",
+    "'Server creates socket and listens' is really three calls: socket(), bind() to a known port and listen(); the server then waits in accept().",
+    "'Client creates socket and connects': socket() and connect(); a client normally does not call bind(), because the operating system picks an ephemeral port.",
+    "'Data exchanged': send() and recv() on the connected socket that accept() returned, never on the listening socket.",
+    "'Close connection': close() makes TCP send a FIN, and the peer's recv() then returns 0 (b'' in Python), which is how it detects the end of the data.",
+    "UDP needs none of listen(), accept() or connect(): the server binds a port and both sides use sendto() and recvfrom() with explicit addresses."
+   ]
+  },
+  {
+   "type": "code",
+   "language": "python",
+   "text": "import socket, threading\n\ndef handle(conn, addr):\n    with conn:\n        while data := conn.recv(1024):     # b'' means the client closed\n            conn.sendall(data)             # loops until every byte is sent\n\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\nsrv.bind((\"0.0.0.0\", 7000))\nsrv.listen(5)                              # up to 5 connections queued\nwhile True:\n    conn, addr = srv.accept()              # new socket + client (IP, port)\n    threading.Thread(target=handle, args=(conn, addr)).start()"
+  },
+  {
+   "type": "code",
+   "language": "python",
+   "text": "import socket\nsrv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\nsrv.bind((\"127.0.0.1\", 9999))              # no listen() or accept()\ncli = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\ncli.sendto(b\"ping\", (\"127.0.0.1\", 9999))   # address given in every call\ndata, addr = srv.recvfrom(2048)            # one whole datagram + sender\nsrv.sendto(data.upper(), addr)\nprint(cli.recvfrom(2048))                  # (b'PING', ('127.0.0.1', 9999))"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Aspect",
+     "Stream socket (SOCK_STREAM)",
+     "Datagram socket (SOCK_DGRAM)"
+    ],
+    [
+     "Transport",
+     "TCP",
+     "UDP"
+    ],
+    [
+     "Set-up",
+     "connect() on the client, listen() and accept() on the server",
+     "None; the first sendto() already carries data"
+    ],
+    [
+     "Data unit",
+     "Byte stream with no message boundaries",
+     "Whole datagrams, boundaries kept"
+    ],
+    [
+     "Reliability",
+     "Lost data retransmitted and delivered in order",
+     "May be lost, duplicated or reordered"
+    ],
+    [
+     "Server sockets",
+     "One listening socket plus one per client",
+     "One socket for all clients"
+    ],
+    [
+     "Typical calls",
+     "send(), recv(), shutdown()",
+     "sendto(), recvfrom()"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "accept() takes the oldest connection from the listen queue and returns a new socket for it together with the client's address, a (host, port) tuple in Python, while the listening socket stays open for further clients. The kernel, not the application, completes the three-way handshake, so a client's connect() succeeds as soon as its connection is queued, even before the server calls accept(). The backlog argument of listen() limits how many such connections may wait; when the queue is full, new attempts are held off or refused, depending on the operating system. On a TCP socket send() may take fewer bytes than requested and returns the number it took, so programs loop or use Python's sendall()."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: byte order on a little-endian (x86) host\nPort 5000 = 0x1388; network byte order (big-endian) sends the high byte first: 13 88\nhtons(5000) returns 0x8813, which the CPU stores in memory as 13 88, so the wire carries 13 88\nBug: sin_port = 5000 without htons() -> memory 88 13 -> the network reads 0x8813 = 34835\nAddress 10.0.0.200 -> 0A 00 00 C8 on the wire (inet_pton() writes it in network order)\nA TCP header starting 00 50 C3 51 -> source port 0x0050 = 80, destination 0xC351 = 50001\nRule: a port read from the wire = 256 x first byte + second byte"
+  },
+  {
+   "type": "formula",
+   "latex": "\\bar{T}_{iter} = \\frac{1}{n}\\sum_{k=1}^{n} kS = \\frac{(n+1)S}{2}",
+   "plainText": "n clients arriving together at an iterative server that needs S seconds each: the k-th finishes at kS, so the average completion time is (n + 1) S / 2"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: 5 clients arrive together at t = 0, each needs S = 2 s of service\nIterative server: clients finish at 2, 4, 6, 8 and 10 s\n  average completion = (2 + 4 + 6 + 8 + 10) / 5 = 6 s = (5 + 1) x 2 / 2\nConcurrent server, work mostly waiting on disk or network (I/O-bound):\n  the five handlers overlap and all finish at about 2 s\nConcurrent server, each request needs 2 s of CPU on a single core:\n  the threads share the CPU and all five finish at about 10 s,\n  so concurrency helps responsiveness only when the bottleneck is not the CPU"
+  },
+  {
+   "type": "code",
+   "language": "c",
+   "text": "signal(SIGCHLD, SIG_IGN);           /* children are reaped automatically */\nfor (;;) {\n    int c = accept(s, NULL, NULL);\n    if (c < 0) continue;\n    if (fork() == 0) {              /* child */\n        close(s);                   /* the child never accepts */\n        serve(c);                   /* recv/send loop for this client */\n        close(c);\n        _exit(0);\n    }\n    close(c);                       /* parent keeps only the listening socket */\n}"
+  },
+  {
+   "type": "bulletList",
+   "text": "Application servers and the servers they sit beside:",
+   "items": [
+    "Your note is right: an application server is middleware between the client and the database. It runs the business logic, while the database stores the data and the browser or app displays it.",
+    "Node.js is a JavaScript runtime rather than an application server; application servers are built on it (for example with Express) and serve many clients from one thread with a non-blocking event loop.",
+    "Web servers (Apache HTTP Server, Nginx, IIS) serve static files, terminate TLS and pass dynamic requests to the application server; mail servers run SMTP, IMAP and POP3; DNS servers answer on port 53; DHCP servers answer broadcasts on UDP port 67; file servers share folders with SMB (TCP 445) or NFS (2049).",
+    "An iterative server handles one client at a time, which suits short UDP request-reply exchanges; a concurrent server handles many at once (process, thread or event per client) and is the norm for TCP services such as web, mail and file servers.",
+    "In a fork() server (above) the child closes the listening socket and the parent closes the connected one, so each process holds only what it needs and closed connections really close."
+   ]
+  },
+  {
+   "type": "warning",
+   "text": "Common mistakes: forgetting htons() on the port, so the server listens on a byte-swapped port; calling recv() on the listening socket instead of the socket accept() returned; assuming that one send() arrives as one recv() on TCP (it is a byte stream, so read until a whole message is in); ignoring the return value of send(); treating recv() returning 0 as an error instead of the peer's orderly close; and calling listen() or accept() on a UDP socket."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch5_i54_m001",
+   "questionText": "What is the purpose of socket programming in networking?",
+   "options": [
+    "To let two programs, usually on different devices, communicate over a network through endpoints called sockets",
+    "To encrypt the packets sent over a network",
+    "To convert MAC addresses into IP addresses",
+    "To compress HTTP responses"
+   ],
+   "correctIndex": 0,
+   "explanation": "Socket programming writes network applications with the socket API: each side creates a socket (IP address and port) and exchanges data through it over TCP or UDP. Encryption is the job of TLS, and address mapping belongs to ARP and RARP.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m002",
+   "questionText": "What is the primary role of an application server in a multi-tier system?",
+   "options": [
+    "To store the DNS records of a domain",
+    "To run the application's business logic as middleware between client programs and the database",
+    "To route packets between networks",
+    "To encrypt e-mail messages"
+   ],
+   "correctIndex": 1,
+   "explanation": "An application server such as Tomcat or WildFly sits in the middle tier: it takes client requests, applies the business rules, reads and writes the database and returns the results. DNS servers hold DNS records and routers forward packets.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m003",
+   "questionText": "Which socket type gives an application a reliable, connection-oriented byte stream?",
+   "options": [
+    "SOCK_DGRAM",
+    "SOCK_RAW",
+    "SOCK_STREAM",
+    "AF_INET"
+   ],
+   "correctIndex": 2,
+   "explanation": "In the Internet family SOCK_STREAM sockets use TCP and deliver an ordered, reliable byte stream after a connection is set up. SOCK_DGRAM uses UDP, SOCK_RAW gives direct access to IP, and AF_INET is the address family, not a socket type.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m004",
+   "questionText": "What is network byte order?",
+   "options": [
+    "Big-endian: the most significant byte of a multi-byte value is sent first",
+    "Little-endian: the least significant byte is sent first",
+    "Whatever byte order the sending host's CPU uses",
+    "A byte order that the two hosts agree on when the connection is set up"
+   ],
+   "correctIndex": 0,
+   "explanation": "Internet protocols carry multi-byte fields such as ports and addresses big-endian, whatever the CPU. Little-endian hosts such as x86 PCs therefore convert with htons()/htonl() before sending and ntohs()/ntohl() after receiving.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m005",
+   "questionText": "In a Python TCP server, the statement conn, addr = srv.accept() has just returned. What is addr?",
+   "options": [
+    "The server's own IP address and listening port",
+    "The MAC address of the client's network card",
+    "The number of connections still waiting in the listen queue",
+    "The client's IP address and port number, as a (host, port) tuple"
+   ],
+   "correctIndex": 3,
+   "explanation": "accept() returns a new socket (conn) for the connection and the address of the connecting client, for example ('192.0.2.7', 51544). The server's own address is given by conn.getsockname().",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m006",
+   "questionText": "Windows PCs map a network drive to a shared folder on a company file server. Which protocol and port do they normally use?",
+   "options": [
+    "NFS on port 2049",
+    "SMB on TCP port 445",
+    "FTP on TCP port 21",
+    "SMTP on TCP port 25"
+   ],
+   "correctIndex": 1,
+   "explanation": "Windows file and printer sharing uses SMB (CIFS), today directly over TCP port 445. NFS (port 2049) is the usual Unix and Linux file-sharing protocol, and FTP copies whole files rather than mounting a drive.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m007",
+   "questionText": "What does the select() call let a single-threaded server do?",
+   "options": [
+    "Choose the fastest route to each client",
+    "Select the strongest cipher suite for a TLS connection",
+    "Wait on many sockets at once and find out which are ready to read or write, so that it can serve many clients without a thread per client",
+    "Pick a free ephemeral port for an outgoing connection"
+   ],
+   "correctIndex": 2,
+   "explanation": "select() (and its successors poll() and epoll or kqueue) blocks until at least one socket in a set is readable or writable and reports which ones. This I/O multiplexing is the basis of event-driven servers.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m008",
+   "questionText": "Traditionally, the ping program sends its ICMP Echo Request messages through which kind of socket?",
+   "options": [
+    "A raw socket (SOCK_RAW), because ICMP runs directly over IP and has no port numbers",
+    "A stream socket (SOCK_STREAM) connected to TCP port 7",
+    "A UDP datagram socket sending to port 7, the echo service",
+    "A SOCK_SEQPACKET socket"
+   ],
+   "correctIndex": 0,
+   "explanation": "ICMP messages are carried directly in IP datagrams (protocol number 1) with no transport header, so ping builds them on a raw socket, which normally needs administrator rights. Port 7 belongs to the separate TCP/UDP echo service.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m009",
+   "questionText": "What does this Python program print?\n\nimport socket\ns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\ns.bind((\"127.0.0.1\", 0))\nc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\nc.sendto(b\"hello\", s.getsockname())\nc.sendto(b\"world!\", s.getsockname())\nd1, _ = s.recvfrom(1024)\nd2, _ = s.recvfrom(1024)\nprint(d1, d2)",
+   "options": [
+    "b'helloworld!' b''",
+    "b'hello' b'hello'",
+    "Nothing: the program blocks, because recvfrom() needs connect() first",
+    "b'hello' b'world!'"
+   ],
+   "correctIndex": 3,
+   "explanation": "UDP keeps message boundaries: each sendto() becomes one datagram and each recvfrom() returns exactly one whole datagram, so d1 and d2 are the two messages. Merging them into one read would be TCP byte-stream behaviour.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m010",
+   "questionText": "What does this Python program print?\n\nimport socket\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.bind((\"127.0.0.1\", 0))\nsrv.listen()\nc = socket.create_connection(srv.getsockname())\nconn, addr = srv.accept()\nc.sendall(b\"hi\")\nc.close()\nprint(conn.recv(10), conn.recv(10))",
+   "options": [
+    "b'hi' and then a ConnectionResetError",
+    "b'hi' b''",
+    "b'hi' b'hi'",
+    "Only b'hi', because the second recv() blocks for ever waiting for more data"
+   ],
+   "correctIndex": 1,
+   "explanation": "The first recv() returns the 2 bytes sent. After the client's close() (a FIN), recv() returns an empty bytes object, the signal of an orderly end of stream (0 in C); it would block only if the connection were still open with no data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m011",
+   "questionText": "A client has sent its whole request over TCP and wants to tell the server that no more data is coming, while still reading the server's reply on the same socket. Which call does it use?",
+   "options": [
+    "close(s), after which the client can still read the reply",
+    "listen(s, 0), which marks the socket as finished",
+    "shutdown(s, SHUT_WR), which sends a FIN for the client's sending direction only",
+    "send(s, \"\", 0, 0), which sends an empty segment that the server reads as the end of data"
+   ],
+   "correctIndex": 2,
+   "explanation": "shutdown() with SHUT_WR half-closes the connection: the server's recv() returns 0 after the request, yet the client can still receive the reply. close() releases the socket in both directions, and a zero-length send() transmits nothing.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m012",
+   "questionText": "A TCP server calls listen(s, 5) but is slow to call accept(). What does the value 5 control?",
+   "options": [
+    "The maximum number of connections the kernel holds in the queue waiting for accept(); beyond that, new connection attempts are held off or refused",
+    "The maximum number of clients the server can ever serve",
+    "The number of seconds listen() waits for a client before returning",
+    "The number of bytes each client may send before accept() is called"
+   ],
+   "correctIndex": 0,
+   "explanation": "The backlog limits the queue of connections that the kernel has set up but the application has not yet accepted. When it is full, Linux simply ignores new SYNs so that clients retry, while other systems may refuse them with a RST.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m013",
+   "questionText": "A programmer calls listen() on a UDP (SOCK_DGRAM) socket. What happens?",
+   "options": [
+    "The socket starts accepting UDP connections, one per client",
+    "The call succeeds and makes recvfrom() return only datagrams from the first sender",
+    "The socket is silently switched to TCP",
+    "The call fails with an 'operation not supported' error, because listen() and accept() apply only to connection-oriented sockets"
+   ],
+   "correctIndex": 3,
+   "explanation": "UDP has no connections to queue, so listen() on a datagram socket fails (EOPNOTSUPP on Linux, WSAEOPNOTSUPP 10045 on Windows). A UDP server simply binds its port and loops on recvfrom().",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m014",
+   "questionText": "A UDP client calls connect() on its datagram socket before sending. Which statement is correct?",
+   "options": [
+    "A three-way handshake is carried out with the server",
+    "No packet is sent; connect() only records a default peer, so the client can use send() and recv(), and datagrams from other addresses are filtered out",
+    "connect() fails, because UDP sockets cannot be connected",
+    "The server must call accept() for the connect() to complete"
+   ],
+   "correctIndex": 1,
+   "explanation": "For UDP, connect() is a purely local operation that fixes the destination and filters incoming datagrams; it also lets ICMP 'port unreachable' errors be reported on the socket. Only TCP's connect() starts a handshake.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m015",
+   "questionText": "A program calls send() on a TCP socket to send a 4,000-byte buffer, and send() returns 1,200. What does this mean, and what should the program do?",
+   "options": [
+    "1,200 bytes were lost, and TCP will retransmit them later on its own",
+    "The receiver has already read 1,200 bytes, so nothing more is needed",
+    "Only the first 1,200 bytes were accepted; it must call send() again for the remaining 2,800 bytes, or use a loop such as Python's sendall()",
+    "The connection has failed, because send() must take all of the data or none"
+   ],
+   "correctIndex": 2,
+   "explanation": "send() returns how many bytes it copied into the kernel's send buffer, which can be fewer than requested. The program continues from byte 1,201, sending 4,000 - 1,200 = 2,800 more bytes.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m016",
+   "questionText": "On an ordinary blocking TCP socket, which of these calls does NOT wait for anything from the network?",
+   "options": [
+    "accept(), when no client has connected yet",
+    "recv(), when no data has arrived",
+    "connect(), until the handshake completes",
+    "listen()"
+   ],
+   "correctIndex": 3,
+   "explanation": "listen() only marks the socket as passive and sets the backlog, and returns at once. accept() waits for a client, recv() for data and connect() for the three-way handshake to finish.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m017",
+   "questionText": "On a little-endian x86 PC, a C server sets addr.sin_port = 8080 without calling htons(), then binds and listens. To which port must clients really connect to reach it?",
+   "options": [
+    "8080",
+    "36895",
+    "2545",
+    "None, because bind() fails with an error"
+   ],
+   "correctIndex": 1,
+   "explanation": "8080 = 0x1F90, which a little-endian CPU stores as the bytes 90 1F. The network reads sin_port big-endian, so the server really listens on 0x901F = 36895; htons(8080) would have stored 1F 90.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i54_m018",
+   "questionText": "What does this C fragment print?\n\nunsigned short p = htons(0x1234);\nunsigned char *b = (unsigned char *)&p;\nprintf(\"%02x %02x\\n\", b[0], b[1]);",
+   "options": [
+    "12 34, on every host",
+    "34 12, on every host",
+    "12 34 on a big-endian host, but 34 12 on a little-endian host",
+    "34 12 on a big-endian host, but 12 34 on a little-endian host"
+   ],
+   "correctIndex": 0,
+   "explanation": "htons() returns the value arranged so that its bytes in memory are in network (big-endian) order, so the first byte is always 0x12. A big-endian host's htons() changes nothing, while a little-endian host's swaps the bytes to reach the same memory layout.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i54_m019",
+   "questionText": "In what order are the four bytes of the IPv4 address 192.168.1.10 carried in an IP header (network byte order)?",
+   "options": [
+    "0A 01 A8 C0",
+    "C0 A8 01 10",
+    "C0 A8 01 0A",
+    "A8 C0 0A 01"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each decimal octet becomes one byte, 192 = C0, 168 = A8, 1 = 01 and 10 = 0A, and the most significant (leftmost) byte goes first. 0A 01 A8 C0 is the little-endian memory order of the same 32-bit value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m020",
+   "questionText": "An iterative TCP server takes 3 s to serve each request. Four clients connect at the same moment, t = 0, and are served one after another; set-up time is negligible. When does the last client finish, and what is the average completion time?",
+   "options": [
+    "3 s; 3 s",
+    "12 s; 12 s",
+    "12 s; 6 s",
+    "12 s; 7.5 s"
+   ],
+   "correctIndex": 3,
+   "explanation": "The clients finish at 3, 6, 9 and 12 s, so the last finishes at 12 s and the average is (3 + 6 + 9 + 12) / 4 = 7.5 s = (n + 1)S/2. Everyone finishing at 3 s would need a concurrent server whose handlers overlap.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i54_m021",
+   "questionText": "In a concurrent TCP server that calls fork() after each accept(), both processes then hold the listening socket and the new connected socket. Which descriptors should each process close?",
+   "options": [
+    "The child closes the listening socket and serves the client; the parent closes the connected socket and goes back to accept()",
+    "The parent closes the listening socket, and the child closes the connected socket",
+    "Neither closes anything, because the two processes share a single descriptor",
+    "Both close the listening socket, and the child reopens it when it finishes"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each process keeps only what it needs: the child talks to its client and the parent accepts new ones. If the parent kept the connected socket open, the connection would not close when the child finished, and descriptors would leak.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m022",
+   "questionText": "This iterative echo server is serving client A, which keeps its connection open. Client B now calls connect() and sends a message.\n\nlisten(s, 5);\nfor (;;) {\n    int c = accept(s, NULL, NULL);\n    char buf[512];\n    ssize_t n;\n    while ((n = recv(c, buf, sizeof buf, 0)) > 0)\n        send(c, buf, n, 0);\n    close(c);\n}\n\nWhat happens to client B?",
+   "options": [
+    "Its connect() fails at once with 'connection refused'",
+    "Its connect() succeeds because the kernel queues the connection, but it gets no echo until A closes and the loop returns to accept()",
+    "It is echoed at once, because recv() switches between clients automatically",
+    "Its message is echoed to client A instead"
+   ],
+   "correctIndex": 1,
+   "explanation": "The kernel completes B's handshake and holds the connection in the listen queue (backlog 5), so connect() returns. The server, however, is stuck in the inner recv() loop for A and calls accept() for B only after A's recv() returns 0.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i54_m023",
+   "questionText": "Which statement best distinguishes a web server such as Nginx from an application server such as Apache Tomcat?",
+   "options": [
+    "The web server runs only on port 443, while the application server runs only on port 80",
+    "The application server stores the data permanently, replacing the database",
+    "The web server works at the network layer, while the application server works at the transport layer",
+    "The web server mainly serves static files and passes other requests on, while the application server runs the business logic that builds dynamic responses, with services such as database connection pooling and transactions"
+   ],
+   "correctIndex": 3,
+   "explanation": "Front-end web servers handle HTTP, TLS, static content and reverse proxying, while application servers such as Tomcat, WildFly or a Node.js app execute application code. Both work at the application layer, and the database tier still stores the data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m024",
+   "questionText": "In the classic design of servers, which pairing is usual?",
+   "options": [
+    "UDP servers are usually concurrent with a separate socket per client, and TCP servers are usually iterative",
+    "Both kinds must be iterative, because a socket can serve only one client at a time",
+    "Connectionless (UDP) servers are usually iterative, handling one datagram at a time on one socket; connection-oriented (TCP) servers are usually concurrent",
+    "Both kinds must be concurrent, because an iterative server cannot call accept()"
+   ],
+   "correctIndex": 2,
+   "explanation": "A UDP request is usually one short datagram, so a single loop of recvfrom(), processing and sendto() serves clients quickly in turn. A TCP client may hold its connection for a long time, so TCP servers give each connection its own process, thread or event handler.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m025",
+   "questionText": "Why is a DHCP server built on UDP rather than TCP?",
+   "options": [
+    "A client that has no IP address yet can only broadcast from 0.0.0.0, and TCP cannot set up a connection by broadcast",
+    "UDP encrypts the address being assigned",
+    "TCP cannot use port numbers below 1024",
+    "DHCP messages are too large to fit in TCP segments"
+   ],
+   "correctIndex": 0,
+   "explanation": "TCP needs a connection between two unicast addresses, which a client without an address cannot have. DHCP therefore uses UDP broadcasts (client port 68, server port 67), and a relay agent forwards them across routers.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m026",
+   "questionText": "Which statement about TCP server sockets is NOT correct?",
+   "options": [
+    "A server needs one listening socket plus one connected socket for each client it is serving",
+    "A single server process can hold connected sockets for many clients at the same time",
+    "recv() on a connected socket returns 0 when the client has closed its side of the connection",
+    "After accept() returns, the listening socket cannot accept other clients until the new connection has been closed"
+   ],
+   "correctIndex": 3,
+   "explanation": "The listening socket keeps listening after each accept(), and new clients queue on it while earlier ones are served, which is what makes concurrent servers possible. The other three statements are true.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m027",
+   "questionText": "A hex dump of a TCP segment begins with the bytes 1F 90 00 50. What are the segment's source and destination ports?",
+   "options": [
+    "Source 36895, destination 20480",
+    "Source 8080, destination 80",
+    "Source 80, destination 8080",
+    "Source 8080, destination 50"
+   ],
+   "correctIndex": 1,
+   "explanation": "The TCP header starts with the 16-bit source port and then the 16-bit destination port, both big-endian: 0x1F90 = 8080 and 0x0050 = 80. Reading the bytes little-endian gives 36895 and 20480, and 50 treats the hex digits as decimal.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch5_i54_m028",
+   "questionText": "What does this Python program print?\n\nimport socket\ns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\ns.bind((\"127.0.0.1\", 0))\ns.settimeout(0.5)\ntry:\n    data, addr = s.recvfrom(1024)\n    print(\"got\", data)\nexcept socket.timeout:\n    print(\"timed out\")",
+   "options": [
+    "got b'' at once, because no datagram is waiting",
+    "Nothing: recvfrom() blocks for ever",
+    "timed out, after about 0.5 s",
+    "An error at once, because a UDP socket must call connect() before recvfrom()"
+   ],
+   "correctIndex": 2,
+   "explanation": "No datagram ever arrives, so the normally blocking recvfrom() waits; settimeout(0.5) limits the wait and raises socket.timeout (TimeoutError) after 0.5 s. Without the timeout the call would block indefinitely.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch5_i54_m029",
+   "questionText": "How does a Node.js server handle many client connections at the same time?",
+   "options": [
+    "By starting a new operating-system process for every request",
+    "By serving one client completely before accepting the next",
+    "By opening a separate listening port for each client",
+    "With a single-threaded event loop and non-blocking I/O, running a callback whenever a socket is ready"
+   ],
+   "correctIndex": 3,
+   "explanation": "Node.js registers its sockets with the operating system's event mechanism (epoll, kqueue or IOCP, through libuv) and runs JavaScript callbacks as events occur, so one thread serves thousands of connections. CPU-heavy work in a callback therefore stalls every client.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch5_i54_m030",
+   "questionText": "On Linux, a TCP server with several active client connections is stopped and restarted at once. The restarted server's bind() to port 8000 fails with 'Address already in use', although no process is listening on that port. What is the cause, and what is the usual fix?",
+   "options": [
+    "Connections from the old server are still in TIME_WAIT on port 8000; setting SO_REUSEADDR on the new socket before bind() lets it bind",
+    "The clients still hold port 8000 open; the fix is to restart the clients",
+    "The kernel keeps a closed listening socket for 2 MSL; the fix is to call listen() with a backlog of 0",
+    "A port that has been used once can never be used again; the fix is to choose a new port each time"
+   ],
+   "correctIndex": 0,
+   "explanation": "Stopping the server closes its connections from the server side first (active close), so they wait in TIME_WAIT for 2 MSL with local port 8000. SO_REUSEADDR allows a listening socket to bind to a port that has only such lingering connections.",
+   "difficulty": "hard"
+  }
+ ]
+}

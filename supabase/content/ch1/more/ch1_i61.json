@@ -1,0 +1,694 @@
+{
+  "topicId": "ch1_i61",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Small-Signal Amplifier Configurations"
+    },
+    {
+      "type": "paragraph",
+      "text": "Small-signal analysis replaces the transistor by a linear model valid for small swings about the Q-point. For a BJT the simplest is the r_e model: the base-emitter junction looks like a resistance r_e = V_T/I_E seen from the emitter (about 25 Ω at 1 mA with V_T = 25 mV), and β r_e seen from the base, while the collector acts as a current source of α i_e. A signal voltage v_b at the base therefore drives an emitter current v_b/(r_e + R_E), where R_E is any unbypassed emitter resistance, and nearly all of that current flows through the collector load. The CE voltage gain is simply the ratio of the total collector load resistance to the total emitter-circuit resistance, with a minus sign for the 180° phase inversion."
+    },
+    {
+      "type": "formula",
+      "latex": "A_v = -\\frac{R_C \\parallel R_L}{r_e + R_E}, \\quad R_{in(base)} = \\beta (r_e + R_E)",
+      "plainText": "Av = −(RC || RL)/(re + RE), with re = VT/IE; Rin(base) = β(re + RE)"
+    },
+    {
+      "type": "paragraph",
+      "text": "An FET is modelled by a transconductance g_m from gate voltage to drain current, with an open-circuit gate. The common-source gain is −g_m (R_D ∥ R_L), and the source follower (common drain) gives g_m R_S/(1 + g_m R_S), always below 1, with an output resistance of R_S ∥ 1/g_m. For a JFET, g_m = g_m0 (1 − V_GS/V_P) with g_m0 = 2 I_DSS/|V_P|; for a MOSFET in saturation g_m = 2 I_D/(V_GS − V_t). Because g_m of an FET at a few milliamperes is far lower than the 40 mA/V per milliampere of a BJT, FET stages give less voltage gain but offer a practically infinite input resistance."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Configuration",
+          "Voltage gain",
+          "Input resistance",
+          "Output resistance"
+        ],
+        [
+          "CE (bypassed R_E)",
+          "−(R_C ∥ R_L)/r_e, large, inverting",
+          "β r_e (moderate, about 1–5 kΩ)",
+          "About R_C"
+        ],
+        [
+          "CB",
+          "+(R_C ∥ R_L)/r_e, large, non-inverting",
+          "r_e (very low, tens of ohms)",
+          "About R_C"
+        ],
+        [
+          "CC (emitter follower)",
+          "Just below 1, non-inverting",
+          "(β + 1)(r_e + R_E ∥ R_L), high",
+          "R_E ∥ (r_e + R_s/β), very low"
+        ],
+        [
+          "CS (FET)",
+          "−g_m (R_D ∥ R_L), inverting",
+          "Set by the gate bias resistor, very high",
+          "About R_D"
+        ],
+        [
+          "CD (source follower)",
+          "g_m R_S/(1 + g_m R_S), below 1",
+          "Very high",
+          "R_S ∥ 1/g_m, low"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: divider-biased CE stage, beta = 120, VT = 25 mV\nVCC = 15 V, R1 = 56 k, R2 = 12 k, RC = 3.3 k, RE = 1 k (bypassed), RL = 10 k\nVB = 15 x 12/(56 + 12) = 2.65 V ;  VE = 2.65 - 0.7 = 1.95 V\nIE = 1.95 V / 1 k = 1.95 mA ;  re = 25 mV / 1.95 mA = 12.8 ohm\nbeta re = 120 x 12.8 = 1.54 k\nRin = R1 || R2 || beta re = 9.88 k || 1.54 k = 1.33 k\nAv = -(RC || RL)/re = -(2.48 k)/12.8 = -193\nWith RE unbypassed: Av = -2.48 k/(1012.8) = -2.45 only"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each coupling capacitor forms a high-pass section with the resistance it sees: the input capacitor with R_s + R_in, the output capacitor with R_C + R_L. The emitter bypass capacitor is usually the one that sets f_L, because the resistance it sees looking into the emitter is tiny, R_E ∥ (r_e + R_s'/β), so it needs a much larger capacitance for the same cut-off. At high frequencies the device capacitances take over. Miller's theorem shows that a capacitance C_μ (C_bc) bridging an inverting stage of gain −A behaves at the input like C_μ(1 + A), so a small feedback capacitance becomes the dominant input capacitance and sets f_H."
+    },
+    {
+      "type": "formula",
+      "latex": "f_L = \\frac{1}{2\\pi (R_s + R_{in}) C_c}, \\quad C_M = C_\\mu (1 + |A_v|)",
+      "plainText": "fL = 1/(2π(Rs + Rin)Cc); Miller input capacitance CM = Cμ(1 + |Av|); then fH = 1/(2π Rth Cin)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: cut-off frequencies of the stage in example 1\nInput coupling C1 = 10 uF, source resistance Rs = 600 ohm\nfL(C1) = 1/(2 pi (600 + 1333) x 10e-6) = 8.2 Hz\nHigh end: C_pi = 15 pF, C_mu = 3 pF, gain from base = -(RC || RL)/re = -193\nMiller: C_in = 15 + 3 x (1 + 193) = 597 pF\nThevenin resistance driving the base Rth = Rs || Rin = 600 || 1333 = 414 ohm\nfH = 1/(2 pi x 414 x 597e-12) = 644 kHz\nWithout Miller multiplication (18 pF) fH would wrongly come out near 21 MHz"
+    },
+    {
+      "type": "paragraph",
+      "text": "When stages are cascaded, each stage's gain must be found with the next stage's input resistance as its load, and the first stage's input resistance loads the source. A practical method treats every stage as a Thevenin source of open-circuit gain A_oc and output resistance R_o, then multiplies the voltage-divider losses R_in(next)/(R_o + R_in(next)) at each interface. Buffers (emitter or source followers) are placed where a high-impedance stage must drive a low-impedance load, and the cascode (CE followed by CB) removes the Miller multiplication because the CE stage then sees only the tiny r_e of the CB stage as its load."
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: forgetting R_L in parallel with R_C; using β r_e instead of r_e in the gain formula; ignoring the bias resistors R1 ∥ R2 when finding the stage input resistance; using the open-circuit gain of a stage while it is loaded by the next stage; and multiplying C_μ by A instead of (1 + A) for the Miller capacitance."
+    },
+    {
+      "type": "examTip",
+      "text": "Quick checks: CE gain ≈ R_C/r_e bypassed or R_C/R_E unbypassed; follower gain just under 1; CB input resistance ≈ r_e. For n identical stages the overall f_H is f_H √(2^(1/n) − 1) and the overall f_L is f_L/√(2^(1/n) − 1): 0.644 for two stages and 0.510 for three."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i61_m001",
+      "questionText": "A common-emitter stage has a voltage gain of −150. The magnitude of its gain in decibels is approximately:",
+      "options": [
+        "21.8 dB",
+        "43.5 dB",
+        "87.0 dB",
+        "150 dB"
+      ],
+      "correctIndex": 1,
+      "explanation": "|A_v|(dB) = 20 log10(150) = 43.5 dB. The minus sign only indicates the 180° phase inversion; 10 log would give 21.8 dB, which applies to power ratios.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m002",
+      "questionText": "For a sinusoidal input, the output voltage of a common-emitter amplifier is:",
+      "options": [
+        "In phase with the input",
+        "Leading the input by 90°",
+        "180° out of phase with the input",
+        "Lagging the input by 90°"
+      ],
+      "correctIndex": 2,
+      "explanation": "An increase in base voltage increases the collector current, which increases the drop across R_C and lowers the collector voltage, so the output is inverted (180° phase shift) in the mid-band.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m003",
+      "questionText": "Which BJT configuration is normally used as a buffer between a high-resistance source and a low-resistance load?",
+      "options": [
+        "Common collector (emitter follower)",
+        "Common emitter",
+        "Common base",
+        "Common emitter with unbypassed emitter resistor"
+      ],
+      "correctIndex": 0,
+      "explanation": "The emitter follower has a high input resistance, a low output resistance and a voltage gain close to 1, which is exactly what a buffer needs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m004",
+      "questionText": "A common-base amplifier stage has:",
+      "options": [
+        "High input resistance, low output resistance and voltage gain slightly less than 1",
+        "High input resistance, high output resistance and current gain equal to β",
+        "Low input resistance, low output resistance and a voltage gain of −β",
+        "Low input resistance, high output resistance and current gain slightly less than 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "In CB the signal enters at the emitter, so R_in ≈ r_e (tens of ohms); the collector looks like a high-resistance current source and the current gain is α, just below 1, while voltage gain can be large.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m005",
+      "questionText": "A CE stage with a fully bypassed emitter resistor runs at I_E = 1 mA (take V_T = 25 mV). It has R_C = 4.7 kΩ and drives a load R_L = 4.7 kΩ. Its voltage gain is:",
+      "options": [
+        "−94",
+        "−188",
+        "−9.4",
+        "+94"
+      ],
+      "correctIndex": 0,
+      "explanation": "r_e = 25 mV/1 mA = 25 Ω; A_v = −(R_C ∥ R_L)/r_e = −(2.35 kΩ)/25 Ω = −94. Ignoring R_L gives −188.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m006",
+      "questionText": "A CE amplifier has R_C = 5 kΩ (no external load), an unbypassed emitter resistor R_E = 1 kΩ, and r_e = 25 Ω. Its voltage gain is approximately:",
+      "options": [
+        "−200",
+        "−0.21",
+        "−1.0",
+        "−4.9"
+      ],
+      "correctIndex": 3,
+      "explanation": "With R_E unbypassed, A_v = −R_C/(r_e + R_E) = −5000/1025 = −4.9. The value −200 applies only if R_E were fully bypassed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m007",
+      "questionText": "Of the three BJT amplifier configurations, the one that provides the highest power gain is:",
+      "options": [
+        "Common base",
+        "Common emitter",
+        "Common collector",
+        "All three give the same power gain"
+      ],
+      "correctIndex": 1,
+      "explanation": "Power gain is A_v × A_i. The common-emitter stage has both a large voltage gain and a large current gain (about β), whereas the common base has A_i < 1 and the common collector has A_v < 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m008",
+      "questionText": "A CE stage has β = 100, r_e = 25 Ω and an unbypassed emitter resistor of 470 Ω. The resistance looking into the base is approximately:",
+      "options": [
+        "2.5 kΩ",
+        "495 Ω",
+        "49.5 kΩ",
+        "4.95 MΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "R_in(base) = β(r_e + R_E) = 100 × 495 Ω = 49.5 kΩ. Forgetting the emitter resistor gives only β r_e = 2.5 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m009",
+      "questionText": "A voltage-divider biased CE stage has R1 = 47 kΩ, R2 = 10 kΩ, β = 150 and r_e = 26 Ω, with the emitter resistor fully bypassed. The input resistance of the stage seen by the signal source is approximately:",
+      "options": [
+        "3.9 kΩ",
+        "8.25 kΩ",
+        "60.9 kΩ",
+        "2.65 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "β r_e = 150 × 26 = 3.9 kΩ and R1 ∥ R2 = 8.25 kΩ; R_in = 8.25 kΩ ∥ 3.9 kΩ = 2.65 kΩ. Adding R1, R2 and β r_e in series instead of paralleling them gives 60.9 kΩ.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m010",
+      "questionText": "An emitter follower with β = 100, r_e = 25 Ω and R_E = 2 kΩ is driven from a source of effective resistance 1 kΩ. Its output resistance is approximately:",
+      "options": [
+        "2 kΩ",
+        "1.03 kΩ",
+        "34.4 Ω",
+        "100 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "Looking into the emitter the source resistance is divided by β: r_e + R_s/β = 25 + 10 = 35 Ω. In parallel with R_E: 2000 ∥ 35 = 34.4 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m011",
+      "questionText": "Neglecting the transistor's output resistance r_o, the output resistance of a common-emitter stage is approximately equal to:",
+      "options": [
+        "r_e",
+        "The collector resistor R_C",
+        "β r_e",
+        "The emitter resistor R_E"
+      ],
+      "correctIndex": 1,
+      "explanation": "The collector behaves as an ideal current source (infinite resistance), so the resistance seen at the output terminal is just R_C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m012",
+      "questionText": "A common-base stage has r_e = 25 Ω, R_C = 5 kΩ and a load of 5 kΩ. Its voltage gain and input resistance (at the emitter) are approximately:",
+      "options": [
+        "+100 and 25 Ω",
+        "−100 and 25 Ω",
+        "+200 and 2.5 kΩ",
+        "+100 and 2.5 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "A_v = +(R_C ∥ R_L)/r_e = 2500/25 = +100 with no phase inversion, and the input resistance at the emitter is r_e = 25 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m013",
+      "questionText": "A common-source MOSFET amplifier has g_m = 2 mS, R_D = 10 kΩ and a load R_L = 10 kΩ, with the source resistor bypassed. Its voltage gain is:",
+      "options": [
+        "−20",
+        "−0.1",
+        "+10",
+        "−10"
+      ],
+      "correctIndex": 3,
+      "explanation": "A_v = −g_m (R_D ∥ R_L) = −2 mS × 5 kΩ = −10. Ignoring the load gives −20.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m014",
+      "questionText": "A JFET has I_DSS = 10 mA and V_P = −4 V and is biased at V_GS = −1 V in a common-source stage with R_D = 2.2 kΩ, the source resistor bypassed and no external load. The voltage gain is approximately:",
+      "options": [
+        "−11.0",
+        "−8.25",
+        "−6.19",
+        "−825"
+      ],
+      "correctIndex": 1,
+      "explanation": "g_m0 = 2I_DSS/|V_P| = 5 mS; g_m = g_m0(1 − V_GS/V_P) = 5 × 0.75 = 3.75 mS; A_v = −g_m R_D = −3.75 mS × 2.2 kΩ = −8.25. Using g_m0 directly gives −11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m015",
+      "questionText": "A common-source MOSFET stage has g_m = 4 mS, R_D = 6 kΩ, a load R_L = 6 kΩ and an unbypassed source resistor R_S = 500 Ω (r_o neglected). Its voltage gain is:",
+      "options": [
+        "−4",
+        "−12",
+        "−6",
+        "−8"
+      ],
+      "correctIndex": 0,
+      "explanation": "The AC drain load is R_D ∥ R_L = 3 kΩ, and the unbypassed R_S divides the gain by (1 + g_m R_S) = 3: A_v = −(4 mS × 3 kΩ)/3 = −4. Ignoring R_S gives −12; the approximation −R_D'/R_S gives −6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m016",
+      "questionText": "The FET configuration that corresponds to the BJT emitter follower is the:",
+      "options": [
+        "Common-source stage",
+        "Common-gate stage",
+        "Common-drain (source follower) stage",
+        "Cascode stage"
+      ],
+      "correctIndex": 2,
+      "explanation": "In common drain the output is taken from the source, which follows the gate with a gain just below 1, exactly as the emitter follows the base in a common-collector stage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m017",
+      "questionText": "Among the three BJT configurations, the one with the highest input resistance is:",
+      "options": [
+        "Common emitter",
+        "Common base",
+        "Common collector",
+        "All three have the same input resistance"
+      ],
+      "correctIndex": 2,
+      "explanation": "The emitter follower's input resistance is (β + 1) times the total emitter resistance, far higher than β r_e (CE) or r_e (CB).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m018",
+      "questionText": "The emitter bypass capacitor of a working CE amplifier becomes open-circuited. Which change results?",
+      "options": [
+        "The voltage gain falls sharply while the input resistance rises",
+        "The voltage gain rises sharply while the input resistance falls",
+        "The DC Q-point shifts to saturation",
+        "The output becomes in phase with the input"
+      ],
+      "correctIndex": 0,
+      "explanation": "With C_E open, R_E appears in the signal path and gives negative feedback: gain falls from R_C/r_e to about R_C/(r_e + R_E), and R_in(base) rises to β(r_e + R_E). DC bias is unchanged because a capacitor carries no DC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m019",
+      "questionText": "A CE stage has R_E = 1 kΩ, r_e = 25 Ω, β = 100 and an effective source resistance (R_s ∥ R1 ∥ R2) of 1 kΩ. The bypass capacitor needed for a lower cut-off of 100 Hz due to C_E is approximately:",
+      "options": [
+        "1.6 µF",
+        "47 µF",
+        "64 µF",
+        "4.7 µF"
+      ],
+      "correctIndex": 1,
+      "explanation": "Resistance seen by C_E = R_E ∥ (r_e + R_s'/β) = 1000 ∥ 35 = 33.8 Ω; C_E = 1/(2π × 33.8 × 100) = 47 µF. Using R_E alone gives only 1.6 µF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m020",
+      "questionText": "The input coupling capacitor of an amplifier is 1 µF. The source resistance is 600 Ω and the amplifier input resistance is 2.4 kΩ. The lower cut-off frequency due to this capacitor is approximately:",
+      "options": [
+        "66 Hz",
+        "265 Hz",
+        "333 Hz",
+        "53 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "The capacitor sees R_s + R_in = 3 kΩ: f_L = 1/(2π × 3000 × 1 µF) = 53 Hz. Leaving out 2π gives 333 Hz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m021",
+      "questionText": "The main purpose of the coupling capacitor between two RC-coupled stages is to:",
+      "options": [
+        "Increase the mid-band voltage gain",
+        "Pass the signal while blocking the DC collector voltage of one stage from the base of the next",
+        "Remove harmonic distortion",
+        "Raise the upper cut-off frequency"
+      ],
+      "correctIndex": 1,
+      "explanation": "The capacitor is a near short circuit for signal frequencies but an open circuit for DC, so each stage keeps its own bias point.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m022",
+      "questionText": "The gain of an RC-coupled BJT amplifier falls at high frequencies mainly because of:",
+      "options": [
+        "Junction and stray capacitances, magnified at the input by the Miller effect",
+        "The rising reactance of the coupling capacitors",
+        "The rising reactance of the emitter bypass capacitor",
+        "Increase in the collector resistance"
+      ],
+      "correctIndex": 0,
+      "explanation": "At high frequency the shunting internal capacitances (C_π, and C_μ multiplied by the Miller effect) bypass the signal; coupling and bypass capacitors affect only the low-frequency end.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m023",
+      "questionText": "An inverting amplifier stage with voltage gain −100 has a 2 pF capacitance connected between its input and output. The equivalent Miller capacitance seen at the input is:",
+      "options": [
+        "2.02 pF",
+        "0.02 pF",
+        "20 pF",
+        "202 pF"
+      ],
+      "correctIndex": 3,
+      "explanation": "C_M = C(1 + |A|) = 2 pF × 101 = 202 pF. The value 2.02 pF is the output-side Miller capacitance C(1 + 1/|A|).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m024",
+      "questionText": "A CE stage has C_π = 10 pF, C_μ = 2 pF and a mid-band gain from base to collector of −50. It is driven from a Thevenin resistance of 1 kΩ. The upper cut-off frequency set by the input circuit is approximately:",
+      "options": [
+        "13.3 MHz",
+        "8.93 MHz",
+        "1.42 MHz",
+        "142 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "C_in = C_π + C_μ(1 + 50) = 10 + 102 = 112 pF; f_H = 1/(2π × 1 kΩ × 112 pF) = 1.42 MHz. Ignoring the Miller effect (12 pF) wrongly gives 13.3 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m025",
+      "questionText": "A common-base stage has a much wider bandwidth than a common-emitter stage using the same transistor because:",
+      "options": [
+        "Its current gain is larger than β",
+        "The grounded base separates input from output, so C_bc is not multiplied by the Miller effect",
+        "It has a very high input resistance",
+        "Its voltage gain is always below 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "In CB, C_bc sits from collector to ground (the base) rather than bridging an inverting gain from input to output, so there is no Miller multiplication of the input capacitance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m026",
+      "questionText": "The cascode connection (a CE stage followed by a CB stage) is used mainly to:",
+      "options": [
+        "Obtain a voltage gain of exactly 1",
+        "Provide a very low input resistance",
+        "Remove the need for DC biasing",
+        "Obtain a wide bandwidth by suppressing the Miller effect in the CE stage"
+      ],
+      "correctIndex": 3,
+      "explanation": "The CE stage is loaded by the low r_e of the CB stage, so its own voltage gain is about −1 and C_μ is only doubled; the CB stage supplies the voltage gain without Miller multiplication.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m027",
+      "questionText": "Stage 1 has an open-circuit voltage gain of 50 and output resistance 2 kΩ. It drives stage 2, which has input resistance 2 kΩ, open-circuit gain 20 and output resistance 1 kΩ. Stage 2 drives a 1 kΩ load. The overall voltage gain (ideal source) is:",
+      "options": [
+        "1000",
+        "500",
+        "250",
+        "70"
+      ],
+      "correctIndex": 2,
+      "explanation": "Interface losses: 2/(2 + 2) = 0.5 and 1/(1 + 1) = 0.5; A = 50 × 0.5 × 20 × 0.5 = 250. Ignoring loading gives 1000; adding the gains is never valid.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m028",
+      "questionText": "A signal passes through a 20 dB amplifier, a 26 dB amplifier and a 6 dB attenuator (−6 dB) in cascade. The overall voltage gain as a plain ratio is approximately:",
+      "options": [
+        "100",
+        "40",
+        "10 000",
+        "20"
+      ],
+      "correctIndex": 0,
+      "explanation": "Decibels add: 20 + 26 − 6 = 40 dB, and 40 dB is a voltage ratio of 10^(40/20) = 100.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m029",
+      "questionText": "Three identical non-interacting RC-coupled stages each have an upper cut-off frequency of 300 kHz. The upper cut-off frequency of the cascade is approximately:",
+      "options": [
+        "100 kHz",
+        "300 kHz",
+        "900 kHz",
+        "153 kHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "f_H(overall) = f_H √(2^(1/3) − 1) = 300 × 0.510 = 153 kHz; bandwidth shrinks, but not simply in proportion to the number of stages.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m030",
+      "questionText": "Two identical non-interacting RC-coupled stages each have a lower cut-off frequency of 40 Hz. The lower cut-off frequency of the two-stage amplifier is approximately:",
+      "options": [
+        "40 Hz",
+        "62 Hz",
+        "26 Hz",
+        "80 Hz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_L(overall) = f_L/√(2^(1/2) − 1) = 40/0.644 = 62 Hz; the lower cut-off rises when stages are cascaded. Multiplying by 0.644 (26 Hz) is the rule for f_H, not f_L.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m031",
+      "questionText": "An amplifier has a gain of 100 with a bandwidth of 50 kHz. If negative feedback reduces its gain to 20, keeping the gain-bandwidth product constant, the new bandwidth is:",
+      "options": [
+        "250 kHz",
+        "10 kHz",
+        "50 kHz",
+        "5 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "GBW = 100 × 50 kHz = 5 MHz; new bandwidth = 5 MHz/20 = 250 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m032",
+      "questionText": "An audio amplifier has a lower cut-off frequency of 20 Hz and an upper cut-off frequency of 20 kHz. Its bandwidth is:",
+      "options": [
+        "10.01 kHz",
+        "1000 Hz",
+        "19.98 kHz",
+        "400 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "BW = f_H − f_L = 20 000 − 20 = 19 980 Hz = 19.98 kHz; neither the average of the cut-offs (10.01 kHz) nor their ratio (1000) is the bandwidth.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m033",
+      "questionText": "An amplifier has a mid-band voltage gain of 40 dB. Its voltage gain at the upper cut-off frequency, expressed as a plain ratio, is:",
+      "options": [
+        "50",
+        "37",
+        "70.7",
+        "99.3"
+      ],
+      "correctIndex": 2,
+      "explanation": "40 dB is a ratio of 100; at the −3 dB point the voltage gain is 100/√2 = 70.7. The number 37 is the gain in dB, not a ratio, and 50 wrongly halves the voltage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m034",
+      "questionText": "Which statement about the mid-band region of an RC-coupled amplifier is NOT correct?",
+      "options": [
+        "Coupling and bypass capacitors act practically as short circuits",
+        "Internal junction capacitances act practically as open circuits",
+        "The gain is essentially independent of frequency",
+        "The gain is limited by the reactance of the coupling capacitors"
+      ],
+      "correctIndex": 3,
+      "explanation": "In the mid-band the coupling capacitors are effectively shorts and the small device capacitances are effectively open, so the gain is flat; coupling-capacitor reactance matters only below the mid-band.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m035",
+      "questionText": "An emitter follower has β = 100 (use β + 1 = 101), r_e = 25 Ω, R_E = 1 kΩ and a load R_L = 1 kΩ coupled to the emitter. The resistance looking into the base is approximately:",
+      "options": [
+        "53 kΩ",
+        "104 kΩ",
+        "2.5 kΩ",
+        "525 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "The emitter load is R_E ∥ R_L = 500 Ω, so R_in(base) = (β + 1)(r_e + 500) = 101 × 525 = 53 kΩ. Forgetting R_L gives 104 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m036",
+      "questionText": "An amplifier with input resistance 1 kΩ and voltage gain −100 (input terminals to output) is driven by a signal source of internal resistance 1 kΩ. The overall gain from source EMF to output is:",
+      "options": [
+        "−100",
+        "−50",
+        "−200",
+        "−33"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only R_in/(R_s + R_in) = 1/2 of the source EMF reaches the input, so A_vs = −100 × 0.5 = −50.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m037",
+      "questionText": "An amplifier has a voltage gain of 50 and a current gain of 40. Its power gain in decibels is approximately:",
+      "options": [
+        "33 dB",
+        "66 dB",
+        "19.5 dB",
+        "2000 dB"
+      ],
+      "correctIndex": 0,
+      "explanation": "A_p = A_v × A_i = 2000, and A_p(dB) = 10 log10(2000) = 33 dB. Using 20 log gives 66 dB; adding the gains (90) gives 19.5 dB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m038",
+      "questionText": "A BJT stage has g_m = 40 mA/V, collector resistor R_C = 10 kΩ and transistor output resistance r_o = 40 kΩ, with no external load and the emitter bypassed. Its voltage gain is:",
+      "options": [
+        "−400",
+        "−1600",
+        "−80",
+        "−320"
+      ],
+      "correctIndex": 3,
+      "explanation": "The effective collector load is R_C ∥ r_o = 8 kΩ, so A_v = −g_m × 8 kΩ = −320. Neglecting r_o gives −400.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m039",
+      "questionText": "Compared with a BJT common-emitter stage at a similar current, a MOSFET common-source stage typically has:",
+      "options": [
+        "A lower input resistance and a higher voltage gain",
+        "A much higher input resistance but a lower voltage gain",
+        "A higher input resistance and a higher voltage gain",
+        "No phase inversion between input and output"
+      ],
+      "correctIndex": 1,
+      "explanation": "The insulated gate draws no current, so input resistance is huge, but an FET's g_m is much smaller than a BJT's I_C/V_T, so −g_m R_D is lower. Both stages invert.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m040",
+      "questionText": "Which statement about an emitter follower is NOT correct?",
+      "options": [
+        "Its output is in phase with its input",
+        "It has high input resistance and low output resistance",
+        "It provides a voltage gain much greater than 1",
+        "Its current gain is approximately β + 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "The emitter follows the base with a gain slightly below 1; its value lies in current gain and impedance transformation, not voltage gain.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i61_m041",
+      "questionText": "A Darlington pair uses two transistors each with β = 80. Its overall current gain is approximately:",
+      "options": [
+        "6400",
+        "160",
+        "80",
+        "12 800"
+      ],
+      "correctIndex": 0,
+      "explanation": "The emitter current of the first transistor is the base current of the second, so β_D ≈ β1 × β2 = 80 × 80 = 6400.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m042",
+      "questionText": "A CE amplifier has V_CC = 12 V, R1 = 40 kΩ, R2 = 10 kΩ, R_C = 4 kΩ, R_E = 1 kΩ (fully bypassed), no external load, and β large enough to ignore base current. Take V_BE = 0.7 V and V_T = 25 mV. The voltage gain is approximately:",
+      "options": [
+        "−4",
+        "−160",
+        "−272",
+        "−384"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_B = 12 × 10/50 = 2.4 V, I_E = (2.4 − 0.7)/1 kΩ = 1.7 mA, r_e = 25/1.7 = 14.7 Ω; A_v = −4000/14.7 = −272. Ignoring V_BE gives −384; forgetting the bypass gives −4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m043",
+      "questionText": "Which type of inter-stage coupling allows an amplifier to amplify signals down to zero frequency (DC)?",
+      "options": [
+        "RC coupling",
+        "Direct coupling",
+        "Transformer coupling",
+        "Capacitive coupling with a large emitter bypass capacitor"
+      ],
+      "correctIndex": 1,
+      "explanation": "A direct-coupled amplifier has no series capacitors or transformers, so f_L = 0; capacitors and transformers both block DC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m044",
+      "questionText": "A pure sine wave applied to an amplifier produces an output containing components at 2f and 3f as well as f. This is:",
+      "options": [
+        "Frequency distortion",
+        "Phase distortion",
+        "Thermal noise",
+        "Harmonic (amplitude) distortion"
+      ],
+      "correctIndex": 3,
+      "explanation": "New frequency components that are multiples of the input frequency come from a non-linear transfer characteristic, which is harmonic or amplitude distortion; frequency and phase distortion create no new frequencies.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i61_m045",
+      "questionText": "An amplifier's low-frequency response is set by a single RC section giving f_L = 100 Hz. Relative to mid-band, its gain at 50 Hz is approximately:",
+      "options": [
+        "−7.0 dB",
+        "−3.0 dB",
+        "−14.0 dB",
+        "−0.97 dB"
+      ],
+      "correctIndex": 0,
+      "explanation": "|A/A_mid| = 1/√(1 + (f_L/f)²) = 1/√(1 + 4) = 0.447, which is 20 log(0.447) = −7.0 dB. Inverting the ratio (f/f_L) gives −0.97 dB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i61_m046",
+      "questionText": "An amplifier with a voltage gain of 30 dB receives an input of 20 mV rms. The output voltage is approximately:",
+      "options": [
+        "20 V rms",
+        "63.2 mV rms",
+        "6.32 V rms",
+        "632 mV rms"
+      ],
+      "correctIndex": 3,
+      "explanation": "Voltage ratio = 10^(30/20) = 31.6, so V_o = 31.6 × 20 mV = 632 mV. Using 10^(30/10) = 1000 wrongly gives 20 V.",
+      "difficulty": "medium"
+    }
+  ]
+}

@@ -1,0 +1,701 @@
+{
+  "topicId": "ch2_i43",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Address Arithmetic"
+    },
+    {
+      "type": "paragraph",
+      "text": "Inside the BIU a dedicated 20-bit adder forms every physical address. The 16-bit segment value enters shifted four places left, so its bits land on positions 4–19 and the low four bits are zero; the 16-bit offset enters unshifted on positions 0–15. Only the middle twelve bits overlap, so a carry can ripple into the top hex digit but never beyond bit 19, because there is no bit 20 on the 8086."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Example 1: DS = 1A2BH, BX = 3C4DH\n  1A2B0   (segment, shifted)\n+ 03C4D   (offset, right-aligned)\n-------\n  1DEFD   -> PA = 1DEFDH\n\nExample 2: CS = 2F00H, IP = FFF0H\n  2F000 + 0FFF0 = 3EFF0H  (carry into 5th digit)"
+    },
+    {
+      "type": "formula",
+      "latex": "\\left\\lceil \\frac{PA - FFFF_H}{10_H} \\right\\rceil \\le Seg \\le \\left\\lfloor \\frac{PA}{10_H} \\right\\rfloor",
+      "plainText": "ceil((PA − FFFFH) / 10H) ≤ Seg ≤ floor(PA / 10H): all segment values that can reach PA"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Reverse problem: logical addresses for PA = 4F2A6H\nLargest Seg  = floor(4F2A6H / 10H)          = 4F2AH -> offset 0006H\nSmallest Seg = ceil((4F2A6H - FFFFH) / 10H)\n             = ceil(3F2A7H / 10H)          = 3F2BH -> offset FFF6H\nCheck: 3F2B0H + FFF6H = 4F2A6H\nCount = 4F2AH - 3F2BH + 1 = 1000H = 4096 pairs"
+    },
+    {
+      "type": "paragraph",
+      "text": "Ignoring wrap-around, every physical address from 0FFF0H to FFFFFH has exactly 4096 logical addresses, because a 64 KB offset range spans 4096 paragraph boundaries. Addresses near the bottom of memory have fewer, since the segment cannot go below 0000H; for example PA 00020H is reached without wrap-around only through segments 0000H, 0001H and 0002H."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Memory reference",
+          "Default segment",
+          "Override allowed?"
+        ],
+        [
+          "Instruction fetch (IP)",
+          "CS",
+          "No"
+        ],
+        [
+          "PUSH, POP, CALL, RET (SP)",
+          "SS",
+          "No"
+        ],
+        [
+          "Operand via BP, e.g. [BP+SI]",
+          "SS",
+          "Yes (CS, DS, ES)"
+        ],
+        [
+          "Operand via BX, SI, DI or direct address",
+          "DS",
+          "Yes (CS, SS, ES)"
+        ],
+        [
+          "String source (SI)",
+          "DS",
+          "Yes"
+        ],
+        [
+          "String destination (DI)",
+          "ES",
+          "No"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Overlap} = 10000_H - (Seg_2 - Seg_1) \\times 10_H",
+      "plainText": "Overlap = 10000H − (Seg2 − Seg1) × 10H bytes, valid when Seg2 − Seg1 < 1000H (both 64 KB long)"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; SS = 5000H, SP = 2000H, AX = ABCDH\nPUSH AX    ; SP = 1FFEH, CDH -> 51FFEH, ABH -> 51FFFH\nPUSH BX    ; SP = 1FFCH, top of stack at 51FFCH\nPOP  CX    ; CX = old BX, SP = 1FFEH\nPOP  DX    ; DX = ABCDH, SP = 2000H\n; SP wraps inside the segment: SP = 0000H, PUSH -> SP = FFFEH\n; the word goes to SS:FFFEH, never into the segment below"
+    },
+    {
+      "type": "paragraph",
+      "text": "Wrap-around happens at two levels. An offset that passes FFFFH wraps back to 0000H inside the same segment, which is why a PUSH with SP = 0000H writes at SS:FFFEH. A physical address that passes FFFFFH loses its carry and wraps to the bottom of memory, so FFFFH:0010H is 00000H and FFFFH:0020H is 00010H. Later processors (80286 onwards) have an A20 line and can reach 100000H–10FFEFH in real mode when A20 is enabled; the 8086 cannot."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in address calculation:",
+      "items": [
+        "Adding segment and offset without the shift (1A2BH + 3C4DH = 5678H).",
+        "Shifting the offset instead of the segment.",
+        "Using DS for [BP]-based operands; BP defaults to SS.",
+        "Using DS for the destination of a string instruction; it is always ES:DI.",
+        "Answering 17000H for the last byte of a 3000H-byte block at 14000H; the last offset is size − 1."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "In reverse questions, check each option by recomputing Seg × 10H + Offset rather than trying to solve backwards; it takes seconds and catches options with a wrong shift or an offset larger than FFFFH."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i43_m001",
+      "questionText": "An 8086 has CS = 4A00H and IP = 0123H. From which physical address is the next instruction fetched?",
+      "options": [
+        "4B23H",
+        "5C30H",
+        "4A0123H",
+        "4A123H"
+      ],
+      "correctIndex": 3,
+      "explanation": "PA = 4A00H × 10H + 0123H = 4A000H + 0123H = 4A123H. 4B23H comes from adding without shifting the segment.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m002",
+      "questionText": "Which segment register is always used with IP to fetch 8086 instructions?",
+      "options": [
+        "DS",
+        "CS",
+        "SS",
+        "ES"
+      ],
+      "correctIndex": 1,
+      "explanation": "The instruction fetch address is always CS:IP; this pairing cannot be changed by a segment override prefix.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m003",
+      "questionText": "Which segment register does the 8086 use by default with SP for PUSH and POP?",
+      "options": [
+        "SS",
+        "DS",
+        "CS",
+        "ES"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stack operations always address SS:SP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m004",
+      "questionText": "In 8086 string instructions such as MOVSB or STOSB, the destination operand is addressed by which pair?",
+      "options": [
+        "DS:SI",
+        "DS:DI",
+        "ES:DI",
+        "ES:SI"
+      ],
+      "correctIndex": 2,
+      "explanation": "String sources default to DS:SI and destinations always use ES:DI.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m005",
+      "questionText": "An 8086 segment must begin at a physical address that is:",
+      "options": [
+        "a multiple of 64 KB",
+        "a multiple of 16 (a paragraph boundary)",
+        "any even address",
+        "a multiple of 256"
+      ],
+      "correctIndex": 1,
+      "explanation": "The base is the 16-bit segment value shifted left 4 bits, so its lowest hex digit is always 0, i.e. a multiple of 16.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m006",
+      "questionText": "In the 8086, what is a logical address?",
+      "options": [
+        "The 20-bit value placed on the address bus",
+        "The offset alone, without a segment",
+        "A segment:offset pair of two 16-bit values used by the program",
+        "The address after the A20 line is dropped"
+      ],
+      "correctIndex": 2,
+      "explanation": "A logical address is written segment:offset (for example 2000H:0150H); the BIU converts it into the 20-bit physical address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m007",
+      "questionText": "On the 8086, DS = 2500H. What is the starting physical address of the data segment?",
+      "options": [
+        "25000H",
+        "02500H",
+        "2500FH",
+        "250000H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Start = DS × 10H + 0000H = 25000H.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m008",
+      "questionText": "On the 8086, SS = 7000H. What is the highest physical address that belongs to this stack segment?",
+      "options": [
+        "7FFFH",
+        "70FFFH",
+        "17FFFH",
+        "7FFFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "End = SS × 10H + FFFFH = 70000H + FFFFH = 7FFFFH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m009",
+      "questionText": "Appending one hexadecimal 0 to an 8086 segment value before adding the offset is the same as:",
+      "options": [
+        "multiplying the segment by 10",
+        "multiplying the segment by 16",
+        "multiplying the segment by 4",
+        "adding 16 to the segment"
+      ],
+      "correctIndex": 1,
+      "explanation": "One hex digit is 4 bits, and shifting left by 4 bits multiplies by 2^4 = 16 (10H).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m010",
+      "questionText": "An 8086 program is moved to a different area of memory. What has to change so that it still runs correctly?",
+      "options": [
+        "Every offset in the program",
+        "Both the segment values and all offsets",
+        "The physical addresses coded into every instruction",
+        "Only the segment register values"
+      ],
+      "correctIndex": 3,
+      "explanation": "Offsets are relative to the segment base, so a relocated program keeps its offsets; loading new segment values is enough.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m011",
+      "questionText": "Which value must be loaded into DS so that the 8086 data segment starts at physical address 8A000H?",
+      "options": [
+        "8A000H",
+        "08A0H",
+        "8A00H",
+        "A800H"
+      ],
+      "correctIndex": 2,
+      "explanation": "Segment = starting address ÷ 10H = 8A000H ÷ 10H = 8A00H. 8A000H is 20 bits and cannot fit a segment register.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m012",
+      "questionText": "On the 8086, DS = 0000H. What is the highest physical address a data access through DS can reach?",
+      "options": [
+        "0FFFFH",
+        "FFFFFH",
+        "0FFF0H",
+        "00FFFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Highest = 0000H × 10H + FFFFH = 0FFFFH, the top of the first 64 KB.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m013",
+      "questionText": "In 8086 terminology, the 'effective address' of a memory operand is:",
+      "options": [
+        "its 20-bit physical address",
+        "the segment register value",
+        "the address of the instruction that uses it",
+        "its 16-bit offset within the segment"
+      ],
+      "correctIndex": 3,
+      "explanation": "The EU computes the effective address (offset) from the addressing mode; adding the segment base gives the physical address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m014",
+      "questionText": "Which segment:offset pair does the 8086 use by default for the operand of MOV AL, [SI]?",
+      "options": [
+        "ES:SI",
+        "SS:SI",
+        "DS:SI",
+        "CS:SI"
+      ],
+      "correctIndex": 2,
+      "explanation": "Register-indirect operands through SI (and BX, DI or a direct address) default to the data segment DS; only BP-based operands default to SS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i43_m015",
+      "questionText": "On the 8086, DS = 1A2BH and BX = 3C4DH. What is the physical address of the operand in MOV AL, [BX]?",
+      "options": [
+        "5678H",
+        "1DEFDH",
+        "3DEFBH",
+        "1DEEDH"
+      ],
+      "correctIndex": 1,
+      "explanation": "PA = 1A2B0H + 3C4DH = 1DEFDH. 5678H is DS + BX without the shift; 3DEFBH (3C4D0H + 1A2BH) shifts BX instead of DS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m016",
+      "questionText": "On the 8086, SS = 6A00H and SP = 1F40H. What is the physical address of the top of the stack?",
+      "options": [
+        "6BF40H",
+        "8940H",
+        "6A1F4H",
+        "7BF40H"
+      ],
+      "correctIndex": 0,
+      "explanation": "PA = 6A000H + 1F40H = 6BF40H. 8940H ignores the shift; 7BF40H results from a wrong carry into the fifth digit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m017",
+      "questionText": "On the 8086, CS = 2F00H and IP = FFF0H. From which physical address is the next instruction fetched?",
+      "options": [
+        "2EFF0H",
+        "2FFF0H",
+        "3EFF0H",
+        "12EF0H"
+      ],
+      "correctIndex": 2,
+      "explanation": "PA = 2F000H + FFF0H = 3EFF0H; the carry from the fourth hex digit moves into the fifth digit (2 + 1 = 3).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m018",
+      "questionText": "On the 8086, DS = 3000H, SS = 2000H and BP = 0100H. Which physical address does MOV AL, [BP+05H] read?",
+      "options": [
+        "30105H",
+        "20105H",
+        "20100H",
+        "02105H"
+      ],
+      "correctIndex": 1,
+      "explanation": "Addressing through BP uses SS by default: PA = 20000H + 0100H + 05H = 20105H. 30105H wrongly uses DS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m019",
+      "questionText": "On the 8086, DS = 1000H, ES = 2000H and BX = 0050H. Which physical address does MOV AX, ES:[BX] read?",
+      "options": [
+        "20050H",
+        "10050H",
+        "30050H",
+        "02050H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The ES: override replaces the default DS: PA = 20000H + 0050H = 20050H. 10050H would be the address without the override.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m020",
+      "questionText": "On the 8086, DS = 3A00H. What offset must be used to reach the byte at physical address 3B7A2H?",
+      "options": [
+        "81A2H",
+        "37DA2H",
+        "07A2H",
+        "17A2H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Offset = PA − DS × 10H = 3B7A2H − 3A000H = 17A2H. Subtracting 3A00H without the shift gives 37DA2H, which is not even a 16-bit offset.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m021",
+      "questionText": "An 8086 byte is at physical address 5A3F0H and its offset is 03F0H. What is the segment value?",
+      "options": [
+        "5A3FH",
+        "05A0H",
+        "59FFH",
+        "5A00H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Segment = (PA − offset) ÷ 10H = (5A3F0H − 03F0H) ÷ 10H = 5A000H ÷ 10H = 5A00H. 5A3FH would need offset 0000H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m022",
+      "questionText": "Which 8086 logical address refers to physical address 4F2A6H?",
+      "options": [
+        "4F2AH:0060H",
+        "4F00H:2A60H",
+        "4E00H:12A6H",
+        "4000H:02A6H"
+      ],
+      "correctIndex": 2,
+      "explanation": "4E00H:12A6H → 4E000H + 12A6H = 4F2A6H. The others give 4F300H, 51A60H and 402A6H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m023",
+      "questionText": "On the 8086 (20 address lines), DS = FFFFH and the offset is 0020H. Which physical address is actually accessed?",
+      "options": [
+        "100010H",
+        "00010H",
+        "1001FH",
+        "FFFF2H"
+      ],
+      "correctIndex": 1,
+      "explanation": "FFFF0H + 0020H = 100010H, a 21-bit result. The 8086 has no A20 line, so the carry is lost and the access wraps to 00010H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m024",
+      "questionText": "On the 8086, SS = 1200H and SP = 0FFEH. After one POP BX, what is SP and what is the physical address of the new top of stack?",
+      "options": [
+        "SP = 1000H, top of stack at 13000H",
+        "SP = 0FFCH, top of stack at 12FFCH",
+        "SP = 1000H, top of stack at 02200H",
+        "SP = 0FFFH, top of stack at 12FFFH"
+      ],
+      "correctIndex": 0,
+      "explanation": "POP adds 2: SP = 0FFEH + 2 = 1000H. Top of stack = 12000H + 1000H = 13000H. 0FFCH would be the result of a PUSH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m025",
+      "questionText": "On the 8086, DS = 1000H, SI = 0020H, ES = 2000H and DI = 0030H. MOVSB is executed. Which physical addresses are the source and destination bytes?",
+      "options": [
+        "Source 10020H, destination 10030H",
+        "Source 20020H, destination 10030H",
+        "Source 01020H, destination 02030H",
+        "Source 10020H, destination 20030H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Source = DS:SI = 10000H + 0020H = 10020H; destination = ES:DI = 20000H + 0030H = 20030H. Using DS for the destination is the common error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m026",
+      "questionText": "Which 8086 logical address refers to the same physical location as 0100H:0000H?",
+      "options": [
+        "0010H:0000H",
+        "0000H:1000H",
+        "1000H:0000H",
+        "0000H:0100H"
+      ],
+      "correctIndex": 1,
+      "explanation": "0100H:0000H → 01000H + 0000H = 01000H, and 0000H:1000H → 00000H + 1000H = 01000H. The other pairs give 00100H, 10000H and 00100H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m027",
+      "questionText": "An 8086 program 12 KB long is loaded from offset 0000H in a code segment with CS = 1400H. What is the physical address of its last byte?",
+      "options": [
+        "17000H",
+        "14BFFH",
+        "16FFFH",
+        "1AFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "12 KB = 3000H bytes, so the last offset is 2FFFH. PA = 14000H + 2FFFH = 16FFFH. 17000H is one past the end.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m028",
+      "questionText": "What is the maximum amount of memory an 8086 program can address at one moment without reloading any segment register, if its four segments do not overlap?",
+      "options": [
+        "256 KB",
+        "64 KB",
+        "1 MB",
+        "128 KB"
+      ],
+      "correctIndex": 0,
+      "explanation": "Four segment registers × 64 KB each = 256 KB can be addressed without changing a segment register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m029",
+      "questionText": "On the 8086, CS = 1000H and DS = 2000H. How are the code and data segments placed relative to each other?",
+      "options": [
+        "Overlapping by 32 KB",
+        "Adjacent: the code segment ends at 1FFFFH and the data segment begins at 20000H",
+        "Separated by a 64 KB gap",
+        "Identical: both start at 10000H"
+      ],
+      "correctIndex": 1,
+      "explanation": "CS covers 10000H–1FFFFH and DS covers 20000H–2FFFFH, so they touch but do not overlap.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m030",
+      "questionText": "What is the smallest possible distance between the starting addresses of two different 8086 segments?",
+      "options": [
+        "1 byte",
+        "256 bytes",
+        "64 KB",
+        "16 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Consecutive segment values (e.g. 1000H and 1001H) give bases 10000H and 10010H, which are 10H = 16 bytes apart.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m031",
+      "questionText": "How many different starting addresses can an 8086 segment have within the 1 MB memory?",
+      "options": [
+        "16",
+        "1,048,576",
+        "65,536",
+        "4,096"
+      ],
+      "correctIndex": 2,
+      "explanation": "There are 2^20 / 2^4 = 2^16 = 65,536 paragraph boundaries, one for each 16-bit segment value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m032",
+      "questionText": "Why can an 8086 segment NOT start at physical address 12345H?",
+      "options": [
+        "The address is not a multiple of 16, so no 16-bit segment value produces it",
+        "The address lies above the first 64 KB",
+        "Segments may only start at multiples of 64 KB",
+        "Odd addresses cannot be accessed by the 8086"
+      ],
+      "correctIndex": 0,
+      "explanation": "Base = segment × 10H always ends in hex 0; 12345H ends in 5. The data at 12345H can still be reached, for example as 1234H:0005H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m033",
+      "questionText": "Which default segment assignment of the 8086 can NOT be changed with a segment override prefix?",
+      "options": [
+        "ES for the destination of STOSB",
+        "DS for MOV AL, [BX]",
+        "SS for MOV AL, [BP]",
+        "DS for MOV AL, [SI]"
+      ],
+      "correctIndex": 0,
+      "explanation": "String destinations always use ES:DI (and fetches always use CS:IP). Data references through BX, SI or BP can be overridden, e.g. ES:[BX].",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m034",
+      "questionText": "Which statement about 8086 segmentation is NOT correct?",
+      "options": [
+        "A segment can be at most 64 KB long",
+        "Segments must not overlap each other",
+        "One physical address can be reached through many logical addresses",
+        "The four segment registers may all hold the same value"
+      ],
+      "correctIndex": 1,
+      "explanation": "Segments may be disjoint, adjacent, partly overlapping or identical; only their starting address (a multiple of 16) is restricted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m035",
+      "questionText": "An 8086 program must access the last byte of memory, FFFFFH, using offset FFFFH. Which segment value is required?",
+      "options": [
+        "FFFFH",
+        "FFF0H",
+        "F000H",
+        "0FFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "Segment = (FFFFFH − FFFFH) ÷ 10H = F0000H ÷ 10H = F000H. With FFFFH the address would be FFFF0H + FFFFH, which wraps to 0FFEFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m036",
+      "questionText": "On the 8086, CS = 3C00H. Which of the following physical addresses lies inside the current code segment?",
+      "options": [
+        "3BFFFH",
+        "4C000H",
+        "03C00H",
+        "4BFFFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "The code segment spans 3C000H to 3C000H + FFFFH = 4BFFFH. 3BFFFH is just below it, 4C000H just above it, and 03C00H is the segment value mistaken for an address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i43_m037",
+      "questionText": "Which of the following 8086 logical addresses does NOT refer to physical address 2C3D8H?",
+      "options": [
+        "1C00H:C3D8H",
+        "2C3DH:0008H",
+        "2000H:C3D8H",
+        "1C3EH:FFF8H"
+      ],
+      "correctIndex": 0,
+      "explanation": "1C00H:C3D8H → 1C000H + C3D8H = 283D8H. The others give 2C3D0H + 8, 20000H + C3D8H and 1C3E0H + FFF8H, all equal to 2C3D8H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m038",
+      "questionText": "How many different segment:offset pairs refer to the physical address 50000H on the 8086?",
+      "options": [
+        "65,536",
+        "16",
+        "4,096",
+        "4,095"
+      ],
+      "correctIndex": 2,
+      "explanation": "Valid segments satisfy 0 ≤ 50000H − 16·Seg ≤ FFFFH, i.e. 4001H ≤ Seg ≤ 5000H: 5000H − 4001H + 1 = 1000H = 4,096 pairs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m039",
+      "questionText": "What is the full range of segment values that can be used to reach physical address 4F2A6H on the 8086?",
+      "options": [
+        "3F2AH to 4F2AH",
+        "4000H to 4F2AH",
+        "3F2BH to 4F2BH",
+        "3F2BH to 4F2AH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Largest: 4F2A6H ÷ 10H rounded down = 4F2AH (offset 0006H). Smallest: (4F2A6H − FFFFH) = 3F2A7H, ÷ 10H rounded up = 3F2BH (offset FFF6H). 3F2AH would need offset 10006H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m040",
+      "questionText": "On the 8086, DS = 2000H and ES = 2800H. How large is the region shared by the two segments, and where is it?",
+      "options": [
+        "No overlap; the segments are adjacent",
+        "32 KB, from 28000H to 2FFFFH",
+        "2 KB, from 28000H to 287FFH",
+        "32 KB, from 20000H to 27FFFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "DS spans 20000H–2FFFFH and ES spans 28000H–37FFFH. The common part is 28000H–2FFFFH = 8000H bytes = 32 KB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m041",
+      "questionText": "On an 8086, CS = F800H and IP = 9000H. From which physical address is the instruction actually fetched?",
+      "options": [
+        "101000H",
+        "F8900H",
+        "01800H",
+        "01000H"
+      ],
+      "correctIndex": 3,
+      "explanation": "F8000H + 9000H = 101000H, which needs 21 bits; the carry out of A19 is lost, so the fetch wraps around to 01000H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m042",
+      "questionText": "On the 8086, SS = 4000H and SP = 0000H. After PUSH AX, what is SP and where is the word stored?",
+      "options": [
+        "SP = FFFEH, word stored at 3FFFEH",
+        "SP = 0002H, word stored at 40002H",
+        "SP = FFFEH, word stored at 4FFFEH",
+        "SP = FFFFH, word stored at 4FFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "SP = 0000H − 2 wraps within 16 bits to FFFEH; the stack stays in its own segment, so PA = 40000H + FFFEH = 4FFFEH, not 3FFFEH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m043",
+      "questionText": "On the 8086, SS = 5000H and SP = 2000H. The instructions PUSH AX, PUSH BX, PUSH CX and POP DX are executed. What is SP and the physical address of the top of stack afterwards?",
+      "options": [
+        "SP = 1FFCH, top of stack at 51FFCH",
+        "SP = 1FFAH, top of stack at 51FFAH",
+        "SP = 1FFCH, top of stack at 1FFC0H",
+        "SP = 2004H, top of stack at 52004H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Three pushes and one pop change SP by −6 + 2 = −4: SP = 1FFCH. PA = 50000H + 1FFCH = 51FFCH. 1FFAH forgets the POP.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m044",
+      "questionText": "The top of an 8086 stack is at physical address 3A7FEH and SP = 7FEEH. What is the value of SS?",
+      "options": [
+        "3A7FH",
+        "3281H",
+        "2281H",
+        "0A81H"
+      ],
+      "correctIndex": 1,
+      "explanation": "SS × 10H = 3A7FEH − 7FEEH = 32810H, so SS = 3281H. 3A7FH would only be correct if SP were 000EH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m045",
+      "questionText": "On the 8086, DS = 0A00H. A program needs the byte at 0B234H and later the byte at 1B234H. Which statement is correct?",
+      "options": [
+        "The offsets are 1234H and 11234H",
+        "The first uses offset 1234H; the second cannot be reached without changing DS",
+        "The offsets are B234H and 1B234H",
+        "The offsets are 0234H and 1234H"
+      ],
+      "correctIndex": 1,
+      "explanation": "0B234H − 0A000H = 1234H. 1B234H − 0A000H = 11234H, which exceeds FFFFH, so it lies outside this 64 KB segment; DS must be reloaded.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i43_m046",
+      "questionText": "On the 8086, SS = 3000H, SP = 0200H and AX = ABCDH. After PUSH AX, where are the two bytes of AX stored?",
+      "options": [
+        "CDH at 301FEH and ABH at 301FFH",
+        "ABH at 301FEH and CDH at 301FFH",
+        "CDH at 30200H and ABH at 30201H",
+        "CDH at 301FFH and ABH at 30200H"
+      ],
+      "correctIndex": 0,
+      "explanation": "SP becomes 01FEH. The word goes to 30000H + 01FEH = 301FEH in little-endian order: low byte CDH at 301FEH, high byte ABH at 301FFH.",
+      "difficulty": "hard"
+    }
+  ]
+}

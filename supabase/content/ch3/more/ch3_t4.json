@@ -1,0 +1,715 @@
+{
+  "topicId": "ch3_t4",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Operator Overloading"
+    },
+    {
+      "type": "paragraph",
+      "text": "For an expression a @ b the compiler collects three kinds of candidates: member functions a.operator@(b) of the left operand's class, non-member functions operator@(a, b) (friends declared in the class are found through the operands' class), and the built-in operator; ordinary overload resolution then picks the best match. A member candidate exists only when the left operand already is an object of the class, because no conversion is ever applied to the object that becomes *this, whereas a non-member lets both operands be converted by a converting constructor. That is why, with a constructor M(int), a member operator+ accepts a + 3 but rejects 3 + a, while a friend operator+ accepts both; marking the constructor explicit switches this conversion off."
+    },
+    {
+      "type": "formula",
+      "latex": "\\texttt{a = b = c} \\;\\equiv\\; \\texttt{a.operator=(b.operator=(c))}",
+      "plainText": "a = b = c is evaluated as a.operator=(b.operator=(c)), so the inner call must return the object (normally T&, that is *this); a void return breaks the chain"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct Ctr {\n    int n;\n    Ctr(int v) : n(v) {}\n    Ctr& operator++()    { ++n; return *this; }                 // prefix\n    Ctr  operator++(int) { Ctr old = *this; ++n; return old; }  // postfix\n};\nint main() {\n    Ctr a(5);\n    Ctr b = a++;       // a.operator++(0): b receives the OLD value\n    Ctr c = ++a;       // a.operator++():  c receives the NEW value\n    cout << a.n << \" \" << b.n << \" \" << c.n;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - output: 7 5 7\nCtr a(5);      a.n = 5\nb = a++;       postfix: old = copy of a (5); a.n = 6; b is the copy -> b.n = 5\nc = ++a;       prefix:  a.n = 7; returns a itself; c copies it     -> c.n = 7\nprint          a.n = 7, b.n = 5, c.n = 7\nThe dummy int only selects the postfix version; the compiler passes 0."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nclass M {\n    int v;\npublic:\n    M(int x = 0) : v(x) {}\n    friend M operator+(const M &a, const M &b) { return M(a.v + b.v); }\n    M& operator+=(const M &o) { v += o.v; return *this; }\n    friend ostream& operator<<(ostream &os, const M &m) { return os << \"[\" << m.v << \"]\"; }\n};\nint main() {\n    M a(2), b(3), c = 10 + a;   // 10 -> M(10), then operator+(M(10), a)\n    (a += b) += c;         // a += b returns a itself, so += c also changes a\n    cout << a << c << b;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - output: [17][12][3]\nc = 10 + a     int on the left: only the friend fits, 10 -> M(10)\n               operator+(M(10), a) = M(12)                        c = 12\n(a += b)       a.operator+=(b): a = 2 + 3 = 5, returns a (M&)\n      += c     a.operator+=(c): a = 5 + 12 = 17                   a = 17\ncout << a << c << b\n               = operator<<(operator<<(operator<<(cout, a), c), b)\n               each call returns cout, so the output is [17][12][3]"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Operator",
+          "As a member",
+          "As a non-member",
+          "Usual return"
+        ],
+        [
+          "Prefix ++",
+          "T& operator++()",
+          "T& operator++(T&)",
+          "T& (the object)"
+        ],
+        [
+          "Postfix ++",
+          "T operator++(int)",
+          "T operator++(T&, int)",
+          "T (old value)"
+        ],
+        [
+          "Binary +",
+          "T operator+(const T&) const",
+          "T operator+(const T&, const T&)",
+          "T by value"
+        ],
+        [
+          "== and <",
+          "bool operator==(const T&) const",
+          "bool operator==(const T&, const T&)",
+          "bool"
+        ],
+        [
+          "+= and =",
+          "T& operator+=(const T&)",
+          "+= only: T& operator+=(T&, const T&)",
+          "T& (*this)"
+        ],
+        [
+          "<< (output)",
+          "Not usable as cout << obj",
+          "ostream& operator<<(ostream&, const T&)",
+          "ostream&"
+        ],
+        [
+          "[] and ()",
+          "T& operator[](int), R operator()(...)",
+          "Not allowed",
+          "Reference or any type"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Relational operators are normally built from two primitives: define == and <, then write a != b as !(a == b), a > b as b < a, a <= b as !(b < a) and a >= b as !(a < b). In C++17 the compiler generates none of these, so a class with only operator== cannot be compared with !=. A class that overloads operator() produces function objects (functors); unlike a plain function, a functor can keep state in its data members between calls, and each copy of it keeps its own state."
+    },
+    {
+      "type": "bulletList",
+      "text": "Frequent errors in overloaded operators:",
+      "items": [
+        "Returning a reference to a local result from operator+ (T& operator+(...) { T r; ...; return r; }): r dies at the closing brace, leaving a dangling reference.",
+        "Taking the right operand by non-const reference (T operator+(T &o)): then a + (b + c) fails because the temporary b + c cannot bind to T&.",
+        "Writing operator<< as a member function: it then has to be used as obj << cout, never cout << obj.",
+        "Returning void from operator= or operator<<: a single use works, but a = b = c and cout << x << y no longer compile.",
+        "Returning T& from postfix ++: the old value exists only as a local copy, so postfix must return T by value.",
+        "Defining both a member and a non-member version with the same parameter types, which makes every call ambiguous."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "To trace an overloaded-operator program, first rewrite each operator as the call it becomes (a + b as a.operator+(b) or operator+(a, b), c++ as c.operator++(0)), keep the normal precedence and associativity, and note for each call whether it returns a copy or a reference to *this. Then evaluate the calls exactly like ordinary function calls."
+    },
+    {
+      "type": "warning",
+      "text": "Overloading &&, || or the comma operator turns them into ordinary function calls: both operands are always evaluated, so short-circuit evaluation is lost (C++17 still evaluates the left operand first). Avoid overloading these three."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t4_m001",
+      "questionText": "Postfix ++ is overloaded for class Counter as a non-member (friend) function. How many parameters does that function take?",
+      "options": [
+        "None",
+        "One (Counter&)",
+        "Two (Counter& and a dummy int)",
+        "Two (two Counter& operands)"
+      ],
+      "correctIndex": 2,
+      "explanation": "As a non-member, postfix ++ receives the object to change as Counter& plus a dummy int that marks the postfix form: friend Counter operator++(Counter &c, int). One parameter (Counter&) alone would declare the prefix form.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m002",
+      "questionText": "A class overloads unary minus (-a) as a member function and binary minus (a - b) as a friend function. How many explicit parameters do the two functions take, respectively?",
+      "options": [
+        "1 and 2",
+        "0 and 2",
+        "0 and 1",
+        "1 and 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "A member operator receives its left (or only) operand as *this, so unary minus as a member takes 0 parameters. A friend has no this, so binary minus as a friend takes both operands explicitly: 2 parameters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m003",
+      "questionText": "Which marked line of this program fails to compile?\n\n#include <iostream>\nusing namespace std;\nclass Num {\n    int v;\npublic:\n    Num(int x) : v(x) {}\n    Num operator+(const Num &o) const { return Num(v + o.v); }\n    int get() const { return v; }\n};\nint main() {\n    Num a(5);\n    cout << (a + 3).get();   // Line 1\n    cout << (3 + a).get();   // Line 2\n}",
+      "options": [
+        "Line 1 only",
+        "Line 2 only",
+        "Both lines",
+        "Neither; the program prints 88"
+      ],
+      "correctIndex": 1,
+      "explanation": "a + 3 becomes a.operator+(3), and 3 is converted to Num(3) by the constructor. In 3 + a the left operand is an int, and a member operator is only considered when an object of the class is on the left (no conversion is applied to it), so Line 2 finds no operator+.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m004",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Num {\n    int v;\npublic:\n    Num(int x) : v(x) {}\n    friend Num operator+(const Num &a, const Num &b) { return Num(a.v * 10 + b.v); }\n    int get() const { return v; }\n};\nint main() {\n    Num a(2);\n    cout << (a + 3).get() << \" \" << (3 + a).get();\n}",
+      "options": [
+        "23 23",
+        "5 5",
+        "Compile error: 3 + a has no matching operator",
+        "23 32"
+      ],
+      "correctIndex": 3,
+      "explanation": "A non-member operator lets either operand be converted, so a + 3 is operator+(a, Num(3)) = 2 * 10 + 3 = 23 and 3 + a is operator+(Num(3), a) = 3 * 10 + 2 = 32. The operands are never swapped.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m005",
+      "questionText": "Class P overloads insertion as a member function: ostream& operator<<(ostream &os) const { return os << v; }. With P p; which expression compiles and prints p?",
+      "options": [
+        "cout << p",
+        "operator<<(cout, p)",
+        "p << cout",
+        "cout.operator<<(p)"
+      ],
+      "correctIndex": 2,
+      "explanation": "For a member operator the left operand is always *this, so the expression must be p << cout, which becomes p.operator<<(cout). cout << p needs an operator whose left operand is an ostream, which only a non-member can supply.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m006",
+      "questionText": "Which statement about operator overloading is NOT correct?",
+      "options": [
+        "A friend operator function receives its left operand through the this pointer",
+        "At least one operand of an overloaded operator must be of a class or enumeration type",
+        "The compiler-generated operator= copies the object member by member",
+        "The dummy int parameter distinguishes postfix ++ from prefix ++"
+      ],
+      "correctIndex": 0,
+      "explanation": "A friend operator function is not a member, so it has no this pointer; it receives every operand as a parameter. The other three statements are standard rules of operator overloading.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m007",
+      "questionText": "In the member declaration Counter operator++(int); what is the purpose of the int parameter?",
+      "options": [
+        "It is the amount by which the object is incremented",
+        "It is the value that the operator must return",
+        "It makes the operator usable only on int members",
+        "It is an unused marker that tells the compiler this is the postfix form"
+      ],
+      "correctIndex": 3,
+      "explanation": "operator++(int) is the postfix form; the int only distinguishes it from the prefix operator++(). For c++ the compiler calls c.operator++(0), and the parameter is normally left unnamed and unused.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m008",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass D {\n    int n;\npublic:\n    D(int v) : n(v) {}\n    friend D operator--(D &d, int) { D old = d; d.n -= 2; return old; }\n    int get() const { return n; }\n};\nint main() {\n    D x(10);\n    D y = x--;\n    x--;\n    cout << x.get() << \" \" << y.get();\n}",
+      "options": [
+        "6 10",
+        "6 8",
+        "8 10",
+        "8 8"
+      ],
+      "correctIndex": 0,
+      "explanation": "The friend with parameters (D &, int) is postfix --: it saves the old object, subtracts 2 from the original and returns the old copy. y = x-- gives y = 10 and x = 8; the second x-- makes x = 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m009",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass C {\n    int n;\npublic:\n    C(int v) : n(v) {}\n    C operator++() { ++n; return *this; }\n    int get() const { return n; }\n};\nint main() {\n    C c(1);\n    C d = ++(++c);\n    cout << c.get() << \" \" << d.get();\n}",
+      "options": [
+        "3 3",
+        "2 3",
+        "2 2",
+        "3 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "operator++() returns C by value, so the inner ++c changes c to 2 but returns a copy; the outer ++ increments that copy to 3, and d is initialised from it. So c = 2 and d = 3; returning C& would have given 3 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m010",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct T {\n    int n;\n    T(int v) : n(v) {}\n    T& operator++()   { n *= 2; return *this; }\n    T operator++(int) { T old = *this; n += 3; return old; }\n};\nint main() {\n    T a(4);\n    T b = a++;\n    T c = ++a;\n    cout << a.n << \" \" << b.n << \" \" << c.n;\n}",
+      "options": [
+        "14 7 14",
+        "11 8 8",
+        "14 4 14",
+        "14 4 7"
+      ],
+      "correctIndex": 2,
+      "explanation": "a++ calls operator++(int): b gets the old value 4 and a becomes 4 + 3 = 7. ++a calls operator++(): a becomes 7 * 2 = 14 and c copies the updated object, 14.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m011",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass V {\n    int x, y;\npublic:\n    V(int a, int b) : x(a), y(b) {}\n    V operator-() const { return V(-x, -y); }\n    bool operator!() const { return x == 0 && y == 0; }\n    int sum() const { return x + y; }\n};\nint main() {\n    V p(3, -5), z(0, 0);\n    V q = -p;\n    cout << q.sum() << \" \" << !z << !q;\n}",
+      "options": [
+        "-2 10",
+        "2 01",
+        "-2 01",
+        "2 10"
+      ],
+      "correctIndex": 3,
+      "explanation": "-p calls operator-() and gives q = (-3, 5), so q.sum() = 2. !z is true because both members are 0, and !q is false; they print as 1 and 0, so the output is 2 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m012",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Cx {\n    int re, im;\npublic:\n    Cx(int r = 0, int i = 0) : re(r), im(i) {}\n    Cx operator+(const Cx &o) const { return Cx(re + o.re, im + o.im); }\n    void show() const { cout << re << \"+\" << im << \"i\"; }\n};\nint main() {\n    Cx a(1, 2), b(3, 4);\n    Cx c = a + b + Cx(5);\n    c.show();\n}",
+      "options": [
+        "4+6i",
+        "9+6i",
+        "9+11i",
+        "4+11i"
+      ],
+      "correctIndex": 1,
+      "explanation": "+ stays left-associative, so c = (a + b) + Cx(5). a + b = (4, 6), and Cx(5) is (5, 0) because im defaults to 0, giving (9, 6), printed as 9+6i.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m013",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    int v;\npublic:\n    P(int x) : v(x) {}\n    P operator-(const P &o) const { return P(v - o.v); }\n    int get() const { return v; }\n};\nint main() {\n    P a(10), b(3), c(2);\n    P d = a - b - c;\n    P e = a - (b - c);\n    cout << d.get() << \" \" << e.get();\n}",
+      "options": [
+        "9 9",
+        "5 5",
+        "5 9",
+        "9 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "An overloaded operator keeps the built-in associativity, so a - b - c means (a - b) - c = (10 - 3) - 2 = 5. The parentheses give 10 - (3 - 2) = 9.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m014",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct N {\n    int v;\n    N(int x) : v(x) {}\n    N operator+(const N &o) const { return N(v + o.v); }\n    N operator*(const N &o) const { return N(v * o.v); }\n};\nint main() {\n    N a(2), b(3), c(4);\n    cout << (a + b * c).v << \" \" << ((a + b) * c).v;\n}",
+      "options": [
+        "14 20",
+        "20 20",
+        "14 14",
+        "20 14"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overloaded operators keep their built-in precedence, so a + b * c is a + (b * c) = 2 + 12 = 14, while (a + b) * c = 5 * 4 = 20.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m015",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass V {\n    int x;\npublic:\n    V(int a) : x(a) {}\n    V operator*(int k) const { return V(x * k + 1); }\n    friend V operator*(int k, const V &v) { return V(v.x * k - 1); }\n    int get() const { return x; }\n};\nint main() {\n    V a(3);\n    V b = a * 2, c = 2 * a, d = 2 * a * 2;\n    cout << b.get() << \" \" << c.get() << \" \" << d.get();\n}",
+      "options": [
+        "5 7 13",
+        "7 7 15",
+        "7 5 9",
+        "7 5 11"
+      ],
+      "correctIndex": 3,
+      "explanation": "a * 2 uses the member operator*(int): 3 * 2 + 1 = 7. 2 * a has an int on the left, so only the friend matches: 3 * 2 - 1 = 5. 2 * a * 2 is (2 * a) * 2: the friend gives 5, then the member gives 5 * 2 + 1 = 11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m016",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Dist {\n    int ft, in;\npublic:\n    Dist(int f, int i) : ft(f), in(i) {}\n    int total() const { return ft * 12 + in; }\n    bool operator<(const Dist &d) const { return total() < d.total(); }\n    bool operator==(const Dist &d) const { return total() == d.total(); }\n};\nint main() {\n    Dist a(5, 2), b(4, 14), c(5, 3);\n    cout << (a == b) << (a < c) << (c < b);\n}",
+      "options": [
+        "010",
+        "110",
+        "011",
+        "100"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both operators compare total inches: a = 5*12 + 2 = 62, b = 4*12 + 14 = 62, c = 5*12 + 3 = 63. a == b is 1, a < c is 1 and c < b is 0, giving 110.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m017",
+      "questionText": "Class Money overloads only bool operator==(const Money &) const. With Money a, b; which expression fails to compile under C++17?",
+      "options": [
+        "a == b",
+        "!(a == b)",
+        "a != b",
+        "(a == b) || (b == a)"
+      ],
+      "correctIndex": 2,
+      "explanation": "In C++17 the compiler does not derive != from ==; every relational operator that is used must be overloaded itself. a != b therefore has no matching operator, while the other expressions use only == and built-in bool operators.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m018",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass R {\n    int v;\npublic:\n    R(int x) : v(x) {}\n    bool operator<(const R &o) const { return v % 10 < o.v % 10; }\n    bool operator>(const R &o) const { return o < *this; }\n};\nint main() {\n    R a(19), b(23), c(7);\n    cout << (a < b) << (a > c) << (b > c);\n}",
+      "options": [
+        "010",
+        "111",
+        "001",
+        "110"
+      ],
+      "correctIndex": 0,
+      "explanation": "The comparison uses only the last digit: 9 for a, 3 for b and 7 for c. a < b is 9 < 3 = 0; a > c is c < a, 7 < 9 = 1; b > c is c < b, 7 < 3 = 0: output 010.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m019",
+      "questionText": "Which marked line of this program fails to compile?\n\n#include <iostream>\nusing namespace std;\nclass A {\n    int v;\npublic:\n    A(int x = 0) : v(x) {}\n    void operator=(const A &o) { v = o.v; }\n    int get() const { return v; }\n};\nint main() {\n    A a(1), b(2), c(3);\n    a = b;         // Line 1\n    a = b = c;     // Line 2\n    cout << a.get();\n}",
+      "options": [
+        "Line 1 only",
+        "Both lines",
+        "Neither; the program prints 3",
+        "Line 2 only"
+      ],
+      "correctIndex": 3,
+      "explanation": "a = b calls a.operator=(b) and works even though the result is void. In a = b = c the inner b = c yields void, and no operator= accepts a void argument, so Line 2 fails; operator= should return A& (*this).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m020",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Q {\npublic:\n    Q() {}\n    Q(const Q &) { cout << \"C\"; }\n    Q& operator=(const Q &) { cout << \"A\"; return *this; }\n};\nint main() {\n    Q a, b;\n    Q c = a;\n    b = a;\n    Q d(b);\n    d = c = a;\n}",
+      "options": [
+        "AAAAA",
+        "CACAA",
+        "CACA",
+        "CAAAA"
+      ],
+      "correctIndex": 1,
+      "explanation": "Q c = a and Q d(b) create new objects, so they call the copy constructor (C). b = a and both assignments in d = c = a act on existing objects and call operator= (A). Order: C, A, C, A, A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m021",
+      "questionText": "Class Str holds char *p that points to memory obtained with new[], and its destructor does delete[] p. The class does not define operator=. After Str a(\"hi\"), b(\"yo\"); b = a; which statement is correct?",
+      "options": [
+        "b.p and a.p now point to the same block, so it is deleted twice when a and b are destroyed, and b's original block leaks",
+        "b receives its own copy of the characters, because the default operator= performs a deep copy",
+        "b = a; does not compile, because no operator= is defined",
+        "Only the pointer is copied, but the compiler frees b's old block automatically first"
+      ],
+      "correctIndex": 0,
+      "explanation": "The compiler-generated operator= copies each member, so b.p simply receives a's address: b's own block is never freed and both destructors delete[] the same memory. A class owning heap memory needs a deep-copying operator= (rule of three).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m022",
+      "questionText": "A deep-copying copy assignment operator begins with if (this != &o). What is the purpose of this test?",
+      "options": [
+        "To make sure that o is not a null pointer",
+        "To allow chained assignments such as a = b = c",
+        "To skip freeing and re-copying the data when an object is assigned to itself, as in a = a",
+        "To check whether the two objects hold equal values"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a = a, a deep-copying operator= would delete its own buffer and then copy from that freed memory. Comparing the addresses this and &o detects self-assignment so the work can be skipped; chaining depends on returning *this, not on this test.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m023",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass S {\n    int *p;\npublic:\n    S(int v) : p(new int(v)) {}   ~S() { delete p; }\n    S& operator=(const S &o) { if (this != &o) *p = *o.p; return *this; }\n    void set(int v) { *p = v; }\n    int get() const { return *p; }\n};\nint main() {\n    S a(1), b(2);\n    b = a;  a.set(9);\n    cout << a.get() << \" \" << b.get();\n}",
+      "options": [
+        "9 9",
+        "1 1",
+        "9 2",
+        "9 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "operator= copies the pointed-to value (*p = *o.p), not the pointer, so a and b keep separate heap ints. After b = a, b holds 1; a.set(9) changes only a's int, so the output is 9 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m024",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nstruct M {\n    int v;\n    M(int x = 0) : v(x) {}\n    M operator+(const M &o) const { return M(v + o.v); }\n    M& operator=(const M &o) { v = o.v * 2; return *this; }\n};\nint main() {\n    M a(1), b(2), c;\n    c = a + b;\n    a = b = c;\n    cout << a.v << \" \" << b.v << \" \" << c.v;\n}",
+      "options": [
+        "12 6 3",
+        "24 12 6",
+        "3 3 3",
+        "12 12 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "c = a + b builds M(3) and then calls c.operator=, which stores 3 * 2 = 6. a = b = c runs right to left: b = c stores 6 * 2 = 12 and returns b, then a = b stores 24. Output 24 12 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m025",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass M {\n    int v;\npublic:\n    M(int x) : v(x) {}\n    M& operator+=(int k) { v += k; return *this; }\n    int get() const { return v; }\n};\nint main() {\n    M m(1);\n    (m += 2) += 3;\n    m += 4;\n    cout << m.get();\n}",
+      "options": [
+        "7",
+        "6",
+        "10",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "operator+= returns *this by reference, so (m += 2) += 3 applies both additions to m itself: 1 + 2 + 3 = 6, and m += 4 gives 10. If it returned M by value, the + 3 would change only a temporary and the result would be 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m026",
+      "questionText": "Why should an overloaded operator+ return its result by value rather than by reference?",
+      "options": [
+        "The result is a new object created inside the function; a reference to that local object would dangle after the function returns",
+        "Returning by value is what lets a + b modify a",
+        "No operator function is allowed to return a reference",
+        "Returning by value automatically makes operator+ a member function"
+      ],
+      "correctIndex": 0,
+      "explanation": "a + b must leave both operands unchanged and produce a fresh value, which is a local object inside operator+. Returning a reference to it would refer to a destroyed object, so the result is returned by value; operators such as = and += do return references.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m027",
+      "questionText": "Class Cx declares its addition operator as the member Cx operator+(Cx &o); (a non-const reference parameter in a non-const function). With Cx a, b, c, d; which statement fails to compile?",
+      "options": [
+        "d = a + b;",
+        "d = a + b + c;",
+        "d = a + a;",
+        "d = a + (b + c);"
+      ],
+      "correctIndex": 3,
+      "explanation": "b + c produces a temporary, and a temporary cannot bind to the non-const reference Cx&, so a + (b + c) fails. In a + b + c the temporary a + b is only the left operand, on which a member function may be called, and c is an ordinary object; a const Cx& parameter would fix the problem.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m028",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Pt {\n    int x, y;\npublic:\n    Pt(int a, int b) : x(a), y(b) {}\n    friend ostream& operator<<(ostream &os, const Pt &p) {\n        return os << \"(\" << p.x << \",\" << p.y << \")\";\n    }\n};\nint main() {\n    Pt a(1, 2), b(3, 4);\n    cout << a << \"-\" << b;\n}",
+      "options": [
+        "(1,2)(3,4)-",
+        "(1,2)-(3,4)",
+        "1,2-3,4",
+        "(3,4)-(1,2)"
+      ],
+      "correctIndex": 1,
+      "explanation": "cout << a << \"-\" << b is evaluated left to right as ((cout << a) << \"-\") << b. The friend prints (1,2), then - is printed, then (3,4); each call returns the stream so the next << can use it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m029",
+      "questionText": "Why does an overloaded insertion operator return ostream& (for example ostream& operator<<(ostream &os, const Pt &p))?",
+      "options": [
+        "Because every friend function must return a reference",
+        "So that the object p is modified while it is being printed",
+        "So that cout << a is the stream itself, which lets cout << a << b continue with the same stream",
+        "Because ostream objects are returned by value by default"
+      ],
+      "correctIndex": 2,
+      "explanation": "cout << a << b is parsed as (cout << a) << b, so the value of cout << a must be the stream to act as the left operand of the next <<. Returning the same ostream by reference does that; streams cannot even be copied, so returning by value would not compile.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m030",
+      "questionText": "Which marked line(s) of this program fail to compile?\n\n#include <iostream>\nusing namespace std;\nclass P {\n    int v = 5;\npublic:\n    friend void operator<<(ostream &os, const P &p) { os << p.v; }\n};\nint main() {\n    P a, b;\n    cout << a;          // Line 1\n    cout << a << b;     // Line 2\n    cout << \"x\" << a;   // Line 3\n}",
+      "options": [
+        "Line 2 only",
+        "Lines 2 and 3",
+        "Line 3 only",
+        "All three lines"
+      ],
+      "correctIndex": 0,
+      "explanation": "This operator<< returns void. Line 1 does not use the result, and in Line 3 cout << \"x\" returns ostream& before the user operator is applied last, so both compile. In Line 2, (cout << a) is void, and void << b has no operator.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m031",
+      "questionText": "Which declaration inside class Pt lets the statement cin >> p; read a value into a private member of the Pt object p?",
+      "options": [
+        "friend istream& operator>>(istream &in, const Pt &p);",
+        "friend ostream& operator>>(ostream &out, Pt &p);",
+        "istream& operator>>(istream &in);",
+        "friend istream& operator>>(istream &in, Pt &p);"
+      ],
+      "correctIndex": 3,
+      "explanation": "Extraction takes the input stream as its left operand and must change the object, so it is a non-member (friend) taking istream& and a non-const Pt&, returning istream& for chaining. A const Pt& cannot be written to, cin is not an ostream, and the member form would have to be used as p >> cin.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m032",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\n#include <sstream>\nusing namespace std;\nclass Frac {\n    int n, d;\npublic:\n    friend istream& operator>>(istream &in, Frac &f) { char c; return in >> f.n >> c >> f.d; }\n    friend ostream& operator<<(ostream &out, const Frac &f) { return out << f.n << \"/\" << f.d; }\n};\nint main() {\n    istringstream src(\"3/4 5/6\");\n    Frac a, b;\n    src >> a >> b;\n    cout << b << \" \" << a;\n}",
+      "options": [
+        "3/4 5/6",
+        "5/6 3/4",
+        "5/6 5/6",
+        "Compile error: src >> a >> b cannot be chained for class types"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each call reads an int, the '/' into c and another int, then returns the stream, so src >> a >> b fills a = 3/4 and then b = 5/6. The program prints b first: 5/6 3/4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m033",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Arr {\n    int a[4] = {5, 6, 7, 8};\npublic:\n    int& operator[](int i) { return a[i]; }\n};\nint main() {\n    Arr x;\n    x[1] = x[2] + x[3];\n    x[0] += x[1];\n    cout << x[0] << \" \" << x[1];\n}",
+      "options": [
+        "11 15",
+        "20 6",
+        "20 15",
+        "5 6"
+      ],
+      "correctIndex": 2,
+      "explanation": "operator[] returns int&, so x[i] can appear on either side of an assignment. x[1] = 7 + 8 = 15, then x[0] += 15 gives 5 + 15 = 20.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m034",
+      "questionText": "Class Arr declares its subscript operator as int operator[](int i) const { return a[i]; } (it returns the element by value). With Arr x; which statement fails to compile?",
+      "options": [
+        "cout << x[1];",
+        "int k = x[2];",
+        "int s = x[0] + x[1];",
+        "x[1] = 9;"
+      ],
+      "correctIndex": 3,
+      "explanation": "The operator returns a copy of the element, a temporary int, and a temporary cannot be assigned to. Reading x[i] works; returning int& (from a non-const operator[]) would make x[1] = 9 legal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m035",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass V {\n    int d[3] = {1, 2, 3};\npublic:\n    int& operator[](int i) { d[i] *= 10; return d[i]; }\n    int operator[](int i) const { return d[i]; }\n};\nint show(const V &v) { return v[0] + v[1] + v[2]; }\nint main() {\n    V a;\n    a[2];\n    int s = show(a);\n    cout << s << \" \" << a[1];\n}",
+      "options": [
+        "33 20",
+        "330 200",
+        "33 2",
+        "6 20"
+      ],
+      "correctIndex": 0,
+      "explanation": "a is non-const, so a[2] uses the non-const operator[], which multiplies d[2] by 10: d = {1, 2, 30}. Inside show(), v is a const reference, so the const version is chosen and changes nothing: 1 + 2 + 30 = 33. a[1] then uses the non-const version, making d[1] = 20, which is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m036",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Poly {\n    int a, b, c;\npublic:\n    Poly(int p, int q, int r) : a(p), b(q), c(r) {}\n    int operator()(int x) const { return a * x * x + b * x + c; }\n};\nint main() {\n    Poly f(1, 1, 1);\n    cout << f(0) << \" \" << f(2) << \" \" << f(f(1));\n}",
+      "options": [
+        "1 7 3",
+        "1 7 13",
+        "0 6 12",
+        "3 7 13"
+      ],
+      "correctIndex": 1,
+      "explanation": "f is a function object computing x*x + x + 1. f(0) = 1, f(2) = 4 + 2 + 1 = 7, and f(f(1)) = f(3) = 9 + 3 + 1 = 13.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m037",
+      "questionText": "What is the output of this C++ program?\n\n#include <iostream>\nusing namespace std;\nclass Acc {\n    int total = 0;\npublic:\n    int operator()(int x) { total += x; return total; }\n};\nint main() {\n    Acc s;\n    s(4);\n    int r = s(6);\n    Acc t = s;\n    t(10);\n    cout << r << \" \" << s(0) << \" \" << t(0);\n}",
+      "options": [
+        "10 20 20",
+        "6 10 20",
+        "10 10 20",
+        "10 10 10"
+      ],
+      "correctIndex": 2,
+      "explanation": "s accumulates 4 and then 6, so r = 10. t is a copy of s made at that moment (total 10) and then adds 10 to reach 20, while s keeps its own total. s(0) returns 10 and t(0) returns 20.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t4_m038",
+      "questionText": "In C++17, which operator function may be declared with any number of parameters and may also have default arguments?",
+      "options": [
+        "operator[]",
+        "operator=",
+        "operator->",
+        "operator()"
+      ],
+      "correctIndex": 3,
+      "explanation": "operator() is the only operator that may take any number of parameters (including none) and may have default arguments. In C++17 operator[] takes exactly one parameter, operator-> takes none, and default arguments are not allowed on operator=.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m039",
+      "questionText": "An object of a class that overloads the function-call operator operator() can be used as f(x). What is such an object called?",
+      "options": [
+        "A function object (functor)",
+        "A friend object",
+        "An abstract object",
+        "A virtual object"
+      ],
+      "correctIndex": 0,
+      "explanation": "Because it can be called like a function, an object whose class defines operator() is called a function object or functor; such objects are widely passed to STL algorithms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m040",
+      "questionText": "Operator overloading is an example of which kind of polymorphism?",
+      "options": [
+        "Run-time polymorphism, resolved through virtual functions",
+        "Compile-time (static) polymorphism",
+        "Polymorphism achieved through multiple inheritance",
+        "It is not a form of polymorphism at all"
+      ],
+      "correctIndex": 1,
+      "explanation": "The compiler picks the operator function from the operand types while compiling, exactly as it does for overloaded functions, so operator overloading is compile-time (static) polymorphism. Run-time polymorphism needs virtual functions and base-class pointers or references.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m041",
+      "questionText": "Which set contains ONLY operators that cannot be overloaded?",
+      "options": [
+        "::  ->  []  ?:",
+        "sizeof  new  delete  .",
+        "::  .  .*  ?:",
+        ".  ->*  ()  ?:"
+      ],
+      "correctIndex": 2,
+      "explanation": "The operators that can never be overloaded are :: . .* ?: and sizeof (plus typeid and the cast keywords). ->, [], (), ->*, new and delete are all overloadable, so each of the other sets contains at least one overloadable operator.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m042",
+      "questionText": "Cx is a class. Which of these non-member operator declarations is a compile error?",
+      "options": [
+        "Cx operator+(const Cx &a, int b);",
+        "bool operator==(const Cx &a, const Cx &b);",
+        "Cx operator-(const Cx &a);",
+        "int operator+(int a, int b);"
+      ],
+      "correctIndex": 3,
+      "explanation": "An overloaded operator must have at least one operand of class or enumeration type; operator+(int, int) would redefine addition of built-in ints, which is not allowed. Each of the other declarations has a Cx operand.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m043",
+      "questionText": "A programmer wants a ** b to mean a raised to the power b for objects of class Big. How can this be achieved with operator overloading?",
+      "options": [
+        "It cannot: only existing C++ operators can be overloaded, and ** is not a C++ operator",
+        "Declare Big operator**(const Big &b) const; as a member function",
+        "Declare friend Big operator**(const Big &a, const Big &b); in the class",
+        "Overload operator^, which C++ reserves as the power operator"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overloading can only give new meaning to operators that already exist; C++ has no ** operator (a ** b would parse as a * (*b)), so operator** cannot be declared in any form. ^ is bitwise XOR, not power; a named function such as power(a, b) is the usual solution.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m044",
+      "questionText": "When an operator is overloaded for a class, which of the following can the programmer change?",
+      "options": [
+        "Its precedence",
+        "The action it performs on objects of the class",
+        "Its associativity",
+        "The number of operands it takes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Overloading only supplies the function that runs when the operator is applied to objects of the class. Precedence, associativity and the number of operands are fixed by the language.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t4_m045",
+      "questionText": "Which of these member declarations inside class Cx is a compile error?",
+      "options": [
+        "int operator()(int x, int y = 1);",
+        "Cx& operator+=(const Cx &o);",
+        "Cx operator+(const Cx &o = Cx(0)) const;",
+        "bool operator!() const;"
+      ],
+      "correctIndex": 2,
+      "explanation": "Overloaded operator functions may not have default arguments; in C++17 the single exception is operator() (C++23 also allows them on operator[]). The default argument on operator+'s parameter is therefore an error, while operator() may use y = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t4_m046",
+      "questionText": "A class overloads operator&& as a function taking two objects of the class. Which statement about an expression x && y that uses this overload is correct (C++17)?",
+      "options": [
+        "The right operand is evaluated only if the left one is true, exactly as with the built-in &&",
+        "The overload must be declared as a member function",
+        "The overload is ignored and the built-in && is always used",
+        "Both operands are always evaluated, so short-circuit evaluation is lost"
+      ],
+      "correctIndex": 3,
+      "explanation": "An overloaded && is an ordinary function call, so both operands are evaluated before the function runs and short-circuiting is lost (C++17 still evaluates the left operand first). It may be declared as a member or a non-member.",
+      "difficulty": "medium"
+    }
+  ]
+}

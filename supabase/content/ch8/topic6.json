@@ -1,0 +1,769 @@
+{
+  "parent": {
+    "id": "ch8_p6",
+    "title": "Object-Oriented Design Implementation"
+  },
+  "subtopics": [
+    {
+      "id": "ch8_t6",
+      "title": "Programming Process & Mapping Design to Code",
+      "subtitle": "Implementation model, order of coding, test-first development, refactoring and mappings",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "From Design Artefacts to the Implementation Model"
+          },
+          {
+            "type": "paragraph",
+            "text": "In object-oriented development the design model (interaction diagrams plus design class diagrams, DCDs) is the input to programming. Larman calls the output the implementation model: all the source code, database schema definitions, web pages, configuration and test code that realise the design. Mapping design to code is largely mechanical once the design is good, because each design construct has a direct language counterpart. The creative work of assigning responsibilities (GRASP) has already been done in the interaction diagrams; programming turns those decisions into class definitions and method bodies."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Design construct (UML)",
+                "Code construct (Java / C++)",
+                "Remark"
+              ],
+              [
+                "Class",
+                "class definition",
+                "Name and stereotype taken from the DCD"
+              ],
+              [
+                "Attribute",
+                "instance variable / data member",
+                "Type and visibility copied from the DCD"
+              ],
+              [
+                "Operation",
+                "method / member function",
+                "Signature from DCD, body from interaction diagram"
+              ],
+              [
+                "Association (to 1)",
+                "reference attribute or pointer",
+                "Placed in the class at the navigable source end"
+              ],
+              [
+                "Association (to *)",
+                "collection attribute (List, Map, vector)",
+                "Collection type chosen by access needs"
+              ],
+              [
+                "Generalisation",
+                "extends (Java) / : public Base (C++)",
+                "Subclass inherits attributes and operations"
+              ],
+              [
+                "Realisation of interface",
+                "implements (Java) / pure virtual base (C++)",
+                "Class must define every interface operation"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Programming and Development Process"
+          },
+          {
+            "type": "bulletList",
+            "text": "Implementation in an iterative (UP-style) project is not one big coding phase; each iteration repeats these activities:",
+            "items": [
+              "Take the use-case scenarios chosen for the iteration and their interaction diagrams and DCDs.",
+              "Write unit tests and the classes they exercise, starting with the least-coupled classes.",
+              "Integrate and run all tests continuously, fixing failures immediately.",
+              "Refactor to remove duplication and improve structure while keeping every test passing.",
+              "Feed discoveries (missing methods, wrong responsibilities) back into the design model for the next iteration."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Design and code are expected to diverge a little: programmers discover details during coding that were not visible in diagrams. Larman therefore treats the design as a guide, not a rigid contract, and recommends updating diagrams (or regenerating them by reverse engineering in a CASE tool) rather than letting them rot. Round-trip engineering tools generate skeleton code from DCDs and regenerate DCDs from code."
+          },
+          {
+            "type": "heading",
+            "text": "Order of Implementation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Classes should be implemented, and unit-tested, from least-coupled to most-coupled. A class that depends on no other application class (for example Payment or ProductDescription in the POS case study) is written first, then the classes that use it, and finally the highly coupled coordinators such as Register or Store. This way every class can be compiled and tested against real, already-working collaborators instead of stubs."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Dependencies (A uses B):\n  Register -> Sale, ProductCatalog\n  Sale     -> SalesLineItem, Payment\n  SalesLineItem -> ProductDescription\n  ProductCatalog -> ProductDescription\n\nImplementation order (least coupled first):\n  1 Payment, ProductDescription\n  2 SalesLineItem, ProductCatalog\n  3 Sale\n  4 Register, Store"
+          },
+          {
+            "type": "heading",
+            "text": "Test-First (Test-Driven) Development"
+          },
+          {
+            "type": "bulletList",
+            "text": "Test-driven development (TDD), promoted by Extreme Programming, writes the unit test before the code it tests:",
+            "items": [
+              "Red: write a small automated test (e.g. JUnit) for the next bit of behaviour; it fails because the code does not exist yet.",
+              "Green: write the simplest code that makes the test pass.",
+              "Refactor: clean up the code and the test while the test suite stays green.",
+              "Benefits: tests actually get written, the programmer thinks about the interface first, instant regression safety and a clear signal of when a feature is done."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Refactoring"
+          },
+          {
+            "type": "paragraph",
+            "text": "Refactoring (Fowler) is a disciplined method of restructuring existing code without changing its external behaviour, applied in small steps each followed by re-running the tests. Typical code smells that trigger it are duplicated code, long methods, large classes with many instance variables, long parameter lists and heavy use of literal constants. Common refactorings are Extract Method, Extract Constant, Rename, Move Method, Introduce Explaining Variable and Replace Constructor Call with Factory Method."
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public class Register {\n    private ProductCatalog catalog;   // association to 1\n    private Sale currentSale;         // association to 0..1\n\n    public Register(ProductCatalog pc) { catalog = pc; }\n\n    public void endSale() { currentSale.becomeComplete(); }\n\n    public void makeNewSale() { currentSale = new Sale(); }\n}"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Statement coverage} = \\frac{\\text{statements executed by tests}}{\\text{total statements}} \\times 100\\%",
+            "plainText": "Statement coverage = statements executed by tests / total statements x 100%"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Statement coverage} = \\frac{S_{\\text{executed}}}{S_{\\text{total}}} \\times 100\\%",
+            "plainText": "Statement coverage = S_executed / S_total x 100%"
+          },
+          {
+            "type": "formula",
+            "latex": "V(G) = E - N + 2P = \\text{decisions} + 1",
+            "plainText": "V(G) = E - N + 2P = number of decisions + 1"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{TDD cycle: Red} \\rightarrow \\text{Green} \\rightarrow \\text{Refactor}",
+            "plainText": "TDD cycle: Red -> Green -> Refactor (repeat)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Order of implementation: least-coupled classes first, most-coupled last. If an MCQ lists a dependency chain, the class that depends on nothing is coded and tested first."
+          },
+          {
+            "type": "note",
+            "text": "Method signatures come from the DCD, but method bodies come from the interaction (sequence or communication) diagrams: each message a class sends becomes a statement in the body."
+          },
+          {
+            "type": "warning",
+            "text": "Refactoring must not change observable behaviour. Adding a feature or fixing a bug at the same time is not refactoring; the regression test suite is what proves behaviour was preserved."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_t6_01",
+          "title": "Statement coverage",
+          "latex": "\\text{Statement coverage} = \\frac{S_{\\text{executed}}}{S_{\\text{total}}} \\times 100\\%",
+          "plainText": "Statement coverage = S_executed / S_total x 100%",
+          "description": "Share of source statements executed at least once by the unit tests written during test-first development."
+        },
+        {
+          "id": "f_ch8_t6_02",
+          "title": "Cyclomatic complexity of a method",
+          "latex": "V(G) = E - N + 2P = \\text{decisions} + 1",
+          "plainText": "V(G) = E - N + 2P = number of decisions + 1",
+          "description": "Minimum number of unit tests needed to cover every independent path of a method; high values signal a candidate for Extract Method refactoring."
+        },
+        {
+          "id": "f_ch8_t6_03",
+          "title": "TDD cycle",
+          "latex": "\\text{Red} \\rightarrow \\text{Green} \\rightarrow \\text{Refactor}",
+          "plainText": "Red -> Green -> Refactor",
+          "description": "Write a failing test, make it pass with the simplest code, then clean up while all tests stay green."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_t6_01",
+          "front": "In what order should classes be implemented from a design model?",
+          "back": "From least-coupled to most-coupled, so each class can be tested against already-working collaborators.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t6_02",
+          "front": "What is refactoring?",
+          "back": "Restructuring existing code in small, test-verified steps to improve its internal design without changing its external behaviour.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t6_03",
+          "front": "Which design artefacts supply a method's signature and its body?",
+          "back": "The signature comes from the design class diagram; the body is derived from the messages in the interaction diagrams.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_t6_04",
+          "front": "What does Larman's implementation model contain?",
+          "back": "All implementation artefacts: source and test code, database definitions, web/XML pages and configuration files.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_t6_n01",
+          "questionText": "According to Larman, in which order should the classes of a design model normally be implemented and unit-tested?",
+          "options": [
+            "Alphabetically by class name",
+            "Most-coupled classes first, least-coupled last",
+            "Least-coupled classes first, most-coupled last",
+            "In the order the use cases were written"
+          ],
+          "correctIndex": 2,
+          "explanation": "Coding the least-coupled classes first means every later class can be compiled and tested against real, already-tested collaborators instead of stubs.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t6_n02",
+          "questionText": "In test-driven development, what is the FIRST step when adding a new piece of behaviour?",
+          "options": [
+            "Write an automated unit test that currently fails",
+            "Write the production code, then the test",
+            "Refactor the existing code",
+            "Draw the sequence diagram for the behaviour"
+          ],
+          "correctIndex": 0,
+          "explanation": "TDD follows red-green-refactor: a failing test is written first, then just enough code to pass it, then cleanup.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t6_n03",
+          "questionText": "Which statement best defines refactoring?",
+          "options": [
+            "Rewriting a system in a new programming language",
+            "Adding new features while fixing known bugs",
+            "Generating code automatically from a design class diagram",
+            "Restructuring code to improve its design without changing its external behaviour"
+          ],
+          "correctIndex": 3,
+          "explanation": "Refactoring changes internal structure only; observable behaviour is preserved and confirmed by re-running the tests after each small step.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t6_n04",
+          "questionText": "Class D uses no other class, C uses D, B uses C and D, and A uses B. Which implementation order follows the least-coupled-first rule?",
+          "options": [
+            "A, B, C, D",
+            "D, C, B, A",
+            "B, A, D, C",
+            "C, D, A, B"
+          ],
+          "correctIndex": 1,
+          "explanation": "D depends on nothing, so it comes first; C needs only D, B needs C and D, and A, which depends on B, is implemented last.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_t6_n05",
+          "questionText": "A DCD shows a navigable association from Register to ProductCatalog with the role name 'catalog' at the ProductCatalog end and multiplicity 1. How is this mapped to Java?",
+          "options": [
+            "A method catalog() in ProductCatalog that returns a Register",
+            "An attribute 'private Register catalog;' in ProductCatalog",
+            "An attribute 'private ProductCatalog catalog;' in Register",
+            "A List<ProductCatalog> in Register"
+          ],
+          "correctIndex": 2,
+          "explanation": "A navigable single-valued association becomes a reference attribute in the source class (Register), typed by the target class and named after the role name.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i61",
+      "title": "Class Definitions & Methods from Design Diagrams",
+      "subtitle": "DCD to class code, collections for multiplicity *, methods and constructors from messages",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Creating Class Definitions from DCDs"
+          },
+          {
+            "type": "paragraph",
+            "text": "A design class diagram lists each software class with its attributes, operation signatures, associations with navigability, and generalisation or realisation links. Writing the class definition is direct: declare the class, copy each simple attribute as an instance variable with its type and visibility, add reference attributes for navigable associations, and declare each operation as a method signature. Visibility markers map one-to-one: + public, - private, # protected, ~ package."
+          },
+          {
+            "type": "bulletList",
+            "text": "Kinds of attributes that appear in the generated class:",
+            "items": [
+              "Simple attributes: primitive or data-type values shown in the attribute compartment (e.g. quantity : Integer becomes private int quantity).",
+              "Reference attributes: fields that refer to another complex object, implied by a navigable association rather than listed in the compartment (e.g. SalesLineItem has a reference to ProductDescription).",
+              "Role names: the name at the association end is used as the name of the reference attribute (e.g. 'description').",
+              "Derived attributes (/total) are usually implemented as methods (getTotal()) instead of stored fields."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public class SalesLineItem {\n    private int quantity;                     // simple attribute\n    private ProductDescription description;   // reference attribute\n\n    public SalesLineItem(ProductDescription desc, int qty) {\n        this.description = desc;\n        this.quantity = qty;\n    }\n\n    public Money getSubtotal() {\n        return description.getPrice().times(quantity);\n    }\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Multiplicity and Collection Classes"
+          },
+          {
+            "type": "paragraph",
+            "text": "A one-to-many association (multiplicity * or 1..*) at the target end is implemented with a collection object: the source class holds a List, Set or Map of target objects. The choice depends on access: List (ArrayList) for ordered, index-based sequences such as the line items of a Sale; Map (HashMap) for lookup by key such as a ProductCatalog keyed by itemID; Set when duplicates are forbidden. It is good practice to declare the attribute by its interface type (List, Map) and instantiate a concrete class (ArrayList, HashMap)."
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public class Sale {\n    private List<SalesLineItem> lineItems = new ArrayList<>();  // 1..*\n    private Payment payment;                                    // 0..1\n\n    public void makeLineItem(ProductDescription desc, int qty) {\n        lineItems.add(new SalesLineItem(desc, qty));\n    }\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Creating Methods from Interaction Diagrams"
+          },
+          {
+            "type": "bulletList",
+            "text": "Sequence or communication (collaboration) diagrams give the method bodies:",
+            "items": [
+              "The message received by an object becomes a method of the receiver's class; its parameters become the method's parameters.",
+              "Each message that object then sends (in sequence-number order 1, 2, 2.1 ...) becomes a statement in that method body.",
+              "A create message (or «create») becomes a constructor call with new; its parameters define the constructor's parameters.",
+              "A message sent to a multiobject or collection (e.g. lineItems.add) maps to a call on the collection object.",
+              "Conditional or loop frames (alt, opt, loop) become if/else and for/while statements."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Communication diagram for enterItem(id, qty) on Register:\n  1: desc := getProductDescription(id)  -> ProductCatalog\n  2: makeLineItem(desc, qty)             -> Sale\n  2.1: create(desc, qty)                 -> SalesLineItem\n  2.2: add(sli)                          -> lineItems : List"
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public void enterItem(ItemID id, int qty) {\n    ProductDescription desc = catalog.getProductDescription(id);\n    currentSale.makeLineItem(desc, qty);\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Updating Class Definitions, Inheritance and Interfaces"
+          },
+          {
+            "type": "paragraph",
+            "text": "As each interaction diagram is coded, class definitions are updated: new methods discovered in later diagrams are added, parameters change, and helper attributes appear. Generalisation (hollow-triangle solid line) maps to extends in Java or public inheritance in C++; interface realisation (hollow-triangle dashed line) maps to implements in Java or to a class deriving from an abstract base with pure virtual functions in C++. Abstract classes in italics map to abstract classes, and polymorphic operations are overridden in subclasses."
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public interface Payable { Money amountDue(); }\n\npublic abstract class Payment implements Payable {\n    protected Money amount;\n    public abstract boolean authorize();\n    public Money amountDue() { return amount; }\n}\n\npublic class CashPayment extends Payment {\n    public boolean authorize() { return true; }\n}"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+            "plainText": "WMC = sum of complexities c_i of the n methods of a class"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+            "plainText": "WMC = c_1 + c_2 + ... + c_n (weighted methods per class)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{DIT(root)} = 0,\\quad \\text{DIT(child)} = \\text{DIT(parent)} + 1",
+            "plainText": "DIT(root) = 0, DIT(child) = DIT(parent) + 1"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{multiplicity } * \\Rightarrow \\text{collection of } 0..n \\text{ references}",
+            "plainText": "multiplicity * => collection holding 0..n references"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Reference attributes are not written in the DCD attribute compartment; they are implied by navigable associations and named after the role name at the far end."
+          },
+          {
+            "type": "note",
+            "text": "A create message in an interaction diagram maps to a constructor; the parameters of create(desc, qty) become the parameters of the SalesLineItem constructor."
+          },
+          {
+            "type": "warning",
+            "text": "Do not confuse the arrows: solid line with hollow triangle = generalisation (extends); dashed line with hollow triangle = realisation (implements); dashed open arrow = dependency."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i61_01",
+          "title": "Weighted methods per class",
+          "latex": "\\text{WMC} = \\sum_{i=1}^{n} c_i",
+          "plainText": "WMC = c_1 + c_2 + ... + c_n",
+          "description": "CK metric summing the complexities of all methods of a class; with c_i = 1 it equals the number of methods."
+        },
+        {
+          "id": "f_ch8_i61_02",
+          "title": "Depth of inheritance tree",
+          "latex": "\\text{DIT(child)} = \\text{DIT(parent)} + 1,\\ \\text{DIT(root)} = 0",
+          "plainText": "DIT(child) = DIT(parent) + 1, DIT(root) = 0",
+          "description": "Number of generalisation links from a class up to the root of its hierarchy; deep trees raise reuse but also complexity."
+        },
+        {
+          "id": "f_ch8_i61_03",
+          "title": "Multiplicity to collection",
+          "latex": "\\text{multiplicity } * \\Rightarrow \\text{collection of } 0..n \\text{ references}",
+          "plainText": "multiplicity * => collection holding 0..n references",
+          "description": "A to-many association end is implemented as a List, Set or Map attribute rather than a single reference."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i61_01",
+          "front": "How is a navigable association with multiplicity * implemented in code?",
+          "back": "As a collection attribute (e.g. List<SalesLineItem> or Map<ItemID, ProductDescription>) in the source class.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i61_02",
+          "front": "What does a create message in a sequence diagram become in code?",
+          "back": "A constructor call using new; the message's parameters define the constructor's parameters.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i61_03",
+          "front": "Where do the statements inside a method body come from?",
+          "back": "From the messages the receiving object sends in the interaction diagram, taken in sequence-number order.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i61_04",
+          "front": "How is interface realisation written in Java and in C++?",
+          "back": "Java uses 'class X implements I'; C++ derives the class from an abstract base class containing pure virtual functions.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i61_n01",
+          "questionText": "When mapping interaction diagrams to code, a 'create(desc, qty)' message sent to SalesLineItem is implemented as:",
+          "options": [
+            "A static factory method in ProductDescription",
+            "A constructor SalesLineItem(desc, qty) invoked with new",
+            "A setter method setCreate(desc, qty)",
+            "A reference attribute named create"
+          ],
+          "correctIndex": 1,
+          "explanation": "Create messages map to constructors; the message parameters become the constructor's parameters.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i61_n02",
+          "questionText": "ProductCatalog is associated with many ProductDescription objects, which are always retrieved by their itemID. Which Java attribute best implements this association?",
+          "options": [
+            "private ProductDescription descriptions;",
+            "private int descriptionCount;",
+            "private List<ItemID> descriptions;",
+            "private Map<ItemID, ProductDescription> descriptions;"
+          ],
+          "correctIndex": 3,
+          "explanation": "A to-many association needs a collection, and key-based lookup is best served by a Map keyed on itemID.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i61_n03",
+          "questionText": "In a DCD, class CreditPayment is joined to interface Authorizable by a dashed line ending in a hollow triangle. The Java mapping is:",
+          "options": [
+            "class CreditPayment implements Authorizable",
+            "class CreditPayment extends Authorizable",
+            "class Authorizable implements CreditPayment",
+            "An attribute of type Authorizable inside CreditPayment"
+          ],
+          "correctIndex": 0,
+          "explanation": "A dashed line with a hollow triangle is realisation of an interface, which Java expresses with the implements keyword.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i61_n04",
+          "questionText": "In a sequence diagram, a Register object sends the message makeLineItem(desc, qty) to a Sale object. In the code, makeLineItem becomes:",
+          "options": [
+            "A method of Register",
+            "An attribute of Sale",
+            "A public method of the Sale class",
+            "A constructor of SalesLineItem"
+          ],
+          "correctIndex": 2,
+          "explanation": "A message defines an operation on the receiver's class, so Sale gets a makeLineItem method; the call itself appears as a statement in Register's method.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i61_n05",
+          "questionText": "A DCD shows the association Sale 1 → 1..* SalesLineItem, navigable from Sale, with role name lineItems. Which Java code in Sale implements it?",
+          "options": [
+            "private SalesLineItem lineItems;",
+            "private List<SalesLineItem> lineItems = new ArrayList<>();",
+            "public int lineItems;",
+            "private Sale lineItems;"
+          ],
+          "correctIndex": 1,
+          "explanation": "A navigable association with multiplicity greater than one becomes a collection reference attribute named after the role, in the class at the source of navigation.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i62",
+      "title": "Exception & Error Handling",
+      "subtitle": "Errors vs exceptions, try/catch/finally, checked vs unchecked, propagation and UML signals",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Errors, Faults and Exceptions"
+          },
+          {
+            "type": "paragraph",
+            "text": "An exception is an abnormal event during execution that disrupts the normal flow of a program, such as a missing file, a failed network call or an invalid argument. Exception handling separates error-handling code from normal logic: the code that detects a problem throws an exception object, and code higher up that knows how to recover catches it. In Java all throwable objects derive from Throwable, which has two branches: Error, for serious JVM or system problems (OutOfMemoryError, StackOverflowError) that applications normally should not catch, and Exception, for conditions a program can reasonably handle."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Category",
+                "Examples",
+                "Compiler check",
+                "Typical handling"
+              ],
+              [
+                "Error",
+                "OutOfMemoryError, StackOverflowError",
+                "Unchecked",
+                "Not caught; let the program terminate"
+              ],
+              [
+                "Checked exception",
+                "IOException, SQLException, FileNotFoundException",
+                "Must catch or declare with throws",
+                "Recover, retry or report"
+              ],
+              [
+                "Unchecked (RuntimeException)",
+                "NullPointerException, ArithmeticException, ArrayIndexOutOfBoundsException, IllegalArgumentException",
+                "Not enforced",
+                "Fix the programming bug; validate inputs"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "try, catch, finally, throw and throws"
+          },
+          {
+            "type": "bulletList",
+            "text": "The Java keywords (C++ has try, catch and throw but no finally):",
+            "items": [
+              "try: encloses code that may throw an exception.",
+              "catch (Type e): handles an exception of that type or a subtype; several catch blocks are tried top to bottom, so more specific types must come before general ones.",
+              "finally: runs whether or not an exception occurred (even after return), used to release resources such as files, locks and connections.",
+              "throw: statement that raises an exception object, e.g. throw new IllegalArgumentException(\"qty < 0\").",
+              "throws: clause in a method signature declaring the checked exceptions the method may pass to its caller.",
+              "try-with-resources (Java 7+) closes AutoCloseable resources automatically; C++ achieves the same with RAII destructors."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public String readFirstLine(String path) throws IOException {\n    BufferedReader in = new BufferedReader(new FileReader(path));\n    try {\n        return in.readLine();\n    } catch (FileNotFoundException e) {\n        log(\"missing: \" + path);\n        throw e;                 // rethrow to caller\n    } finally {\n        in.close();              // always runs\n    }\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Custom Exceptions and Propagation"
+          },
+          {
+            "type": "paragraph",
+            "text": "Applications define their own exception classes to express domain failures, for example InsufficientFundsException or ProductNotFoundException. Extending Exception makes a checked exception; extending RuntimeException makes an unchecked one. If a method does not catch an exception, it propagates up the call stack to the caller, then the caller's caller, until a matching catch is found; if none exists, the thread terminates and the stack trace is printed. Exception chaining (passing the original cause to the new exception's constructor) preserves the low-level detail when converting to a higher-level exception."
+          },
+          {
+            "type": "code",
+            "language": "java",
+            "text": "public class ProductNotFoundException extends Exception {\n    public ProductNotFoundException(String id) {\n        super(\"No product with id \" + id);\n    }\n}\n\npublic ProductDescription find(String id) throws ProductNotFoundException {\n    ProductDescription d = descriptions.get(id);\n    if (d == null) throw new ProductNotFoundException(id);\n    return d;\n}"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "double divide(double a, double b) {\n    if (b == 0) throw std::invalid_argument(\"divide by zero\");\n    return a / b;\n}\n\ntry {\n    double r = divide(10, 0);\n} catch (const std::invalid_argument& e) {\n    std::cerr << e.what() << std::endl;\n}"
+          },
+          {
+            "type": "heading",
+            "text": "Exceptions in UML and Design"
+          },
+          {
+            "type": "bulletList",
+            "text": "Design models record exceptions too, so that implementers know what to throw and catch:",
+            "items": [
+              "In a class diagram an exception is modelled as a class, often with the stereotype «exception» or «signal»; operations may list the exceptions they raise.",
+              "In UML 2 an exception is a kind of signal; sequence diagrams can show it as an asynchronous message, and activity diagrams show exception handlers and interruptible regions.",
+              "Larman's operation contracts and use-case extensions (alternative flows such as 'invalid item ID') identify the exceptional conditions each system operation must handle.",
+              "Error handling is a cross-cutting design decision: decide where exceptions are caught (typically near the UI or controller layer) and how they are logged and reported."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Defensive Programming and Error-Handling Patterns"
+          },
+          {
+            "type": "bulletList",
+            "text": "Good practice for robust code:",
+            "items": [
+              "Validate inputs and preconditions at public method boundaries (guard clauses) and fail fast with a clear exception.",
+              "Use assertions to check internal invariants during development; do not use them for user-input validation.",
+              "Never swallow exceptions with an empty catch block; at least log and rethrow or translate.",
+              "Catch specific exceptions rather than Exception or Throwable, and release resources in finally or try-with-resources.",
+              "Patterns: convert low-level exceptions to higher-level ones (exception translation), centralised error logging, retry with limits, and Null Object or Optional instead of returning null."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Availability} = \\frac{\\text{MTTF}}{\\text{MTTF} + \\text{MTTR}} = \\frac{\\text{MTTF}}{\\text{MTBF}}",
+            "plainText": "Availability = MTTF / (MTTF + MTTR) = MTTF / MTBF"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Availability} = \\frac{\\text{MTTF}}{\\text{MTTF} + \\text{MTTR}}",
+            "plainText": "Availability = MTTF / (MTTF + MTTR)"
+          },
+          {
+            "type": "formula",
+            "latex": "V(G) = \\text{decisions (if, loops, catch clauses)} + 1",
+            "plainText": "V(G) = number of decisions (if, loops, catch clauses) + 1"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Throwable} \\supset \\{\\text{Error},\\ \\text{Exception} \\supset \\text{RuntimeException}\\}",
+            "plainText": "Throwable has two subclasses: Error and Exception; RuntimeException is a subclass of Exception"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Checked = compiler forces catch or throws (IOException, SQLException). Unchecked = RuntimeException and its subclasses plus Error (NullPointerException, ArithmeticException)."
+          },
+          {
+            "type": "warning",
+            "text": "throw raises an exception inside a method body; throws declares exceptions in a method signature. Catch blocks must list subclasses before superclasses, otherwise Java reports unreachable code."
+          },
+          {
+            "type": "note",
+            "text": "finally runs even if the try block executes return; it is skipped only if the JVM exits (System.exit) or the thread is killed."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i62_01",
+          "title": "Availability",
+          "latex": "A = \\frac{\\text{MTTF}}{\\text{MTTF} + \\text{MTTR}}",
+          "plainText": "A = MTTF / (MTTF + MTTR)",
+          "description": "Fraction of time a system is operational; good exception handling and recovery lower MTTR and raise availability."
+        },
+        {
+          "id": "f_ch8_i62_02",
+          "title": "Complexity added by handlers",
+          "latex": "V(G) = \\text{decisions (if, loops, catch clauses)} + 1",
+          "plainText": "V(G) = decisions (if, loops, catch clauses) + 1",
+          "description": "Each catch clause adds an alternative path, so a method with two ifs and one catch has V(G) = 4 by this counting."
+        },
+        {
+          "id": "f_ch8_i62_03",
+          "title": "Java throwable hierarchy",
+          "latex": "\\text{Throwable} \\supset \\{\\text{Error},\\ \\text{Exception} \\supset \\text{RuntimeException}\\}",
+          "plainText": "Throwable -> Error, Exception; Exception -> RuntimeException",
+          "description": "Error and RuntimeException subtrees are unchecked; every other Exception subclass is checked."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i62_01",
+          "front": "What is the difference between a checked and an unchecked exception in Java?",
+          "back": "A checked exception must be caught or declared with throws, enforced at compile time; unchecked exceptions (RuntimeException, Error) are not enforced.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i62_02",
+          "front": "How does an Error differ from an Exception in Java?",
+          "back": "Error signals serious system problems such as OutOfMemoryError that applications should not normally catch; Exception covers recoverable conditions.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i62_03",
+          "front": "What happens when a method does not catch an exception it raises?",
+          "back": "It propagates up the call stack to successive callers until a matching catch is found; if none is found the thread terminates with a stack trace.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i62_04",
+          "front": "How do you create a custom checked exception in Java?",
+          "back": "Define a class that extends Exception (extend RuntimeException instead for an unchecked one), usually passing a message to super().",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i62_n01",
+          "questionText": "Which of the following is an UNCHECKED exception in Java?",
+          "options": [
+            "IOException",
+            "SQLException",
+            "FileNotFoundException",
+            "ArithmeticException"
+          ],
+          "correctIndex": 3,
+          "explanation": "ArithmeticException extends RuntimeException, so the compiler does not require it to be caught or declared; the other three are checked exceptions.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i62_n02",
+          "questionText": "What is the difference between 'throw' and 'throws' in Java?",
+          "options": [
+            "They are synonyms and can be used interchangeably",
+            "throw raises an exception object in a method body; throws declares in the signature which exceptions a method may pass on",
+            "throws raises an exception; throw declares it in the method signature",
+            "throw is used only for Errors and throws only for checked exceptions"
+          ],
+          "correctIndex": 1,
+          "explanation": "throw is a statement that raises an exception instance, while throws is part of a method declaration listing exceptions propagated to the caller.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i62_n03",
+          "questionText": "main() calls a(), a() calls b(), and b() calls c(). c() throws an exception that c() and b() do not catch, but a() has a matching catch block. Where is the exception handled?",
+          "options": [
+            "In a(), after propagating up from c() through b()",
+            "In c(), because exceptions are always handled where raised",
+            "In main(), because only main can catch exceptions",
+            "Nowhere; the program terminates immediately in c()"
+          ],
+          "correctIndex": 0,
+          "explanation": "An uncaught exception unwinds the call stack caller by caller until the first matching handler, which here is in a().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i62_n04",
+          "questionText": "What is printed? try { print(\"A\"); throw new IllegalStateException(); } catch (IllegalArgumentException e) { print(\"C\"); } catch (RuntimeException e) { print(\"D\"); } finally { print(\"E\"); } print(\"F\");",
+          "options": [
+            "A C E F",
+            "A E",
+            "A D E F",
+            "A C D E F"
+          ],
+          "correctIndex": 2,
+          "explanation": "IllegalStateException is not an IllegalArgumentException but is a RuntimeException, so the second catch prints D; finally prints E and, since the exception was handled, execution continues to print F.",
+          "difficulty": "hard"
+        }
+      ]
+    }
+  ]
+}

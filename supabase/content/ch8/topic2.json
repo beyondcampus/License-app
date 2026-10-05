@@ -1,0 +1,908 @@
+{
+  "parent": {
+    "id": "ch8_p2",
+    "title": "Software Design"
+  },
+  "subtopics": [
+    {
+      "id": "ch8_t2",
+      "title": "Design Process, Concepts, Heuristics, Coupling & Cohesion",
+      "subtitle": "Design activities and model, core concepts, heuristics, and coupling/cohesion ladders",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "The Software Design Process"
+          },
+          {
+            "type": "paragraph",
+            "text": "Software design is the activity that turns the requirements specification into a description of the structure of the software, the data it uses, the interfaces between its parts and, sometimes, the algorithms used. Design is iterative: the designer adds detail and corrects earlier decisions as understanding improves. The output is the blueprint from which the system is implemented and against which it is later maintained."
+          },
+          {
+            "type": "bulletList",
+            "text": "Sommerville's classic design activities, performed with feedback between them:",
+            "items": [
+              "Architectural design: identify the subsystems that make up the system and their relationships.",
+              "Abstract specification: specify the services each subsystem offers and the constraints under which it operates.",
+              "Interface design: design the interface of each subsystem to other subsystems, unambiguously enough to be used without knowing its internals.",
+              "Component design: allocate services to components and design their interfaces.",
+              "Data structure design: design the data structures used in the implementation.",
+              "Algorithm design: design the algorithms that provide the services."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Design model element (Pressman)", "What it describes", "Derived mainly from"],
+              ["Data / class design", "Data structures and design classes", "Class models, data dictionary"],
+              ["Architectural design", "Major structural elements and their relationships", "Architectural styles, analysis model"],
+              ["Interface design", "How software talks to users, other systems and devices", "Scenarios, use cases, behaviour models"],
+              ["Component-level design", "Internal algorithms and data of each component", "Class and flow models"],
+              ["Deployment-level design", "Allocation of software to computing nodes", "Environment and hardware constraints"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Fundamental Design Concepts"
+          },
+          {
+            "type": "bulletList",
+            "text": "Concepts that guide every good design:",
+            "items": [
+              "Abstraction: concentrate on essential properties and suppress detail. Procedural abstraction names a sequence of instructions with a specific function (e.g. open door); data abstraction names a collection of data describing an object (e.g. door with its attributes).",
+              "Modularity: divide software into separately named and addressable components (modules) that are integrated to satisfy requirements; it makes a large program intellectually manageable.",
+              "Information hiding (Parnas, 1972): each module hides its design decisions (data structures, algorithms) from all others and exposes only what is needed through its interface, so changes stay local.",
+              "Stepwise refinement (Wirth, 1971): a top-down strategy in which a high-level statement of function is decomposed step by step into more detailed statements until programming-language statements are reached. Abstraction and refinement are complementary.",
+              "Functional independence: each module addresses one specific subset of requirements and has a simple interface; measured by cohesion and coupling.",
+              "Other Pressman concepts: separation of concerns, architecture, patterns, refactoring (restructuring without changing external behaviour), aspects and design classes."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Modularity has an optimum. As the number of modules grows, the cost of developing each module falls because each is smaller, but the cost of integrating the modules (interfaces) rises. Total cost is lowest in a middle region, so a design should be neither one huge monolith nor thousands of trivial fragments."
+          },
+          {
+            "type": "heading",
+            "text": "Structure Charts, Fan-in and Fan-out"
+          },
+          {
+            "type": "paragraph",
+            "text": "In a structure chart (a tree of modules showing who calls whom), fan-out of a module is the number of modules it directly calls or controls, and fan-in is the number of modules that directly call it. High fan-in indicates good reuse of a utility module. Very high fan-out suggests a module doing too much coordination and is a sign that an intermediate level of control is missing. Depth is the number of levels of control and width is the overall span of the tree."
+          },
+          {
+            "type": "formula",
+            "latex": "IF4 = \\text{length} \\times (\\text{fan-in} \\times \\text{fan-out})^{2}",
+            "plainText": "Henry-Kafura information flow complexity = length x (fan-in x fan-out)^2"
+          },
+          {
+            "type": "bulletList",
+            "text": "Design heuristics for effective modularity (Pressman/Yourdon):",
+            "items": [
+              "Evaluate the first iteration of the program structure to reduce coupling and improve cohesion, exploding or imploding modules as needed.",
+              "Attempt to minimise structures with high fan-out; strive for fan-in as depth increases (an oval or mosque-shaped structure rather than a pancake).",
+              "Keep the scope of effect of a module within its scope of control.",
+              "Evaluate module interfaces to reduce complexity and redundancy and improve consistency.",
+              "Define modules whose function is predictable, and avoid modules that are overly restrictive.",
+              "Strive for controlled-entry modules and avoid pathological connections (branches or references into the middle of another module)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Coupling and Cohesion"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Coupling (best to worst)", "Meaning", "Example"],
+              ["Data", "Modules share only elementary parameters", "computeTax(amount, rate)"],
+              ["Stamp", "A whole data structure is passed but only part is used", "Passing an entire employee record to get the name"],
+              ["Control", "One module passes a flag that steers the other's logic", "print(report, mode) where mode selects behaviour"],
+              ["External", "Modules share an externally imposed format, protocol or device", "Two modules both writing a fixed file format"],
+              ["Common", "Modules share global data", "Several functions updating a global variable"],
+              ["Content", "One module modifies or jumps into another's internals", "Directly altering another module's local data"]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Cohesion (best to worst)", "Elements of the module are grouped because"],
+              ["Functional", "All contribute to one single well-defined task"],
+              ["Sequential", "Output of one element is the input of the next"],
+              ["Communicational", "They operate on the same input or output data"],
+              ["Procedural", "They follow a fixed order of execution"],
+              ["Temporal", "They run at the same time (e.g. initialisation, shutdown)"],
+              ["Logical", "They are logically similar and one is selected by a flag"],
+              ["Coincidental", "No meaningful relationship at all"]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The golden rule is low coupling with high cohesion. Low coupling limits the ripple effect of a change and makes modules easier to understand, test and replace. High cohesion means a module does one thing well, which also tends to reduce coupling. Information hiding and encapsulation in object-oriented design are the main techniques for achieving both."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Data}>\\text{Stamp}>\\text{Control}>\\text{External}>\\text{Common}>\\text{Content}",
+            "plainText": "Coupling best to worst: Data > Stamp > Control > External > Common > Content"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Func}>\\text{Seq}>\\text{Comm}>\\text{Proc}>\\text{Temp}>\\text{Logical}>\\text{Coinc}",
+            "plainText": "Cohesion best to worst: Functional > Sequential > Communicational > Procedural > Temporal > Logical > Coincidental"
+          },
+          {
+            "type": "formula",
+            "latex": "IF4 = \\text{length} \\times (\\text{fan-in} \\times \\text{fan-out})^{2}",
+            "plainText": "Henry-Kafura information flow complexity = length x (fan-in x fan-out)^2"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Memorise both ladders in order. Coupling runs Data, Stamp, Control, External, Common, Content (best to worst); cohesion runs Functional, Sequential, Communicational, Procedural, Temporal, Logical, Coincidental (best to worst). MCQs often give a scenario and ask which type it is."
+          },
+          {
+            "type": "warning",
+            "text": "Do not confuse temporal cohesion (grouped because executed at the same time, such as an init routine) with procedural cohesion (grouped because executed in a fixed sequence of steps). Similarly, logical cohesion uses a selector flag inside the module, while control coupling is about passing such a flag between modules."
+          },
+          {
+            "type": "note",
+            "text": "Information hiding was proposed by David Parnas; stepwise refinement by Niklaus Wirth. Abstraction and refinement are complementary: abstraction suppresses detail, refinement reveals it level by level."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_t2_01",
+          "title": "Coupling ordering",
+          "latex": "\\text{Data}>\\text{Stamp}>\\text{Control}>\\text{External}>\\text{Common}>\\text{Content}",
+          "plainText": "Coupling best to worst: Data > Stamp > Control > External > Common > Content",
+          "description": "Ranks module interdependence from the most desirable (data) to the least desirable (content)."
+        },
+        {
+          "id": "f_ch8_t2_02",
+          "title": "Cohesion ordering",
+          "latex": "\\text{Func}>\\text{Seq}>\\text{Comm}>\\text{Proc}>\\text{Temp}>\\text{Logical}>\\text{Coinc}",
+          "plainText": "Cohesion best to worst: Functional > Sequential > Communicational > Procedural > Temporal > Logical > Coincidental",
+          "description": "Ranks how strongly the elements inside one module belong together, best first."
+        },
+        {
+          "id": "f_ch8_t2_03",
+          "title": "Henry-Kafura information flow",
+          "latex": "IF4 = \\text{length} \\times (\\text{fan-in} \\times \\text{fan-out})^{2}",
+          "plainText": "IF4 = length x (fan-in x fan-out)^2",
+          "description": "Structural complexity metric that grows sharply with a module's fan-in and fan-out, weighted by its size."
+        },
+        {
+          "id": "f_ch8_t2_04",
+          "title": "Card-Glass structural complexity",
+          "latex": "S(i) = f_{out}(i)^{2}",
+          "plainText": "S(i) = fan-out(i)^2",
+          "description": "Card and Glass define the structural complexity of module i as the square of its fan-out."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_t2_01",
+          "front": "What is the difference between procedural abstraction and data abstraction?",
+          "back": "Procedural abstraction names a sequence of instructions with one function (e.g. open door) while hiding its steps; data abstraction names a collection of data that describes an object (e.g. door with its attributes).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t2_02",
+          "front": "Define fan-in and fan-out of a module.",
+          "back": "Fan-in is the number of modules that directly call the module; fan-out is the number of modules it directly calls. Designers aim for high fan-in of utilities and limited fan-out.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t2_03",
+          "front": "What does the heuristic 'keep scope of effect within scope of control' mean?",
+          "back": "Every module affected by a decision made in a module should lie in the subtree of modules that the deciding module controls, so decisions do not have side effects elsewhere.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch8_t2_04",
+          "front": "Why does total cost versus number of modules form a U-shaped curve?",
+          "back": "More modules lower the cost of building each one but raise interface and integration cost, so total cost is minimum at a moderate degree of modularity.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_t2_n01",
+          "questionText": "Module A passes an entire Student record (roll number, name, address, marks) to module B, but B uses only the marks field. What type of coupling exists between A and B?",
+          "options": ["Data coupling", "Control coupling", "Stamp coupling", "Common coupling"],
+          "correctIndex": 2,
+          "explanation": "Passing a composite data structure of which only part is used is stamp coupling. Data coupling would pass only the elementary marks value.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_t2_n02",
+          "questionText": "A module has 10 lines of code, fan-in of 3 and fan-out of 2. What is its Henry–Kafura information flow complexity, length × (fan-in × fan-out)²?",
+          "options": ["60", "360", "100", "3600"],
+          "correctIndex": 1,
+          "explanation": "fan-in × fan-out = 6, squared gives 36, and 10 × 36 = 360.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_t2_n03",
+          "questionText": "A module named StartUp opens the log file, clears the counters, loads the configuration and resets the display, grouped only because all of these must happen when the program begins. Its cohesion is:",
+          "options": ["Temporal", "Sequential", "Functional", "Coincidental"],
+          "correctIndex": 0,
+          "explanation": "Elements grouped because they execute at the same time (initialisation) show temporal cohesion, which ranks below procedural but above logical and coincidental.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i21",
+      "title": "Architectural Design: Decisions, Organization, Decomposition & Control Styles",
+      "subtitle": "Architectural decisions, system organisation, decomposition, control and reference models",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Architectural Design and Its Decisions"
+          },
+          {
+            "type": "paragraph",
+            "text": "Architectural design identifies the subsystems that make up a system and the framework for their control and communication. It is the first stage of design and the link between requirements engineering and detailed design. An explicit architecture helps stakeholder communication, allows early analysis of whether non-functional requirements can be met, and supports large-scale reuse because similar systems often share an architecture."
+          },
+          {
+            "type": "bulletList",
+            "text": "Typical architectural design decisions the architect must make:",
+            "items": [
+              "Is there a generic application architecture or reference architecture that can be used as a template?",
+              "How will the system be distributed across processors or hosts?",
+              "Which architectural style or styles fit the system?",
+              "What approach will structure the system (organisation) and how will it be decomposed into modules?",
+              "What control strategy will coordinate the components?",
+              "How will the architecture be evaluated and documented?"
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Dominant non-functional requirement", "Architectural response (Sommerville)"],
+              ["Performance", "Localise critical operations, minimise communication, use large-grain components"],
+              ["Security", "Layered structure with the most critical assets in the innermost layers"],
+              ["Safety", "Put safety-critical features in one or a small number of subsystems"],
+              ["Availability", "Include redundant components and fault-tolerance mechanisms"],
+              ["Maintainability", "Use fine-grain, self-contained, replaceable components"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "System Organisation Styles"
+          },
+          {
+            "type": "bulletList",
+            "text": "Three classic ways of organising subsystems:",
+            "items": [
+              "Repository model: all subsystems share data held in a central database or repository (IDEs, CASE toolsets, DBMS-centred systems). Efficient for sharing large amounts of data and centralises backup and security, but every subsystem must agree on one data model and the repository is a single point of failure that is hard to distribute.",
+              "Client–server model: a set of stand-alone servers provides services (printing, files, database) to clients over a network. Easy to distribute and to add servers, but no shared data model and management of many servers is harder.",
+              "Layered (abstract machine) model: the system is organised into layers, each providing services to the layer directly above it (OSI network model, operating systems). Supports incremental development and portability, but performance may suffer and clean separation is sometimes hard."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "I_{p2p} = \\frac{n(n-1)}{2}, \\qquad I_{repo} = n",
+            "plainText": "Point-to-point interfaces among n subsystems = n(n-1)/2; via a central repository = n"
+          },
+          {
+            "type": "heading",
+            "text": "Modular Decomposition Styles"
+          },
+          {
+            "type": "paragraph",
+            "text": "After organisation, each subsystem is decomposed into modules. In object-oriented decomposition the system is a set of loosely coupled objects with well-defined interfaces that call each other's services; it maps well onto real-world entities, but objects must know each other's interfaces explicitly. In function-oriented pipelining (data-flow model) functional transformations process inputs to produce outputs, with data flowing from one transformation to the next."
+          },
+          {
+            "type": "bulletList",
+            "text": "Pipe-and-filter (function-oriented pipeline) characteristics:",
+            "items": [
+              "Each filter transforms its input stream and passes the result through a pipe to the next filter; filters do not share state.",
+              "Classic examples: a compiler (lexical analysis, parsing, semantic analysis, code generation), Unix shell pipelines, batch invoice processing.",
+              "Advantages: supports reuse of transformations, intuitive, easy to add new transformations, can be sequential or concurrent.",
+              "Disadvantages: requires a common data-transfer format, poor for interactive or event-based systems."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Control Styles"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Control model", "Type", "How it works", "Typical use"],
+              ["Call–return", "Centralised", "Top-down subroutine calls; control passes down and returns up", "Sequential systems"],
+              ["Manager", "Centralised", "One component starts, stops and coordinates concurrent processes", "Soft real-time, process control"],
+              ["Broadcast", "Event-based", "Event broadcast to all; handlers that registered interest respond", "Integrating tools on a network"],
+              ["Interrupt-driven", "Event-based", "Interrupts routed via a vector to handlers", "Real-time systems needing fast response"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Reference Architectures and Other Styles"
+          },
+          {
+            "type": "bulletList",
+            "text": "Reference models and common architectural patterns:",
+            "items": [
+              "Reference architectures are idealised architectures for a domain, used to compare and evaluate designs rather than to implement directly, e.g. the OSI seven-layer model and the ECMA CASE (toaster) reference model.",
+              "MVC: Model holds data and business rules, View presents data to the user, Controller handles user input and updates the model; allows several views of the same data.",
+              "Microkernel: a minimal core with plug-in services (operating systems, IDEs with plug-ins).",
+              "Blackboard: independent knowledge sources cooperate by reading and writing a shared blackboard, guided by a controller (speech recognition, AI).",
+              "Broker: an intermediary locates services and forwards requests between distributed components."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "I_{p2p} = \\frac{n(n-1)}{2}, \\qquad I_{repo} = n",
+            "plainText": "Point-to-point interfaces among n subsystems = n(n-1)/2; via a central repository = n"
+          },
+          {
+            "type": "formula",
+            "latex": "T_{latency} = \\sum_{i=1}^{k} t_i, \\qquad \\text{Throughput} = \\frac{1}{\\max_i t_i}",
+            "plainText": "Pipeline latency = sum of filter times; throughput = 1 / slowest filter time"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Centralised control means call–return or manager; event-based control means broadcast or interrupt-driven. If a question mentions fast response to external events in a real-time system, the answer is interrupt-driven."
+          },
+          {
+            "type": "note",
+            "text": "A compiler is the textbook example of pipe-and-filter (function-oriented pipelining), and an IDE or CASE toolset around a shared database is the textbook example of the repository model."
+          },
+          {
+            "type": "warning",
+            "text": "Repository and client–server are about system organisation, object-oriented versus pipeline is about modular decomposition, and call–return versus event-based is about control. MCQs often mix these categories in the options."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i21_01",
+          "title": "Interfaces: point-to-point vs repository",
+          "latex": "I_{p2p} = \\frac{n(n-1)}{2}, \\qquad I_{repo} = n",
+          "plainText": "Point-to-point interfaces = n(n-1)/2; via repository = n",
+          "description": "Shows why a shared repository reduces the number of data interfaces among n subsystems."
+        },
+        {
+          "id": "f_ch8_i21_02",
+          "title": "Pipeline latency",
+          "latex": "T_{latency} = \\sum_{i=1}^{k} t_i",
+          "plainText": "Latency = t1 + t2 + ... + tk",
+          "description": "Time for one item to pass through a sequential pipe-and-filter chain of k filters."
+        },
+        {
+          "id": "f_ch8_i21_03",
+          "title": "Pipeline throughput",
+          "latex": "\\text{Throughput} = \\frac{1}{\\max_i t_i}",
+          "plainText": "Throughput = 1 / (slowest filter time)",
+          "description": "In a concurrent pipeline the slowest filter is the bottleneck that limits items processed per unit time."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i21_01",
+          "front": "What are the two centralised and two event-based control models?",
+          "back": "Centralised: call–return and manager models. Event-based: broadcast and interrupt-driven models.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i21_02",
+          "front": "In the manager control model, what does the manager do?",
+          "back": "One system component acts as manager that starts, stops and coordinates the other concurrent processes, often by polling state in a loop.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i21_03",
+          "front": "What is a reference architecture?",
+          "back": "An idealised, domain-level architecture such as the OSI model, used as a standard to compare and evaluate real system designs rather than to be implemented directly.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i21_n01",
+          "questionText": "A compiler is structured as lexical analyser → parser → semantic analyser → code generator, each stage transforming its input and passing the output to the next. This decomposition style is:",
+          "options": ["Repository model", "Pipe-and-filter (function-oriented pipelining)", "Broadcast model", "Layered model"],
+          "correctIndex": 1,
+          "explanation": "A chain of functional transformations through which data flows is the pipe-and-filter or function-oriented pipeline style.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i21_n02",
+          "questionText": "Which control model is most appropriate for a real-time system where external events must be handled with the fastest possible response?",
+          "options": ["Call–return model", "Manager model", "Broadcast model", "Interrupt-driven model"],
+          "correctIndex": 3,
+          "explanation": "In the interrupt-driven model each interrupt type is routed through an interrupt vector directly to its handler, giving the quick response needed by real-time systems.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i21_n03",
+          "questionText": "Which is a recognised disadvantage of the repository model of system organisation?",
+          "options": ["Large amounts of data cannot be shared efficiently", "Subsystems must agree on a common repository data model", "Backup and security cannot be centralised", "New tools cannot be integrated if they follow the data model"],
+          "correctIndex": 1,
+          "explanation": "All subsystems must use the same data model, which forces compromises and makes evolution and distribution difficult; efficient sharing and centralised backup are advantages.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i21_n04",
+          "questionText": "If performance is the most critical non-functional requirement, which architectural decision does Sommerville recommend?",
+          "options": ["Localise critical operations in large-grain components to minimise communication", "Use many fine-grain replaceable components", "Place critical assets in the innermost layer of a layered design", "Add redundant components so the system keeps running on failure"],
+          "correctIndex": 0,
+          "explanation": "Performance favours large-grain components and fewer inter-component communications; fine-grain components suit maintainability, inner layers suit security and redundancy suits availability.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i22",
+      "title": "Distributed Architectures: Multiprocessor, Client–Server & Distributed Objects",
+      "subtitle": "Multiprocessor, two/three-tier client–server, distributed objects, middleware, P2P and SOA",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Distributed Systems and Their Trade-offs"
+          },
+          {
+            "type": "paragraph",
+            "text": "A distributed system is one in which processing is spread over several computers connected by a network. Nearly all large systems are now distributed. Their advantages are resource sharing, openness (use of standard protocols and heterogeneous hardware), concurrency, scalability and fault tolerance. Their disadvantages are greater complexity, harder security, more difficult management and unpredictable response times caused by network load."
+          },
+          {
+            "type": "bulletList",
+            "text": "Main distributed architecture types covered in the syllabus:",
+            "items": [
+              "Multiprocessor architectures: the system is a set of processes that may run on separate processors.",
+              "Client–server architectures: the system is a set of services provided by servers to clients (two-tier, three-tier, multi-tier).",
+              "Distributed object architectures: no distinction between clients and servers; objects anywhere on the network provide and use services through an object request broker.",
+              "Inter-organisational distributed computing: peer-to-peer and service-oriented architectures that cross organisational boundaries."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Multiprocessor Architecture"
+          },
+          {
+            "type": "paragraph",
+            "text": "The simplest distributed model: the system consists of multiple processes that may execute on different processors, with process allocation either predetermined or controlled by a dispatcher. It is common in large real-time systems such as traffic control, where separate processors handle sensor data, the traffic-flow model and the light-control actuators. Performance gains are limited by the part of the work that cannot run in parallel."
+          },
+          {
+            "type": "formula",
+            "latex": "S(N) = \\frac{1}{(1-p) + \\frac{p}{N}}",
+            "plainText": "Amdahl speedup S(N) = 1 / ((1 - p) + p/N), p = parallel fraction, N = processors"
+          },
+          {
+            "type": "heading",
+            "text": "Client–Server Architectures"
+          },
+          {
+            "type": "paragraph",
+            "text": "An application is modelled as three logical layers: presentation (user interface), application processing (business logic) and data management. Client–server architectures differ in how these layers are mapped onto physical tiers of computers."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Model", "Client does", "Server does", "Notes"],
+              ["Two-tier thin client", "Presentation only", "Application processing and data management", "Simple to manage; heavy server and network load"],
+              ["Two-tier fat client", "Presentation and application processing", "Data management only", "Uses client power; harder to deploy updates"],
+              ["Three-tier", "Presentation", "Separate application server and database server", "Scalable; each tier can be scaled or replaced independently"],
+              ["Multi-tier (n-tier)", "Presentation", "Several application, integration and data tiers", "Used by large web and enterprise systems"]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Thin clients suit legacy migration and centrally managed systems such as a web browser front end. Fat clients suit cases where the client hardware is powerful and processing is known in advance, such as an ATM network where the ATM performs processing and the central server manages the account database. Three-tier architecture, as in internet banking with a web server, application server and database server, avoids the scalability and update problems of both two-tier forms."
+          },
+          {
+            "type": "formula",
+            "latex": "A_{series} = \\prod_{i=1}^{k} A_i, \\qquad A_{repl} = 1 - (1 - A)^{m}",
+            "plainText": "Availability of tiers in series = A1 x A2 x ... x Ak; of m replicas = 1 - (1 - A)^m"
+          },
+          {
+            "type": "heading",
+            "text": "Distributed Objects, CORBA and Middleware"
+          },
+          {
+            "type": "bulletList",
+            "text": "Distributed object architecture and the software that makes it work:",
+            "items": [
+              "Objects are distributed over the network and communicate through a software bus called an Object Request Broker (ORB), which locates the target object, marshals parameters and returns results.",
+              "Advantages: designers can delay decisions about where services are provided, very open and scalable, objects can be added or moved dynamically. Disadvantage: more complex to design than client–server.",
+              "CORBA (Common Object Request Broker Architecture) from the Object Management Group standardises ORBs; interfaces are written in a language-neutral IDL (Interface Definition Language) and compiled to stubs and skeletons.",
+              "Other distributed object technologies include Java RMI and Microsoft DCOM/.NET remoting.",
+              "Middleware is the general term for software that sits between the operating system/network and the application, managing communication and data exchange (ORBs, message-oriented middleware, transaction monitors, RPC)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Inter-organisational Distributed Computing"
+          },
+          {
+            "type": "bulletList",
+            "text": "Architectures for systems that span organisations:",
+            "items": [
+              "Peer-to-peer (P2P): decentralised systems in which every node can act as client and server (file sharing such as BitTorrent, blockchains). Can be fully decentralised or semi-centralised with a server that helps peers find each other.",
+              "Service-oriented architecture (SOA): applications are built by composing loosely coupled, platform-independent services, typically web services.",
+              "Web service standards: SOAP for message exchange, WSDL for describing a service interface, and UDDI for service discovery; RESTful services use HTTP operations on resources.",
+              "Services can be offered by different organisations and composed into business processes (e.g. with BPEL)."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "A_{series} = \\prod_{i=1}^{k} A_i, \\qquad A_{repl} = 1 - (1 - A)^{m}",
+            "plainText": "Availability in series = A1 x A2 x ... x Ak; of m replicas = 1 - (1 - A)^m"
+          },
+          {
+            "type": "formula",
+            "latex": "S(N) = \\frac{1}{(1-p) + \\frac{p}{N}}",
+            "plainText": "Amdahl speedup S(N) = 1 / ((1 - p) + p/N)"
+          },
+          {
+            "type": "formula",
+            "latex": "L_{P2P} = \\frac{n(n-1)}{2}, \\qquad L_{C/S} = n",
+            "plainText": "Links in a fully connected P2P network of n peers = n(n-1)/2; n clients to one server = n"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Thin client means the client does only presentation; fat client means the client also does application processing. Three-tier separates presentation, application logic and data onto different tiers."
+          },
+          {
+            "type": "note",
+            "text": "In a distributed object architecture there is no distinction between clients and servers: every object can both provide and request services via the ORB. That is the key contrast with client–server."
+          },
+          {
+            "type": "warning",
+            "text": "Components in series multiply their availabilities, so adding tiers lowers overall availability unless tiers are replicated. Do not add or average availability figures."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i22_01",
+          "title": "Series availability of tiers",
+          "latex": "A_{series} = \\prod_{i=1}^{k} A_i",
+          "plainText": "A = A1 x A2 x ... x Ak",
+          "description": "A request that must pass through every tier succeeds only if all tiers are up, so availabilities multiply."
+        },
+        {
+          "id": "f_ch8_i22_02",
+          "title": "Availability of replicated servers",
+          "latex": "A_{repl} = 1 - (1 - A)^{m}",
+          "plainText": "A = 1 - (1 - A)^m",
+          "description": "With m independent replicas the service fails only if all replicas fail at once."
+        },
+        {
+          "id": "f_ch8_i22_03",
+          "title": "Amdahl's law",
+          "latex": "S(N) = \\frac{1}{(1-p) + \\frac{p}{N}}",
+          "plainText": "S(N) = 1 / ((1 - p) + p/N)",
+          "description": "Maximum speedup on N processors when only fraction p of the work can run in parallel."
+        },
+        {
+          "id": "f_ch8_i22_04",
+          "title": "P2P vs client-server links",
+          "latex": "L_{P2P} = \\frac{n(n-1)}{2}, \\qquad L_{C/S} = n",
+          "plainText": "P2P links = n(n-1)/2; client-server links = n",
+          "description": "Number of connections needed when n nodes are fully interconnected versus all connected to one server."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i22_01",
+          "front": "What is the role of an Object Request Broker (ORB)?",
+          "back": "It is middleware that locates remote objects, marshals and transmits requests and parameters, and returns results, so objects can communicate transparently across the network.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i22_02",
+          "front": "Why is an ATM network a typical fat-client system?",
+          "back": "Each ATM performs application processing locally and the central server only manages the account database, so the client carries both presentation and logic.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i22_03",
+          "front": "Name the three classic web-service standards and their roles.",
+          "back": "SOAP for message exchange, WSDL for describing the service interface, and UDDI for discovering services.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i22_n01",
+          "questionText": "In a two-tier thin-client model, which parts of the application run on the server?",
+          "options": ["Presentation only", "Data management only", "Application processing and data management", "Presentation and application processing"],
+          "correctIndex": 2,
+          "explanation": "A thin client handles only the presentation layer; all application processing and data management take place on the server.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i22_n02",
+          "questionText": "An internet banking system uses a web server (availability 0.99), an application server (0.98) and a database server (0.95) in series, with no replication. What is the approximate overall availability?",
+          "options": ["97.3%", "95.0%", "92.2%", "99.0%"],
+          "correctIndex": 2,
+          "explanation": "Series availability multiplies: 0.99 × 0.98 × 0.95 ≈ 0.9217, about 92.2%, which is lower than the weakest tier.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i22_n03",
+          "questionText": "In CORBA, which component acts as the software bus that locates remote objects and forwards method invocations to them?",
+          "options": ["Interface Definition Language (IDL)", "Object Request Broker (ORB)", "Stub compiler", "Transaction monitor"],
+          "correctIndex": 1,
+          "explanation": "The ORB is the middleware that handles object location and communication; IDL only defines the interfaces from which stubs and skeletons are generated.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i22_n04",
+          "questionText": "A fully decentralised peer-to-peer system has 6 peers, each directly connected to every other. How many direct links are required?",
+          "options": ["15", "6", "30", "12"],
+          "correctIndex": 0,
+          "explanation": "A full mesh needs n(n − 1)/2 = 6 × 5 / 2 = 15 links, compared with 6 links if each node connected only to one server.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i22_n05",
+          "questionText": "In a service-oriented architecture built with web services, which standard is used to describe a service's interface, operations and binding?",
+          "options": ["SOAP", "UDDI", "HTTP", "WSDL"],
+          "correctIndex": 3,
+          "explanation": "WSDL (Web Services Description Language) describes the interface; SOAP carries messages and UDDI supports discovery.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i23",
+      "title": "Real-Time Software Design & Component-Based Software Engineering",
+      "subtitle": "Hard/soft real-time, stimulus-response, RTOS, monitoring and CBSE composition and reuse",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Real-Time Systems"
+          },
+          {
+            "type": "paragraph",
+            "text": "A real-time system is one whose correct functioning depends both on the results it produces and on the time at which they are produced. Most real-time systems are embedded systems that monitor and control hardware in their environment through sensors and actuators. Timing is a functional requirement, not just a performance goal."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Type", "Effect of missing a deadline", "Examples"],
+              ["Hard real-time", "System failure, possibly catastrophic", "Airbag controller, pacemaker, flight control, ABS brakes"],
+              ["Soft real-time", "Degraded performance or quality, system continues", "Video streaming, online games, ticket booking"],
+              ["Firm real-time", "Late result is useless but occasional misses are tolerated", "Some financial feeds, packet multimedia"]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Stimulus/response model of real-time systems:",
+            "items": [
+              "A stimulus is an event detected by a sensor; the system must respond to it within a specified time.",
+              "Periodic stimuli occur at predictable intervals, e.g. reading a temperature sensor every 50 ms.",
+              "Aperiodic stimuli occur irregularly and are usually signalled by interrupts, e.g. a power-failure or emergency-stop signal.",
+              "Architecturally, sensor control processes collect data, data-processing processes compute responses, and actuator control processes drive the actuators."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Real-Time Design and Operating Systems"
+          },
+          {
+            "type": "paragraph",
+            "text": "Real-time design identifies the stimuli and required responses, defines timing constraints, aggregates stimulus and response processing into concurrent processes, designs the algorithms, designs a scheduling system that meets the deadlines, and integrates everything under a real-time operating system (RTOS). State machine models are widely used to specify real-time behaviour."
+          },
+          {
+            "type": "bulletList",
+            "text": "Components of a real-time operating system (Sommerville):",
+            "items": [
+              "Real-time clock: provides information to schedule processes periodically.",
+              "Interrupt handler: manages aperiodic requests for service.",
+              "Scheduler: chooses the next process to run, usually by priority.",
+              "Resource manager: allocates memory and processor resources to the scheduled process.",
+              "Dispatcher: starts execution of the chosen process.",
+              "Larger RTOSs add configuration management and fault management for dynamic reconfiguration."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "U = \\sum_{i=1}^{n} \\frac{C_i}{T_i} \\le n\\left(2^{1/n} - 1\\right)",
+            "plainText": "Rate-monotonic bound: U = sum(Ci/Ti) <= n(2^(1/n) - 1); tends to 0.693 as n grows"
+          },
+          {
+            "type": "bulletList",
+            "text": "Generic real-time architectural patterns:",
+            "items": [
+              "Monitoring (observe and react) systems: poll sensors, display and log readings, and raise alarms when values go out of range, e.g. burglar or fire alarm.",
+              "Control (environmental control) systems: read sensors and drive actuators to keep the environment at a set point, e.g. heating or car cruise control.",
+              "Data acquisition (process pipeline) systems: collect sensor data for later processing; a producer process writes into a circular (ring) buffer and a consumer process reads from it, with mutual exclusion, e.g. reactor flux monitoring."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Component-Based Software Engineering (CBSE)"
+          },
+          {
+            "type": "paragraph",
+            "text": "CBSE builds systems by composing loosely coupled, independent, reusable software components. A component (Councill and Heineman) is a software element that conforms to a component model and can be independently deployed and composed without modification according to a composition standard. Szyperski describes it as a unit of composition with contractually specified interfaces and explicit context dependencies only."
+          },
+          {
+            "type": "bulletList",
+            "text": "Component characteristics, interfaces and models:",
+            "items": [
+              "Characteristics: standardised, independent, composable, deployable and documented.",
+              "Provides interface: the services the component offers to other components (drawn as a lollipop in UML).",
+              "Requires interface: the services the component needs from other components in order to work (drawn as a socket).",
+              "Component models define standards for interfaces, usage (naming, metadata) and deployment, e.g. Enterprise JavaBeans, CORBA Component Model, Microsoft COM/.NET.",
+              "Middleware supporting a component model supplies platform services (communication, exception management) and support services (transactions, security, persistence, concurrency)."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["CBSE activity", "Purpose"],
+              ["Outline system requirements", "Keep requirements flexible so available components can be used"],
+              ["Identify candidate components", "Search repositories, select and validate components"],
+              ["Modify requirements", "Negotiate requirements to match the components that exist"],
+              ["Architectural design", "Design a framework into which components fit"],
+              ["Compose components", "Integrate components, writing glue code and adaptors where needed"]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Composition type", "How components are combined"],
+              ["Sequential", "Components are called one after another by glue code; outputs of A feed B"],
+              ["Hierarchical", "One component directly calls the services of another; A's requires interface is met by B's provides interface"],
+              ["Additive", "Interfaces of two components are put together to form a new component offering both"]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Composition can hit interface incompatibilities: parameter incompatibility (different types or number of parameters), operation incompatibility (different operation names) and operation incompleteness (one component offers only part of what another requires). Adaptor components resolve these. The main benefits of CBSE are reuse, lower cost and faster delivery; the risks are component trustworthiness, certification, emergent properties and trade-offs between requirements and available components."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "U = \\sum_{i=1}^{n} \\frac{C_i}{T_i} \\le n\\left(2^{1/n} - 1\\right)",
+            "plainText": "Rate-monotonic bound: U = sum(Ci/Ti) <= n(2^(1/n) - 1)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Reuse level} = \\frac{\\text{reused size}}{\\text{total size}} \\times 100\\%",
+            "plainText": "Reuse level = reused size / total size x 100%"
+          },
+          {
+            "type": "formula",
+            "latex": "R_{seq} = \\prod_{i=1}^{k} R_i",
+            "plainText": "Reliability of a sequential composition = R1 x R2 x ... x Rk"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Hard real-time: a missed deadline is a system failure. Soft real-time: a missed deadline only degrades service. Periodic stimuli are time-driven; aperiodic stimuli are usually interrupt-driven."
+          },
+          {
+            "type": "note",
+            "text": "Provides interface = what the component offers; requires interface = what it needs from its environment. In hierarchical composition, one component's requires interface is satisfied by another's provides interface."
+          },
+          {
+            "type": "warning",
+            "text": "Rate-monotonic analysis is a sufficient test only: if U exceeds n(2^(1/n) - 1) the task set may still be schedulable, but it is no longer guaranteed. Earliest-deadline-first can schedule any task set with U up to 1."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i23_01",
+          "title": "Rate-monotonic utilisation bound",
+          "latex": "U = \\sum_{i=1}^{n} \\frac{C_i}{T_i} \\le n\\left(2^{1/n} - 1\\right)",
+          "plainText": "U = sum(Ci/Ti) <= n(2^(1/n) - 1)",
+          "description": "Periodic tasks with compute time Ci and period Ti are guaranteed schedulable by rate-monotonic priority if U is within this bound (0.780 for 3 tasks)."
+        },
+        {
+          "id": "f_ch8_i23_02",
+          "title": "EDF utilisation bound",
+          "latex": "U = \\sum_{i=1}^{n} \\frac{C_i}{T_i} \\le 1",
+          "plainText": "U = sum(Ci/Ti) <= 1",
+          "description": "Earliest-deadline-first scheduling meets all deadlines of independent periodic tasks whenever total utilisation does not exceed 100%."
+        },
+        {
+          "id": "f_ch8_i23_03",
+          "title": "Reuse level",
+          "latex": "\\text{Reuse level} = \\frac{\\text{reused size}}{\\text{total size}} \\times 100\\%",
+          "plainText": "Reuse level = reused size / total size x 100%",
+          "description": "Fraction of a system delivered by reused components, a basic CBSE productivity indicator."
+        },
+        {
+          "id": "f_ch8_i23_04",
+          "title": "Sequential composition reliability",
+          "latex": "R_{seq} = \\prod_{i=1}^{k} R_i",
+          "plainText": "R = R1 x R2 x ... x Rk",
+          "description": "When every composed component must work for the result to be correct, reliabilities multiply."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i23_01",
+          "front": "List the main components of a real-time operating system.",
+          "back": "Real-time clock, interrupt handler, scheduler, resource manager and dispatcher, with configuration and fault managers in larger systems.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i23_02",
+          "front": "Differentiate periodic and aperiodic stimuli.",
+          "back": "Periodic stimuli occur at predictable time intervals (e.g. sensor polled every 50 ms); aperiodic stimuli occur irregularly and are usually signalled by interrupts.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i23_03",
+          "front": "What are the three types of component composition?",
+          "back": "Sequential (glue code calls components in turn), hierarchical (one component calls another's provided services) and additive (interfaces combined into a new component).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i23_04",
+          "front": "Name three kinds of interface incompatibility in component composition.",
+          "back": "Parameter incompatibility, operation incompatibility and operation incompleteness; they are resolved by writing adaptor components.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i23_n01",
+          "questionText": "A car airbag controller must deploy the airbag within 30 ms of detecting a crash; a late deployment is as bad as none. This is an example of a:",
+          "options": ["Soft real-time system", "Hard real-time system", "Batch processing system", "Best-effort system"],
+          "correctIndex": 1,
+          "explanation": "Missing the deadline causes system failure with potentially fatal consequences, which defines a hard real-time system.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i23_n02",
+          "questionText": "Three periodic tasks have (compute time, period) of (1 ms, 4 ms), (2 ms, 8 ms) and (3 ms, 12 ms). Using rate-monotonic analysis with bound n(2^(1/n) − 1) ≈ 0.780 for n = 3, which statement is correct?",
+          "options": ["U = 0.75, guaranteed schedulable because 0.75 ≤ 0.780", "U = 0.75, not schedulable because it exceeds 0.693", "U = 1.33, not schedulable", "U = 0.60, guaranteed schedulable"],
+          "correctIndex": 0,
+          "explanation": "U = 1/4 + 2/8 + 3/12 = 0.75, which is within the three-task bound of about 0.780, so the set is guaranteed schedulable; 0.693 is only the limit as n tends to infinity.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch8_i23_n03",
+          "questionText": "In a real-time data acquisition system, a sensor process produces readings faster than the processing process can sometimes consume them. Which design element is typically placed between them?",
+          "options": ["A global variable shared without locking", "A broadcast event bus", "A circular (ring) buffer with mutual exclusion", "A three-tier database server"],
+          "correctIndex": 2,
+          "explanation": "The producer–consumer pattern with a circular buffer decouples the speeds of the two processes, and mutual exclusion protects the buffer.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i23_n04",
+          "questionText": "In component-based software engineering, a component's 'requires' interface specifies:",
+          "options": ["The services the component offers to other components", "The services the component needs from other components to operate", "The deployment descriptor of the component", "The component's internal implementation details"],
+          "correctIndex": 1,
+          "explanation": "The requires interface lists services that must be supplied by the environment or other components; the provides interface lists the services it offers.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i23_n05",
+          "questionText": "Two components are combined so that their interfaces are put together to create a new component whose interface offers the services of both. This type of composition is called:",
+          "options": ["Sequential composition", "Hierarchical composition", "Pipeline composition", "Additive composition"],
+          "correctIndex": 3,
+          "explanation": "Additive composition merges the interfaces of two components into a new composite component; sequential uses glue code to call them in turn and hierarchical has one call the other.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

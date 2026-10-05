@@ -1,0 +1,700 @@
+{
+ "topicId": "ch2_i32",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Shift Registers"
+  },
+  {
+   "type": "paragraph",
+   "text": "Clock-pulse counting is easiest if you follow one bit. In an n-stage SISO register the first bit reaches the output after n clocks, but the last bit of an n-bit word enters on clock n and needs n - 1 more clocks, so it appears at the output after 2n - 1 clocks; the register is fully emptied after 2n clocks. A PISO loads all n bits in one clock, the first bit is at the output at once, and n - 1 shifts bring out the rest. Always check whether a question asks when a bit first appears or when the register is empty."
+  },
+  {
+   "type": "formula",
+   "latex": "t_{last\\,bit} = (2n-1)\\,T_{clk}, \\qquad t_{empty} = 2n\\,T_{clk}",
+   "plainText": "SISO: last bit of an n-bit word appears after (2n - 1) clocks; register empty after 2n clocks"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: 4-bit shift-right register, serial in -> Q3, bits move Q3->Q2->Q1->Q0\nStart 0000, serial data 1, 1, 0, 1 (in that order)\nClock  Sin   Q3 Q2 Q1 Q0\n  0     -    0  0  0  0\n  1     1    1  0  0  0\n  2     1    1  1  0  0\n  3     0    0  1  1  0\n  4     1    1  0  1  1\nResult 1011: the first bit sent ends in Q0, the last in Q3."
+  },
+  {
+   "type": "paragraph",
+   "text": "A universal shift register such as the 74194 places a 4-to-1 multiplexer in front of each D input. The multiplexer inputs are the stage's own output (hold), the left neighbour (shift right), the right neighbour (shift left) and the parallel data pin (load), and S1 S0 select among them. Cascading two chips for an 8-bit register joins QD of the first chip to DSR of the second for right shifts, and QA of the second chip to DSL of the first for left shifts, with clock, clear and mode lines common."
+  },
+  {
+   "type": "paragraph",
+   "text": "A serial adder uses two shift registers for the operands, a single full adder and one D flip-flop for the carry. On each clock the LSBs of A and B and the stored carry enter the full adder; the sum bit is shifted into the result register and the carry out is clocked into the flip-flop for the next bit pair. An n-bit addition therefore takes n clocks, but the hardware does not grow with word length."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: serial addition A = 0110 (6), B = 0111 (7), LSB first, carry FF = 0\nClock  a  b  cin | sum  cout\n  1    0  1   0  |  1    0\n  2    1  1   0  |  0    1\n  3    1  1   1  |  1    1\n  4    0  0   1  |  1    0\nSum register = 1101 (13), final carry = 0"
+  },
+  {
+   "type": "paragraph",
+   "text": "A sequence generator is a shift register whose serial input comes from combinational feedback logic. In a linear-feedback shift register (LFSR) the feedback is the XOR of selected stages; with the right taps an n-bit LFSR visits all 2^n - 1 non-zero states before repeating, which gives a pseudo-random bit stream. The all-zero state must be avoided because the XOR of zeros is zero and the register locks there. To generate a given repeating sequence of length L, start with the smallest n with 2^n ≥ L, then check that all L windows of n consecutive bits are different; if two windows repeat, add a flip-flop."
+  },
+  {
+   "type": "formula",
+   "latex": "N_{LFSR,max} = 2^{n} - 1, \\qquad 2^{n} \\ge L \\text{ (sequence generator, then check windows)}",
+   "plainText": "Maximal LFSR length = 2^n - 1; sequence generator needs 2^n >= L, then all n-bit windows must differ"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Feature",
+     "Ring counter",
+     "Johnson counter",
+     "Maximal LFSR"
+    ],
+    [
+     "States from n flip-flops",
+     "n",
+     "2n",
+     "2^n - 1"
+    ],
+    [
+     "Feedback",
+     "Q of last stage",
+     "Q-bar of last stage",
+     "XOR of chosen stages"
+    ],
+    [
+     "Output waveform",
+     "Pulse, duty 1/n",
+     "Square wave, 50% duty",
+     "Pseudo-random bits"
+    ],
+    [
+     "Decoding",
+     "None needed",
+     "One 2-input AND per state",
+     "Full n-input decoding"
+    ],
+    [
+     "Bad start state",
+     "0000 or several 1s",
+     "Unused states (lock-out)",
+     "All zeros (locks)"
+    ]
+   ]
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes with shift registers:",
+   "items": [
+    "Treating an 8-bit left shift of a number with MSB = 1 as a valid × 2; the MSB is lost and the result overflows.",
+    "Using a logical right shift on a negative two's-complement number; an arithmetic shift copies the sign bit, so -20 becomes -10 and then -5.",
+    "Decoding a Johnson state with a wrong pair: use the two adjacent bits at the 1-to-0 or 0-to-1 boundary, for example Q2 · Q3-bar for 1110 in a 4-bit counter.",
+    "Assuming a 3-flip-flop generator can always produce a period-5 sequence; the windows must be unique, and 10110 needs 4 stages."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "Frequency of a shift-register counter output: ring counter f_clk / n with duty 1/n; Johnson counter f_clk / 2n with 50% duty. To divide by 20 with a square wave, a Johnson counter needs 10 flip-flops, a ring counter 20."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i32_m001",
+   "questionText": "Which type of register loads all its bits on one clock edge and makes them available at once, doing no serial conversion, and is used as a buffer or storage register?",
+   "options": [
+    "PIPO",
+    "SISO",
+    "SIPO",
+    "PISO"
+   ],
+   "correctIndex": 0,
+   "explanation": "A parallel-in parallel-out register loads the whole word on one clock and presents it on its outputs immediately; it is the plain storage (buffer) register.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m002",
+   "questionText": "In a parallel-in serial-out (PISO) shift register, the SHIFT/LOAD-bar control line is used to:",
+   "options": [
+    "Select the direction of shift between left and right",
+    "Clear all the flip-flops to 0 asynchronously",
+    "Enable the tri-state parallel outputs of the register",
+    "Choose between loading the parallel input word and shifting the stored bits out serially"
+   ],
+   "correctIndex": 3,
+   "explanation": "With SHIFT/LOAD-bar low the parallel inputs are loaded into the flip-flops; with it high each clock moves the stored bits one place toward the serial output.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m003",
+   "questionText": "How many clock pulses are needed to enter an 8-bit word into an empty 8-bit SIPO shift register so that the complete word can be read on its parallel outputs?",
+   "options": [
+    "1",
+    "8",
+    "16",
+    "7"
+   ],
+   "correctIndex": 1,
+   "explanation": "One bit enters per clock, so 8 clocks put all 8 bits into the register; the parallel outputs are then read directly with no further clocks.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m004",
+   "questionText": "An 8-bit word is loaded into an 8-bit PISO register (one clock for the parallel load) and then shifted out. Counting the load clock, how many clock pulses have occurred when the last (eighth) bit first appears at the serial output?",
+   "options": [
+    "9",
+    "8",
+    "16",
+    "7"
+   ],
+   "correctIndex": 1,
+   "explanation": "The load clock places bit 1 at the serial output at once; each of the next 7 shift clocks brings one more bit to the output, so the eighth bit appears after 1 + 7 = 8 clocks.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m005",
+   "questionText": "A 4-bit SISO register (serial input at Q0, data moving Q0 → Q1 → Q2 → Q3, serial output at Q3) is cleared. A 1 is applied to the serial input for clock 1 and 0s afterwards. On which clock pulse does the 1 first appear at the serial output?",
+   "options": [
+    "Clock 1",
+    "Clock 4",
+    "Clock 3",
+    "Clock 5"
+   ],
+   "correctIndex": 1,
+   "explanation": "The 1 enters Q0 on clock 1 and moves one stage per clock, reaching Q1, Q2 and Q3 on clocks 2, 3 and 4.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m006",
+   "questionText": "A 4-bit word is fed bit by bit into an empty 4-bit SISO register, one bit per clock starting at clock 1, and taken from the serial output of the last stage. After which clock pulse does the fourth (last) bit of the word first appear at the serial output?",
+   "options": [
+    "Clock 7",
+    "Clock 8",
+    "Clock 4",
+    "Clock 3"
+   ],
+   "correctIndex": 0,
+   "explanation": "The fourth bit enters the first stage on clock 4 and needs 3 more clocks to reach the fourth stage, so it appears at the output after clock 4 + 3 = 7 (in general 2n - 1).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m007",
+   "questionText": "A SISO shift register clocked at 800 kHz must delay a serial bit stream by 20 µs. The number of stages required is:",
+   "options": [
+    "25",
+    "8",
+    "40",
+    "16"
+   ],
+   "correctIndex": 3,
+   "explanation": "T_clk = 1 / 800 kHz = 1.25 µs; n = t_delay / T_clk = 20 µs / 1.25 µs = 16 stages.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m008",
+   "questionText": "A 4-bit shift-right register has outputs Q3 Q2 Q1 Q0; the serial input enters Q3 and on each clock the bits move Q3 → Q2 → Q1 → Q0. It starts at 0000 and the serial bits 1, 1, 0, 1 are applied in that order, one per clock. After the 4 clocks Q3 Q2 Q1 Q0 is:",
+   "options": [
+    "1101",
+    "0110",
+    "1011",
+    "1110"
+   ],
+   "correctIndex": 2,
+   "explanation": "The first bit applied ends up in Q0 and the last in Q3: 1000, 1100, 0110, 1011.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m009",
+   "questionText": "The same shift-right register (serial input at Q3, bits moving Q3 → Q2 → Q1 → Q0) holds Q3 Q2 Q1 Q0 = 1010. With the serial input held at 1, its contents after two clock pulses are:",
+   "options": [
+    "1110",
+    "1011",
+    "0010",
+    "1010"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each clock moves every bit one place toward Q0 and puts a 1 into Q3: 1010 becomes 1101 and then 1110.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m010",
+   "questionText": "A 4-bit PISO register is loaded with Q3 Q2 Q1 Q0 = 1101. It shifts right (Q3 → Q2 → Q1 → Q0) and its serial output is Q0. The bits appear at the serial output in the order:",
+   "options": [
+    "1, 1, 0, 1",
+    "0, 1, 1, 1",
+    "1, 0, 1, 0",
+    "1, 0, 1, 1"
+   ],
+   "correctIndex": 3,
+   "explanation": "Q0 is output first (1), then the bits that were in Q1 (0), Q2 (1) and Q3 (1) move to Q0 in turn, so the LSB leaves first.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m011",
+   "questionText": "A universal shift register such as the 74194 can perform which set of operations?",
+   "options": [
+    "Hold, shift right, shift left and parallel load",
+    "Shift right and parallel load only",
+    "Shift left and shift right only",
+    "Serial-in serial-out operation only"
+   ],
+   "correctIndex": 0,
+   "explanation": "Its two mode inputs select one of four operations: hold, shift right, shift left or parallel load.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m012",
+   "questionText": "To load the parallel inputs of a 74194 universal shift register on the next clock edge, the mode inputs S1 S0 must be:",
+   "options": [
+    "1 1",
+    "0 0",
+    "0 1",
+    "1 0"
+   ],
+   "correctIndex": 0,
+   "explanation": "S1 S0 = 00 hold, 01 shift right, 10 shift left and 11 parallel load.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m013",
+   "questionText": "A 74194 holds QA QB QC QD = 0110. In shift-right mode (S1 S0 = 01) the serial-right input DSR enters QA and the bits move QA → QB → QC → QD. With DSR = 1, the outputs after one clock are:",
+   "options": [
+    "1011",
+    "1100",
+    "0011",
+    "0110"
+   ],
+   "correctIndex": 0,
+   "explanation": "Shift right: QA takes DSR = 1, QB takes the old QA = 0, QC the old QB = 1, QD the old QC = 1, giving 1011.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m014",
+   "questionText": "A 74194 (outputs QA QB QC QD; shift right moves QA → QD with DSR entering QA, shift left moves QD → QA with DSL entering QD) starts at 0000 and receives four clocks: (1) S1S0 = 11 with parallel inputs ABCD = 1001, (2) S1S0 = 01 with DSR = 0, (3) S1S0 = 10 with DSL = 0, (4) S1S0 = 00. The final QA QB QC QD is:",
+   "options": [
+    "1001",
+    "0100",
+    "1000",
+    "0010"
+   ],
+   "correctIndex": 2,
+   "explanation": "Clock 1 loads 1001, clock 2 shifts right to 0100, clock 3 shifts left to 1000 and clock 4 holds, so the result is 1000.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m015",
+   "questionText": "A bidirectional shift register built from D flip-flops chooses between left and right shifting by means of:",
+   "options": [
+    "A 2-to-1 multiplexer at each D input that selects the output of the stage on the left or on the right",
+    "An XOR gate that feeds the complemented last output back to the first stage",
+    "Two separate clocks, one used for each direction",
+    "A decoder connected to the flip-flop outputs"
+   ],
+   "correctIndex": 0,
+   "explanation": "A mode line drives a 2-to-1 multiplexer in front of every D input; one setting passes the left neighbour's output (shift right), the other the right neighbour's (shift left).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m016",
+   "questionText": "How many 4-bit 74194 universal shift register ICs are needed to build a 16-bit universal shift register?",
+   "options": [
+    "2",
+    "4",
+    "8",
+    "16"
+   ],
+   "correctIndex": 1,
+   "explanation": "Each 74194 holds 4 bits, so 16 / 4 = 4 ICs are cascaded with common clock and mode lines.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m017",
+   "questionText": "Two 74194 ICs (outputs QA to QD, shift right moving QA → QD) are cascaded to form an 8-bit shift-right register. The correct connection between them is:",
+   "options": [
+    "QA of the first IC to the serial-left input (DSL) of the second IC",
+    "QD of the first IC to the clock input of the second IC",
+    "QD of the first IC to the serial-left input (DSL) of the first IC",
+    "QD of the first IC to the serial-right input (DSR) of the second IC"
+   ],
+   "correctIndex": 3,
+   "explanation": "In shift-right mode the bit leaving QD of the first chip must enter QA of the second chip, which is loaded from its DSR input; both chips share the same clock and mode lines.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m018",
+   "questionText": "A ring counter built from 5 flip-flops has a modulus of:",
+   "options": [
+    "5",
+    "10",
+    "32",
+    "31"
+   ],
+   "correctIndex": 0,
+   "explanation": "A ring counter circulates a single 1 through its n stages, so it has n = 5 states.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m019",
+   "questionText": "A 4-bit ring counter Q0 Q1 Q2 Q3 (Q0 → Q1 → Q2 → Q3 and Q3 fed back to Q0) is preset to 1000. After 6 clock pulses its state is:",
+   "options": [
+    "0100",
+    "0010",
+    "0001",
+    "1000"
+   ],
+   "correctIndex": 1,
+   "explanation": "The single 1 moves one place per clock and returns to Q0 every 4 clocks; 6 mod 4 = 2, so the 1 is in Q2: 0010.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m020",
+   "questionText": "A 4-bit ring counter has no preset circuit and powers up in the state 0000. It will:",
+   "options": [
+    "Count 0001, 0010, 0100, 1000 like a normal ring counter",
+    "Stay in 0000 on every clock, because there is no 1 to circulate",
+    "Fill with 1s and then empty, like a Johnson counter",
+    "Move to 1000 on the first clock and then circulate normally"
+   ],
+   "correctIndex": 1,
+   "explanation": "A ring counter only rotates its contents; with no 1 stored it stays at 0000, which is why it must be preset with a single 1 (it is not self-starting).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m021",
+   "questionText": "Because of a power-up fault, a 4-bit ring counter (Q3 fed back to Q0) starts in 1010 instead of 1000. How many distinct states does it then cycle through?",
+   "options": [
+    "2",
+    "4",
+    "8",
+    "1"
+   ],
+   "correctIndex": 0,
+   "explanation": "Rotating 1010 gives 0101 and then 1010 again, so it alternates between only 2 states instead of the intended 4 one-hot states.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m022",
+   "questionText": "A 10-stage ring counter is clocked at 1 MHz. Each flip-flop output is a pulse waveform with a frequency and duty cycle of:",
+   "options": [
+    "100 kHz, 50%",
+    "50 kHz, 50%",
+    "1 MHz, 10%",
+    "100 kHz, 10%"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each output is high for 1 clock period out of every 10, so f = 1 MHz / 10 = 100 kHz with a duty cycle of 1/10 = 10%.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m023",
+   "questionText": "A MOD-12 counter is to be built as a shift-register counter. The number of flip-flops needed as a ring counter and as a Johnson counter respectively is:",
+   "options": [
+    "6 and 12",
+    "12 and 4",
+    "12 and 6",
+    "4 and 6"
+   ],
+   "correctIndex": 2,
+   "explanation": "A ring counter has n states, so n = 12; a Johnson counter has 2n states, so n = 12 / 2 = 6.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m024",
+   "questionText": "A Johnson counter built from 5 flip-flops has a modulus of:",
+   "options": [
+    "5",
+    "32",
+    "10",
+    "25"
+   ],
+   "correctIndex": 2,
+   "explanation": "A Johnson (twisted-ring) counter has 2n states: 2 × 5 = 10.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m025",
+   "questionText": "A 4-bit Johnson counter Q0 Q1 Q2 Q3 (Q0 → Q1 → Q2 → Q3 and Q3-bar fed back to Q0) starts at 0000. After 6 clock pulses its state is:",
+   "options": [
+    "0111",
+    "0011",
+    "0001",
+    "1100"
+   ],
+   "correctIndex": 1,
+   "explanation": "The sequence is 0000, 1000, 1100, 1110, 1111, 0111, 0011, so after the 6th clock the state is 0011.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m026",
+   "questionText": "In the 4-bit Johnson counter Q0 Q1 Q2 Q3 with the sequence 0000, 1000, 1100, 1110, 1111, 0111, 0011, 0001, which single 2-input AND gate is high only in the state 1110?",
+   "options": [
+    "Q1 · Q3-bar",
+    "Q2 · Q3-bar",
+    "Q0 · Q1",
+    "Q0 · Q3-bar"
+   ],
+   "correctIndex": 1,
+   "explanation": "State 1110 is the only state in which Q2 = 1 and Q3 = 0 (the 1-to-0 boundary), so Q2 · Q3-bar decodes it; the other gates are also high in 1100, 1111 or 1000.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m027",
+   "questionText": "A 5-stage Johnson counter is clocked at 1 MHz. Each flip-flop output is a waveform of:",
+   "options": [
+    "200 kHz with 50% duty cycle",
+    "100 kHz with 20% duty cycle",
+    "100 kHz with 50% duty cycle",
+    "500 kHz with 50% duty cycle"
+   ],
+   "correctIndex": 2,
+   "explanation": "The counter has 2 × 5 = 10 states and each output is high for 5 of them and low for 5, so f = 1 MHz / 10 = 100 kHz with 50% duty.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m028",
+   "questionText": "How many of the possible flip-flop states are unused (never visited in normal operation) by a 5-bit Johnson counter?",
+   "options": [
+    "22",
+    "10",
+    "27",
+    "16"
+   ],
+   "correctIndex": 0,
+   "explanation": "Five flip-flops have 2^5 = 32 states; the Johnson sequence uses 2 × 5 = 10, leaving 32 - 10 = 22 unused.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m029",
+   "questionText": "A 3-bit Johnson counter Q0 Q1 Q2 is started from 000. Which of the following states never occurs in its counting sequence?",
+   "options": [
+    "011",
+    "110",
+    "001",
+    "010"
+   ],
+   "correctIndex": 3,
+   "explanation": "The sequence is 000, 100, 110, 111, 011, 001; the patterns 010 and 101 are the unused states.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m030",
+   "questionText": "A 50 kHz square wave with 50% duty cycle is to be obtained from a 1 MHz clock using a Johnson counter. The number of flip-flops needed is:",
+   "options": [
+    "20",
+    "5",
+    "25",
+    "10"
+   ],
+   "correctIndex": 3,
+   "explanation": "The division ratio is 1 MHz / 50 kHz = 20; a Johnson counter divides by 2n, so n = 20 / 2 = 10.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m031",
+   "questionText": "In a Johnson (twisted-ring) counter, the D input of the first flip-flop is driven by:",
+   "options": [
+    "The Q output of the last flip-flop",
+    "The XOR of the last two outputs",
+    "The external clock",
+    "The complement (Q-bar) of the last flip-flop"
+   ],
+   "correctIndex": 3,
+   "explanation": "Feeding back Q-bar of the last stage instead of Q is the twist that doubles the number of states to 2n.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m032",
+   "questionText": "Which statement about an n-bit ring counter is NOT correct?",
+   "options": [
+    "It has n states",
+    "It needs a decoder to identify each of its states",
+    "It must be preset with a single 1 to work correctly",
+    "Exactly one flip-flop output is high in each state"
+   ],
+   "correctIndex": 1,
+   "explanation": "Because exactly one output is high in each state, every output is already a decoded state signal; no decoder is required.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m033",
+   "questionText": "Besides the two shift registers that hold the operands and the sum, a serial adder needs:",
+   "options": [
+    "n full adders connected in a ripple chain",
+    "One full adder and one D flip-flop to hold the carry",
+    "One half adder and no storage",
+    "A carry look-ahead generator"
+   ],
+   "correctIndex": 1,
+   "explanation": "The bits are added one pair per clock by a single full adder; the carry out is stored in a D flip-flop and fed back as the carry in for the next bit pair.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m034",
+   "questionText": "A serial adder is clocked at 2 MHz. The time needed to add two 8-bit numbers is:",
+   "options": [
+    "0.5 µs",
+    "16 µs",
+    "4 µs",
+    "250 ns"
+   ],
+   "correctIndex": 2,
+   "explanation": "One bit pair is added per clock, so 8 clocks are needed: 8 × (1 / 2 MHz) = 8 × 0.5 µs = 4 µs.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m035",
+   "questionText": "A 4-bit serial adder adds A = 0110₂ and B = 0111₂, LSB first, with the carry flip-flop initially 0. After 4 clocks the sum register and the carry flip-flop hold:",
+   "options": [
+    "Sum 1101, carry 1",
+    "Sum 1011, carry 0",
+    "Sum 1101, carry 0",
+    "Sum 0001, carry 1"
+   ],
+   "correctIndex": 2,
+   "explanation": "6 + 7 = 13 = 1101₂, which fits in 4 bits; bit by bit the carries are 0, 1, 1 and the final carry out of the MSB pair (0 + 0 + 1) is 0.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m036",
+   "questionText": "Compared with a 16-bit parallel adder, a 16-bit serial adder:",
+   "options": [
+    "Is faster because it has no carry propagation",
+    "Needs 16 full adders but no shift registers",
+    "Uses much less hardware but takes 16 clock periods to form the sum",
+    "Produces all 16 sum bits on one clock edge"
+   ],
+   "correctIndex": 2,
+   "explanation": "The serial adder reuses one full adder for every bit position, trading speed (one bit per clock) for hardware.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m037",
+   "questionText": "A maximal-length linear-feedback shift register (LFSR) with 4 flip-flops cycles through how many states?",
+   "options": [
+    "16",
+    "15",
+    "8",
+    "4"
+   ],
+   "correctIndex": 1,
+   "explanation": "A maximal-length LFSR visits every n-bit pattern except all zeros: 2^4 - 1 = 15 states.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m038",
+   "questionText": "A 3-bit register Q2 Q1 Q0 shifts right (Q2 → Q1 → Q0) and its serial input is Q1 ⊕ Q0, so the new Q2 = Q1 ⊕ Q0. Starting from Q2 Q1 Q0 = 001, the state after 3 clock pulses is:",
+   "options": [
+    "010",
+    "110",
+    "101",
+    "100"
+   ],
+   "correctIndex": 2,
+   "explanation": "Clock 1: new Q2 = 0 ⊕ 1 = 1, giving 100; clock 2: new Q2 = 0 ⊕ 0 = 0, giving 010; clock 3: new Q2 = 1 ⊕ 0 = 1, giving 101.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m039",
+   "questionText": "The all-zero state is excluded from the sequence of an XOR-feedback (LFSR) sequence generator because:",
+   "options": [
+    "The all-zero state causes the flip-flops to oscillate",
+    "The register cannot be cleared to all zeros",
+    "XOR gates do not accept two 0 inputs",
+    "Once in 000…0 the XOR feedback also gives 0, so the register locks in that state"
+   ],
+   "correctIndex": 3,
+   "explanation": "With all outputs 0 every XOR of them is 0, so a 0 is shifted in on each clock and the state never changes; the generator must be seeded with a non-zero value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m040",
+   "questionText": "A shift-register sequence generator must produce the repeating serial sequence 1, 0, 1, 1, 0 (period 5). The minimum number of flip-flops is:",
+   "options": [
+    "4",
+    "3",
+    "5",
+    "2"
+   ],
+   "correctIndex": 0,
+   "explanation": "2^3 = 8 ≥ 5 suggests 3, but the 3-bit windows 101, 011, 110, 101, 010 repeat 101, so 3 stages cannot tell two states apart; with 4 bits the windows 1011, 0110, 1101, 1010, 0101 are all different, so 4 are needed.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m041",
+   "questionText": "An 8-bit register holding 00010110₂ (22 decimal) is shifted right two places with 0s entering at the MSB. The new contents and value are:",
+   "options": [
+    "00000101₂ = 5",
+    "01011000₂ = 88",
+    "00001011₂ = 11",
+    "00000110₂ = 6"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each right shift divides by 2 and drops the remainder: 22 → 11 → 5, i.e. floor(22 / 4) = 5 = 00000101₂.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m042",
+   "questionText": "An 8-bit register holds the unsigned number 10110100₂ (180). After one logical left shift with 0 entering at the LSB, the register holds:",
+   "options": [
+    "101101000₂ = 360",
+    "01011010₂ = 90",
+    "01101000₂ = 104, because the MSB 1 is shifted out",
+    "11101000₂ = 232"
+   ],
+   "correctIndex": 2,
+   "explanation": "The shift gives 1 0110 1000, but only 8 bits are kept, so the result is 01101000₂ = 104; the true product 360 does not fit in 8 bits (overflow).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m043",
+   "questionText": "An 8-bit register holds the two's-complement number 11101100₂ (-20). After an arithmetic shift right by two places (the sign bit is copied into the MSB each time), the register holds:",
+   "options": [
+    "00111011₂ = 59",
+    "11110110₂ = -10",
+    "11111011₂ = -5",
+    "00000101₂ = 5"
+   ],
+   "correctIndex": 2,
+   "explanation": "Arithmetic right shift keeps the sign: 11101100 → 11110110 (-10) → 11111011 (-5), i.e. -20 / 4 = -5; a logical shift would wrongly give 00111011₂ = 59.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i32_m044",
+   "questionText": "Which combination of shifts and one addition multiplies an unsigned number N by 10 (assuming no overflow)?",
+   "options": [
+    "(N shifted left 3 places) + (N shifted left 2 places)",
+    "(N shifted left 2 places) + (N shifted left 1 place)",
+    "(N shifted left 3 places) + N",
+    "(N shifted left 3 places) + (N shifted left 1 place)"
+   ],
+   "correctIndex": 3,
+   "explanation": "10N = 8N + 2N = (N × 2^3) + (N × 2^1); the other combinations give 12N, 6N and 9N.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i32_m045",
+   "questionText": "The essential difference between a register and a counter is that:",
+   "options": [
+    "A register is built from latches, while a counter can only use JK flip-flops",
+    "A register has no clock input, while a counter does",
+    "A register can hold only one bit, while a counter holds several",
+    "A register stores and transfers data words, while a counter steps through a prescribed sequence of states on successive clocks"
+   ],
+   "correctIndex": 3,
+   "explanation": "Both are groups of flip-flops, but a register's next state is the data applied to it, whereas a counter's next state is fixed by its own present state.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i32_m046",
+   "questionText": "When a shift register is built from JK flip-flops, each stage (after the first) is connected so that:",
+   "options": [
+    "J = K = 1 for every stage",
+    "J = Q of the previous stage and K = Q-bar of the previous stage",
+    "J = Q-bar and K = Q of the previous stage",
+    "J = K = Q of the previous stage"
+   ],
+   "correctIndex": 1,
+   "explanation": "With K = J-bar the JK flip-flop behaves as a D flip-flop, so each stage copies the previous stage's output on the clock edge.",
+   "difficulty": "easy"
+  }
+ ]
+}

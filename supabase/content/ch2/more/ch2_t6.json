@@ -1,0 +1,698 @@
+{
+  "topicId": "ch2_t6",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: How the 8085 Decides to Accept an Interrupt"
+    },
+    {
+      "type": "paragraph",
+      "text": "At the end of every instruction the 8085 checks its five inputs in priority order. TRAP is accepted whenever it is present, because it bypasses both the enable flip-flop and the masks. Each RST input is accepted only if three things are true together: the request is present (the pin level for RST 6.5 and 5.5, the internal latch for RST 7.5), its SIM mask bit is 0, and the interrupt-enable flip-flop is set. INTR has no mask bit, so it depends only on the pin and the enable flip-flop."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Accept(RST 6.5)} = \\text{IE} \\cdot \\overline{M_{6.5}} \\cdot \\text{RST6.5}",
+      "plainText": "RST 6.5 is accepted only if IE = 1 AND M6.5 = 0 AND the RST 6.5 pin is high"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Bit",
+          "SIM (write, from A)",
+          "RIM (read, into A)"
+        ],
+        [
+          "D7",
+          "SOD: serial output bit",
+          "SID: serial input bit"
+        ],
+        [
+          "D6",
+          "SDE: 1 = send D7 to SOD",
+          "I7.5: RST 7.5 pending"
+        ],
+        [
+          "D5",
+          "Not used",
+          "I6.5: RST 6.5 pending"
+        ],
+        [
+          "D4",
+          "R7.5: 1 = clear RST 7.5 latch",
+          "I5.5: RST 5.5 pending"
+        ],
+        [
+          "D3",
+          "MSE: 1 = load D2-D0 as masks",
+          "IE: interrupts enabled"
+        ],
+        [
+          "D2-D0",
+          "M7.5, M6.5, M5.5 (1 = masked)",
+          "M7.5, M6.5, M5.5 as currently set"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: build a SIM byte and decode a RIM byte\n\nGoal: unmask only RST 6.5 and discard any old RST 7.5 request\n  SOD SDE -  R7.5 MSE M7.5 M6.5 M5.5\n   0   0  0   1    1    1    0    1   = 0001 1101 = 1DH\n\nRIM returns A = 3AH = 0011 1010\n  SID=0  I7.5=0  I6.5=1  I5.5=1  IE=1  M7.5=0  M6.5=1  M5.5=0\n  RST 6.5 is requested but masked, so it waits.\n  RST 5.5 is requested, unmasked and IE = 1:\n  it is accepted at the end of the current instruction (002CH)."
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "        ORG  0000H\n        JMP  MAIN        ; reset starts execution at 0000H\n        ORG  003CH\n        JMP  ISR75       ; 3-byte JMP fits in 003CH-003FH\nMAIN:   LXI  SP,2100H    ; stack must exist before EI\n        MVI  A,0BH       ; MSE=1, unmask RST 7.5 only\n        SIM\n        EI\nLOOP:   JMP  LOOP        ; main work goes here\nISR75:  PUSH PSW         ; CPU saved only PC: save A and flags\n        IN   40H         ; read the device, removes its request\n        STA  2050H       ; store the byte for the main program\n        POP  PSW         ; restore A and flags\n        EI               ; takes effect after RET\n        RET"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why EI goes immediately before RET: the 8085 delays the enable by one instruction, so the RET always completes before a waiting request is accepted. If EI were placed earlier, a second request could enter the ISR again while it still had registers on the stack, and a steady stream of requests could make the stack grow without limit. Putting EI at the very start is correct only when nesting is actually wanted and the stack is large enough."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: latency and stack for RST 7.5 at 5 MHz\n\nT = 1 / 5 MHz = 0.2 µs\nWorst case: request arrives as an 18-T CALL starts\n  finish CALL          18 T\n  push PC, go to 003CH 12 T\n  JMP ISR75 at 003CH   10 T\nTo the vector : (18 + 12) x 0.2 = 6 µs\nTo ISR75 itself: (18 + 12 + 10) x 0.2 = 8 µs\n\nStack (SP = 2100H, return address 0126H):\n  20FFH <- 01H, 20FEH <- 26H, SP = 20FEH"
+    },
+    {
+      "type": "formula",
+      "latex": "t_{latency} = \\frac{N_T}{f_{clk}}",
+      "plainText": "Latency = number of T-states before the ISR starts / clock frequency"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with 8085 interrupts:",
+      "items": [
+        "Writing mask bits with MSE = 0: SIM then ignores D2-D0 and the masks stay as they were.",
+        "Reading a 1 in a mask bit as enabled: in both SIM and RIM a 1 means masked.",
+        "Expecting EI to unmask RST 7.5/6.5/5.5: EI only sets the global enable; masks come from SIM.",
+        "Forgetting that SDE (D6) must be 1 for D7 to reach the SOD pin.",
+        "Expecting a short pulse on RST 6.5 or RST 5.5 to be remembered: only RST 7.5 is latched.",
+        "Skipping PUSH PSW in an ISR: the 8085 saves only PC, so the interrupted program's A and flags would be corrupted."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any SIM or RIM question, write the byte in binary first and label the eight bits (SIM: SOD SDE x R7.5 MSE M7.5 M6.5 M5.5; RIM: SID I7.5 I6.5 I5.5 IE M7.5 M6.5 M5.5). Most wrong options come from a missing MSE or SDE bit or from reading a mask bit backwards."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t6_m001",
+      "questionText": "In polling (programmed) I/O, how does the CPU find out that a device needs service?",
+      "options": [
+        "The device drives an interrupt pin and the CPU jumps to a vector address",
+        "The device takes over the system bus and writes directly into memory",
+        "The CPU executes a software interrupt instruction that asks the device for its status",
+        "It repeatedly reads the device status register in a loop until the ready bit is set"
+      ],
+      "correctIndex": 3,
+      "explanation": "Polling is CPU-initiated: the program keeps testing a status bit. An interrupt pin is interrupt-driven I/O and taking over the bus is DMA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m002",
+      "questionText": "Which 8085 interrupt input is non-vectored?",
+      "options": [
+        "RST 5.5",
+        "INTR",
+        "RST 7.5",
+        "TRAP"
+      ],
+      "correctIndex": 1,
+      "explanation": "TRAP and RST 7.5/6.5/5.5 branch to fixed internal addresses. For INTR the external logic must supply an RST n or CALL instruction on the data bus during INTA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m003",
+      "questionText": "Which 8085 interrupt input is purely edge-triggered, with the request stored in an internal flip-flop?",
+      "options": [
+        "RST 7.5",
+        "RST 6.5",
+        "RST 5.5",
+        "INTR"
+      ],
+      "correctIndex": 0,
+      "explanation": "RST 7.5 responds to a rising edge and latches it. RST 6.5, RST 5.5 and INTR are level-sensitive; TRAP needs both an edge and a sustained high level.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m004",
+      "questionText": "Which of the following is a software interrupt in the 8085?",
+      "options": [
+        "A rising edge on the RST 7.5 pin",
+        "A high level on the TRAP pin",
+        "Executing the instruction RST 3",
+        "A request on INTR answered with INTA"
+      ],
+      "correctIndex": 2,
+      "explanation": "A software interrupt is caused by an instruction in the program; RST 3 is an instruction that pushes PC and branches to 0018H. The other three are hardware requests arriving on pins.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m005",
+      "questionText": "What does the 8085 instruction EI do?",
+      "options": [
+        "Enables TRAP, which is disabled after every reset",
+        "Sets the interrupt-enable flip-flop so that the maskable interrupts can be accepted",
+        "Clears the RST 7.5, 6.5 and 5.5 mask bits",
+        "Clears any pending RST 7.5 request"
+      ],
+      "correctIndex": 1,
+      "explanation": "EI only sets the global interrupt-enable flip-flop. The individual mask bits are changed only by SIM, and TRAP is never disabled, so it needs no enabling.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m006",
+      "questionText": "Which 8085 instruction disables all maskable interrupts in one step?",
+      "options": [
+        "DI",
+        "CLI",
+        "RIM",
+        "HLT"
+      ],
+      "correctIndex": 0,
+      "explanation": "DI resets the interrupt-enable flip-flop, blocking RST 7.5, 6.5, 5.5 and INTR (TRAP is unaffected). CLI is the 8086 equivalent and does not exist in the 8085 instruction set.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m007",
+      "questionText": "The 8085 software instruction RST 5 transfers control to address:",
+      "options": [
+        "0005H",
+        "002CH",
+        "0028H",
+        "0050H"
+      ],
+      "correctIndex": 2,
+      "explanation": "RST n branches to 8 × n: 8 × 5 = 40 = 0028H. 002CH is the hardware RST 5.5 vector, and 0050H results from multiplying by 16 instead of 8.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m008",
+      "questionText": "An 8085 interrupt service routine that must allow later maskable interrupts to be accepted should normally end with:",
+      "options": [
+        "IRET",
+        "DI followed by RET",
+        "EI followed by RET",
+        "HLT"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8085 disables interrupts automatically when it accepts one, so the ISR must re-enable them with EI and then return with an ordinary RET. The 8085 has no IRET instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m009",
+      "questionText": "An interrupt is described as maskable when:",
+      "options": [
+        "It always has the highest priority in the system",
+        "Its service routine starts at a fixed address",
+        "It is generated by an instruction rather than by a pin",
+        "The program can disable it so that a request on it is ignored"
+      ],
+      "correctIndex": 3,
+      "explanation": "Maskable means it can be turned off by software (EI/DI, SIM, STI/CLI). A fixed address describes a vectored interrupt and an instruction-generated one is a software interrupt.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m010",
+      "questionText": "Which 8085 interrupt has the lowest priority?",
+      "options": [
+        "RST 5.5",
+        "INTR",
+        "RST 6.5",
+        "TRAP"
+      ],
+      "correctIndex": 1,
+      "explanation": "The priority order is TRAP > RST 7.5 > RST 6.5 > RST 5.5 > INTR, so INTR is served last when several requests are pending together.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m011",
+      "questionText": "In the 8086, the instruction STI:",
+      "options": [
+        "Sets TF so that the processor single-steps",
+        "Enables the NMI input, which is disabled after reset",
+        "Sets IF so that requests on the INTR pin are recognised",
+        "Stores the interrupt vector of the current ISR in the vector table"
+      ],
+      "correctIndex": 2,
+      "explanation": "STI sets the Interrupt Flag; IF affects only the maskable INTR input. NMI cannot be disabled, and TF is the Trap Flag used for single-stepping.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m012",
+      "questionText": "What does the 8085 instruction RIM do?",
+      "options": [
+        "Writes the accumulator into the interrupt mask register",
+        "Loads HL with the vector address of the highest-priority pending interrupt",
+        "Returns from an interrupt service routine and re-enables interrupts",
+        "Loads the accumulator with the mask bits, pending-interrupt bits, the interrupt-enable status and the SID bit"
+      ],
+      "correctIndex": 3,
+      "explanation": "RIM (Read Interrupt Mask) is the read side: D7 = SID, D6-D4 = pending 7.5/6.5/5.5, D3 = IE, D2-D0 = masks. Writing the masks is SIM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m013",
+      "questionText": "How many interrupt input pins does the 8085 have?",
+      "options": [
+        "4",
+        "8",
+        "2",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "The inputs are TRAP, RST 7.5, RST 6.5, RST 5.5 and INTR. INTA is an output (acknowledge), not an interrupt input.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m014",
+      "questionText": "When the 8085 accepts a request on INTR, which signal does it activate so that the external logic can supply an instruction?",
+      "options": [
+        "HLDA",
+        "ALE",
+        "INTA (active low)",
+        "RD (active low)"
+      ],
+      "correctIndex": 2,
+      "explanation": "INTA is the interrupt acknowledge output. The device or controller places an RST n or CALL opcode on the data bus while INTA is low. HLDA acknowledges a DMA HOLD request.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t6_m015",
+      "questionText": "An 8085 program must unmask RST 7.5, mask RST 6.5 and RST 5.5, leave the RST 7.5 latch alone and not use SOD. The byte loaded into A before SIM is:",
+      "options": [
+        "03H",
+        "0CH",
+        "B0H",
+        "0BH"
+      ],
+      "correctIndex": 3,
+      "explanation": "SIM bits: D3 MSE = 1 to make the masks valid, D2 M7.5 = 0, D1 M6.5 = 1, D0 M5.5 = 1, all others 0: 0000 1011 = 0BH. 03H forgets MSE, so the masks would not change.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m016",
+      "questionText": "An 8085 executes MVI A,0DH followed by SIM. Which of RST 7.5, RST 6.5 and RST 5.5 are now unmasked?",
+      "options": [
+        "Only RST 6.5",
+        "RST 7.5 and RST 5.5 only",
+        "Only RST 7.5",
+        "None of them"
+      ],
+      "correctIndex": 0,
+      "explanation": "0DH = 0000 1101: MSE (D3) = 1 so the masks load; M7.5 = 1, M6.5 = 0, M5.5 = 1. A 1 means masked, so only RST 6.5 is unmasked.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m017",
+      "questionText": "What is the effect of MVI A,1FH followed by SIM in an 8085?",
+      "options": [
+        "RST 7.5, 6.5 and 5.5 are all masked and any pending RST 7.5 request is cleared",
+        "RST 7.5, 6.5 and 5.5 are all unmasked and any pending RST 7.5 request is cleared",
+        "RST 7.5, 6.5 and 5.5 are all masked and SOD is set to 1",
+        "Nothing changes, because the mask-set-enable bit is 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "1FH = 0001 1111: D4 = 1 resets the RST 7.5 flip-flop, D3 MSE = 1 enables loading, and D2-D0 = 111 mask all three. D6 SDE = 0, so SOD is not affected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m018",
+      "questionText": "An 8085 has RST 6.5 masked. The program executes MVI A,05H then SIM, intending to unmask RST 6.5. What happens?",
+      "options": [
+        "RST 6.5 is unmasked and RST 7.5 and RST 5.5 are masked",
+        "All three RST inputs are unmasked",
+        "RST 6.5 is unmasked and SOD outputs 1",
+        "The masks do not change, because bit D3 (MSE) of 05H is 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "05H = 0000 0101 has MSE = 0, so SIM ignores D2-D0 and the old masks remain. The correct byte would be 0DH (MSE = 1, M7.5 = 1, M6.5 = 0, M5.5 = 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m019",
+      "questionText": "In an 8085, RIM returns A = 62H. Which statement is correct?",
+      "options": [
+        "RST 7.5 and RST 6.5 are pending and the interrupt system is disabled",
+        "RST 6.5 and RST 5.5 are pending and the interrupt system is enabled",
+        "RST 7.5 and RST 6.5 are pending and the interrupt system is enabled",
+        "Only RST 6.5 is pending and RST 5.5 is masked"
+      ],
+      "correctIndex": 0,
+      "explanation": "62H = 0110 0010: D6 I7.5 = 1 and D5 I6.5 = 1 (pending), D4 I5.5 = 0, D3 IE = 0 (disabled), D1 M6.5 = 1 and D0 M5.5 = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m020",
+      "questionText": "Which byte, used with SIM, sends a logic 1 out of the 8085 SOD pin without changing the interrupt masks?",
+      "options": [
+        "80H",
+        "40H",
+        "C8H",
+        "C0H"
+      ],
+      "correctIndex": 3,
+      "explanation": "SOD = D7 = 1 and SDE = D6 = 1 (serial data enable), with MSE = D3 = 0 so the masks are untouched: 1100 0000 = C0H. 80H lacks SDE, 40H outputs 0, and C8H would also load the masks (all unmasked).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m021",
+      "questionText": "The one-byte opcode of the 8085 instruction RST 5 is:",
+      "options": [
+        "E7H",
+        "28H",
+        "F5H",
+        "EFH"
+      ],
+      "correctIndex": 3,
+      "explanation": "RST n is encoded 11 NNN 111. For n = 5 (101): 1110 1111 = EFH. E7H is RST 4, 28H is the vector address rather than the opcode, and F5H is PUSH PSW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m022",
+      "questionText": "When an 8085 acknowledges an INTR request, what must the external hardware place on the data bus?",
+      "options": [
+        "An 8-bit type number that the CPU multiplies by 4",
+        "An RST n opcode or the three bytes of a CALL instruction",
+        "The 16-bit ISR address alone, with no opcode",
+        "Nothing, because the CPU then jumps to 0024H"
+      ],
+      "correctIndex": 1,
+      "explanation": "INTR is non-vectored, so during INTA the CPU fetches an instruction from the data bus: a one-byte RST n or a CALL (with further INTA cycles for its two address bytes). The type-number method belongs to the 8086.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m023",
+      "questionText": "Which statement about the 8085 TRAP interrupt is correct?",
+      "options": [
+        "It is both edge- and level-sensitive and cannot be disabled by DI or SIM",
+        "It can be masked by setting bit D3 of the SIM byte",
+        "It is non-vectored, so the device supplies the ISR address",
+        "It has the lowest priority of the five interrupt inputs"
+      ],
+      "correctIndex": 0,
+      "explanation": "TRAP needs a rising edge followed by a sustained high level, which protects it against noise. It is non-maskable, vectored to 0024H and has the highest priority.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m024",
+      "questionText": "An interrupt is called vectored when:",
+      "options": [
+        "The interrupting device must supply the ISR address or an opcode on the data bus",
+        "The processor itself knows the starting address of its service routine",
+        "It can be disabled by the program",
+        "It is triggered by an edge rather than a level"
+      ],
+      "correctIndex": 1,
+      "explanation": "For a vectored interrupt the ISR address is fixed or looked up internally (8085 TRAP, RST 7.5/6.5/5.5; every 8086 type through the IVT). If the device must supply it, the interrupt is non-vectored, like 8085 INTR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m025",
+      "questionText": "Which list gives the 8085 hardware interrupts in decreasing order of priority?",
+      "options": [
+        "INTR, RST 5.5, RST 6.5, RST 7.5, TRAP",
+        "RST 7.5, RST 6.5, RST 5.5, TRAP, INTR",
+        "TRAP, INTR, RST 7.5, RST 6.5, RST 5.5",
+        "TRAP, RST 7.5, RST 6.5, RST 5.5, INTR"
+      ],
+      "correctIndex": 3,
+      "explanation": "TRAP is highest, then RST 7.5, RST 6.5, RST 5.5, and INTR is lowest. Among the three RST inputs, the higher the RST number (and vector address), the higher the priority; TRAP is the exception, with the lowest vector (0024H) but the highest priority.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m026",
+      "questionText": "The RST 5.5 vector is 002CH and the next restart vector, RST 6, is at 0030H. How many bytes are available at 002CH before RST 6 begins?",
+      "options": [
+        "8",
+        "2",
+        "4",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "0030H − 002CH = 4 bytes. That is too small for a real ISR, so the location normally holds a 3-byte JMP to the routine elsewhere in memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m027",
+      "questionText": "An 8085 ISR modifies the accumulator and the flags. Which instruction at the start of the ISR preserves both?",
+      "options": [
+        "PUSH A",
+        "PUSH PSW",
+        "PUSHF",
+        "SPHL"
+      ],
+      "correctIndex": 1,
+      "explanation": "PUSH PSW saves the accumulator and the flag register as one 16-bit pair. PUSH A does not exist, PUSHF is an 8086 instruction and SPHL copies HL into SP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m028",
+      "questionText": "Interrupt latency is best defined as:",
+      "options": [
+        "The time from the interrupt request until the first instruction of the ISR begins",
+        "The total time spent executing the ISR",
+        "The time from the end of the ISR until the main program resumes",
+        "The number of interrupts the CPU can service per second"
+      ],
+      "correctIndex": 0,
+      "explanation": "Latency covers finishing the current instruction, saving the return state and fetching the vector. The ISR execution time is a separate figure, the service time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m029",
+      "questionText": "Which statement about software interrupts is correct?",
+      "options": [
+        "In the 8086 they are blocked by CLI",
+        "They occur exactly where the interrupt instruction is placed, so they are synchronous with the program",
+        "They need an interrupt acknowledge bus cycle to obtain the type",
+        "They are triggered by a signal from an external device"
+      ],
+      "correctIndex": 1,
+      "explanation": "INT n (8086) and RST n (8085) are instructions, so they happen at a predictable point. The type is in the instruction, no INTA cycle is needed, and IF does not block them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m030",
+      "questionText": "An 8085 ISR ends with EI immediately followed by RET, and another interrupt is already pending. Why is the ISR not interrupted before RET executes?",
+      "options": [
+        "RET cannot be interrupted because it is a privileged instruction",
+        "The pending request is discarded when EI is executed",
+        "EI takes effect only after two further instructions have been executed",
+        "EI takes effect only after the instruction that follows it has been executed"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8085 delays the enable by one instruction, so RET completes and the stack is unwound before the next interrupt is accepted. This keeps the stack from growing with every back-to-back request.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m031",
+      "questionText": "An 8085 ISR for RST 6.5 ends with RET but the programmer forgot EI. What is the result?",
+      "options": [
+        "Later RST 7.5, 6.5, 5.5 and INTR requests are ignored, but TRAP is still accepted",
+        "All interrupts including TRAP are ignored",
+        "The next RST 6.5 request re-enables interrupts automatically",
+        "The RET fails and the program restarts at 0000H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Accepting an interrupt resets the interrupt-enable flip-flop. Without EI it stays reset, so every maskable request is ignored; only the non-maskable TRAP still gets through.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m032",
+      "questionText": "An 8085 executes HLT with interrupts enabled. How can it continue executing instructions?",
+      "options": [
+        "Only through RESET, because interrupts are not sampled in the halt state",
+        "Only through TRAP, because maskable interrupts are disabled by HLT",
+        "Through an enabled interrupt (or TRAP), or through RESET",
+        "Only through a HOLD request, which restarts the program after the DMA transfer"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the halt state the 8085 still samples its interrupt pins; a valid interrupt pushes PC and enters the ISR, returning to the instruction after HLT. RESET also ends the halt. HOLD only lends the bus and the CPU stays halted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m033",
+      "questionText": "A CPU polls a device every 100 µs and each poll takes 4 µs, whether or not the device is ready. What fraction of CPU time is spent polling?",
+      "options": [
+        "0.4%",
+        "4%",
+        "25%",
+        "40%"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fraction = poll time / polling period = 4 µs / 100 µs = 0.04 = 4%. This time is lost even when the device has nothing to transfer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m034",
+      "questionText": "Which of the following increases the worst-case interrupt latency of a system?",
+      "options": [
+        "Using a vectored interrupt instead of a non-vectored one",
+        "Making the ISR of that interrupt shorter",
+        "Long sections of code that run with interrupts disabled",
+        "Giving the interrupt a higher priority"
+      ],
+      "correctIndex": 2,
+      "explanation": "A request that arrives while interrupts are disabled must wait for the matching EI/STI, so disabled sections add directly to latency. The other three either reduce latency or do not affect it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m035",
+      "questionText": "What is the effect of MVI A,18H followed by SIM in an 8085?",
+      "options": [
+        "Any pending RST 7.5 request is cleared and RST 7.5, 6.5 and 5.5 are all unmasked",
+        "Only RST 7.5 is unmasked and its latch is cleared",
+        "All three are masked and the pending RST 7.5 request is cleared",
+        "SOD outputs 1 and the masks stay as they were"
+      ],
+      "correctIndex": 0,
+      "explanation": "18H = 0001 1000: D4 = 1 resets the RST 7.5 flip-flop, D3 MSE = 1 loads the masks, and D2-D0 = 000 unmask all three. D7 and D6 are 0, so SOD is unaffected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m036",
+      "questionText": "The TRAP vector 0024H is sometimes called \"RST 4.5\". Using the rule vector = 8 × n, what value of n gives 0024H?",
+      "options": [
+        "3",
+        "4.5",
+        "2.25",
+        "4.8"
+      ],
+      "correctIndex": 1,
+      "explanation": "0024H = 36 decimal, and 36 / 8 = 4.5. Reading 24 as decimal gives 3, and dividing 24H by 16 gives 2.25. The same reasoning gives 5.5, 6.5 and 7.5 for 002CH, 0034H and 003CH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m037",
+      "questionText": "Which 8085 interrupts are controlled by the mask bits written with SIM?",
+      "options": [
+        "All five, including TRAP",
+        "RST 7.5, RST 6.5 and RST 5.5 only",
+        "RST 7.5, RST 6.5, RST 5.5 and INTR",
+        "Only INTR and TRAP"
+      ],
+      "correctIndex": 1,
+      "explanation": "SIM has mask bits only for the three RST inputs. INTR is controlled only by EI/DI, and TRAP cannot be masked at all.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t6_m038",
+      "questionText": "An 8085 main loop executes RIM and gets A = 2BH. RST 6.5 is being requested but is not being serviced. Why?",
+      "options": [
+        "The interrupt system is disabled (IE = 0)",
+        "A pending RST 7.5 request of higher priority is being served first",
+        "RST 6.5 is masked (bit D1 = 1)",
+        "RST 6.5 is edge-triggered and the edge was missed"
+      ],
+      "correctIndex": 2,
+      "explanation": "2BH = 0010 1011: D5 I6.5 = 1 (pending), D3 IE = 1 (enabled), D6 I7.5 = 0, and D1 M6.5 = 1, so the request is masked. RST 6.5 is level-triggered.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m039",
+      "questionText": "In an 8085, RST 7.5 and RST 5.5 are both unmasked but interrupts are disabled with DI. A 1 µs pulse arrives on each pin, after which both pins stay low. The program later executes EI. Which interrupt is serviced?",
+      "options": [
+        "Both, RST 7.5 first and then RST 5.5",
+        "Only RST 5.5",
+        "Only RST 7.5",
+        "Neither, because both requests arrived while interrupts were disabled"
+      ],
+      "correctIndex": 2,
+      "explanation": "The rising edge on RST 7.5 sets its internal flip-flop, which holds the request until it is served. RST 5.5 is level-sensitive and not latched, so its request vanished when the pin went low.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m040",
+      "questionText": "A keyboard is pressed 10 times per second. Polling checks it 500 times per second at 20 µs per check. With interrupts, each key press costs 50 µs (entry, service and return). How many times more CPU time does polling use than the interrupt method?",
+      "options": [
+        "20 times",
+        "2 times",
+        "50 times",
+        "200 times"
+      ],
+      "correctIndex": 0,
+      "explanation": "Polling: 500 × 20 µs = 10000 µs per second. Interrupts: 10 × 50 µs = 500 µs per second. Ratio = 10000 / 500 = 20.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m041",
+      "questionText": "An 8085 runs at a 3 MHz clock. A RST 7.5 request arrives just as an 18 T-state CALL instruction begins, and the CPU then needs 12 T-states to save PC and branch to 003CH. What is the worst-case latency until the vector location is fetched?",
+      "options": [
+        "6 µs",
+        "10 µs",
+        "4 µs",
+        "90 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = 1 / 3 MHz = 0.333 µs. Latency = (18 + 12) T-states × 0.333 µs = 30 / 3 = 10 µs. Counting only the CALL gives 6 µs and only the response 4 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m042",
+      "questionText": "An 8085 executes MVI A,0EH, SIM, EI. Then a rising edge arrives on RST 7.5 while RST 6.5 and RST 5.5 are both held high. Which interrupt is serviced first, and at which vector?",
+      "options": [
+        "RST 5.5 at 002CH",
+        "RST 7.5 at 003CH",
+        "RST 6.5 at 0034H",
+        "None, because all three are masked"
+      ],
+      "correctIndex": 0,
+      "explanation": "0EH = 0000 1110: MSE = 1, M7.5 = 1, M6.5 = 1, M5.5 = 0. RST 7.5 and RST 6.5 are masked despite their higher priority, so RST 5.5 is the only one accepted, at 002CH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m043",
+      "questionText": "During INTA, the interrupting device places DFH on the 8085 data bus. Where does the processor transfer control?",
+      "options": [
+        "00DFH",
+        "0030H",
+        "0003H",
+        "0018H"
+      ],
+      "correctIndex": 3,
+      "explanation": "DFH = 11 011 111, the RST n pattern 11 NNN 111 with NNN = 011, so it is RST 3. The vector is 8 × 3 = 24 = 0018H. 0030H results from multiplying by 16.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m044",
+      "questionText": "An 8085 has SP = 2000H. The 3-byte instruction LXI H,3000H occupies 2050H-2052H, and a RST 6.5 request is accepted at its end. After the return address is pushed, what do locations 1FFFH and 1FFEH contain?",
+      "options": [
+        "1FFFH = 53H, 1FFEH = 20H",
+        "1FFFH = 20H, 1FFEH = 53H",
+        "1FFFH = 20H, 1FFEH = 50H",
+        "1FFFH = 00H, 1FFEH = 34H"
+      ],
+      "correctIndex": 1,
+      "explanation": "The return address is the next instruction, 2050H + 3 = 2053H. A push decrements SP and stores the high byte first: 20H goes to 1FFFH and 53H to 1FFEH, leaving SP = 1FFEH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m045",
+      "questionText": "An 8085 program runs RIM, ANI x, CPI x and JZ to jump only when RST 7.5 is pending AND the interrupt system is enabled. What is x?",
+      "options": [
+        "48H",
+        "84H",
+        "44H",
+        "0CH"
+      ],
+      "correctIndex": 0,
+      "explanation": "In the RIM byte, D6 = RST 7.5 pending and D3 = IE, so x = 0100 1000 = 48H. 44H picks D2 (the RST 7.5 mask) instead of IE, and 84H picks the SID bit.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t6_m046",
+      "questionText": "With a single SIM, an 8085 must mask RST 7.5 and RST 5.5, unmask RST 6.5, clear the RST 7.5 latch and output 0 on SOD. The byte in A is:",
+      "options": [
+        "1DH",
+        "DDH",
+        "5DH",
+        "5AH"
+      ],
+      "correctIndex": 2,
+      "explanation": "SOD = 0, SDE = 1, D5 = 0, R7.5 = 1, MSE = 1, M7.5 = 1, M6.5 = 0, M5.5 = 1: 0101 1101 = 5DH. 1DH leaves SDE = 0 so SOD is not driven, DDH outputs 1, and 5AH inverts the mask bits.",
+      "difficulty": "hard"
+    }
+  ]
+}

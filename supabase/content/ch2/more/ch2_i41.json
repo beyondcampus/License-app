@@ -1,0 +1,700 @@
+{
+  "topicId": "ch2_i41",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: 8085 Timing, Flags and the Stack"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every 8085 machine cycle begins the same way. In T1 the processor puts the high address byte on A8–A15, the low byte on AD0–AD7, sets IO/M, S1 and S0 to announce the kind of cycle, and pulses ALE so an external latch such as the 74LS373 holds A0–A7. In T2 the RD or WR strobe goes low and AD0–AD7 switch to data; READY is sampled here and wait states are inserted while it is low. T3 completes the transfer. An opcode fetch adds T4 to decode the opcode, and instructions that do 16-bit register work or pre-decrement SP (INX, DCX, SPHL, PCHL, PUSH, CALL, RST) stretch the fetch to 6 T-states."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Instruction",
+          "Machine cycles",
+          "T-states"
+        ],
+        [
+          "MOV r, r / ADD r / INR r",
+          "OF",
+          "4"
+        ],
+        [
+          "MOV r, M / MVI r / ADD M",
+          "OF, MR (or MW)",
+          "7"
+        ],
+        [
+          "INX rp / DCX rp",
+          "OF (6 T)",
+          "6"
+        ],
+        [
+          "MVI M / LXI / JMP / IN / OUT",
+          "OF + two more 3-T cycles",
+          "10"
+        ],
+        [
+          "PUSH rp",
+          "OF (6 T), MW, MW",
+          "12"
+        ],
+        [
+          "LDA / STA",
+          "OF, MR, MR, MR or MW",
+          "13"
+        ],
+        [
+          "CALL",
+          "OF (6 T), MR, MR, MW, MW",
+          "18"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Which instruction groups change which flags:",
+      "items": [
+        "Arithmetic (ADD, ADI, ADC, SUB, SUI, SBB, CMP, CPI, DAA): all five flags; for subtraction and compare, CY = 1 means a borrow (A was smaller).",
+        "INR and DCR: S, Z, AC and P change, but CY is left untouched.",
+        "Logical AND (ANA, ANI): CY is reset and AC is set. OR and XOR (ORA, ORI, XRA, XRI): CY and AC are both reset. All three update S, Z and P.",
+        "Data transfer, INX, DCX, PUSH, POP (except POP PSW), jumps and calls: no flags change."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: flags after ADI\nA = 9AH, execute ADI 76H\n   9AH = 1001 1010\n + 76H = 0111 0110\n = 1 0001 0000  -> A = 10H, carry out of bit 7 -> CY = 1\nLow nibbles: A + 6 = 10H, carry from bit 3 -> AC = 1\nA = 0001 0000: bit 7 = 0 -> S = 0; not zero -> Z = 0\nOne 1 in the result (odd) -> P = 0\nFlag byte S Z 0 AC 0 P 0 CY = 0001 0001 = 11H"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; Worked example 2: stack trace (8085)\n        LXI SP, 2400H   ; SP = 2400H\n        LXI B, 1234H    ; B = 12H, C = 34H\n        PUSH B          ; [23FFH] = 12H, [23FEH] = 34H, SP = 23FEH\n        CALL 4000H      ; at 2050H: push 2053H\n                        ; [23FDH] = 20H, [23FCH] = 53H, SP = 23FCH\n        ; ... subroutine ends with RET\n        ; RET pops 53H then 20H: PC = 2053H, SP = 23FEH\n        POP D           ; E = 34H, D = 12H, SP = 2400H"
+    },
+    {
+      "type": "paragraph",
+      "text": "Software delays rely on knowing the exact T-states of a loop. In a loop that counts N times, the conditional jump is taken N − 1 times (10 T) and falls through once (7 T), so the last pass is 3 T shorter than the others. Adding the set-up instruction once gives a closed form, and multiplying by the clock period converts T-states to time."
+    },
+    {
+      "type": "formula",
+      "latex": "T_{total} = T_{setup} + (N - 1)\\,T_{loop} + (T_{loop} - 3)",
+      "plainText": "Total T-states = T_setup + (N − 1) × T_loop + (T_loop − 3)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: 8-bit delay loop at 2 MHz (T = 0.5 us)\n        MVI C, 0AH     ; 7 T, once\nLOOP:   DCR C          ; 4 T\n        JNZ LOOP       ; 10 T taken, 7 T not taken\nT_loop  = 4 + 10 = 14 T, N = 10\nT_total = 7 + 9 x 14 + 11 = 144 T\nDelay   = 144 x 0.5 us = 72 us"
+    },
+    {
+      "type": "warning",
+      "text": "DCR does not set CY, so a loop counter that runs past 00H wraps to FFH silently. For a 16-bit counter use DCX followed by MOV A, C and ORA B, because DCX changes no flags at all and JNZ would otherwise test a stale Z flag."
+    },
+    {
+      "type": "examTip",
+      "text": "For stack questions write the addresses down: PUSH or CALL stores the high byte at SP − 1 and the low byte at SP − 2, then SP = SP − 2. The return address of a CALL is the address after the 3-byte CALL, not the CALL itself. For PUSH PSW, build the flag byte as S Z 0 AC 0 P 0 CY."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i41_m001",
+      "questionText": "In the 8085, A = 9AH. After ADI 76H is executed, the accumulator and flags are:",
+      "options": [
+        "A = 10H, CY = 0, AC = 1, Z = 0",
+        "A = 10H, CY = 1, AC = 1, Z = 0",
+        "A = 10H, CY = 1, AC = 0, Z = 0",
+        "A = 00H, CY = 1, AC = 1, Z = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "9AH + 76H = 110H, so A = 10H with a carry out of bit 7 (CY = 1). Low nibbles A + 6 = 10H give a carry from bit 3 to bit 4 (AC = 1); the result is not zero, so Z = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m002",
+      "questionText": "In the 8085, CY = 0 and the instructions MVI A, FFH followed by INR A are executed. The result is:",
+      "options": [
+        "A = 00H, Z = 1, CY = 1",
+        "A = 00H, Z = 0, CY = 1",
+        "A = 00H, Z = 1, CY = 0",
+        "A = FFH, Z = 0, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "FFH + 1 wraps to 00H, so Z = 1. INR and DCR affect S, Z, AC and P but never CY, so CY keeps its previous value 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m003",
+      "questionText": "In the 8085, B = 00H and CY = 1. After DCR B is executed:",
+      "options": [
+        "B = FFH, S = 1, CY = 0",
+        "B = FFH, S = 0, CY = 1",
+        "B = 01H, S = 0, CY = 0",
+        "B = FFH, S = 1, CY = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "00H − 1 wraps to FFH, whose bit 7 is 1, so S = 1. DCR does not touch CY, so the borrow is not recorded and CY stays 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m004",
+      "questionText": "In the 8085, A = 35H and B = 4AH. After SUB B is executed, the contents of A and the S, CY and P flags are:",
+      "options": [
+        "A = EBH, S = 1, CY = 1, P = 1",
+        "A = EBH, S = 1, CY = 0, P = 1",
+        "A = 15H, S = 0, CY = 1, P = 0",
+        "A = EBH, S = 0, CY = 1, P = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "35H − 4AH = −15H, stored as the 2's complement EBH = 1110 1011. Bit 7 is 1 (S = 1), a borrow occurred (CY = 1), and six 1s is even parity (P = 1). 15H is B − A, the wrong way round.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m005",
+      "questionText": "In the 8085, A = 40H and B = 60H. After CMP B is executed:",
+      "options": [
+        "A = 40H, CY = 1, Z = 0",
+        "A = E0H, CY = 1, Z = 0",
+        "A = 40H, CY = 0, Z = 0",
+        "A = 40H, CY = 0, Z = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "CMP subtracts B from A internally only to set flags; A is unchanged. Since A < B a borrow occurs (CY = 1) and the operands differ (Z = 0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m006",
+      "questionText": "In the 8085, A = 5CH. After ANI 0FH is executed, A and the CY and AC flags are:",
+      "options": [
+        "A = 0CH, CY = 0, AC = 0",
+        "A = 5FH, CY = 0, AC = 1",
+        "A = 0CH, CY = 0, AC = 1",
+        "A = 0CH, CY = 1, AC = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "5CH AND 0FH = 0CH (the upper nibble is masked off). In the 8085 the AND instructions always reset CY and set AC; 5FH would be the OR result.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m007",
+      "questionText": "In the 8085, A = 7BH and CY = 1. After XRA A is executed, the Z, P and CY flags are:",
+      "options": [
+        "Z = 1, P = 0, CY = 0",
+        "Z = 1, P = 1, CY = 0",
+        "Z = 0, P = 1, CY = 1",
+        "Z = 1, P = 1, CY = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Any value XOR itself is 00H, so Z = 1; 00H has zero 1s, which is even parity (P = 1); logical instructions reset CY. XRA A is a one-byte way to clear A and CY together.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m008",
+      "questionText": "In the 8085, A = 7FH. After ADI 01H is executed, which flags are set (= 1)?",
+      "options": [
+        "CY and AC only",
+        "S, P and AC",
+        "Z and CY only",
+        "S and AC only"
+      ],
+      "correctIndex": 3,
+      "explanation": "7FH + 01H = 80H = 1000 0000: bit 7 is 1 (S = 1), F + 1 carries from bit 3 to bit 4 (AC = 1), there is no carry out (CY = 0), and a single 1 is odd parity (P = 0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m009",
+      "questionText": "In the 8085, MVI A, 03H and then ADI 04H are executed. The resulting S, Z, P and CY flags are:",
+      "options": [
+        "S = 0, Z = 0, P = 1, CY = 0",
+        "S = 0, Z = 1, P = 0, CY = 0",
+        "S = 0, Z = 0, P = 0, CY = 0",
+        "S = 1, Z = 0, P = 0, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "A = 07H = 0000 0111. It is positive and non-zero, has three 1s (odd, so P = 0) and produces no carry.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m010",
+      "questionText": "The 8085 flag register contains 45H. Which flags are set?",
+      "options": [
+        "S, AC and CY",
+        "Z, AC and CY",
+        "S, P and CY",
+        "Z, P and CY"
+      ],
+      "correctIndex": 3,
+      "explanation": "45H = 0100 0101: bit 6 (Z), bit 2 (P) and bit 0 (CY) are 1. The flag layout is S Z x AC x P x CY from D7 to D0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m011",
+      "questionText": "In the 8085, MVI A, 38H; ADI 45H; DAA are executed. The final content of A is:",
+      "options": [
+        "83H",
+        "7DH",
+        "77H",
+        "E3H"
+      ],
+      "correctIndex": 0,
+      "explanation": "38H + 45H = 7DH. The low nibble D is greater than 9, so DAA adds 06H: 7DH + 06H = 83H, the correct BCD sum of 38 + 45. The high nibble 8 needs no correction.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m012",
+      "questionText": "In the 8085, SP = 2000H, A = 3CH and the flags are S = 1, Z = 0, AC = 1, P = 1, CY = 1 (unused bits 0). After PUSH PSW, the content of location 1FFEH and the new SP are:",
+      "options": [
+        "3CH, SP = 1FFEH",
+        "95H, SP = 1FFEH",
+        "95H, SP = 2002H",
+        "D5H, SP = 1FFEH"
+      ],
+      "correctIndex": 1,
+      "explanation": "Flag byte = S Z 0 AC 0 P 0 CY = 1001 0101 = 95H. PUSH stores A at SP − 1 = 1FFFH and the flags at SP − 2 = 1FFEH, then SP = 1FFEH. D5H would wrongly include Z.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m013",
+      "questionText": "In the 8085, SP = 2400H. After PUSH B and then PUSH D are executed, SP contains:",
+      "options": [
+        "23FEH",
+        "2404H",
+        "2396H",
+        "23FCH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each PUSH stores two bytes and decrements SP by 2: 2400H − 2 − 2 = 23FCH. The stack grows towards lower addresses; 2396H comes from subtracting in decimal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m014",
+      "questionText": "In the 8085, B = 12H, C = 34H and SP = 3000H. After PUSH B is executed, the stack contains:",
+      "options": [
+        "[2FFFH] = 34H and [2FFEH] = 12H",
+        "[3000H] = 12H and [3001H] = 34H",
+        "[2FFFH] = 12H and [2FFEH] = 34H",
+        "[3001H] = 12H and [3000H] = 34H"
+      ],
+      "correctIndex": 2,
+      "explanation": "PUSH decrements SP and stores the high register B at 2FFFH, decrements again and stores C at 2FFEH; SP ends at 2FFEH so the low byte is on top.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m015",
+      "questionText": "In the 8085, the 3-byte instruction CALL 4000H is stored at 2050H and SP = 2400H. Immediately after the CALL executes:",
+      "options": [
+        "SP = 23FEH, [23FEH] = 50H, [23FFH] = 20H",
+        "SP = 23FEH, [23FEH] = 53H, [23FFH] = 20H",
+        "SP = 23FEH, [23FEH] = 20H, [23FFH] = 53H",
+        "SP = 2402H, [2400H] = 53H, [2401H] = 20H"
+      ],
+      "correctIndex": 1,
+      "explanation": "The return address is the next instruction, 2050H + 3 = 2053H. CALL pushes the high byte 20H at 23FFH and the low byte 53H at 23FEH, leaves SP = 23FEH and loads PC = 4000H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m016",
+      "questionText": "An 8085 fetches a complete 3-byte instruction whose first byte is at 20FEH. After all three bytes are fetched, the program counter contains:",
+      "options": [
+        "2101H",
+        "2100H",
+        "2001H",
+        "2104H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The bytes occupy 20FEH, 20FFH and 2100H, so the PC then points to 20FEH + 3 = 2101H. 2001H comes from losing the carry into the high byte.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m017",
+      "questionText": "How many T-states does the 8085 instruction LDA 2050H take?",
+      "options": [
+        "10",
+        "13",
+        "7",
+        "16"
+      ],
+      "correctIndex": 1,
+      "explanation": "LDA has four machine cycles: opcode fetch (4 T) + two memory reads for the address (3 + 3 T) + one memory read of the data (3 T) = 13 T-states. 16 T belongs to LHLD.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m018",
+      "questionText": "An 8085 runs at 3 MHz. How long does IN 40H (opcode fetch, memory read, I/O read) take to execute?",
+      "options": [
+        "3.33 µs",
+        "1 µs",
+        "1.33 µs",
+        "30 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "IN takes 4 + 3 + 3 = 10 T-states. T = 1 / 3 MHz = 0.333 µs, so time = 10 × 0.333 µs = 3.33 µs. 1 µs counts one T-state per machine cycle; 1.33 µs counts only the opcode fetch.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m019",
+      "questionText": "An 8085 is driven by a 5 MHz crystal connected to X1 and X2. The duration of one T-state is:",
+      "options": [
+        "200 ns",
+        "800 ns",
+        "400 ns",
+        "250 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "The internal clock is crystal / 2 = 2.5 MHz, so T = 1 / 2.5 MHz = 400 ns. Using 5 MHz directly gives 200 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m020",
+      "questionText": "An 8085 runs at 2 MHz. MOV A, M is executed from a slow memory that causes one wait state in the memory read cycle. The execution time is:",
+      "options": [
+        "3.5 µs",
+        "8 µs",
+        "2 µs",
+        "4 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Normally MOV A, M = 4 T (opcode fetch) + 3 T (memory read) = 7 T. One wait state adds 1 T, giving 8 T × 0.5 µs = 4 µs. 3.5 µs ignores the wait state.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m021",
+      "questionText": "An 8085 at 2 MHz runs: MVI C, 0AH (7 T); LOOP: DCR C (4 T); JNZ LOOP (10 T if taken, 7 T if not). The total delay is:",
+      "options": [
+        "70 µs",
+        "144 µs",
+        "72 µs",
+        "36 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "Total = 7 + (10 − 1) × (4 + 10) + (4 + 7) = 7 + 126 + 11 = 144 T. With T = 0.5 µs the delay is 144 × 0.5 = 72 µs. 144 µs uses 1 µs per T-state.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m022",
+      "questionText": "An 8085 at 3 MHz runs: LXI B, 1000H (10 T); LOOP: DCX B (6 T); MOV A, C (4 T); ORA B (4 T); JNZ LOOP (10/7 T). The delay produced is approximately:",
+      "options": [
+        "32.77 ms",
+        "19.12 ms",
+        "16.39 ms",
+        "98.31 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "Loop body = 6 + 4 + 4 + 10 = 24 T. Total = 10 + (4096 − 1) × 24 + 21 = 98,311 T. Delay = 98,311 / (3 × 10^6) = 32.77 ms. 16.39 ms wrongly uses a 6 MHz clock.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m023",
+      "questionText": "An 8085 at 2 MHz executes LXI H, 2050H; MOV A, M; INX H; ADD M; STA 2060H once. The total execution time is:",
+      "options": [
+        "20.5 µs",
+        "43 µs",
+        "10.75 µs",
+        "21.5 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "T-states = 10 + 7 + 6 + 7 + 13 = 43 T. At 2 MHz, T = 0.5 µs, so time = 43 × 0.5 = 21.5 µs. 20.5 µs wrongly takes INX H as 4 T.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m024",
+      "questionText": "How many machine cycles and T-states does the 8085 CALL instruction need?",
+      "options": [
+        "3 machine cycles, 10 T-states",
+        "5 machine cycles, 18 T-states",
+        "5 machine cycles, 16 T-states",
+        "4 machine cycles, 18 T-states"
+      ],
+      "correctIndex": 1,
+      "explanation": "CALL = opcode fetch (6 T) + two memory reads for the address (3 + 3 T) + two memory writes to push the return address (3 + 3 T) = 5 cycles and 18 T.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m025",
+      "questionText": "Which of the following 8085 registers is 16 bits wide?",
+      "options": [
+        "Stack pointer (SP)",
+        "Accumulator (A)",
+        "Register H",
+        "Flag register"
+      ],
+      "correctIndex": 0,
+      "explanation": "SP and PC are the 8085's only true 16-bit registers; A, H and the flag register are 8 bits (H and L can be combined into a 16-bit pair).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m026",
+      "questionText": "Which 8085 registers are used internally by the processor and are NOT accessible to the programmer?",
+      "options": [
+        "H and L",
+        "W and Z",
+        "B and C",
+        "SP and PC"
+      ],
+      "correctIndex": 1,
+      "explanation": "The temporary register pair W–Z holds operand bytes during instructions such as CALL, JMP and LDA; no instruction can name them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m027",
+      "questionText": "In the 8085, the program status word (PSW) consists of:",
+      "options": [
+        "the program counter and stack pointer",
+        "the H and L registers",
+        "the accumulator and the flag register",
+        "the flag register and the instruction register"
+      ],
+      "correctIndex": 2,
+      "explanation": "PSW is the 16-bit unit formed by A (high byte) and the flags (low byte); PUSH PSW and POP PSW save and restore them together.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m028",
+      "questionText": "Which 8085 instruction affects none of the flags?",
+      "options": [
+        "INR B",
+        "CMP B",
+        "ADD B",
+        "INX B"
+      ],
+      "correctIndex": 3,
+      "explanation": "16-bit increment and decrement (INX, DCX) change no flags. INR B affects S, Z, AC and P; CMP and ADD affect all five flags.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m029",
+      "questionText": "In an 8085 machine cycle, the ALE signal is high during:",
+      "options": [
+        "T2",
+        "T3",
+        "T4",
+        "T1"
+      ],
+      "correctIndex": 3,
+      "explanation": "ALE pulses high in the first T-state of every machine cycle, while AD0–AD7 carry A0–A7; the latch captures the address on its falling edge.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m030",
+      "questionText": "Why does the 8085 multiplex the lower-order address with data on AD0–AD7?",
+      "options": [
+        "To reduce the number of pins needed on the 40-pin package",
+        "To double the speed of memory access",
+        "To allow the 8085 to address 1 MB",
+        "To eliminate the need for a clock"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sharing eight pins between A0–A7 and D0–D7 saves eight pins; the cost is an external latch and a little time in T1 to separate the two.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m031",
+      "questionText": "Which chip is commonly used with the 8085 to latch the lower-order address byte from AD0–AD7?",
+      "options": [
+        "74LS138 decoder",
+        "8255 PPI",
+        "74LS373 octal latch",
+        "74LS245 bus transceiver"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 74LS373 is an 8-bit transparent latch whose enable is driven by ALE. The 74LS138 decodes addresses, the 74LS245 buffers the data bus and the 8255 is a parallel port.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m032",
+      "questionText": "What do the AD0–AD7 lines of the 8085 carry during T2 and T3 of a memory write machine cycle?",
+      "options": [
+        "The lower-order address byte",
+        "The data byte being written, driven by the processor",
+        "The status bits S0 and S1",
+        "Nothing; they are always in high impedance"
+      ],
+      "correctIndex": 1,
+      "explanation": "In T1 AD0–AD7 carry A0–A7 (latched by ALE); from T2 onward they switch to data, driven out by the 8085 in a write and read in by it during a read.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m033",
+      "questionText": "In the 8085, IO/M = 1 and RD = 0. The operation taking place is:",
+      "options": [
+        "Memory read",
+        "I/O read",
+        "Memory write",
+        "I/O write"
+      ],
+      "correctIndex": 1,
+      "explanation": "IO/M = 1 selects an I/O port and an active-low RD means data is being read, so this is an I/O read cycle such as the third cycle of IN.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m034",
+      "questionText": "During the opcode fetch machine cycle of the 8085, the status signals IO/M, S1 and S0 are:",
+      "options": [
+        "0, 1, 0",
+        "1, 1, 1",
+        "0, 0, 1",
+        "0, 1, 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Opcode fetch is a memory access (IO/M = 0) with S1 = S0 = 1. 0 1 0 is a memory read, 0 0 1 a memory write and 1 1 1 an interrupt acknowledge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m035",
+      "questionText": "The last machine cycle of the 8085 instruction STA 2050H is a:",
+      "options": [
+        "memory read with IO/M, S1, S0 = 0, 1, 0",
+        "I/O write with IO/M, S1, S0 = 1, 0, 1",
+        "memory write with IO/M, S1, S0 = 0, 0, 1",
+        "opcode fetch with IO/M, S1, S0 = 0, 1, 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "STA = opcode fetch, two memory reads for the address bytes, then a memory write that stores A at 2050H. Memory write status is IO/M = 0, S1 = 0, S0 = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m036",
+      "questionText": "The correct sequence of machine cycles for the 8085 instruction MVI M, 25H is:",
+      "options": [
+        "Opcode fetch, memory read, memory write",
+        "Opcode fetch, memory write",
+        "Opcode fetch, memory read, memory read",
+        "Opcode fetch, I/O read, memory write"
+      ],
+      "correctIndex": 0,
+      "explanation": "After the opcode fetch the data byte 25H is read from program memory (memory read), then written to the location addressed by HL (memory write): 4 + 3 + 3 = 10 T.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m037",
+      "questionText": "Which of the following 8085 instructions has an opcode fetch cycle of 6 T-states instead of 4?",
+      "options": [
+        "INX H",
+        "MOV A, B",
+        "MVI A, 05H",
+        "LDA 2050H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Instructions that perform a 16-bit register operation during the fetch (INX, DCX, SPHL, PCHL) and those that must pre-decrement SP (PUSH, CALL, RST) use a 6-T opcode fetch. MOV A, B, MVI and LDA use the normal 4-T fetch.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i41_m038",
+      "questionText": "In which T-state of the 8085 opcode fetch cycle is the opcode decoded?",
+      "options": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "correctIndex": 3,
+      "explanation": "T1 sends out the address with ALE, T2–T3 read the opcode into the instruction register with RD low, and T4 is used to decode it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m039",
+      "questionText": "What happens when a slow memory pulls the 8085 READY pin low?",
+      "options": [
+        "The processor resets",
+        "The processor inserts wait states until READY returns high",
+        "The processor releases the buses for DMA",
+        "The processor raises a TRAP interrupt"
+      ],
+      "correctIndex": 1,
+      "explanation": "READY is sampled during T2; while it is low the 8085 adds wait states (each one T-state long), giving slow memory or I/O time to respond.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m040",
+      "questionText": "The HOLD and HLDA pins of the 8085 are used for:",
+      "options": [
+        "serial data input and output",
+        "demultiplexing the address bus",
+        "direct memory access (DMA) bus requests and grants",
+        "resetting external devices"
+      ],
+      "correctIndex": 2,
+      "explanation": "A DMA controller raises HOLD to request the buses; the 8085 finishes its current machine cycle, floats its buses and replies with HLDA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m041",
+      "questionText": "Which 8085 pin is an output only?",
+      "options": [
+        "HOLD",
+        "READY",
+        "INTR",
+        "HLDA"
+      ],
+      "correctIndex": 3,
+      "explanation": "HLDA (hold acknowledge) is driven by the 8085. HOLD, READY and INTR are inputs driven by external devices.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m042",
+      "questionText": "Which 8085 instruction reads the serial input bit on the SID pin?",
+      "options": [
+        "SIM",
+        "RIM",
+        "IN",
+        "LDAX"
+      ],
+      "correctIndex": 1,
+      "explanation": "RIM loads bit 7 of the accumulator with the SID level (plus interrupt masks and pending bits). SIM sends A7 to the SOD pin; IN reads a whole byte from a port.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m043",
+      "questionText": "Which of the following is NOT a flag of the 8085?",
+      "options": [
+        "Parity",
+        "Auxiliary carry",
+        "Overflow",
+        "Sign"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8085 has only S, Z, AC, P and CY. An overflow flag (OF) appears in the 8086, not the 8085.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m044",
+      "questionText": "What value does the program counter of the 8085 hold after RESET IN is activated?",
+      "options": [
+        "0000H",
+        "FFFFH",
+        "0024H",
+        "8000H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Reset clears the PC to 0000H, so a monitor or boot program must begin at that address. 0024H is the TRAP vector, not the reset address.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i41_m045",
+      "questionText": "Which statement about the 8085 stack is correct?",
+      "options": [
+        "It is a set of eight on-chip registers that grows upwards",
+        "It lies in ROM and SP is loaded automatically at reset",
+        "It lies in read/write memory, grows towards lower addresses, and SP must be initialised by the program (e.g. LXI SP)",
+        "It grows towards higher addresses and each PUSH stores one byte"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8085 stack is simply part of external RAM. Each PUSH or CALL stores two bytes and moves SP down by 2; SP has no defined value after reset.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i41_m046",
+      "questionText": "Which pins of the 8085 carry only the higher-order address byte?",
+      "options": [
+        "AD0–AD7",
+        "A8–A15",
+        "S0 and S1",
+        "X1 and X2"
+      ],
+      "correctIndex": 1,
+      "explanation": "A8–A15 are unidirectional address outputs; AD0–AD7 are shared between the low address byte and data.",
+      "difficulty": "easy"
+    }
+  ]
+}

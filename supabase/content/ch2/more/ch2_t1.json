@@ -1,0 +1,730 @@
+{
+  "topicId": "ch2_t1",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Conversions, Codes and Logic Levels"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why does repeated division work? Any integer can be written N = q x b + r with 0 <= r < b, and in base b the remainder r is exactly the last digit, while the quotient q holds all the other digits shifted one place right. Dividing q again peels off the next digit, so the remainders come out least significant first. For a fraction the reasoning is mirrored: multiplying by b shifts the radix point one place right, so the digit that crosses into the integer part is the next fractional digit, and the digits come out most significant first."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 7B.3 H to decimal and to octal\n\nDecimal: 7 x 16 + 11 x 1 + 3 x 16^-1\n       = 112 + 11 + 0.1875 = 123.1875\n\nOctal via binary:\n7B.3 H = 0111 1011 . 0011\nregroup in threes outward from the point:\n  001 111 011 . 001 100   (pad with zeros at both ends)\n=  1   7   3  .  1   4    = 173.14 (octal)\nCheck: 64 + 56 + 3 + 1/8 + 4/64 = 123.1875"
+    },
+    {
+      "type": "formula",
+      "latex": "n_{bits} = \\lceil \\log_2 (N + 1) \\rceil, \\qquad \\text{digits}_{16} = \\lceil n_{bits} / 4 \\rceil",
+      "plainText": "bits needed for N = ceil(log2(N + 1)); hex digits = ceil(bits / 4), octal digits = ceil(bits / 3)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Unknown-radix questions are solved by writing both sides as polynomials in b and solving. For example (121)_b = 144 gives b^2 + 2b + 1 = 144, so (b + 1)^2 = 144 and b = 11. Always check that every digit in the question is smaller than the base you find; a result that makes a digit illegal must be rejected."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: decimal 239 in four codes\n\n8421 BCD   : 2 -> 0010, 3 -> 0011, 9 -> 1001   = 0010 0011 1001\nExcess-3   : 2+3 -> 0101, 3+3 -> 0110, 9+3 -> 1100 = 0101 0110 1100\nPure binary: 239 = 128+64+32+8+4+2+1         = 1110 1111\nGray code  : keep MSB, XOR neighbours\n  binary 1 1 1 0 1 1 1 1\n  Gray   1 0 0 1 1 0 0 0                       = 1001 1000"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Decimal",
+          "8421 BCD",
+          "2421 (Aiken)",
+          "Excess-3"
+        ],
+        [
+          "0",
+          "0000",
+          "0000",
+          "0011"
+        ],
+        [
+          "1",
+          "0001",
+          "0001",
+          "0100"
+        ],
+        [
+          "4",
+          "0100",
+          "0100",
+          "0111"
+        ],
+        [
+          "5",
+          "0101",
+          "1011",
+          "1000"
+        ],
+        [
+          "6",
+          "0110",
+          "1100",
+          "1001"
+        ],
+        [
+          "8",
+          "1000",
+          "1110",
+          "1011"
+        ],
+        [
+          "9",
+          "1001",
+          "1111",
+          "1100"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Look at the 2421 and excess-3 columns: the code for 9 - d is the bit-by-bit complement of the code for d (4 = 0111 and 5 = 1000 in excess-3). Such codes are called self-complementing, and they let a machine form the 9's complement of a decimal digit with plain inverters. 8421 BCD is not self-complementing, and excess-3 is also unweighted because its value cannot be found by adding fixed bit weights."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: BCD addition 78 + 65\n\n   0111 1000   (78)\n + 0110 0101   (65)\n low digit : 1000 + 0101 = 1101 (13 > 9)  -> + 0110 = 1 0011, carry 1\n high digit: 0111 + 0110 + 1 = 1110 (14 > 9) -> + 0110 = 1 0100, carry 1\n result    : 0001 0100 0011 = 143"
+    },
+    {
+      "type": "bulletList",
+      "text": "Parity and ASCII facts that are easy to get wrong:",
+      "items": [
+        "Even parity makes the total number of 1s (data plus parity bit) even; odd parity makes it odd. The parity bit is the XOR of the data bits for even parity and its complement for odd parity.",
+        "One parity bit detects any odd number of flipped bits but misses any even number, and it can never say which bit is wrong.",
+        "A Hamming single-error-correcting code needs p check bits with 2^p >= m + p + 1, so 4 check bits protect 8 data bits.",
+        "ASCII '0' to '9' are 30 H to 39 H, so value = code AND 0F H; upper and lower case letters differ only in bit 5 (20 H)."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Family (5 V)",
+          "V_IH(min) / V_IL(max)",
+          "V_OH(min) / V_OL(max)",
+          "NM_H / NM_L"
+        ],
+        [
+          "Standard TTL (74)",
+          "2.0 V / 0.8 V",
+          "2.4 V / 0.4 V",
+          "0.4 V / 0.4 V"
+        ],
+        [
+          "Low-power Schottky (74LS)",
+          "2.0 V / 0.8 V",
+          "2.7 V / 0.5 V",
+          "0.7 V / 0.3 V"
+        ],
+        [
+          "High-speed CMOS (74HC)",
+          "3.5 V / 1.5 V",
+          "4.4 V / 0.33 V",
+          "0.9 V / 1.17 V"
+        ],
+        [
+          "TTL-input CMOS (74HCT)",
+          "2.0 V / 0.8 V",
+          "4.4 V / 0.33 V",
+          "2.4 V / 0.47 V"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "The guaranteed noise margin of a family is the smaller of NM_H and NM_L, and it is only meaningful when the driver and receiver levels are compared. When one family drives another, use the driver's V_OH and V_OL with the receiver's V_IH and V_IL: TTL driving 74HC gives NM_H = 2.4 - 3.5 = -1.1 V, which means the connection does not work reliably without a pull-up resistor or an HCT part."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t1_m001",
+      "questionText": "The decimal value of 157₈ is:",
+      "options": [
+        "157",
+        "111",
+        "95",
+        "119"
+      ],
+      "correctIndex": 1,
+      "explanation": "157₈ = 1 × 64 + 5 × 8 + 7 × 1 = 64 + 40 + 7 = 111.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m002",
+      "questionText": "Decimal 200 expressed in hexadecimal is:",
+      "options": [
+        "C8 H",
+        "8C H",
+        "B8 H",
+        "D8 H"
+      ],
+      "correctIndex": 0,
+      "explanation": "200 ÷ 16 = 12 remainder 8, and 12 is C, so 200 = C8 H (check: 12 × 16 + 8 = 200).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m003",
+      "questionText": "Decimal 0.8125 converted to binary is:",
+      "options": [
+        "0.1011₂",
+        "0.1110₂",
+        "0.1001₂",
+        "0.1101₂"
+      ],
+      "correctIndex": 3,
+      "explanation": "Repeated × 2: 0.8125 → 1.625 (1), 0.625 → 1.25 (1), 0.25 → 0.5 (0), 0.5 → 1.0 (1); reading the integer parts top-down gives 0.1101₂ = 0.5 + 0.25 + 0.0625.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m004",
+      "questionText": "The decimal value of 3A.C H is:",
+      "options": [
+        "58.12",
+        "46.75",
+        "58.75",
+        "58.625"
+      ],
+      "correctIndex": 2,
+      "explanation": "3A.C H = 3 × 16 + 10 + 12 × 16⁻¹ = 48 + 10 + 0.75 = 58.75; the fractional digit C has weight 1/16, not 1/100.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m005",
+      "questionText": "Octal 725.4₈ written in binary is:",
+      "options": [
+        "111010101.1₂",
+        "111010101.01₂",
+        "111101010.1₂",
+        "101010111.1₂"
+      ],
+      "correctIndex": 0,
+      "explanation": "Replace each octal digit with 3 bits: 7 = 111, 2 = 010, 5 = 101, .4 = .100, giving 111 010 101.100 = 111010101.1₂.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m006",
+      "questionText": "Hexadecimal 1F4 H converted to octal is:",
+      "options": [
+        "574₈",
+        "764₈",
+        "704₈",
+        "754₈"
+      ],
+      "correctIndex": 1,
+      "explanation": "1F4 H = 0001 1111 0100₂; regroup in threes from the right: 111 110 100 = 764₈ (both equal 500 decimal).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m007",
+      "questionText": "Octal 347₈ converted to hexadecimal is:",
+      "options": [
+        "7E H",
+        "D7 H",
+        "F7 H",
+        "E7 H"
+      ],
+      "correctIndex": 3,
+      "explanation": "347₈ = 011 100 111₂ = 1110 0111₂ regrouped in fours = E7 H (decimal 231).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m008",
+      "questionText": "Hexadecimal 2AB.8 H converted to octal is:",
+      "options": [
+        "1253.1₈",
+        "2526.4₈",
+        "1253.4₈",
+        "1523.4₈"
+      ],
+      "correctIndex": 2,
+      "explanation": "2AB.8 H = 0010 1010 1011.1000₂. Regroup in threes outward from the point: 001 010 101 011 . 100 = 1253.4₈ (both are 683.5 decimal). Fraction bits are grouped from the point rightward, so .100 gives 4, not 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m009",
+      "questionText": "The first six bits after the binary point of decimal 0.1 are:",
+      "options": [
+        "0.000111₂",
+        "0.001100₂",
+        "0.000101₂",
+        "0.000110₂"
+      ],
+      "correctIndex": 3,
+      "explanation": "Repeated × 2 gives 0.2 (0), 0.4 (0), 0.8 (0), 1.6 (1), 1.2 (1), 0.4 (0), so 0.1 = 0.000110 0110...₂; the pattern 0011 repeats forever, so 0.1 cannot be stored exactly in binary.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m010",
+      "questionText": "3A H + 2F H in hexadecimal is:",
+      "options": [
+        "69 H",
+        "59 H",
+        "6A H",
+        "79 H"
+      ],
+      "correctIndex": 0,
+      "explanation": "A + F = 10 + 15 = 25 = 16 + 9, so write 9 and carry 1; 3 + 2 + 1 = 6. Sum = 69 H (58 + 47 = 105 = 69 H). Forgetting the carry gives 59 H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m011",
+      "questionText": "If (121)_b = (144)₁₀, the base b is:",
+      "options": [
+        "12",
+        "10",
+        "11",
+        "13"
+      ],
+      "correctIndex": 2,
+      "explanation": "(121)_b = b² + 2b + 1 = (b + 1)² = 144, so b + 1 = 12 and b = 11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m012",
+      "questionText": "For which base b is the addition 24_b + 17_b = 43_b correct?",
+      "options": [
+        "9",
+        "8",
+        "10",
+        "12"
+      ],
+      "correctIndex": 1,
+      "explanation": "In base b: (2b + 4) + (b + 7) = 4b + 3, so 3b + 11 = 4b + 3 and b = 8; the digit 7 is valid in base 8. Check: 20 + 15 = 35 = 4 × 8 + 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m013",
+      "questionText": "Which of the following is NOT a valid octal number?",
+      "options": [
+        "1208",
+        "7654",
+        "3017",
+        "4400"
+      ],
+      "correctIndex": 0,
+      "explanation": "Octal digits run from 0 to 7 only; 1208 contains the digit 8, so it cannot be an octal number.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m014",
+      "questionText": "The largest unsigned value that fits in 8 bits, written in hexadecimal, is:",
+      "options": [
+        "100 H",
+        "FE H",
+        "FF H",
+        "99 H"
+      ],
+      "correctIndex": 2,
+      "explanation": "8 bits hold 0 to 2⁸ − 1 = 255, which is 1111 1111₂ = FF H. 100 H = 256 would need 9 bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m015",
+      "questionText": "The minimum number of bits needed to represent decimal 1000 as an unsigned binary number is:",
+      "options": [
+        "9",
+        "11",
+        "12",
+        "10"
+      ],
+      "correctIndex": 3,
+      "explanation": "n bits reach 2ⁿ − 1; 2⁹ − 1 = 511 is too small and 2¹⁰ − 1 = 1023 ≥ 1000, so 10 bits are needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m016",
+      "questionText": "Decimal 97 in 8421 BCD is:",
+      "options": [
+        "0110 0001",
+        "1001 0111",
+        "0111 1001",
+        "1001 0110"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each decimal digit is coded separately: 9 = 1001 and 7 = 0111, so 97 = 1001 0111. 0110 0001 is 97 in pure binary (110 0001).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m017",
+      "questionText": "The BCD number 0100 1000 0110 represents decimal:",
+      "options": [
+        "1158",
+        "684",
+        "48.6",
+        "486"
+      ],
+      "correctIndex": 3,
+      "explanation": "Decode each 4-bit group: 0100 = 4, 1000 = 8, 0110 = 6, giving 486. Reading the 12 bits as pure binary would give 1158.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m018",
+      "questionText": "Which of the following is NOT a valid 8421 BCD number?",
+      "options": [
+        "1001 1000",
+        "0111 1100",
+        "0101 0011",
+        "0000 1001"
+      ],
+      "correctIndex": 1,
+      "explanation": "In 8421 BCD each group must be 0000 to 1001; the group 1100 (12) in 0111 1100 is an invalid code.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m019",
+      "questionText": "To store any decimal number from 0 to 999, how many bits are needed in 8421 BCD and in pure unsigned binary respectively?",
+      "options": [
+        "12 and 9",
+        "10 and 12",
+        "12 and 10",
+        "9 and 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "BCD needs 4 bits per digit: 3 × 4 = 12. Binary needs n with 2ⁿ − 1 ≥ 999: 2¹⁰ − 1 = 1023, so 10 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m020",
+      "questionText": "The BCD numbers 0101 1000 (58) and 0010 0111 (27) are added using BCD addition. The corrected BCD result is:",
+      "options": [
+        "1000 0101",
+        "0111 1111",
+        "1000 1111",
+        "0101 0101"
+      ],
+      "correctIndex": 0,
+      "explanation": "Binary addition gives 0111 1111; the low digit 1111 (15) exceeds 9, so add 0110: 1111 + 0110 = 1 0101 with a carry into the high digit, 0111 + 1 = 1000. Result 1000 0101 = 85 = 58 + 27.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m021",
+      "questionText": "Decimal 5 in excess-3 code is:",
+      "options": [
+        "0101",
+        "0010",
+        "1001",
+        "1000"
+      ],
+      "correctIndex": 3,
+      "explanation": "Excess-3 adds 3 to each decimal digit before coding it in binary: 5 + 3 = 8 = 1000.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m022",
+      "questionText": "Decimal 47 in excess-3 code is:",
+      "options": [
+        "0100 0111",
+        "0101 0000",
+        "0111 1010",
+        "0100 1010"
+      ],
+      "correctIndex": 2,
+      "explanation": "Add 3 to each digit separately: 4 + 3 = 7 = 0111 and 7 + 3 = 10 = 1010, giving 0111 1010. Adding 3 to the whole number (50) and coding in BCD, 0101 0000, is the classic mistake.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m023",
+      "questionText": "In excess-3 code the digit 3 is 0110. Complementing every bit gives 1001, which is the excess-3 code of which digit?",
+      "options": [
+        "6",
+        "9",
+        "3",
+        "5"
+      ],
+      "correctIndex": 0,
+      "explanation": "1001 = 9 in binary, and 9 − 3 = 6. Since 6 is the 9's complement of 3, this shows excess-3 is self-complementing: inverting the bits gives the 9's complement digit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m024",
+      "questionText": "Decimal 6 in the weighted 8, 4, −2, −1 code is:",
+      "options": [
+        "0110",
+        "1010",
+        "1001",
+        "1100"
+      ],
+      "correctIndex": 1,
+      "explanation": "With weights 8, 4, −2, −1: 1010 gives 8 − 2 = 6. 0110 gives 4 − 2 = 2, 1001 gives 8 − 1 = 7 and 1100 gives 12.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m025",
+      "questionText": "Which of the following is an unweighted code?",
+      "options": [
+        "8421 BCD",
+        "2421 code",
+        "8, 4, −2, −1 code",
+        "Excess-3 code"
+      ],
+      "correctIndex": 3,
+      "explanation": "Excess-3 (like Gray code) assigns no fixed weight to each bit position; 8421, 2421 and 84−2−1 are weighted codes whose value is the sum of bit × position weight.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m026",
+      "questionText": "The property that makes excess-3 and 2421 codes useful for decimal subtraction is that:",
+      "options": [
+        "Consecutive digits differ in exactly one bit",
+        "Every code word has an even number of 1s",
+        "The 9's complement of a digit is obtained by inverting all four bits",
+        "The code for each digit equals its pure binary value"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both codes are self-complementing: inverting each bit of the code for d gives the code for 9 − d, so a 9's complement needs only inverters. The one-bit-change property belongs to Gray code.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m027",
+      "questionText": "Binary 10110₂ converted to Gray code is:",
+      "options": [
+        "11101",
+        "10011",
+        "01001",
+        "11011"
+      ],
+      "correctIndex": 0,
+      "explanation": "Keep the MSB (1), then XOR adjacent binary bits: 1⊕0 = 1, 0⊕1 = 1, 1⊕1 = 0, 1⊕0 = 1, giving 11101.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m028",
+      "questionText": "Gray code 1011 converted to binary is:",
+      "options": [
+        "1110₂",
+        "1101₂",
+        "1011₂",
+        "1001₂"
+      ],
+      "correctIndex": 1,
+      "explanation": "b3 = g3 = 1; b2 = b3 ⊕ g2 = 1 ⊕ 0 = 1; b1 = b2 ⊕ g1 = 1 ⊕ 1 = 0; b0 = b1 ⊕ g0 = 0 ⊕ 1 = 1, so 1101₂ (13). XORing neighbouring Gray bits instead (the binary-to-Gray rule) wrongly gives 1110.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m029",
+      "questionText": "In the 4-bit reflected Gray code sequence, which code word comes immediately after 1101?",
+      "options": [
+        "1111",
+        "1110",
+        "1100",
+        "1011"
+      ],
+      "correctIndex": 0,
+      "explanation": "Gray 1101 decodes to binary 1001 = 9. The next value 10 = 1010₂ has Gray code 1, 1⊕0 = 1, 0⊕1 = 1, 1⊕0 = 1, i.e. 1111. 1110 is the binary increment of 1101, which is not how Gray code counts, and 1100 is the Gray code for 8, the previous value.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m030",
+      "questionText": "Gray code is preferred for the output of a rotary shaft-position encoder because:",
+      "options": [
+        "It needs fewer bits than binary for the same number of positions",
+        "Only one bit changes between adjacent positions, so a misaligned read is off by at most one position",
+        "It is a weighted code, so arithmetic on it is easy",
+        "It automatically detects single-bit errors"
+      ],
+      "correctIndex": 1,
+      "explanation": "If several bits changed at once, slight misalignment of the sensors could momentarily produce a completely wrong code; with Gray code only one bit is uncertain at each boundary. Gray code uses the same number of bits as binary and has no error detection.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m031",
+      "questionText": "The 7-bit ASCII code of the character '7' in hexadecimal is:",
+      "options": [
+        "07 H",
+        "47 H",
+        "67 H",
+        "37 H"
+      ],
+      "correctIndex": 3,
+      "explanation": "ASCII digits '0' to '9' occupy 30 H to 39 H, so '7' = 30 H + 7 = 37 H. 07 H is the binary value 7, not the character.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m032",
+      "questionText": "Lower-case 'g' is 67 H in ASCII. The upper-case 'G' is obtained by:",
+      "options": [
+        "Clearing bit 6, giving 27 H",
+        "Setting bit 5, giving 87 H",
+        "Clearing bit 5, giving 47 H",
+        "Subtracting 10 H, giving 57 H"
+      ],
+      "correctIndex": 2,
+      "explanation": "Upper and lower case letters differ only in bit 5 (value 20 H): 67 H − 20 H = 47 H = 'G', which is the same as ANDing with DF H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m033",
+      "questionText": "A keyboard delivers the ASCII code 39 H for the key '9'. To obtain the binary value 09 H, the program should:",
+      "options": [
+        "AND the code with 0F H",
+        "OR the code with 30 H",
+        "AND the code with F0 H",
+        "Subtract 39 H from the code"
+      ],
+      "correctIndex": 0,
+      "explanation": "Digits are 30 H + value, so masking the upper nibble (39 H AND 0F H = 09 H), or equivalently subtracting 30 H, recovers the value. AND F0 H leaves 30 H and subtracting 39 H leaves 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m034",
+      "questionText": "The 7-bit data 1011001 is sent with an even-parity bit placed as the MSB. The transmitted 8-bit word is:",
+      "options": [
+        "1101 1001",
+        "1011 0011",
+        "0101 1000",
+        "0101 1001"
+      ],
+      "correctIndex": 3,
+      "explanation": "1011001 contains four 1s, already an even count, so the even-parity bit is 0 and the word is 0 1011001 = 0101 1001.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m035",
+      "questionText": "A system uses odd parity over each 8-bit word (data plus parity). Which received word certainly contains an error?",
+      "options": [
+        "1010 1011",
+        "0110 0001",
+        "1111 0000",
+        "0000 0001"
+      ],
+      "correctIndex": 2,
+      "explanation": "With odd parity every valid word has an odd number of 1s. 1111 0000 has four 1s (even), so an error is detected; the others have 5, 3 and 1 ones.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m036",
+      "questionText": "ASCII 'C' (43 H) is transmitted with EVEN parity in bit 7. The transmitted byte is:",
+      "options": [
+        "43 H",
+        "C3 H",
+        "87 H",
+        "63 H"
+      ],
+      "correctIndex": 1,
+      "explanation": "43 H = 100 0011 has three 1s; even parity needs one more 1, so bit 7 = 1 and the byte is 1100 0011 = C3 H. 43 H would be the odd-parity byte.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m037",
+      "questionText": "A single even-parity bit added to a data word can:",
+      "options": [
+        "Detect any odd number of bit errors but correct none",
+        "Detect and correct any single-bit error",
+        "Detect any two-bit error",
+        "Detect all errors, whatever their number"
+      ],
+      "correctIndex": 0,
+      "explanation": "Flipping an odd number of bits changes the parity, so it is detected; an even number of flips restores the parity and passes unnoticed. One parity bit cannot locate the error, so no correction is possible.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m038",
+      "questionText": "For a single-error-correcting Hamming code protecting 8 data bits, the number of check bits p must satisfy 2ᵖ ≥ m + p + 1. The minimum p is:",
+      "options": [
+        "3",
+        "4",
+        "5",
+        "8"
+      ],
+      "correctIndex": 1,
+      "explanation": "With m = 8: p = 3 gives 8 ≥ 12, false; p = 4 gives 16 ≥ 13, true. So 4 check bits are needed (a 12-bit code word).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m039",
+      "questionText": "A standard TTL input has V_IL(max) = 0.8 V and V_IH(min) = 2.0 V. An input voltage of 1.4 V is:",
+      "options": [
+        "A valid logic 0",
+        "A valid logic 1",
+        "In the undefined region, so the gate may read it as either level",
+        "A valid logic 1 in positive logic and 0 in negative logic"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only inputs ≤ 0.8 V are guaranteed LOW and ≥ 2.0 V guaranteed HIGH; 1.4 V lies between them, so the result is not guaranteed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m040",
+      "questionText": "A logic family has V_OH(min) = 2.7 V, V_OL(max) = 0.5 V, V_IH(min) = 2.0 V and V_IL(max) = 0.8 V. Its worst-case (guaranteed) noise margin is:",
+      "options": [
+        "0.7 V",
+        "0.4 V",
+        "1.2 V",
+        "0.3 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "NM_H = 2.7 − 2.0 = 0.7 V and NM_L = 0.8 − 0.5 = 0.3 V; the guaranteed margin is the smaller, 0.3 V. 1.2 V is V_IH − V_IL, which is not a noise margin.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m041",
+      "questionText": "A standard TTL output (V_OH(min) = 2.4 V, V_OL(max) = 0.4 V) drives a 5 V 74HC CMOS input (V_IH(min) = 3.5 V, V_IL(max) = 1.5 V). The HIGH and LOW noise margins are respectively:",
+      "options": [
+        "1.1 V and 1.1 V",
+        "−1.1 V and 1.1 V",
+        "0.4 V and 0.4 V",
+        "1.1 V and −1.1 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "NM_H = V_OH − V_IH = 2.4 − 3.5 = −1.1 V (negative, so a TTL HIGH is not guaranteed to be read as HIGH) and NM_L = V_IL − V_OL = 1.5 − 0.4 = 1.1 V. The fix is a pull-up resistor or a 74HCT input.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m042",
+      "questionText": "A CMOS gate runs from V_DD = 5 V with input thresholds at 30 % and 70 % of V_DD and outputs V_OL = 0.1 V, V_OH = 4.9 V. Its HIGH noise margin is:",
+      "options": [
+        "1.4 V",
+        "3.4 V",
+        "1.5 V",
+        "0.9 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_IH(min) = 0.7 × 5 = 3.5 V, so NM_H = V_OH − V_IH = 4.9 − 3.5 = 1.4 V (NM_L = 1.5 − 0.1 = 1.4 V too). 3.4 V wrongly uses V_IL.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t1_m043",
+      "questionText": "The noise margin of a logic family is best defined as:",
+      "options": [
+        "The difference between the supply voltage and ground",
+        "The voltage difference V_IH(min) − V_IL(max) of an input",
+        "The maximum ripple allowed on the power supply",
+        "The largest noise voltage that can be added to a valid output level without the receiving input misreading it"
+      ],
+      "correctIndex": 3,
+      "explanation": "Noise margin compares a driver's guaranteed output level with the receiver's guaranteed input threshold (V_OH − V_IH and V_IL − V_OL); it measures how much interference a connection can absorb.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t1_m044",
+      "questionText": "A gate behaves as an OR gate in positive logic. Under negative logic the same gate performs:",
+      "options": [
+        "OR",
+        "NAND",
+        "AND",
+        "NOR"
+      ],
+      "correctIndex": 2,
+      "explanation": "Negative logic swaps the meaning of HIGH and LOW, which complements all inputs and outputs; by De Morgan the complement of OR with complemented inputs is AND, so positive OR = negative AND.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t1_m045",
+      "questionText": "Standard 74-series TTL is specified for a supply of:",
+      "options": [
+        "5 V ± 5 % (4.75 V to 5.25 V)",
+        "3 V to 15 V",
+        "2 V to 6 V",
+        "−5.2 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "Commercial 74-series TTL needs a tightly regulated 5 V ± 5 % supply. 3–15 V (or 18 V) is 4000-series CMOS, 2–6 V is 74HC CMOS and −5.2 V is the classic ECL supply.",
+      "difficulty": "medium"
+    }
+  ]
+}

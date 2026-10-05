@@ -1,0 +1,663 @@
+{
+  "topicId": "ch2_i11",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Gate Realisation, Timing and Logic Families"
+    },
+    {
+      "type": "paragraph",
+      "text": "De Morgan's theorem says an inverted-output AND equals an OR with inverted inputs, (AB)' = A' + B', so a NAND can be drawn either as an AND with an output bubble or as a 'negative-OR' with input bubbles. Drawing the second level of an AND-OR circuit as a negative-OR shows that the bubbles cancel in pairs, which is why any sum of products becomes a two-level NAND-NAND circuit with no change in wiring. By the dual argument any product of sums becomes a two-level NOR-NOR circuit. A literal that feeds the second level directly must be inverted, since a single variable passes through only one bubble."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: XOR from four 2-input NAND gates\n\nG1 = (A.B)'\nG2 = (A.G1)' = A' + A.B = A' + B\nG3 = (B.G1)' = B' + A.B = A + B'\nY  = (G2.G3)' = (A' + B)' + (A + B')' = A.B' + A'.B = A xor B\n\nA B | G1 G2 G3 | Y\n0 0 |  1  1  1 | 0\n0 1 |  1  1  0 | 1\n1 0 |  1  0  1 | 1\n1 1 |  0  1  1 | 0"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: Y = A'B + C using NAND gates only\n\nSOP -> NAND-NAND; the lone literal C feeds level 2, so invert it\nG1 = NAND(A, A)   = A'\nG2 = NAND(G1, B)  = (A'.B)'\nG3 = NAND(C, C)   = C'\nY  = NAND(G2, G3) = (A'.B) + C       -> 4 gates in total\nCheck A=0,B=1,C=0: G1=1, G2=0, G3=1, Y=1  (A'B = 1, correct)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Real gates are not instantaneous, so a timing diagram must shift each output edge right by the gate's delay: t_PHL for a falling output and t_PLH for a rising one. Delays add along a path, so a signal through several inverting stages alternates between the two values. When one signal reaches a gate by two paths of different delay, the output can show a brief false pulse called a glitch or hazard: for Y = A.A' built with an inverter of delay 10 ns, a rising A makes Y go HIGH for 10 ns although the ideal output is always 0."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{fan-out} = \\min\\left(\\frac{I_{OL}}{I_{IL}}, \\frac{I_{OH}}{I_{IH}}\\right)",
+      "plainText": "fan-out = min(I_OL / I_IL, I_OH / I_IH)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: fan-out of standard TTL driving standard TTL\n\nOutput : I_OL = 16 mA (sink), I_OH = 400 uA (source)\nInput  : I_IL = 1.6 mA,         I_IH = 40 uA\nLOW    : 16 mA / 1.6 mA  = 10 loads\nHIGH   : 400 uA / 40 uA  = 10 loads\nFan-out = min(10, 10) = 10\nIf the same output drove 74LS inputs (0.4 mA, 20 uA): min(40, 20) = 20"
+    },
+    {
+      "type": "formula",
+      "latex": "P_D = C_L V_{DD}^2 f, \\qquad SPP = t_{pd} \\times P",
+      "plainText": "CMOS dynamic power P_D = C_L x V_DD^2 x f; speed-power product = t_pd x P"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Family",
+          "Typical delay per gate",
+          "Typical power per gate",
+          "Supply and remarks"
+        ],
+        [
+          "Standard TTL (74)",
+          "about 10 ns",
+          "about 10 mW",
+          "5 V +/- 5 %, fan-out 10"
+        ],
+        [
+          "Low-power Schottky (74LS)",
+          "about 9.5 ns",
+          "about 2 mW",
+          "5 V, fan-out 20 to LS loads"
+        ],
+        [
+          "High-speed CMOS (74HC)",
+          "about 8 to 10 ns at 5 V",
+          "microwatts static, rises with frequency",
+          "2 V to 6 V; HCT has TTL input levels"
+        ],
+        [
+          "4000B CMOS",
+          "tens of ns (slowest at low supply)",
+          "microwatts static",
+          "3 V to 18 V, wide noise margin"
+        ],
+        [
+          "ECL",
+          "about 1 ns or less",
+          "about 25 mW",
+          "-5.2 V, non-saturating, fastest"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A CMOS gate is a PMOS pull-up network and a complementary NMOS pull-down network: for NAND the NMOS pair is in series and the PMOS pair in parallel, and for NOR the reverse. Standard TTL uses a totem-pole output, which actively drives both levels, so two totem-pole outputs must never be joined. Open-collector (or open-drain) outputs only pull LOW; tied together with one pull-up resistor they form a wired-AND, used for shared interrupt or reset lines."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with gates and gate parameters:",
+      "items": [
+        "Taking fan-out as the average or the larger of the HIGH and LOW ratios; it is always the smaller ratio.",
+        "Cascading two 2-input NOR (or NAND) gates to get a 3-input gate: these operations are not associative, so an inverter is needed between stages.",
+        "Converting an AND-OR circuit to NAND gate by gate (2 + 2 + 3 gates) instead of using the direct NAND-NAND form.",
+        "Using the average delay when the question gives separate t_PLH and t_PHL; trace each edge through the path.",
+        "Forgetting to square V_DD in the CMOS dynamic-power formula."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For gate-count questions start from the dual rules: NAND-NAND for sum of products, NOR-NOR for product of sums, and share any gate whose output is reused, as in the half adder where the first NAND of the XOR also gives the inverted carry, making 5 NANDs in total."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i11_m001",
+      "questionText": "With inputs A = 1, B = 1, C = 0, which 3-input gate gives output 1?",
+      "options": [
+        "AND",
+        "NOR",
+        "NAND",
+        "XOR"
+      ],
+      "correctIndex": 2,
+      "explanation": "AND needs all 1s, so it gives 0 and NAND gives 1; NOR is 0 because some input is 1; XOR is 1 ⊕ 1 ⊕ 0 = 0 (an even number of 1s).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m002",
+      "questionText": "Which gate gives output 1 only when all of its inputs are 0?",
+      "options": [
+        "NAND",
+        "XNOR",
+        "OR",
+        "NOR"
+      ],
+      "correctIndex": 3,
+      "explanation": "NOR = (A + B + ...)' is 1 only when no input is 1. NAND is 0 only when all inputs are 1, and a 2-input XNOR is also 1 for 11.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m003",
+      "questionText": "For how many of its 16 input combinations does a 4-input OR gate give output 0?",
+      "options": [
+        "1",
+        "15",
+        "4",
+        "0"
+      ],
+      "correctIndex": 0,
+      "explanation": "An OR output is 0 only when every input is 0, which is the single combination 0000; the other 15 give 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m004",
+      "questionText": "How many rows of the truth table of a 4-input NAND gate have output 1?",
+      "options": [
+        "1",
+        "15",
+        "8",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "NAND is 0 only for 1111; 2⁴ − 1 = 15 rows give 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m005",
+      "questionText": "For how many of the 16 input combinations does a 4-input XOR gate give output 1?",
+      "options": [
+        "8",
+        "4",
+        "1",
+        "15"
+      ],
+      "correctIndex": 0,
+      "explanation": "A multi-input XOR is 1 for an odd number of 1s: C(4,1) + C(4,3) = 4 + 4 = 8 combinations, exactly half.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m006",
+      "questionText": "The 4-bit words 1100 and 1010 are applied bit by bit to four 2-input NAND gates. The output word is:",
+      "options": [
+        "1000",
+        "0001",
+        "0111",
+        "1110"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bitwise AND is 1000, so NAND is its complement 0111. 0001 is the NOR result and 1110 the OR result.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m007",
+      "questionText": "The bytes 1011 0110 and 0110 1100 are XORed bit by bit. The result is:",
+      "options": [
+        "0010 0100",
+        "1111 1110",
+        "0010 0101",
+        "1101 1010"
+      ],
+      "correctIndex": 3,
+      "explanation": "XOR gives 1 where the bits differ: 1011 0110 ⊕ 0110 1100 = 1101 1010. 0010 0100 is the AND and 1111 1110 the OR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m008",
+      "questionText": "Y = ((AB)' + C)'. For which input combination(s) ABC is Y = 1?",
+      "options": [
+        "111 only",
+        "110 only",
+        "110 and 111",
+        "000 only"
+      ],
+      "correctIndex": 1,
+      "explanation": "By De Morgan Y = (AB)'' · C' = AB · C', which is 1 only when A = 1, B = 1 and C = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m009",
+      "questionText": "Y = (A ⊕ B) · (B ⊕ C). For which input combinations ABC is Y = 1?",
+      "options": [
+        "010 and 101",
+        "000 and 111",
+        "011 and 100",
+        "001 and 110"
+      ],
+      "correctIndex": 0,
+      "explanation": "Y = 1 needs A ≠ B and B ≠ C, i.e. B differs from both neighbours: B = 1 with A = C = 0 (010) or B = 0 with A = C = 1 (101).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m010",
+      "questionText": "A tri-state buffer has an active-high enable. When the enable input is 0 the output is:",
+      "options": [
+        "Logic 0",
+        "Logic 1",
+        "High impedance (effectively disconnected)",
+        "The complement of the input"
+      ],
+      "correctIndex": 2,
+      "explanation": "A disabled tri-state output goes to the third, Hi-Z state, which neither drives HIGH nor LOW; this lets several outputs share one bus line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m011",
+      "questionText": "The expression A ⊕ B ⊕ A simplifies to:",
+      "options": [
+        "A",
+        "0",
+        "1",
+        "B"
+      ],
+      "correctIndex": 3,
+      "explanation": "XOR is associative and commutative, so A ⊕ B ⊕ A = (A ⊕ A) ⊕ B = 0 ⊕ B = B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m012",
+      "questionText": "The expression A ⊕ A' ⊕ 1 equals:",
+      "options": [
+        "1",
+        "0",
+        "A",
+        "A'"
+      ],
+      "correctIndex": 1,
+      "explanation": "A ⊕ A' = 1 for either value of A, and 1 ⊕ 1 = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m013",
+      "questionText": "Four XOR gates each have one input tied to a control line M = 1 and the other connected to one bit of the data 1011. The output is:",
+      "options": [
+        "1011",
+        "1111",
+        "0000",
+        "0100"
+      ],
+      "correctIndex": 3,
+      "explanation": "X ⊕ 1 = X', so with M = 1 each gate inverts its bit: 1011 becomes 0100. With M = 0 the data would pass unchanged; this is how an adder-subtractor forms the 1's complement.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m014",
+      "questionText": "A 4-bit equality comparator (output 1 when A3A2A1A0 = B3B2B1B0) is built from:",
+      "options": [
+        "Four 2-input XOR gates feeding one 4-input AND gate",
+        "Four 2-input XNOR gates feeding one 4-input AND gate",
+        "Four 2-input XNOR gates feeding one 4-input OR gate",
+        "Four 2-input AND gates feeding one 4-input XOR gate"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each XNOR outputs 1 when its bit pair is equal, and the AND is 1 only if all four pairs are equal. XOR gates would signal inequality instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m015",
+      "questionText": "Which statement about the algebraic properties of logic gates is NOT correct?",
+      "options": [
+        "The 2-input XOR operation is associative",
+        "The 2-input AND operation is commutative",
+        "The 2-input NOR operation is associative",
+        "A NAND gate is a universal gate"
+      ],
+      "correctIndex": 2,
+      "explanation": "(A NOR B) NOR C ≠ A NOR (B NOR C); for A = 1, B = 0, C = 0 the first is 1 and the second is 0. This is why a 3-input NOR cannot be made by simply cascading two 2-input NORs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m016",
+      "questionText": "Two 2-input NOR gates are wired as inverters, producing A' and B', which feed a third 2-input NOR gate. The output is:",
+      "options": [
+        "A · B",
+        "A + B",
+        "(A · B)'",
+        "A ⊕ B"
+      ],
+      "correctIndex": 0,
+      "explanation": "(A' + B')' = A'' · B'' = AB by De Morgan, so three NOR gates make an AND gate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m017",
+      "questionText": "In the four-NAND XOR circuit, G1 = (AB)'. The second gate outputs G2 = (A · G1)'. G2 equals:",
+      "options": [
+        "A + B'",
+        "AB'",
+        "A' + B",
+        "A'B"
+      ],
+      "correctIndex": 2,
+      "explanation": "G2 = (A · (AB)')' = A' + AB (De Morgan) = A' + B (absorption). Similarly G3 = A + B', and G4 = (G2 · G3)' = AB' + A'B = A ⊕ B.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m018",
+      "questionText": "In a two-level NAND-NAND circuit, G1 = (AB)', G2 = (CD)' and the output gate is Y = (G1 · G2)'. Y equals:",
+      "options": [
+        "(A + B)(C + D)",
+        "(AB + CD)'",
+        "ABCD",
+        "AB + CD"
+      ],
+      "correctIndex": 3,
+      "explanation": "Y = ((AB)'(CD)')' = AB + CD by De Morgan, so any sum-of-products maps directly onto two levels of NAND gates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m019",
+      "questionText": "The minimum number of 2-input NAND gates needed to realise Y = AB + CD is:",
+      "options": [
+        "4",
+        "3",
+        "5",
+        "7"
+      ],
+      "correctIndex": 1,
+      "explanation": "The NAND-NAND form uses (AB)', (CD)' and a final NAND: 3 gates, and a function of 4 inputs cannot be built with fewer than 3 two-input gates. Converting an AND-OR circuit gate by gate (2 + 2 + 3 NANDs) wastefully gives 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m020",
+      "questionText": "The minimum number of 2-input NAND gates needed to build a 2-input OR gate is:",
+      "options": [
+        "3",
+        "2",
+        "4",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "A + B = (A' · B')': two NANDs used as inverters produce A' and B', and a third NAND combines them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m021",
+      "questionText": "The minimum number of 2-input NOR gates needed to realise a 2-input XNOR is:",
+      "options": [
+        "5",
+        "3",
+        "4",
+        "2"
+      ],
+      "correctIndex": 2,
+      "explanation": "XNOR is the dual of XOR: the four-gate NOR network G1 = (A + B)', G2 = (A + G1)', G3 = (B + G1)', Y = (G2 + G3)' gives AB + A'B'. XOR from NOR gates needs 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m022",
+      "questionText": "A half adder (S = A ⊕ B, C = AB) is built only from 2-input NAND gates, sharing gates where possible. The minimum number of gates is:",
+      "options": [
+        "5",
+        "6",
+        "4",
+        "7"
+      ],
+      "correctIndex": 0,
+      "explanation": "The four-NAND XOR already produces G1 = (AB)' as its first gate, so the carry needs just one more NAND used as an inverter: 4 + 1 = 5. Building XOR and AND separately would take 4 + 2 = 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m023",
+      "questionText": "The minimum number of 2-input NAND gates needed to realise a 3-input NAND function (ABC)' is:",
+      "options": [
+        "2",
+        "4",
+        "5",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "(AB)' needs one NAND, a second NAND inverts it to AB, and a third gives (AB · C)'. Two gates are not enough: cascading two NANDs gives ((AB)' C)' = AB + C'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m024",
+      "questionText": "An 8-input AND function is built as a balanced tree of 2-input AND gates, each with a propagation delay of 5 ns. The number of gates and the worst-case delay are:",
+      "options": [
+        "7 gates, 35 ns",
+        "7 gates, 15 ns",
+        "4 gates, 20 ns",
+        "8 gates, 15 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each 2-input gate removes one signal, so 8 inputs need 8 − 1 = 7 gates; a balanced tree has log₂8 = 3 levels, giving 3 × 5 = 15 ns. A linear chain would also use 7 gates but take 7 × 5 = 35 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m025",
+      "questionText": "An AND symbol with bubbles on both inputs (a 'negative-AND') is logically equivalent to:",
+      "options": [
+        "A NOR gate",
+        "A NAND gate",
+        "An OR gate",
+        "An XNOR gate"
+      ],
+      "correctIndex": 0,
+      "explanation": "A' · B' = (A + B)' by De Morgan, so a negative-AND is a NOR; likewise a negative-OR, A' + B', is a NAND.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m026",
+      "questionText": "Over 0 to 8 µs, input A is HIGH from 0 to 4 µs and input B is HIGH from 2 to 6 µs (ideal gates). A 2-input XOR output is HIGH during:",
+      "options": [
+        "2–4 µs only",
+        "0–6 µs",
+        "6–8 µs only",
+        "0–2 µs and 4–6 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "XOR is HIGH when exactly one input is HIGH: only A during 0–2 µs and only B during 4–6 µs. 2–4 µs is the AND output and 0–6 µs the OR output.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m027",
+      "questionText": "A gate has t_PLH = 14 ns and t_PHL = 10 ns. Its average propagation delay is:",
+      "options": [
+        "24 ns",
+        "12 ns",
+        "14 ns",
+        "4 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "t_pd = (t_PLH + t_PHL) / 2 = (14 + 10) / 2 = 12 ns.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m028",
+      "questionText": "A rising edge is applied to a chain of three inverters, each with t_PHL = 8 ns and t_PLH = 12 ns. The final output changes after:",
+      "options": [
+        "32 ns",
+        "36 ns",
+        "28 ns",
+        "30 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "The outputs alternate: inverter 1 falls (8 ns), inverter 2 rises (12 ns), inverter 3 falls (8 ns), so the delay is 8 + 12 + 8 = 28 ns. Using the average 10 ns per gate gives 30 ns and using 12 ns throughout gives 36 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m029",
+      "questionText": "Y = A · A', where A' is produced by an inverter with 10 ns delay and the AND gate is ideal. When A changes from 0 to 1, the output Y:",
+      "options": [
+        "Stays at 0 throughout",
+        "Changes permanently to 1",
+        "Shows a 20 ns positive glitch",
+        "Shows a 10 ns positive glitch before returning to 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "Until the inverter responds, A = 1 and the stale A' = 1 are both HIGH, so Y = 1 for 10 ns and then returns to 0. Such glitches from unequal path delays are called static hazards.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m030",
+      "questionText": "A 1 kHz clock is applied to one input of a 2-input AND gate whose other input is an enable that goes HIGH at a rising clock edge and stays HIGH for exactly 5 ms. How many complete clock pulses reach the output?",
+      "options": [
+        "5",
+        "1",
+        "10",
+        "50"
+      ],
+      "correctIndex": 0,
+      "explanation": "A 1 kHz clock has a period of 1 ms, so with the enable window starting on a rising edge the AND gate passes 5 ms ÷ 1 ms = 5 complete pulses; when the enable is LOW the output stays LOW.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m031",
+      "questionText": "A 74LS output has I_OL = 8 mA and I_OH = 400 µA. Each 74LS input needs I_IL = 0.4 mA and I_IH = 20 µA. The fan-out is:",
+      "options": [
+        "10",
+        "20",
+        "40",
+        "2"
+      ],
+      "correctIndex": 1,
+      "explanation": "LOW state: 8 mA ÷ 0.4 mA = 20; HIGH state: 400 µA ÷ 20 µA = 20. Fan-out = smaller of the two = 20.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m032",
+      "questionText": "A gate output can supply I_OH = 400 µA and sink I_OL = 8 mA. It drives standard TTL inputs, each needing I_IH = 40 µA and I_IL = 1.6 mA. The fan-out is:",
+      "options": [
+        "10",
+        "20",
+        "5",
+        "7"
+      ],
+      "correctIndex": 2,
+      "explanation": "HIGH state allows 400 ÷ 40 = 10 loads, LOW state only 8 ÷ 1.6 = 5; the fan-out is the smaller value, 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m033",
+      "questionText": "The fan-in of a logic gate is:",
+      "options": [
+        "The number of inputs the gate has",
+        "The number of gate inputs its output can drive",
+        "The time taken for its output to respond",
+        "The current drawn by one input"
+      ],
+      "correctIndex": 0,
+      "explanation": "Fan-in counts inputs (a 74LS20 gate has fan-in 4); the number of loads an output can drive is fan-out.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m034",
+      "questionText": "A gate has a propagation delay of 10 ns and a power dissipation of 10 mW. Its speed-power product is:",
+      "options": [
+        "1 pJ",
+        "100 nJ",
+        "1 nJ",
+        "100 pJ"
+      ],
+      "correctIndex": 3,
+      "explanation": "Speed-power product = t_pd × P = 10 × 10⁻⁹ s × 10 × 10⁻³ W = 1 × 10⁻¹⁰ J = 100 pJ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m035",
+      "questionText": "A TTL gate draws I_CCH = 1 mA with its output HIGH and I_CCL = 3 mA with its output LOW from a 5 V supply. At a 50 % duty cycle its average power dissipation is:",
+      "options": [
+        "20 mW",
+        "5 mW",
+        "10 mW",
+        "15 mW"
+      ],
+      "correctIndex": 2,
+      "explanation": "Average I_CC = (1 + 3) / 2 = 2 mA, so P = 5 V × 2 mA = 10 mW. 15 mW would use only the LOW-state current.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m036",
+      "questionText": "A CMOS gate drives a 50 pF load from V_DD = 5 V and switches at 1 MHz. Using P_D = C V² f, its dynamic power dissipation is:",
+      "options": [
+        "0.25 mW",
+        "1.25 mW",
+        "12.5 mW",
+        "6.25 mW"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_D = 50 × 10⁻¹² × 5² × 10⁶ = 1.25 × 10⁻³ W = 1.25 mW. Forgetting to square V gives 0.25 mW.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i11_m037",
+      "questionText": "The static power dissipation of a CMOS gate is almost zero because:",
+      "options": [
+        "Its transistors operate in saturation all the time",
+        "It uses a very low supply voltage",
+        "Its output is always in the high-impedance state",
+        "In either steady output state one transistor of each complementary pair is OFF, so no DC path exists from V_DD to ground"
+      ],
+      "correctIndex": 3,
+      "explanation": "The pull-up PMOS and pull-down NMOS networks are never both ON in a steady state, so only leakage flows; power is consumed mainly while switching (charging the load capacitance).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m038",
+      "questionText": "A 2-input CMOS NAND gate is built with:",
+      "options": [
+        "Two PMOS transistors in parallel and two NMOS transistors in series",
+        "Two PMOS transistors in series and two NMOS transistors in parallel",
+        "Two NMOS transistors in parallel and a resistor pull-up",
+        "Four NMOS transistors in series"
+      ],
+      "correctIndex": 0,
+      "explanation": "The output must be pulled LOW only when both inputs are 1 (series NMOS) and pulled HIGH when either input is 0 (parallel PMOS). The series-PMOS / parallel-NMOS arrangement is the NOR gate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m039",
+      "questionText": "Which statement about unused inputs is correct?",
+      "options": [
+        "Unused CMOS inputs may be left floating because they draw no current",
+        "Unused CMOS inputs must be tied to V_DD or ground, because a floating CMOS input can drift and cause excess current or oscillation",
+        "A floating TTL input behaves as logic 0",
+        "Unused inputs of an AND gate should be tied to ground"
+      ],
+      "correctIndex": 1,
+      "explanation": "CMOS inputs have very high impedance, so a floating input picks up charge and may sit mid-way, turning both transistors partly on. A floating TTL input acts as logic 1, and tying an unused AND input to ground would force the output to 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m040",
+      "questionText": "Several open-collector outputs are connected together to a single pull-up resistor. The common line implements:",
+      "options": [
+        "Wired-OR of the outputs",
+        "Wired-XOR of the outputs",
+        "Wired-AND of the outputs",
+        "A tri-state bus with no pull-up needed"
+      ],
+      "correctIndex": 2,
+      "explanation": "Any output that turns its transistor ON pulls the line LOW, so the line is HIGH only when every output is HIGH: a wired-AND. Totem-pole outputs must never be joined this way because a HIGH and a LOW output would short the supply.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m041",
+      "questionText": "Which logic family offers the shortest propagation delay, because its transistors never enter saturation?",
+      "options": [
+        "Standard TTL",
+        "ECL",
+        "4000-series CMOS",
+        "74LS TTL"
+      ],
+      "correctIndex": 1,
+      "explanation": "Emitter-coupled logic keeps its transistors in the active region, avoiding saturation storage delay, and achieves sub-nanosecond to about 1 ns delays at the cost of high power. 4000-series CMOS is the slowest of the four.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i11_m042",
+      "questionText": "The 7400 integrated circuit contains:",
+      "options": [
+        "Four 2-input NAND gates",
+        "Four 2-input NOR gates",
+        "Six inverters",
+        "Four 2-input AND gates"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 7400 is a quad 2-input NAND; the 7402 is the quad 2-input NOR, 7404 the hex inverter and 7408 the quad 2-input AND.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i11_m043",
+      "questionText": "In the part number 74LS00, the letters 'LS' stand for:",
+      "options": [
+        "Large-scale",
+        "Low-speed",
+        "Low-power Schottky",
+        "Level-shifting"
+      ],
+      "correctIndex": 2,
+      "explanation": "74LS is the low-power Schottky TTL sub-family: Schottky-clamped transistors avoid saturation, giving roughly standard TTL speed at about one fifth of the power.",
+      "difficulty": "easy"
+    }
+  ]
+}

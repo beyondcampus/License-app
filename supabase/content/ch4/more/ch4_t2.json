@@ -1,0 +1,762 @@
+{
+  "topicId": "ch4_t2",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Arithmetic Algorithms Step by Step"
+    },
+    {
+      "type": "paragraph",
+      "text": "Mano's sign-magnitude adder-subtractor keeps the magnitudes in registers A and B, their signs in As and Bs, the end carry in flip-flop E and an overflow flag AVF. Subtraction is first turned into addition by complementing Bs, after which only two cases remain. If the signs are equal, the magnitudes are added and the end carry is copied into AVF as the overflow indication. If the signs differ, A + B' + 1 is formed: E = 1 means A ≥ B and the result is already correct, while E = 0 means A < B, so A is replaced by its 2's complement and As is complemented. When the magnitudes cancel (A = B), As is cleared so that the result is +0, never −0."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Case (Bs already complemented for subtraction)",
+          "Magnitude operation",
+          "Sign of result",
+          "Overflow flag"
+        ],
+        [
+          "As = Bs",
+          "A ← A + B",
+          "As",
+          "AVF ← E (end carry)"
+        ],
+        [
+          "As ≠ Bs and E = 1 (A ≥ B)",
+          "A ← A + B' + 1",
+          "As, forced to + if A = 0",
+          "AVF ← 0"
+        ],
+        [
+          "As ≠ Bs and E = 0 (A < B)",
+          "A ← A + B' + 1, then A ← A' + 1",
+          "Complement of As",
+          "AVF ← 0"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "Q\\,M = \\sum_{i=0}^{n-1} (q_{i-1} - q_i)\\,2^{i} M,\\qquad q_{-1} = 0",
+      "plainText": "Q·M = Σ (q_(i−1) − q_i)·2^i·M over i = 0 … n−1, with q_(−1) = 0: pair Q0 Q−1 = 10 gives −M, 01 gives +M, 00 and 11 give nothing"
+    },
+    {
+      "type": "paragraph",
+      "text": "The recoded digit q_(i−1) − q_i is −1 at the right-hand end of a run of 1s, +1 just past its left-hand end and 0 inside a run of 1s or of 0s. Summed over all positions, these digits reproduce the 2's complement weight −2^(n−1) of the sign bit automatically, so Booth's algorithm needs no sign correction, provided the partial product is kept signed by an arithmetic right shift. The worst case is an alternating multiplier such as 0101 0101, which needs an operation in every cycle; bit-pair (radix-4) recoding looks at two bits at a time, uses the digits −2 to +2 and halves the number of partial products. The table multiplies M = 0111 (+7) by Q = 1101 (−3)."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Cycle",
+          "Q0 Q−1",
+          "Operation (M = 0111, −M = 1001)",
+          "A  Q  Q−1 after shift"
+        ],
+        [
+          "start",
+          "1 0",
+          "A = 0000, Q = 1101 (−3), Q−1 = 0",
+          "0000 1101 0"
+        ],
+        [
+          "1",
+          "1 0",
+          "A ← A − M = 1001; ashr",
+          "1100 1110 1"
+        ],
+        [
+          "2",
+          "0 1",
+          "A ← A + M = 0011; ashr",
+          "0001 1111 0"
+        ],
+        [
+          "3",
+          "1 0",
+          "A ← A − M = 1010; ashr",
+          "1101 0111 1"
+        ],
+        [
+          "4",
+          "1 1",
+          "no operation; ashr",
+          "1110 1011 1"
+        ],
+        [
+          "result",
+          "not used",
+          "A:Q = 1110 1011",
+          "−21 = 7 × (−3)"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Restoring division of 1011 (11) by 0011 (3), tabulated below, keeps the dividend in Q, the divisor in M = 00011 and a 5-bit partial remainder A that starts at 00000, the extra bit showing the sign of A − M. Each cycle shifts A and Q left as one register, subtracts M, and keeps the difference only if it is not negative (q0 = 1); otherwise q0 = 0 and M is added back. Non-restoring division skips the add-back: when A is negative, the next cycle shifts and adds M, because 2(A + M) − M = 2A + M, and after n cycles one correction A ← A + M is made if A is still negative. Both methods leave the quotient in Q and the remainder in A."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Cycle",
+          "After shifting A, Q left",
+          "A − M",
+          "Decision, new A and Q"
+        ],
+        [
+          "1",
+          "A = 00001, Q = 011_",
+          "11110 (negative)",
+          "q0 = 0, restore: A = 00001, Q = 0110"
+        ],
+        [
+          "2",
+          "A = 00010, Q = 110_",
+          "11111 (negative)",
+          "q0 = 0, restore: A = 00010, Q = 1100"
+        ],
+        [
+          "3",
+          "A = 00101, Q = 100_",
+          "00010 (not negative)",
+          "q0 = 1: A = 00010, Q = 1001"
+        ],
+        [
+          "4",
+          "A = 00101, Q = 001_",
+          "00010 (not negative)",
+          "q0 = 1: A = 00010, Q = 0011"
+        ],
+        [
+          "result",
+          "Quotient Q = 0011 (3)",
+          "Remainder A = 00010 (2)",
+          "Check: 11 = 3 × 3 + 2"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Encode 12.625 in IEEE 754 single precision\n12.625 = 1100.101 (binary) = 1.100101 × 2^3\nS = 0   E = 3 + 127 = 130 = 1000 0010   F = 1001 0100 0000 ... (23 bits)\n0 10000010 10010100000000000000000 = 0100 0001 0100 1010 0000 ... = 414A 0000\nDouble precision: E = 3 + 1023 = 1026 = 100 0000 0010, same fraction bits\n0 10000000010 1001010...0 = 4029 4000 0000 0000\nDecode C1A4 0000: S = 1, E = 1000 0011 = 131, F = 0100 1000 ...\nvalue = −1.01001 × 2^(131 − 127) = −10100.1 (binary) = −20.5"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Add X = 9.75 = 1.00111 × 2^3 (E = 130) and Y = 0.5625 = 1.001 × 2^−1 (E = 126)\n1. Compare exponents:  3 − (−1) = 4\n2. Align:  shift Y's significand right 4 places: 1.001 → 0.0001001 (× 2^3)\n3. Add significands:  1.0011100 + 0.0001001 = 1.0100101\n4. Normalise:  already in 1.F form, exponent stays 3\n5. Round and check range:  fits in 23 fraction bits, no overflow or underflow\nResult 1.0100101 × 2^3 = 1010.0101 (binary) = 10.3125 = 4125 0000 (hex)"
+    },
+    {
+      "type": "formula",
+      "latex": "S = S_1 \\oplus S_2,\\quad E = E_1 + E_2 - 127,\\quad M = M_1 \\times M_2",
+      "plainText": "Floating-point multiply (single precision): S = S1 XOR S2; stored exponent E = E1 + E2 − 127 (one bias removed); significand M = M1 × M2, then normalise (if 2 ≤ M < 4 shift right once and add 1 to E) and round"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: using a logical instead of an arithmetic right shift in Booth's algorithm; forgetting that the restoring divider's A register needs an extra bit for the sign; reading the carry flag as signed overflow; forgetting the hidden 1 when decoding IEEE 754, or storing it in F when encoding; adding both biases, or neither, when multiplying floating-point numbers; and applying the BCD +6 correction only when the 4-bit sum exceeds 9 while ignoring the case where the adder itself produced a carry (8 + 9 = 1 0001). One special case: with an n-bit A register, Booth's algorithm gives wrong products when the multiplicand is −2^(n−1) (1000 in 4 bits), because −M does not fit in n bits; one extra bit in A and M removes the problem."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t2_m001",
+      "questionText": "What is the 8-bit 2's complement representation of −44?",
+      "options": [
+        "1101 0011",
+        "1010 1100",
+        "1101 0100",
+        "1101 0101"
+      ],
+      "correctIndex": 2,
+      "explanation": "+44 = 0010 1100; inverting gives 1101 0011 (the 1's complement) and adding 1 gives 1101 0100. 1010 1100 is the sign-magnitude form.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m002",
+      "questionText": "What is the range of a 12-bit 2's complement integer?",
+      "options": [
+        "−2048 to +2047",
+        "−2047 to +2047",
+        "0 to 4095",
+        "−4096 to +4095"
+      ],
+      "correctIndex": 0,
+      "explanation": "−2^(n−1) to 2^(n−1) − 1 with n = 12 gives −2048 to +2047. −2047 to +2047 is the sign-magnitude or 1's complement range, and 0 to 4095 is the unsigned range.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m003",
+      "questionText": "The 8-bit 2's complement numbers 0100 1011 (+75) and 0101 1010 (+90) are added. What are the 8-bit result, the carry out C and the overflow flag V?",
+      "options": [
+        "1010 0101, C = 1, V = 0",
+        "1010 0101, C = 0, V = 0",
+        "0010 0101, C = 1, V = 1",
+        "1010 0101, C = 0, V = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "The true sum 165 exceeds +127, and the 8 bits read 1010 0101 (−91). The carry into the sign bit is 1 and the carry out of it is 0, so V = 1 ⊕ 0 = 1 while C = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m004",
+      "questionText": "The 8-bit 2's complement subtraction A − B, with A = 1010 0000 (−96) and B = 0100 0000 (+64), is performed as A + B' + 1. What are the result, the carry out C and the overflow flag V?",
+      "options": [
+        "0110 0000, C = 1, V = 0",
+        "0110 0000, C = 1, V = 1",
+        "1110 0000, C = 0, V = 0",
+        "0101 1111, C = 1, V = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "B' + 1 = 1100 0000, and 1010 0000 + 1100 0000 = 1 0110 0000, so C = 1 and the 8 bits read +96. The true answer −160 is below −128: the carry into the sign bit (0) differs from the carry out (1), so V = 1. 1110 0000 is A + B, and 0101 1111 forgets the +1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m005",
+      "questionText": "In 2's complement addition, overflow can never occur when:",
+      "options": [
+        "Both operands are positive",
+        "The two operands have opposite signs",
+        "Both operands are negative",
+        "The carry out of the sign bit is 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "A sum of numbers with opposite signs lies between the two operands, so it always fits. Two positives or two negatives can overflow, and a carry out of 1 on its own says nothing about signed overflow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m006",
+      "questionText": "In 8-bit 1's complement arithmetic, what is the result of adding 0000 1001 (+9) and 1111 1010 (−5)?",
+      "options": [
+        "0000 0011",
+        "1111 1100",
+        "0000 0101",
+        "0000 0100"
+      ],
+      "correctIndex": 3,
+      "explanation": "0000 1001 + 1111 1010 = 1 0000 0011. In 1's complement the end carry is added back into the LSB (end-around carry): 0000 0011 + 1 = 0000 0100 = +4. Discarding the carry as in 2's complement would give 0000 0011 (+3).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m007",
+      "questionText": "Mano's sign-magnitude adder-subtractor computes (+5) − (+9) with 4-bit magnitudes A = 0101 and B = 1001. The magnitudes are subtracted as A + B' + 1 into E and A. What are the end carry E and the final result?",
+      "options": [
+        "E = 0; A = 1100 is replaced by its 2's complement 0100 and the sign is changed, giving −4",
+        "E = 0; the result is −1100 (−12), taken directly from A",
+        "E = 1; the result is +0100 (+4)",
+        "E = 1; the result is −1100 (−12)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Like signs in a subtraction mean the magnitudes are subtracted: 0101 + 0110 + 1 = 0 1100, so E = 0, which shows A < B. Mano's algorithm then forms A' + 1 (1100 → 0100) and complements As, giving −0100 = −4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m008",
+      "questionText": "In Mano's sign-magnitude addition and subtraction hardware, when is the overflow flip-flop AVF set to 1?",
+      "options": [
+        "Whenever the carry into the sign bit differs from the carry out of it",
+        "Whenever the magnitudes are subtracted and E = 0",
+        "When the magnitudes are added and the end carry E is 1",
+        "Whenever the sign of the result differs from the sign of B"
+      ],
+      "correctIndex": 2,
+      "explanation": "The sign bits do not pass through the adder in sign-magnitude hardware; overflow is possible only when magnitudes are added, and the end carry, copied into AVF, shows it. When magnitudes are subtracted, E only tells whether A ≥ B and AVF is cleared.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m009",
+      "questionText": "In a carry-lookahead adder with generate G_i = A_i B_i and propagate P_i = A_i ⊕ B_i, the carry into stage i + 1 is:",
+      "options": [
+        "C_(i+1) = G_i P_i + C_i",
+        "C_(i+1) = P_i + G_i C_i",
+        "C_(i+1) = G_i ⊕ P_i ⊕ C_i",
+        "C_(i+1) = G_i + P_i C_i"
+      ],
+      "correctIndex": 3,
+      "explanation": "A stage produces a carry if it generates one (both inputs 1) or if it propagates an incoming carry (exactly one input 1 and C_i = 1). Expanding recursively, e.g. C2 = G1 + P1G0 + P1P0C0, gives every carry in two gate levels after G and P.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m010",
+      "questionText": "Which statement about 2's complement arithmetic is NOT correct?",
+      "options": [
+        "There is only one representation of zero",
+        "A carry out of the sign bit always means that the signed result has overflowed",
+        "A − B can be computed as A + B' + 1 with the same adder",
+        "The range contains one more negative value than positive values"
+      ],
+      "correctIndex": 1,
+      "explanation": "In 2's complement the carry out is discarded and overflow is V = C_n ⊕ C_(n−1). For example (−1) + (−1) = 1111 + 1111 = 1 1110 has a carry out, yet the 4-bit result −2 is correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m011",
+      "questionText": "An unsigned shift-and-add multiplier (Mano) multiplies B = 1101 (13) by Q = 1011 (11). A = 0000 and E = 0 at the start; in each cycle B is added to A (carry into E) if Q0 = 1, then E, A and Q are shifted right one place together. What are A and Q after the second cycle?",
+      "options": [
+        "A = 0011, Q = 1101",
+        "A = 0001, Q = 1110",
+        "A = 1001, Q = 1110",
+        "A = 0100, Q = 1111"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cycle 1: Q0 = 1, A = 1101; shift → A = 0110, Q = 1101. Cycle 2: Q0 = 1, EA = 0110 + 1101 = 1 0011; shifting E, A and Q right gives A = 1001, Q = 1110. After four cycles A:Q = 1000 1111 = 143.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m012",
+      "questionText": "An unsigned shift-and-add multiplier multiplies two 8-bit numbers. How many add-and-shift cycles are needed, and how wide must the product register be?",
+      "options": [
+        "8 cycles; 16 bits",
+        "16 cycles; 16 bits",
+        "8 cycles; 8 bits",
+        "8 cycles; 9 bits"
+      ],
+      "correctIndex": 0,
+      "explanation": "One cycle handles each multiplier bit, so n = 8 cycles, and the product of two n-bit numbers needs up to 2n = 16 bits (255 × 255 = 65 025 < 2^16).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m013",
+      "questionText": "In Booth's algorithm with the 4-bit multiplier Q = 0111 (+7) and Q−1 = 0 at the start, which arithmetic operations are performed in the four cycles?",
+      "options": [
+        "Subtract M in cycle 1 and add M in cycle 4",
+        "Add M in cycles 1, 2 and 3",
+        "Add M in cycle 1 and subtract M in cycle 4",
+        "Subtract M in cycle 1 only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The pairs Q0 Q−1 seen in the four cycles are 10, 11, 11 and 01: subtract M in cycle 1, nothing in cycles 2 and 3, and add M in cycle 4. This computes 8M − M = 7M.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m014",
+      "questionText": "Booth's algorithm multiplies M = 0101 (+5) by Q = 1010 (−6) in 4 bits, starting with A = 0000 and Q−1 = 0. What are A, Q and Q−1 after the second cycle, including its shift?",
+      "options": [
+        "A = 1011, Q = 0101, Q−1 = 0",
+        "A = 0101, Q = 1010, Q−1 = 1",
+        "A = 1101, Q = 1010, Q−1 = 1",
+        "A = 1101, Q = 0101, Q−1 = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cycle 1: Q0 Q−1 = 00, shift only → A = 0000, Q = 0101, Q−1 = 0. Cycle 2: Q0 Q−1 = 10, A ← A − M = 1011, then an arithmetic shift right gives A = 1101, Q = 1010, Q−1 = 1 (a logical shift would wrongly give A = 0101). The final A:Q is 1110 0010 = −30.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m015",
+      "questionText": "Booth's algorithm multiplies the 4-bit 2's complement numbers M = 1010 (−6) and Q = 1011 (−5). What is the final 8-bit product in A:Q?",
+      "options": [
+        "1110 0010",
+        "0001 1110",
+        "0110 1110",
+        "1111 0001"
+      ],
+      "correctIndex": 1,
+      "explanation": "The pairs Q0 Q−1 over the four cycles are 10, 11, 01 and 10 (subtract, none, add, subtract), ending with A:Q = 0001 1110 = +30 = (−6) × (−5). 1110 0010 is −30, and 0110 1110 (110) is what an unsigned multiplier gives for 1010 × 1011.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m016",
+      "questionText": "For which 8-bit multiplier does Booth's algorithm perform the largest number of add/subtract operations?",
+      "options": [
+        "1111 1111",
+        "0000 1111",
+        "0111 1110",
+        "0101 0101"
+      ],
+      "correctIndex": 3,
+      "explanation": "Booth adds or subtracts once for each 0→1 or 1→0 transition in the multiplier with Q−1 = 0 appended. 0101 0101 needs 8 operations, 1111 1111 needs 1, and 0000 1111 and 0111 1110 need 2 each.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m017",
+      "questionText": "Bit-pair recoding (radix-4 modified Booth) of the multiplier is used in a 16 × 16-bit signed multiplier. At most how many partial products (summands) must be added?",
+      "options": [
+        "16",
+        "4",
+        "8",
+        "32"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each pair of multiplier bits is recoded into one digit from {−2, −1, 0, +1, +2}, so a 16-bit multiplier gives 16/2 = 8 summands instead of 16, each a shifted and/or negated copy of the multiplicand.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m018",
+      "questionText": "Restoring division of the 4-bit dividend 1101 (13) by the divisor 0100 (4) uses a 5-bit register A (initially 00000), Q = 1101 and M = 00100. Each cycle shifts A and Q left, subtracts M from A and then either sets Q0 = 1 or sets Q0 = 0 and restores A. What are A and Q after the third cycle?",
+      "options": [
+        "A = 00110, Q = 1000",
+        "A = 00010, Q = 1000",
+        "A = 00001, Q = 0011",
+        "A = 00010, Q = 1001"
+      ],
+      "correctIndex": 3,
+      "explanation": "Cycles 1 and 2 give a negative A − M, so q0 = 0 and A is restored (A = 00001 then 00011; Q = 1010 then 0100). Cycle 3: after the shift A = 00110, A − M = 00010 is not negative, so q0 = 1 and Q = 1001. After cycle 4 the quotient is 0011 (3) and the remainder 00001 (1).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m019",
+      "questionText": "Non-restoring division of 1110 (14) by 0101 (5) uses a 5-bit A (initially 00000), Q = 1110 and M = 00101. After the four cycles, what are Q and A, and what happens next?",
+      "options": [
+        "Q = 0010 and A = 11111 is negative, so M is added once more, giving the remainder 00100",
+        "Q = 0010 and A = 00100, so no correction is needed",
+        "Q = 0011 and A = 11111, so the quotient is incremented to 0100",
+        "Q = 0010 and A = 11111, which is kept as the remainder −1"
+      ],
+      "correctIndex": 0,
+      "explanation": "The four cycles do A − M = 11100 (q0 = 0), A + M = 11110 (q0 = 0), A + M = 00010 (q0 = 1) and A − M = 11111 (q0 = 0). Q = 0010 = 2, and because A is negative the remainder is corrected: 11111 + 00101 = 00100 = 4, since 14 = 2 × 5 + 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m020",
+      "questionText": "Which statement about non-restoring division is correct?",
+      "options": [
+        "It never needs a correction step at the end",
+        "When A becomes negative, the next cycle shifts and adds M instead of restoring and then subtracting, so each cycle needs only one addition or subtraction",
+        "It produces two quotient bits in every cycle",
+        "It can be used only when the dividend is smaller than the divisor"
+      ],
+      "correctIndex": 1,
+      "explanation": "Restoring and then shifting and subtracting, 2(A + M) − M, equals shifting and adding, 2A + M, so the restore can be skipped. A final correction A ← A + M is still needed when the last remainder is negative.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m021",
+      "questionText": "A divider for 4-bit divisors takes an 8-bit dividend in A:Q. The dividend 0111 0000 (112) is to be divided by 0110 (6). What does Mano's divide-overflow check conclude?",
+      "options": [
+        "No overflow: the quotient 18 and remainder 4 are produced normally",
+        "Divide overflow: the high half 0111 is not less than the divisor 0110, so the quotient will not fit in 4 bits",
+        "No overflow, because the divisor is not zero",
+        "No overflow, because A and Q together hold 8 bits, enough for the quotient 1 0010"
+      ],
+      "correctIndex": 1,
+      "explanation": "If A ≥ B before division starts, the quotient would be at least 2^n. Here 112/6 = 18 > 15, so the divide-overflow flag DVF is set and the division is not carried out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m022",
+      "questionText": "For 16-bit operands, what is the largest number of add/subtract operations in the main loop of restoring division that restores a negative A by adding M back (as in the Stallings and Hamacher flowcharts), and of non-restoring division (not counting its final correction)?",
+      "options": [
+        "32 and 16",
+        "16 and 16",
+        "16 and 32",
+        "32 and 32"
+      ],
+      "correctIndex": 0,
+      "explanation": "Restoring division subtracts in each of the 16 cycles and may have to restore with an addition in each, up to 2 × 16 = 32 operations; non-restoring division performs exactly one addition or subtraction per cycle, 16 in all, plus at most one correction. A non-performing restoring divider, which simply keeps the old A instead of adding M back, would need at most 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m023",
+      "questionText": "What is the IEEE 754 single-precision encoding of −0.3125, in hexadecimal?",
+      "options": [
+        "3EA0 0000",
+        "BF20 0000",
+        "BED0 0000",
+        "BEA0 0000"
+      ],
+      "correctIndex": 3,
+      "explanation": "0.3125 = 0.0101 (binary) = 1.01 × 2^−2, so S = 1, E = −2 + 127 = 125 = 0111 1101 and F = 0100…0, giving 1 01111101 0100…0 = BEA0 0000. 3EA0 0000 is +0.3125, BF20 0000 has the exponent one too large (−0.625) and BED0 0000 stores the hidden 1 in F.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m024",
+      "questionText": "What decimal value does the IEEE 754 single-precision word 4148 0000 (hex) represent?",
+      "options": [
+        "6.25",
+        "4.5",
+        "12.5",
+        "25.0"
+      ],
+      "correctIndex": 2,
+      "explanation": "0100 0001 0100 1000 0… splits into S = 0, E = 1000 0010 = 130 and F = 1001 0…0. Value = 1.1001 × 2^(130 − 127) = 1100.1 (binary) = 12.5. Forgetting the hidden 1 gives 0.1001 × 2^3 = 4.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m025",
+      "questionText": "What is the IEEE 754 double-precision encoding of 1.0, in hexadecimal?",
+      "options": [
+        "3F80 0000 0000 0000",
+        "4000 0000 0000 0000",
+        "3FE0 0000 0000 0000",
+        "3FF0 0000 0000 0000"
+      ],
+      "correctIndex": 3,
+      "explanation": "1.0 = 1.0 × 2^0, so S = 0, E = 0 + 1023 = 011 1111 1111 and F = 0, giving 3FF0 0000 0000 0000. 3F80 0000 is the single-precision pattern of 1.0, 4000 0000 0000 0000 is 2.0 and 3FE0 0000 0000 0000 is 0.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m026",
+      "questionText": "In IEEE 754 single precision, what does the bit pattern 7F80 0000 (hex) represent?",
+      "options": [
+        "−infinity",
+        "NaN (not a number)",
+        "+infinity",
+        "The largest finite number, about 3.4 × 10^38"
+      ],
+      "correctIndex": 2,
+      "explanation": "7F80 0000 = 0 11111111 000…0: an all-1s exponent with a zero fraction is infinity, and S = 0 makes it +∞. A non-zero fraction would be NaN, and the largest finite number is 7F7F FFFF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m027",
+      "questionText": "What is the smallest positive number representable in IEEE 754 single precision, including denormalised numbers?",
+      "options": [
+        "2^−126",
+        "2^−149",
+        "2^−127",
+        "2^−150"
+      ],
+      "correctIndex": 1,
+      "explanation": "A denormal has E = 0, no hidden 1 and scale 2^−126, so the smallest one is 0.00…01 (23 fraction bits) × 2^−126 = 2^−23 × 2^−126 = 2^−149 ≈ 1.4 × 10^−45. 2^−126 is the smallest normalised number.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m028",
+      "questionText": "How many bits of significand precision, including the hidden bit, does an IEEE 754 double-precision number have?",
+      "options": [
+        "53",
+        "52",
+        "64",
+        "11"
+      ],
+      "correctIndex": 0,
+      "explanation": "Double precision stores 52 fraction bits and the normalised form adds an implied leading 1, giving 53 bits of precision, about 15–16 decimal digits. 11 is the exponent width and 64 the total word length.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m029",
+      "questionText": "Using the default round-to-nearest-even mode, what is the IEEE 754 single-precision encoding of 0.1, in hexadecimal?",
+      "options": [
+        "3DCC CCCD",
+        "3DCC CCCC",
+        "3E4C CCCD",
+        "3D4C CCCD"
+      ],
+      "correctIndex": 0,
+      "explanation": "0.1 = 1.1001 1001 1001… × 2^−4, so E = 123 = 0111 1011. The first 23 fraction bits are 1001 1001 1001 1001 1001 100 and the bits after them (1100…) are more than half a unit in the last place, so the fraction is rounded up to …101, giving 3DCC CCCD. Truncation gives 3DCC CCCC, while 3E4C CCCD is 0.2 and 3D4C CCCD is 0.05.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m030",
+      "questionText": "A floating-point addition produces the unnormalised result 0.0011 × 2^6 (binary significand). To normalise it to the 1.F form, the significand is:",
+      "options": [
+        "Shifted right 3 places and the exponent becomes 9",
+        "Shifted left 3 places and the exponent becomes 3",
+        "Shifted left 2 places and the exponent becomes 4",
+        "Shifted left 3 places and the exponent becomes 9"
+      ],
+      "correctIndex": 1,
+      "explanation": "0.0011 × 2^6 = 1.1 × 2^3: moving the leading 1 to the left of the binary point is a left shift of the significand by 3, so the exponent must decrease by 3, from 6 to 3 (both equal 12).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m031",
+      "questionText": "In IEEE 754 double precision, what is the stored 11-bit exponent field of a number whose true exponent is −10?",
+      "options": [
+        "100 0000 1001",
+        "000 0111 0101",
+        "111 1111 0110",
+        "011 1111 0101"
+      ],
+      "correctIndex": 3,
+      "explanation": "Stored exponent = true exponent + 1023 = −10 + 1023 = 1013 = 011 1111 0101. 100 0000 1001 (1033) is for +10, 000 0111 0101 is the single-precision value 117, and 111 1111 0110 is the 11-bit 2's complement of −10, which IEEE 754 does not use.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m032",
+      "questionText": "Two floating-point numbers with binary significands, X = 1.100 × 2^3 and Y = 1.010 × 2^1, are added. After alignment, addition and normalisation, the result is:",
+      "options": [
+        "1.0110 × 2^4",
+        "1.1101 × 2^1",
+        "1.1101 × 2^3",
+        "1.0001 × 2^4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Align Y to the larger exponent by shifting its significand right 3 − 1 = 2 places: 1.010 × 2^1 = 0.0101 × 2^3. Then 1.1000 + 0.0101 = 1.1101, already normalised, so the sum is 1.1101 × 2^3 = 14.5 (12 + 2.5). Adding without alignment gives 1.0110 × 2^4, and shifting by only 1 place gives 1.0001 × 2^4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m033",
+      "questionText": "Two IEEE 754 single-precision numbers with stored (biased) exponents 130 and 125 are multiplied. Before any normalisation, what is the stored exponent of the product?",
+      "options": [
+        "255",
+        "1",
+        "128",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each stored exponent contains the bias 127, so one bias must be removed from the sum: 130 + 125 − 127 = 128 (true exponents 3 + (−2) = 1). 255 forgets to subtract the bias, 1 subtracts it twice and 5 subtracts the exponents as in division.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m034",
+      "questionText": "What is the product of the IEEE 754 single-precision numbers 4040 0000 (hex) and BF00 0000 (hex), as a single-precision hex word?",
+      "options": [
+        "BFC0 0000",
+        "3FC0 0000",
+        "BF40 0000",
+        "C040 0000"
+      ],
+      "correctIndex": 0,
+      "explanation": "4040 0000 = +1.1 × 2^1 = 3.0 and BF00 0000 = −1.0 × 2^−1 = −0.5. Sign = 0 ⊕ 1 = 1, stored exponent = 128 + 126 − 127 = 127 and significand 1.1 × 1.0 = 1.1, so the product is −1.1 × 2^0 = −1.5 = BFC0 0000. 3FC0 0000 is +1.5, BF40 0000 is −0.75 and C040 0000 is −3.0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t2_m035",
+      "questionText": "Which step is NOT part of floating-point multiplication?",
+      "options": [
+        "Adding the exponents and subtracting the bias",
+        "Aligning the significands by shifting the one with the smaller exponent",
+        "Multiplying the significands",
+        "Setting the result sign to the XOR of the operand signs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Alignment is needed only for addition and subtraction, where the exponents must be made equal. Multiplication adds the exponents, multiplies the significands, XORs the signs and then normalises and rounds.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m036",
+      "questionText": "Why does IEEE 754 store the exponent in biased (excess) form rather than in 2's complement?",
+      "options": [
+        "Because a biased exponent has a larger range than a 2's complement exponent of the same width",
+        "Because the hardware cannot add 2's complement exponents",
+        "So that the hidden bit can be stored in the exponent field",
+        "So that floating-point numbers of the same sign can be compared like unsigned integers, with the all-zero word representing zero"
+      ],
+      "correctIndex": 3,
+      "explanation": "With a bias the smallest exponent is all 0s and the largest all 1s, so larger magnitudes have larger bit patterns and integer comparison hardware can be used; 0.0 is the all-zero word. Both codings give 2^k exponent patterns, so the range is not the reason.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m037",
+      "questionText": "What is the BCD (8421) representation of the decimal number 739?",
+      "options": [
+        "0010 1110 0011",
+        "0111 0011 1001",
+        "1010 0110 1100",
+        "1001 0011 0111"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each decimal digit is coded separately in 4 bits: 7 = 0111, 3 = 0011, 9 = 1001. 0010 1110 0011 is the pure binary value of 739, 1010 0110 1100 is excess-3 and 1001 0011 0111 reverses the digits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m038",
+      "questionText": "The BCD numbers 0100 0111 (47) and 0011 1000 (38) are added with 4-bit binary adders and the standard BCD correction. What is the corrected result?",
+      "options": [
+        "0111 1111",
+        "1110 0101",
+        "1000 1111",
+        "1000 0101"
+      ],
+      "correctIndex": 3,
+      "explanation": "Units: 0111 + 1000 = 1111 (15 > 9), so add 0110 → 1 0101, giving digit 5 and a carry of 1. Tens: 0100 + 0011 + 1 = 1000 (8) needs no correction, so the result is 1000 0101 = 85. 0111 1111 is the uncorrected binary sum and 1110 0101 corrects both digits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m039",
+      "questionText": "Two BCD digits 1001 (9) and 1001 (9) are added in a 4-bit binary adder, which gives a carry of 1 and sum bits 0010. What correction is required, and what is the BCD result?",
+      "options": [
+        "No correction, because 0010 is a valid BCD digit; the result is 0001 0010 (12)",
+        "Add 0110 to the tens digit only; the result is 0111 0010",
+        "Add 0110, because the adder produced a carry; the result is 0001 1000 (18)",
+        "Add 0011 (the excess-3 correction); the result is 0001 0101 (15)"
+      ],
+      "correctIndex": 2,
+      "explanation": "The correction is needed when the 4-bit sum exceeds 9 or when the adder itself produces a carry. 9 + 9 = 1 0010 in binary; adding 0110 to 0010 gives 1000, so the result is tens digit 1 and units digit 8, 0001 1000.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m040",
+      "questionText": "The BCD subtraction 72 − 35 is carried out by adding the 10's complement of the subtrahend. What is that 10's complement, and what is the result after the end carry is discarded?",
+      "options": [
+        "65; 37",
+        "64; 36",
+        "65; 137",
+        "66; 38"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 10's complement of 35 is 99 − 35 + 1 = 65. 72 + 65 = 137, and discarding the end carry leaves 37, a positive result because a carry appeared. 64 is the 9's complement, which needs the end-around carry to reach 37.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m041",
+      "questionText": "Why is 0110 added when a 4-bit BCD sum exceeds 9?",
+      "options": [
+        "To convert the sum to excess-3 code",
+        "To form the 9's complement of the sum",
+        "To clear the carry flag before the next digit is added",
+        "To skip the six unused codes 1010 to 1111 so that the correct decimal digit and decimal carry are produced"
+      ],
+      "correctIndex": 3,
+      "explanation": "A 4-bit adder counts in base 16 while BCD counts in base 10; adding 6 jumps over the six invalid codes, which wraps the digit back into 0 to 9 and generates the decimal carry.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m042",
+      "questionText": "Registers hold A = 1101 1010 and B = 1111 0000. What is the result of the selective-clear micro-operation A ← A ∧ B'?",
+      "options": [
+        "0000 1010",
+        "1101 0000",
+        "1111 1010",
+        "0010 1010"
+      ],
+      "correctIndex": 0,
+      "explanation": "B' = 0000 1111, so A ∧ B' keeps A's low four bits and clears the bits where B has 1s: 0000 1010. 1101 0000 is the mask A ∧ B, 1111 1010 is A ∨ B and 0010 1010 is A ⊕ B.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m043",
+      "questionText": "Using Mano's insert operation, the upper four bits of A = 0110 1010 are to be replaced by 1001 while the lower four bits are kept. Which sequence of micro-operations does this, and what is the result?",
+      "options": [
+        "OR A with 1001 0000 only; A = 1111 1010",
+        "XOR A with 1001 0000 only; A = 1111 1010",
+        "AND A with 0000 1111, then OR with 1001 0000; A = 1001 1010",
+        "AND A with 1111 0000, then OR with 0000 1001; A = 0110 1001"
+      ],
+      "correctIndex": 2,
+      "explanation": "Insert is a mask followed by an OR: A ∧ 0000 1111 = 0000 1010 clears the field and OR with 1001 0000 sets the new bits, giving 1001 1010. An OR or XOR alone cannot clear the 1s already in the field, and the last choice replaces the lower four bits instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m044",
+      "questionText": "What is the result of an arithmetic shift right (ashr) of the 8-bit 2's complement number 1011 0110 (−74)?",
+      "options": [
+        "0101 1011 (+91)",
+        "1101 1011 (−37)",
+        "0110 1100 (+108)",
+        "1110 1101 (−19)"
+      ],
+      "correctIndex": 1,
+      "explanation": "ashr copies the sign bit into the vacated MSB and drops the LSB: 1011 0110 → 1101 1011 = −37, a division by 2. A logical shift right inserts 0 (0101 1011), 0110 1100 is a left shift and 1110 1101 is a two-place shift.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t2_m045",
+      "questionText": "An arithmetic shift left (ashl) is applied to the 8-bit 2's complement number 1110 0110 (−26). What are the result and the overflow flag V?",
+      "options": [
+        "1100 1100 and V = 0",
+        "1100 1100 and V = 1",
+        "1100 1101 and V = 0",
+        "1111 0011 and V = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "ashl shifts every bit left and inserts 0: 1110 0110 → 1100 1100 = −52 = 2 × (−26). Mano's overflow test is V = A7 ⊕ A6 before the shift = 1 ⊕ 1 = 0: a 1 is shifted out but the sign does not change, so there is no overflow. 1100 1101 is a circular shift (cil) and 1111 0011 an arithmetic shift right.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t2_m046",
+      "questionText": "A = 1001 0011 and the carry flag C = 0. After one rotate left through carry, what are A and C?",
+      "options": [
+        "A = 0010 0111, C = 1",
+        "A = 0010 0110, C = 0",
+        "A = 0010 0110, C = 1",
+        "A = 1100 1001, C = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a rotate through carry the MSB (1) moves into C and the old C (0) enters the LSB, so A = 0010 0110 and C = 1. 0010 0111 is a plain circular shift left (cil), where the MSB goes straight to the LSB, and 1100 1001 is a circular shift right.",
+      "difficulty": "medium"
+    }
+  ]
+}

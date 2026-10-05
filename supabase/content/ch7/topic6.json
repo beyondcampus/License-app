@@ -1,0 +1,401 @@
+{
+  "parent": {"id": "ch7_p6", "title": "Memory Management, File Systems & Administration"},
+  "subtopics": [
+    {
+      "id": "ch7_t6",
+      "title": "Memory Management: Addresses, Swapping & Free Space",
+      "subtitle": "Logical vs physical addresses, MMU, partitions, fits, fragmentation and paging basics",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Logical and Physical Addresses"},
+          {"type": "paragraph", "text": "The CPU generates logical (virtual) addresses; the memory unit sees physical addresses. The set of all logical addresses a program can generate is its logical address space, and the matching set of real RAM locations is its physical address space. The Memory Management Unit (MMU) is the hardware that translates every logical address to a physical one at run time, so a user program never sees real physical addresses."},
+          {"type": "table", "rows": [
+            ["Binding time", "When addresses are fixed", "Consequence"],
+            ["Compile time", "Compiler emits absolute code", "Program must load at a known address; recompile to move it"],
+            ["Load time", "Loader converts relocatable code", "Start address fixed once loaded; cannot move while running"],
+            ["Execution time", "MMU translates on every access", "Process can be moved (swapped, compacted) during execution; logical ≠ physical"]
+          ]},
+          {"type": "bulletList", "text": "Simple MMU with relocation (base) and limit registers:", "items": [
+            "Limit register holds the size of the process's logical space; every logical address must satisfy 0 ≤ address < limit, otherwise the hardware traps to the OS (addressing error).",
+            "Relocation register holds the smallest physical address of the process; physical = relocation + logical.",
+            "Example: relocation = 14000, limit = 3000. Logical 346 maps to 14346; logical 3200 exceeds the limit and causes a trap.",
+            "Only the OS in kernel mode may load these registers, which gives memory protection between processes."
+          ]},
+          {"type": "heading", "text": "Swapping and Contiguous Allocation"},
+          {"type": "paragraph", "text": "Swapping moves an entire process from main memory to a backing store (fast disk) and later back again, letting the total size of processes exceed physical memory. Its cost is dominated by transfer time, which is proportional to the amount of memory swapped. With execution-time binding a swapped-in process may land at a different address. In contiguous allocation each process occupies one single block of memory, either in fixed-size partitions (set up at boot) or variable partitions (carved to fit each process from free holes)."},
+          {"type": "bulletList", "text": "Placement strategies for choosing a hole in variable partitioning:", "items": [
+            "First fit: allocate the first hole large enough; fast, usually as good as best fit in storage use.",
+            "Best fit: allocate the smallest hole that is large enough; minimises leftover space but leaves many tiny, useless holes and must search the whole list unless it is sorted.",
+            "Worst fit: allocate the largest hole; leaves the largest leftover hole but in simulations is generally worse than first and best fit.",
+            "Next fit: like first fit, but continues searching from where the last search ended."
+          ]},
+          {"type": "table", "rows": [
+            ["Process (KB)", "First fit", "Best fit", "Worst fit"],
+            ["212", "500 hole (leaves 288)", "300 hole (leaves 88)", "600 hole (leaves 388)"],
+            ["417", "600 hole (leaves 183)", "500 hole (leaves 83)", "500 hole (leaves 83)"],
+            ["112", "288 hole (leaves 176)", "200 hole (leaves 88)", "388 hole (leaves 276)"],
+            ["426", "Must wait (no hole ≥ 426)", "600 hole (leaves 174)", "Must wait (no hole ≥ 426)"]
+          ]},
+          {"type": "paragraph", "text": "The worked example above uses free holes of 100, 500, 200, 300 and 600 KB (in that order) and processes of 212, 417, 112 and 426 KB arriving in that order. Only best fit places all four processes here, but this is a property of this input, not a general rule."},
+          {"type": "bulletList", "text": "Fragmentation and its cure:", "items": [
+            "Internal fragmentation: unused space inside an allocated block, because the block (fixed partition or page) is bigger than the request. Example: a 3.2 KB request in a 4 KB partition wastes 0.8 KB internally.",
+            "External fragmentation: enough total free memory exists but it is split into non-contiguous holes, so a request cannot be satisfied. Typical of variable partitioning and segmentation.",
+            "50-percent rule (first fit): for N allocated blocks about 0.5N blocks are lost to fragmentation, i.e. one-third of memory may be unusable.",
+            "Compaction shuffles processes to merge all free holes into one; it is possible only with execution-time (dynamic) relocation and is expensive. Paging and segmentation with paging are the non-contiguous alternatives."
+          ]},
+          {"type": "heading", "text": "Managing Free Memory"},
+          {"type": "table", "rows": [
+            ["Method", "How it works", "Trade-off"],
+            ["Bitmap", "Memory split into allocation units; one bit per unit (0 free, 1 used)", "Fixed small size, but finding k consecutive free units needs a slow bit search"],
+            ["Linked list", "List of segments, each marked hole or process, with start and length", "Fast merge of adjacent holes on release; list sorted by address; supports first/best/worst fit"]
+          ]},
+          {"type": "heading", "text": "Paging Basics"},
+          {"type": "paragraph", "text": "Paging divides logical memory into fixed-size pages and physical memory into frames of the same size; any page can go into any free frame, so external fragmentation disappears (only internal fragmentation in the last page remains, on average half a page per process). A per-process page table maps page number p to frame number f. A logical address is split into p (high bits, index into the page table) and offset d (low bits, copied unchanged). Worked example: page size 1 KB = 1024 bytes, logical address 3085 gives p = 3085 div 1024 = 3 and d = 3085 mod 1024 = 13; if the page table maps page 3 to frame 7, the physical address is 7 × 1024 + 13 = 7181."},
+          {"type": "formula", "latex": "p = \\left\\lfloor \\frac{LA}{S} \\right\\rfloor,\\; d = LA \\bmod S,\\; PA = f \\cdot S + d", "plainText": "p = floor(LA / S), d = LA mod S, PA = f × S + d (S = page size, f = frame of page p)"},
+          {"type": "paragraph", "text": "Segmentation instead divides a program into variable-size logical units that match the programmer's view (code, data, stack, functions). A logical address is a pair (segment number s, offset d); the segment table holds a base and a limit for each segment, and d must be less than the limit or the hardware traps. Segmentation supports sharing and protection per logical unit but suffers external fragmentation; Intel x86 combines segmentation with paging."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "PA = R + LA,\\quad \\text{valid iff } 0 \\le LA < L", "plainText": "PA = relocation + LA, valid only if 0 ≤ LA < limit"},
+          {"type": "formula", "latex": "p = m - n \\text{ bits},\\; d = n \\text{ bits}", "plainText": "Logical space 2^m, page size 2^n → page number m − n bits, offset n bits"},
+          {"type": "formula", "latex": "\\text{bitmap bits} = \\frac{\\text{memory size}}{\\text{allocation unit}}", "plainText": "Bitmap bits = memory size / allocation unit"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For fit questions, update the hole sizes after each allocation: first fit and worst fit may reuse the leftover of an earlier hole (the 288 KB or 388 KB holes above)."},
+          {"type": "warning", "text": "Paging removes external fragmentation but not internal fragmentation; variable partitioning and segmentation have the opposite behaviour. Do not mix the two."},
+          {"type": "note", "text": "Bitmap sizing example: 32 MB of memory in 4 KB units = 8192 units, so the bitmap needs 8192 bits = 1 KB."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_t6_01", "title": "Relocation and limit", "latex": "PA = R + LA,\\quad 0 \\le LA < L", "plainText": "PA = relocation + LA, if 0 ≤ LA < limit", "description": "Dynamic relocation adds the base register to each valid logical address and traps if the limit is exceeded."},
+        {"id": "f_ch7_t6_02", "title": "Paging address split", "latex": "p = \\lfloor LA / S \\rfloor,\\; d = LA \\bmod S", "plainText": "p = floor(LA / S), d = LA mod S", "description": "The page number indexes the page table and the offset is copied unchanged into the physical address."},
+        {"id": "f_ch7_t6_03", "title": "Physical address from frame", "latex": "PA = f \\cdot S + d", "plainText": "PA = frame × page size + offset", "description": "Once the page table gives frame f, the physical address is the frame base plus the offset."},
+        {"id": "f_ch7_t6_04", "title": "Bits in page number", "latex": "\\text{bits}(p) = m - n", "plainText": "bits(p) = m − n", "description": "With a 2^m-byte logical space and 2^n-byte pages, the page number uses m − n bits and the offset n bits."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_t6_01", "front": "Which address-binding time allows a process to be moved in memory while it runs?", "back": "Execution-time binding, where the MMU translates each logical address at run time using a relocation register or page table.", "difficulty": "easy"},
+        {"id": "fc_ch7_t6_02", "front": "Internal vs external fragmentation?", "back": "Internal is wasted space inside an allocated block (fixed partitions, last page); external is free memory split into holes too small to use (variable partitions, segmentation).", "difficulty": "easy"},
+        {"id": "fc_ch7_t6_03", "front": "What is the main drawback of best fit?", "back": "It must search the entire hole list (unless sorted) and leaves many tiny leftover holes that are too small to reuse.", "difficulty": "medium"},
+        {"id": "fc_ch7_t6_04", "front": "Page size 1 KB, logical address 3085, page 3 in frame 7: physical address?", "back": "p = 3, d = 13, so PA = 7 × 1024 + 13 = 7181.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_t6_n01", "questionText": "Free memory holes are 100 KB, 500 KB, 200 KB, 300 KB and 600 KB in that order. Using best fit, where is a 212 KB process placed?", "options": ["100 KB hole", "500 KB hole", "300 KB hole", "600 KB hole"], "correctIndex": 2, "explanation": "Best fit chooses the smallest hole that is large enough; 300 KB is the smallest hole of at least 212 KB, leaving 88 KB.", "difficulty": "easy"},
+        {"id": "q_ch7_t6_n02", "questionText": "A system has a 16-bit logical address and a page size of 1 KB. How many bits form the page number?", "options": ["6", "10", "8", "4"], "correctIndex": 0, "explanation": "A 1 KB page needs a 10-bit offset, so the page number uses 16 − 10 = 6 bits (64 pages).", "difficulty": "easy"},
+        {"id": "q_ch7_t6_n03", "questionText": "With a page size of 1024 bytes, logical address 3085 is translated. If the page table maps page 3 to frame 7, what is the physical address?", "options": ["7168", "3085", "10253", "7181"], "correctIndex": 3, "explanation": "p = 3085 div 1024 = 3, d = 3085 mod 1024 = 13; PA = 7 × 1024 + 13 = 7181.", "difficulty": "medium"},
+        {"id": "q_ch7_t6_n04", "questionText": "Compaction in memory management is used to overcome which problem, and what does it require?", "options": ["Internal fragmentation; compile-time binding", "External fragmentation; execution-time (dynamic) relocation", "Thrashing; a larger TLB", "Page faults; demand paging"], "correctIndex": 1, "explanation": "Compaction moves processes together to merge scattered holes, which removes external fragmentation and is only possible if addresses are bound at execution time.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i61",
+      "title": "Virtual Memory, Demand Paging & Page Replacement",
+      "subtitle": "Page faults, EAT, TLB, page-table size, FIFO/OPT/LRU/clock, thrashing and working sets",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Virtual Memory and Demand Paging"},
+          {"type": "paragraph", "text": "Virtual memory separates the logical memory seen by a program from physical memory, so a program can be larger than RAM and only the parts in use need to be resident. It is usually implemented by demand paging: a page is brought into memory only when it is referenced (a lazy swapper, or pager). Each page-table entry has a valid-invalid bit; a reference to a page marked invalid (not in memory) traps to the OS as a page fault. Benefits are a higher degree of multiprogramming, less I/O at load time and faster process start."},
+          {"type": "bulletList", "text": "Steps in handling a page fault:", "items": [
+            "The reference finds the valid-invalid bit set to invalid, and the hardware traps to the OS.",
+            "The OS checks an internal table: if the reference is illegal the process is terminated; if legal but not resident, it continues.",
+            "A free frame is found (or a victim page is chosen by the replacement algorithm and written out if dirty).",
+            "A disk read schedules the page into the frame; the CPU may run another process meanwhile.",
+            "When I/O completes, the page table is updated (frame number, valid bit set).",
+            "The faulting instruction is restarted as if the page had always been in memory."
+          ]},
+          {"type": "heading", "text": "Performance: Effective Access Time"},
+          {"type": "paragraph", "text": "If p is the page-fault rate (0 ≤ p ≤ 1), ma the memory access time and t_fault the page-fault service time, then EAT = (1 − p) × ma + p × t_fault. Worked example: ma = 200 ns, t_fault = 8 ms = 8,000,000 ns and p = 0.001 give EAT = 0.999 × 200 + 0.001 × 8,000,000 = 199.8 + 8000 ≈ 8200 ns, about 8.2 µs, a slowdown of 40 times. To keep degradation below 10 percent (EAT < 220 ns), p must be below about 1 fault in 400,000 accesses."},
+          {"type": "paragraph", "text": "A translation look-aside buffer (TLB) is a small, fast associative cache of recent page-table entries. On a TLB hit the frame is known after the TLB lookup; on a miss the page table in memory must be read first, costing an extra memory access. Example: TLB lookup 20 ns, memory 100 ns, hit ratio 80 percent: EAT = 0.8 × (20 + 100) + 0.2 × (20 + 200) = 96 + 44 = 140 ns."},
+          {"type": "formula", "latex": "EAT_{TLB} = h(t + m) + (1 - h)(t + 2m)", "plainText": "EAT = h(t + m) + (1 − h)(t + 2m), h = TLB hit ratio, t = TLB time, m = memory time"},
+          {"type": "paragraph", "text": "Page-table size = number of pages × entry size. Example: a 32-bit virtual address with 4 KB (2^12) pages gives 2^20 pages; with 4-byte entries the table is 2^20 × 4 B = 4 MB per process, too large to keep contiguous. Multilevel (hierarchical) page tables page the page table itself: a two-level scheme splits the 20-bit page number into a 10-bit outer index and a 10-bit inner index, so only the inner tables actually in use need to exist. Hashed and inverted page tables (one entry per physical frame) are alternatives for 64-bit spaces."},
+          {"type": "heading", "text": "Page Replacement Algorithms"},
+          {"type": "bulletList", "text": "When no frame is free a victim page must be chosen:", "items": [
+            "FIFO: replace the page that has been in memory longest; simple, but can remove heavily used pages and suffers Belady's anomaly.",
+            "Optimal (OPT, MIN): replace the page that will not be used for the longest time in future; lowest possible fault rate, not implementable, used as a benchmark.",
+            "LRU: replace the page not used for the longest time in the past; good approximation of OPT, implemented with counters (timestamps) or a stack; a stack algorithm, so no Belady's anomaly.",
+            "Clock (second chance): frames in a circular list with a reference bit; the hand clears bits set to 1 and replaces the first page whose bit is 0; a cheap approximation of LRU.",
+            "A dirty (modify) bit lets the OS skip writing back pages that were not changed."
+          ]},
+          {"type": "table", "rows": [
+            ["Algorithm (3 frames)", "Page faults", "Remark"],
+            ["FIFO", "15", "Evicts oldest loaded page"],
+            ["Optimal (OPT)", "9", "Minimum possible; needs future knowledge"],
+            ["LRU", "12", "Evicts least recently used page"],
+            ["Clock (second chance)", "14", "Bit set on load and on hit; hand advances after replacement"]
+          ]},
+          {"type": "paragraph", "text": "The table uses the reference string 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1 with 3 frames initially empty (the first three references are compulsory faults in every algorithm). Clock results depend on the exact convention for setting bits and moving the hand, so exam questions nearly always use FIFO, OPT or LRU."},
+          {"type": "paragraph", "text": "Belady's anomaly: for some reference strings FIFO produces more faults when given more frames. With 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5, FIFO gives 9 faults with 3 frames but 10 faults with 4 frames. OPT and LRU are stack algorithms (the pages held with n frames are always a subset of those held with n + 1 frames), so they never show the anomaly."},
+          {"type": "heading", "text": "Thrashing, Working Set and Frame Allocation"},
+          {"type": "paragraph", "text": "Thrashing is a state where processes spend more time paging than executing: each has too few frames for its active pages, so faults are constant, CPU utilisation drops, and a naive scheduler raises the degree of multiprogramming, making it worse. The working-set model defines WS(t, Δ) as the set of pages referenced in the last Δ references; if the sum of working-set sizes D exceeds the available frames m, the OS suspends a process. Page-fault-frequency control is an alternative: give a process more frames if its fault rate is above an upper bound and take frames away below a lower bound."},
+          {"type": "bulletList", "text": "Frame allocation among processes:", "items": [
+            "Equal allocation: m frames shared equally among n processes, m/n each.",
+            "Proportional allocation: a_i = (s_i / S) × m, where s_i is the size of process i and S the total size. Example: 62 frames, processes of 10 and 127 pages get about 4 and 57 frames.",
+            "Priority allocation uses priority instead of (or with) size.",
+            "Global replacement picks a victim from all frames; local replacement only from the faulting process's own frames."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "EAT = (1 - p)\\cdot ma + p \\cdot t_{fault}", "plainText": "EAT = (1 − p) × ma + p × t_fault"},
+          {"type": "formula", "latex": "\\text{PT size} = \\frac{\\text{virtual space}}{\\text{page size}} \\times e", "plainText": "Page table size = (virtual space / page size) × entry size"},
+          {"type": "formula", "latex": "a_i = \\frac{s_i}{S} \\times m,\\quad \\text{thrashing if } D = \\sum WSS_i > m", "plainText": "a_i = (s_i / S) × m; thrashing if D = sum of WSS_i > m"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "In EAT problems convert everything to the same unit first: 8 ms = 8,000,000 ns. Forgetting this is the most common arithmetic slip."},
+          {"type": "warning", "text": "Some books ignore the TLB lookup time and write EAT = h × m + (1 − h) × 2m. Read the question: if a TLB time is given, add it to both the hit and miss paths."},
+          {"type": "note", "text": "OPT always gives the fewest faults for a given number of frames; use it to check your FIFO and LRU answers (they can never be lower)."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i61_01", "title": "Effective access time", "latex": "EAT = (1 - p)\\cdot ma + p \\cdot t_{fault}", "plainText": "EAT = (1 − p) × ma + p × t_fault", "description": "Average memory access time under demand paging with page-fault rate p."},
+        {"id": "f_ch7_i61_02", "title": "EAT with TLB", "latex": "EAT = h(t + m) + (1 - h)(t + 2m)", "plainText": "EAT = h(t + m) + (1 − h)(t + 2m)", "description": "A TLB miss costs one extra memory access to read the page-table entry."},
+        {"id": "f_ch7_i61_03", "title": "Page-table size", "latex": "\\text{size} = \\frac{2^{v}}{2^{n}} \\times e", "plainText": "size = (2^v / 2^n) × entry size", "description": "Number of pages (virtual space over page size) times the bytes per page-table entry."},
+        {"id": "f_ch7_i61_04", "title": "Proportional allocation", "latex": "a_i = \\frac{s_i}{S} \\times m", "plainText": "a_i = (s_i / S) × m", "description": "Each process gets frames in proportion to its size out of m available frames."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i61_01", "front": "What happens on a page fault, in brief?", "back": "The OS traps, finds a free or victim frame, reads the page from disk, updates the page table and restarts the faulting instruction.", "difficulty": "easy"},
+        {"id": "fc_ch7_i61_02", "front": "Why are OPT and LRU immune to Belady's anomaly?", "back": "They are stack algorithms: the set of pages in memory with n frames is always a subset of the set with n + 1 frames.", "difficulty": "hard"},
+        {"id": "fc_ch7_i61_03", "front": "What is thrashing and how does the working-set model prevent it?", "back": "Thrashing is excessive paging with little useful work; the OS suspends processes when the total working-set size exceeds available frames.", "difficulty": "medium"},
+        {"id": "fc_ch7_i61_04", "front": "32-bit virtual address, 4 KB pages, 4-byte entries: page-table size?", "back": "2^32 / 2^12 = 2^20 entries × 4 B = 4 MB.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i61_n01", "questionText": "Memory access time is 200 ns, page-fault service time is 8 ms and the page-fault rate is 0.0001. What is the effective access time, approximately?", "options": ["200 ns", "1 µs", "8.2 µs", "800 ns"], "correctIndex": 1, "explanation": "EAT = 0.9999 × 200 + 0.0001 × 8,000,000 ≈ 200 + 800 = 1000 ns = 1 µs.", "difficulty": "medium"},
+        {"id": "q_ch7_i61_n02", "questionText": "A TLB lookup takes 10 ns and a memory access 100 ns. With a TLB hit ratio of 90 percent, what is the effective memory access time?", "options": ["110 ns", "210 ns", "119 ns", "120 ns"], "correctIndex": 3, "explanation": "EAT = 0.9 × (10 + 100) + 0.1 × (10 + 200) = 99 + 21 = 120 ns.", "difficulty": "medium"},
+        {"id": "q_ch7_i61_n03", "questionText": "How many page faults does LRU produce for the reference string 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5 with 3 frames, initially empty?", "options": ["9", "8", "12", "10"], "correctIndex": 3, "explanation": "Only the references to 1 and 2 immediately after 5 are hits; the other 10 references fault under LRU.", "difficulty": "hard"}
+      ]
+    },
+    {
+      "id": "ch7_i62",
+      "title": "Files, Directories & File-System Implementation",
+      "subtitle": "File attributes and access, directory structures, paths, inodes, superblock and mounting",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "The File Concept"},
+          {"type": "paragraph", "text": "A file is a named collection of related information recorded on secondary storage; to the user it is the smallest unit of logical storage. The OS maps files onto physical devices and hides the details. Files may be text, source, object or executable, and the type is often indicated by an extension (.c, .exe, .txt) or, in UNIX, by a magic number at the start of the file."},
+          {"type": "bulletList", "text": "Typical file attributes and operations:", "items": [
+            "Attributes: name, identifier (unique number, e.g. inode number), type, location (pointer to blocks), size, protection (read, write, execute permissions), owner, and timestamps (creation, last modification, last access).",
+            "Operations: create, open, read, write, reposition (seek), close, delete and truncate; append and rename are built on these.",
+            "An open-file table tracks open files; per-process entries hold the file pointer, while the system-wide entry holds the open count, disk location and access rights."
+          ]},
+          {"type": "table", "rows": [
+            ["Access method", "How records are reached", "Typical use"],
+            ["Sequential", "In order, one after another; read next / write next with an automatic pointer", "Editors, compilers, tapes"],
+            ["Direct (relative)", "Any block by number n in any order", "Databases, fixed-length records on disk"],
+            ["Indexed", "An index maps keys to block pointers; search index then access block", "Large files searched by key (ISAM)"]
+          ]},
+          {"type": "heading", "text": "Directory Structures"},
+          {"type": "table", "rows": [
+            ["Structure", "Idea", "Strength", "Weakness"],
+            ["Single-level", "One directory for all users", "Very simple", "Name clashes; no grouping"],
+            ["Two-level", "A master directory with one user directory per user", "Isolates users; same name allowed per user", "Poor sharing and no sub-grouping"],
+            ["Tree", "Arbitrary depth of subdirectories", "Grouping, efficient search, current directory", "No sharing of a file between directories"],
+            ["Acyclic graph", "Tree plus shared links (hard or symbolic)", "Sharing without copying", "Dangling links, aliasing; cycles are forbidden"]
+          ]},
+          {"type": "paragraph", "text": "A general graph directory allows cycles, which complicates traversal and deletion (garbage collection is needed), so most systems prevent cycles by disallowing hard links to directories."},
+          {"type": "bulletList", "text": "Absolute and relative paths:", "items": [
+            "Absolute path starts from the root: /home/ram/notes/os.txt (UNIX) or C:\\Users\\Ram\\notes\\os.txt (Windows).",
+            "Relative path starts from the current working directory: if the current directory is /home/ram, then notes/os.txt names the same file.",
+            ". means the current directory and .. the parent: from /home/ram/notes, ../photos/a.jpg refers to /home/ram/photos/a.jpg.",
+            "The path is resolved component by component, each directory lookup giving the inode of the next component."
+          ]},
+          {"type": "heading", "text": "File-System Implementation"},
+          {"type": "bulletList", "text": "A file system is built in layers, from top to bottom:", "items": [
+            "Application programs issue system calls such as open and read.",
+            "Logical file system: manages metadata, directories and file control blocks (inodes), plus protection.",
+            "File-organisation module: maps logical block numbers to physical blocks and manages free space.",
+            "Basic file system: issues generic block read/write commands and manages buffers and caches.",
+            "I/O control: device drivers and interrupt handlers talk to the disk controller.",
+            "Devices: the disk itself."
+          ]},
+          {"type": "table", "rows": [
+            ["On-disk structure", "Contents"],
+            ["Boot block (boot control block)", "Code to boot the OS from this volume; empty if the volume is not bootable"],
+            ["Superblock (volume control block)", "Block size, total blocks and inodes, free-block and free-inode counts and pointers"],
+            ["Inode table (file control blocks)", "One inode per file: type, permissions, owner, size, times, link count and block pointers"],
+            ["Data blocks", "File contents and directory contents (name-to-inode-number entries)"]
+          ]},
+          {"type": "paragraph", "text": "A classic UNIX inode holds 12 direct block pointers plus one single-indirect, one double-indirect and one triple-indirect pointer. With 4 KB blocks and 4-byte pointers an index block holds 1024 pointers, so the maximum file size is (12 + 1024 + 1024² + 1024³) × 4 KB = 48 KB + 4 MB + 4 GB + 4 TB, about 4 TB. Small files are reached through direct pointers with no extra disk access, while large files pay one to three extra index-block reads."},
+          {"type": "formula", "latex": "Max = (D + P + P^2 + P^3) \\times B,\\quad P = B / \\text{ptr size}", "plainText": "Max size = (D + P + P² + P³) × B, where P = block size / pointer size"},
+          {"type": "bulletList", "text": "Directory implementation and mounting:", "items": [
+            "Linear list of (file name, inode pointer) entries: simple, but finding a file needs a linear search; a sorted list or B-tree speeds lookup.",
+            "Hash table: the file name is hashed to an entry, giving near constant-time lookup; collisions must be handled and a fixed table size may need resizing.",
+            "Mounting attaches a file system on a device to a mount point (an empty directory) in the existing tree, e.g. mount /dev/sdb1 /mnt/usb; after that its files appear under /mnt/usb, and umount detaches it."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "P = \\frac{\\text{block size}}{\\text{pointer size}}", "plainText": "Pointers per index block P = block size / pointer size"},
+          {"type": "formula", "latex": "Max = (12 + P + P^2 + P^3) \\times B", "plainText": "UNIX inode max file size = (12 + P + P² + P³) × block size"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For inode questions, first compute pointers per block (block size / pointer size), then add the contribution of each pointer level only if the question includes it."},
+          {"type": "note", "text": "A directory in UNIX is itself a file whose data blocks hold (name, inode number) pairs; the file name is not stored in the inode."},
+          {"type": "warning", "text": "A hard link is another directory entry for the same inode and cannot cross file systems; a symbolic link is a separate small file holding a path and can dangle if the target is deleted."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i62_01", "title": "Pointers per index block", "latex": "P = \\frac{B}{\\text{ptr size}}", "plainText": "P = block size / pointer size", "description": "Number of block addresses that fit in one indirect (index) block."},
+        {"id": "f_ch7_i62_02", "title": "Inode maximum file size", "latex": "Max = (D + P + P^2 + P^3) \\times B", "plainText": "Max = (direct + P + P² + P³) × block size", "description": "Sum of blocks reachable through direct, single, double and triple indirect pointers, times block size."},
+        {"id": "f_ch7_i62_03", "title": "Blocks for a file", "latex": "N = \\left\\lceil \\frac{\\text{file size}}{B} \\right\\rceil", "plainText": "N = ceil(file size / block size)", "description": "Number of data blocks a file occupies; the unused tail of the last block is internal fragmentation."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i62_01", "front": "Absolute vs relative path?", "back": "An absolute path starts from the root (/home/ram/a.txt); a relative path starts from the current working directory (a.txt or ../ram/a.txt).", "difficulty": "easy"},
+        {"id": "fc_ch7_i62_02", "front": "What does the superblock contain?", "back": "Volume-wide information: block size, number of blocks and inodes, and free-block and free-inode counts and pointers.", "difficulty": "medium"},
+        {"id": "fc_ch7_i62_03", "front": "Why is an acyclic-graph directory preferred to a general graph?", "back": "It allows sharing via links while forbidding cycles, so traversal and deletion stay simple without garbage collection.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i62_n01", "questionText": "A file system uses 1 KB blocks and 4-byte block pointers. An inode has 10 direct pointers and one single-indirect pointer. What is the maximum file size?", "options": ["266 KB", "1034 KB", "10 KB", "256 KB"], "correctIndex": 0, "explanation": "One index block holds 1024 / 4 = 256 pointers, so the file can have 10 + 256 = 266 blocks of 1 KB = 266 KB.", "difficulty": "medium"},
+        {"id": "q_ch7_i62_n02", "questionText": "Which directory structure allows a file or subdirectory to be shared through links while prohibiting cycles?", "options": ["Single-level directory", "Two-level directory", "Acyclic-graph directory", "Tree-structured directory"], "correctIndex": 2, "explanation": "An acyclic-graph directory adds shared links to the tree structure but forbids cycles; a pure tree does not allow sharing.", "difficulty": "easy"},
+        {"id": "q_ch7_i62_n03", "questionText": "Which on-disk structure of a UNIX-like file system records volume-wide details such as block size, total number of blocks and the count of free blocks?", "options": ["Boot block", "Superblock", "Directory data block", "Open-file table"], "correctIndex": 1, "explanation": "The superblock (volume control block) holds file-system-wide parameters and free-space counts; the open-file table is an in-memory structure.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch7_i63",
+      "title": "Allocation, Fragmentation, Disk Mapping & File-System Performance",
+      "subtitle": "Contiguous/linked/indexed allocation, free space, CHS mapping, access time, scheduling",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Allocation Methods and Fragmentation"},
+          {"type": "table", "rows": [
+            ["Method", "Advantages", "Disadvantages", "Fragmentation"],
+            ["Contiguous", "Fast sequential and direct access; only start and length stored", "Hard to grow files; must know size in advance", "Heavy external fragmentation; needs compaction"],
+            ["Linked", "Files grow easily; any free block usable", "Sequential access only, pointer space overhead, one bad pointer loses the rest", "No external; small internal in last block"],
+            ["Linked with FAT", "Chain kept in a table (cacheable), so random access is faster", "FAT must be cached or each access needs extra seeks", "No external fragmentation"],
+            ["Indexed (inode)", "Direct access without external fragmentation", "Index block overhead, wasteful for tiny files", "No external; internal in last block"]
+          ]},
+          {"type": "paragraph", "text": "Allocation policy decides the kind of fragmentation. Contiguous allocation behaves like variable memory partitioning: holes appear as files are deleted, and first fit or best fit is used to choose a run of free blocks. Linked and indexed allocation use any free block, so external fragmentation disappears, but a file's blocks can become scattered across the disk, which increases seek time; this is sometimes called file fragmentation and is what defragmentation tools repair. Block size is a trade-off: larger blocks improve transfer rate but waste more space in each file's last block."},
+          {"type": "heading", "text": "Free-Space Management"},
+          {"type": "bulletList", "text": "Ways to track free disk blocks:", "items": [
+            "Bit vector (bitmap): one bit per block (1 free, 0 allocated in the Silberschatz convention); finding the first free block is easy with word-level instructions, but the map must fit in memory. A 1 TB disk with 4 KB blocks has 2^28 blocks, needing 2^28 bits = 32 MB.",
+            "Linked list: free blocks linked together, head pointer kept in memory; no space wasted, but traversal needs many disk reads.",
+            "Grouping: the first free block stores the addresses of n free blocks, the last of which holds the next n addresses; many free blocks found quickly.",
+            "Counting: store (first free block, count of contiguous free blocks) pairs; compact when free space occurs in runs, as with contiguous allocation or extents."
+          ]},
+          {"type": "heading", "text": "Disk Structure and Block Mapping"},
+          {"type": "paragraph", "text": "A magnetic disk has several platters, each with two surfaces read by one head per surface on a common arm. Each surface is divided into concentric tracks, each track into sectors (traditionally 512 bytes, now often 4 KB). The set of tracks at the same arm position across all surfaces is a cylinder. The OS sees the disk as a one-dimensional array of logical blocks, which the controller maps onto cylinder, head and sector, filling a whole track, then the rest of the cylinder, before moving the arm outward to the next cylinder, so consecutive blocks need minimal arm movement."},
+          {"type": "formula", "latex": "LBA = (C \\cdot H + h)\\cdot S + (s - 1)", "plainText": "LBA = (C × heads + h) × sectors per track + (s − 1)"},
+          {"type": "paragraph", "text": "Inverse mapping: C = LBA div (H × S), h = (LBA div S) mod H, s = (LBA mod S) + 1, where H is heads per cylinder and S sectors per track. Example with H = 16 and S = 63: LBA 5000 gives C = 5000 div 1008 = 4, h = (5000 div 63) mod 16 = 79 mod 16 = 15, and s = (5000 mod 63) + 1 = 23 + 1 = 24. Modern drives do the mapping internally and may remap bad sectors, so the OS only approximates physical layout."},
+          {"type": "heading", "text": "Disk Access Time"},
+          {"type": "paragraph", "text": "Access time = seek time (move the arm to the cylinder) + rotational latency (wait for the sector to come under the head) + transfer time. Average rotational latency is half a revolution. Worked example: a 7200 rpm disk turns 120 times per second, so one revolution takes 8.33 ms and the average latency is 4.17 ms. With an average seek of 5 ms and a 4 KB transfer at 100 MB/s (about 0.04 ms), the average access time is 5 + 4.17 + 0.04 ≈ 9.2 ms, dominated by the mechanical parts."},
+          {"type": "formula", "latex": "T_{access} = T_{seek} + \\frac{1}{2 \\times rps} + \\frac{\\text{bytes}}{\\text{transfer rate}}", "plainText": "T_access = seek + 1 / (2 × rps) + bytes / transfer rate"},
+          {"type": "heading", "text": "Disk Scheduling"},
+          {"type": "table", "rows": [
+            ["Algorithm", "Order serviced", "Head movement"],
+            ["FCFS", "98, 183, 37, 122, 14, 124, 65, 67", "640"],
+            ["SSTF", "65, 67, 37, 14, 98, 122, 124, 183", "236"],
+            ["SCAN (up to 199)", "65, 67, 98, 122, 124, 183, [199], 37, 14", "331"],
+            ["C-SCAN (up, jump to 0)", "65 … 183, [199], [0], 14, 37", "382 (183 excluding the return)"],
+            ["LOOK (up)", "65, 67, 98, 122, 124, 183, 37, 14", "299"],
+            ["C-LOOK (up)", "65 … 183, then 14, 37", "322 (153 excluding the jump)"]
+          ]},
+          {"type": "paragraph", "text": "The table uses the request queue 98, 183, 37, 122, 14, 124, 65, 67 with the head at cylinder 53, cylinders 0–199, and the head moving towards higher numbers for SCAN-family algorithms. FCFS is fair but slow; SSTF picks the nearest request, reducing movement but risking starvation of far requests; SCAN (elevator) sweeps end to end; C-SCAN services in one direction only, giving more uniform waits; LOOK and C-LOOK turn around at the last request instead of the disk edge."},
+          {"type": "bulletList", "text": "Improving file-system performance:", "items": [
+            "Buffer cache / page cache: keep recently used blocks in memory; a unified buffer cache avoids double caching of memory-mapped files.",
+            "Read-ahead and free-behind: prefetch the next blocks of a sequential file and free the pages just read.",
+            "Write-back (delayed write) caching batches writes, while synchronous writes are used for metadata that must be safe.",
+            "Journaling (log-structured metadata updates, e.g. ext4, NTFS) makes crash recovery fast by replaying or discarding logged transactions instead of a full consistency check (fsck).",
+            "Defragmentation and placing related inodes and data in the same cylinder group reduce seek time; SSDs need TRIM rather than defragmentation."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{bit-vector size} = \\frac{\\text{disk size}}{\\text{block size}} \\text{ bits}", "plainText": "Bit-vector size = disk size / block size bits"},
+          {"type": "formula", "latex": "T_{rot,avg} = \\frac{1}{2}\\cdot\\frac{60}{RPM} \\text{ s}", "plainText": "Average rotational latency = 0.5 × 60 / RPM seconds"},
+          {"type": "formula", "latex": "C = \\lfloor LBA/HS \\rfloor,\\; h = \\lfloor LBA/S \\rfloor \\bmod H,\\; s = LBA \\bmod S + 1", "plainText": "C = LBA div (H×S), h = (LBA div S) mod H, s = LBA mod S + 1"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "In disk-scheduling problems note the initial direction and whether the C-SCAN return sweep is counted; the answer choices usually include both versions."},
+          {"type": "warning", "text": "SSTF is not optimal and can starve requests far from the head; do not confuse it with SJF's optimality for CPU scheduling."},
+          {"type": "note", "text": "Only the average rotational latency uses half a revolution; the maximum latency is one full revolution (8.33 ms at 7200 rpm)."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i63_01", "title": "Disk access time", "latex": "T = T_{seek} + T_{rot} + T_{transfer}", "plainText": "T = seek + rotational latency + transfer", "description": "Total time to service one disk request."},
+        {"id": "f_ch7_i63_02", "title": "Average rotational latency", "latex": "T_{rot} = \\frac{1}{2 \\times rps}", "plainText": "T_rot = 1 / (2 × revolutions per second)", "description": "On average the desired sector is half a revolution away."},
+        {"id": "f_ch7_i63_03", "title": "CHS to logical block", "latex": "LBA = (C \\cdot H + h)\\cdot S + (s - 1)", "plainText": "LBA = (C × H + h) × S + (s − 1)", "description": "Maps cylinder, head and 1-based sector to a logical block number."},
+        {"id": "f_ch7_i63_04", "title": "Bit-vector size", "latex": "\\text{bits} = \\frac{\\text{disk size}}{\\text{block size}}", "plainText": "bits = disk size / block size", "description": "One bit is needed for every block on the disk."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i63_01", "front": "Which allocation method suffers most from external fragmentation?", "back": "Contiguous allocation, because each file needs one run of free blocks and deletions leave scattered holes.", "difficulty": "easy"},
+        {"id": "fc_ch7_i63_02", "front": "How does C-SCAN differ from SCAN?", "back": "C-SCAN services requests in one direction only and then returns to the start without servicing, giving more uniform waiting times.", "difficulty": "medium"},
+        {"id": "fc_ch7_i63_03", "front": "What is a FAT?", "back": "A file allocation table: linked allocation where the next-block pointers are held in one table at the start of the volume rather than inside each block.", "difficulty": "medium"},
+        {"id": "fc_ch7_i63_04", "front": "Why does journaling speed up crash recovery?", "back": "Metadata changes are first logged as transactions, so after a crash only the log is replayed instead of checking the whole file system.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i63_n01", "questionText": "What is the average rotational latency of a disk spinning at 7200 rpm?", "options": ["8.33 ms", "2.08 ms", "4.17 ms", "7.2 ms"], "correctIndex": 2, "explanation": "7200 rpm = 120 rps, so one revolution takes 8.33 ms; the average latency is half of that, 4.17 ms.", "difficulty": "easy"},
+        {"id": "q_ch7_i63_n02", "questionText": "The disk head is at cylinder 50 and the queue is 82, 170, 43, 140, 24, 16, 190. What is the total head movement under SSTF?", "options": ["208", "332", "642", "240"], "correctIndex": 0, "explanation": "SSTF order: 43, 24, 16, 82, 140, 170, 190, giving 7 + 19 + 8 + 66 + 58 + 30 + 20 = 208 cylinders.", "difficulty": "hard"},
+        {"id": "q_ch7_i63_n03", "questionText": "A 64 GB disk uses 4 KB blocks and a bit vector for free-space management. How large is the bit vector?", "options": ["16 MB", "2 MB", "512 KB", "16 KB"], "correctIndex": 1, "explanation": "64 GB / 4 KB = 2^24 blocks, needing 2^24 bits = 2^21 bytes = 2 MB.", "difficulty": "medium"},
+        {"id": "q_ch7_i63_n04", "questionText": "The File Allocation Table (FAT) used by MS-DOS and Windows is best described as:", "options": ["Contiguous allocation with a hole list", "Indexed allocation with one inode per file", "A bit-vector free-space map", "Linked allocation with the pointers kept in a table"], "correctIndex": 3, "explanation": "FAT is a variant of linked allocation where each block's next pointer is stored in a table indexed by block number, which can be cached for faster random access.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch7_i64",
+      "title": "System Administration: Users, Start-up & Shutdown",
+      "subtitle": "Admin tasks, Linux user and permission commands, passwd/shadow, boot sequence, shutdown",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Role of a System Administrator"},
+          {"type": "paragraph", "text": "A system administrator keeps multi-user computers and servers reliable, secure and available. The job covers installing and configuring the OS and software, managing user accounts and access rights, protecting data through backups, monitoring performance and logs, and planning capacity. Good administration follows written procedures and documents every change so that another administrator can repeat or reverse it."},
+          {"type": "table", "rows": [
+            ["Task area", "Typical activities"],
+            ["User management", "Create, modify, lock and delete accounts; groups; password policy; quotas"],
+            ["Backups", "Full, incremental and differential backups; off-site copies; test restores"],
+            ["Updates", "Apply OS and application patches; package management (apt, dnf); change control"],
+            ["Monitoring", "CPU, memory, disk and network usage; log review; alerts (top, df, free, journalctl)"],
+            ["Security", "Least privilege, firewalls, SSH keys, disabling unused services, audit"],
+            ["Storage", "Partitioning, mounting file systems, RAID/LVM, free-space and quota control"]
+          ]},
+          {"type": "heading", "text": "User Account Management on Linux"},
+          {"type": "code", "language": "bash", "text": "sudo useradd -m -s /bin/bash -G developers ram   # create user with home dir\nsudo passwd ram                                  # set or change password\nsudo usermod -aG docker ram                      # append to extra group\nsudo usermod -L ram                              # lock the account\nsudo groupadd developers                         # create a group\nsudo userdel -r ram                              # delete user and home dir\nsudo chown ram:developers report.txt             # change owner and group\nchmod 754 script.sh                              # rwxr-xr--\nchmod u+x,g-w file.txt                           # symbolic form"},
+          {"type": "paragraph", "text": "UNIX permissions have three classes (user/owner, group, others), each with read (r = 4), write (w = 2) and execute (x = 1). An octal digit is the sum for one class: 7 = rwx, 6 = rw-, 5 = r-x, 4 = r--, 0 = ---. So chmod 754 gives the owner rwx, the group r-x and others r--, and chmod 644 (rw-r--r--) is typical for ordinary files. On a directory, x means permission to enter (traverse) it and r to list its names. The umask removes bits from the default: with umask 022 new files get 644 and new directories 755."},
+          {"type": "formula", "latex": "\\text{digit} = 4r + 2w + 1x,\\quad r, w, x \\in \\{0, 1\\}", "plainText": "Octal digit = 4r + 2w + 1x, each of r, w, x is 0 or 1"},
+          {"type": "table", "rows": [
+            ["File", "Line format", "Notes"],
+            ["/etc/passwd", "name:x:UID:GID:GECOS:home:shell", "7 fields, world-readable; x means password is in /etc/shadow; UID 0 is root"],
+            ["/etc/shadow", "name:hash:lastchg:min:max:warn:inactive:expire:reserved", "9 fields, readable only by root; salted password hash and ageing data"],
+            ["/etc/group", "group:x:GID:member list", "Group names, IDs and supplementary members"]
+          ]},
+          {"type": "paragraph", "text": "sudo lets an authorised user run a single command with root (or another user's) privileges after authenticating with their own password; the rules live in /etc/sudoers, edited with visudo, and every use is logged. It supports the principle of least privilege: each user and service gets only the rights needed for its job, and the administrator works as an ordinary user, elevating only when necessary, instead of logging in as root."},
+          {"type": "paragraph", "text": "On Windows, accounts are managed through Settings, the Computer Management console (Local Users and Groups) or commands such as net user and net localgroup, and in organisations centrally through Active Directory with Group Policy. Permissions are NTFS access control lists, and User Account Control (UAC) plays the role of sudo by requiring elevation for administrative actions."},
+          {"type": "heading", "text": "Start-up (Boot) Sequence"},
+          {"type": "bulletList", "text": "From power-on to login on a Linux PC:", "items": [
+            "Firmware (BIOS or UEFI) runs the power-on self-test (POST), initialises hardware and selects a boot device.",
+            "BIOS loads the boot loader from the MBR (first 512-byte sector); UEFI loads an EFI application from the EFI system partition.",
+            "The boot loader (GRUB 2) shows a menu, loads the kernel image and the initial RAM disk (initramfs) and passes kernel parameters.",
+            "The kernel initialises CPU, memory and drivers, mounts the root file system (read-only first) and starts the first user process, PID 1.",
+            "PID 1 (systemd, or SysV init on older systems) starts services in dependency order until the default target or run level is reached, then presents a login prompt or graphical login."
+          ]},
+          {"type": "table", "rows": [
+            ["SysV run level", "systemd target", "Meaning"],
+            ["0", "poweroff.target", "Halt and power off"],
+            ["1 (S)", "rescue.target", "Single-user maintenance mode, root only"],
+            ["2, 3, 4", "multi-user.target", "Multi-user with networking, text console"],
+            ["5", "graphical.target", "Multi-user with graphical login"],
+            ["6", "reboot.target", "Reboot"]
+          ]},
+          {"type": "heading", "text": "Shutdown Procedures"},
+          {"type": "code", "language": "bash", "text": "sudo shutdown -h now            # halt / power off immediately\nsudo shutdown -h +10 'Maintenance'  # warn users, halt in 10 min\nsudo shutdown -r now            # reboot now (same as: reboot)\nsudo shutdown -c                # cancel a scheduled shutdown\nsync                            # flush buffered data to disk\nsudo systemctl poweroff         # systemd equivalent\nsudo systemctl isolate multi-user.target  # switch target"},
+          {"type": "paragraph", "text": "A graceful shutdown warns logged-in users, blocks new logins, sends SIGTERM to processes so they can save state (followed by SIGKILL for those that do not exit), stops services in reverse dependency order, flushes buffers with sync and unmounts file systems before power-off. A forced shutdown (power cut, holding the power button, or halt -f) skips these steps and can lose cached data or leave file systems inconsistent, requiring fsck or journal recovery at the next boot. System logs (/var/log, journalctl) record boot, service and security events for troubleshooting, and cron (crontab -e, entries of the form minute hour day month weekday command) schedules routine jobs such as backups and log rotation."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{mode} = 100u + 10g + o,\\quad u, g, o = 4r + 2w + x", "plainText": "Mode digits: owner, group, others; each digit = 4r + 2w + x"},
+          {"type": "formula", "latex": "\\text{umask } 022:\\; 666 \\to 644,\\; 777 \\to 755", "plainText": "Default perms = base AND NOT umask (umask 022: files 666 → 644, dirs 777 → 755)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Decode octal permissions digit by digit: 7 = rwx, 6 = rw-, 5 = r-x, 4 = r--. For example 640 means rw-r----- (owner read/write, group read, others nothing)."},
+          {"type": "warning", "text": "usermod -G without -a replaces all of a user's supplementary groups; use usermod -aG to add a group while keeping the existing ones."},
+          {"type": "note", "text": "Passwords were moved from the world-readable /etc/passwd to root-only /etc/shadow so that hashes cannot be copied and attacked offline by ordinary users."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch7_i64_01", "title": "Permission digit", "latex": "\\text{digit} = 4r + 2w + x", "plainText": "digit = 4r + 2w + x", "description": "Each octal digit of a UNIX mode is the sum of read (4), write (2) and execute (1) bits for one class."},
+        {"id": "f_ch7_i64_02", "title": "umask default", "latex": "\\text{perm} = \\text{base} \\land \\lnot\\,\\text{umask}", "plainText": "perm = base AND NOT umask", "description": "New files start from 666 and directories from 777, with the umask bits removed (022 gives 644 and 755)."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch7_i64_01", "front": "What permissions does chmod 750 set?", "back": "rwxr-x---: owner read/write/execute, group read/execute, others no access.", "difficulty": "easy"},
+        {"id": "fc_ch7_i64_02", "front": "Which Linux process has PID 1 and what does it do?", "back": "init or, on modern systems, systemd; it starts services and brings the system to the default run level or target.", "difficulty": "easy"},
+        {"id": "fc_ch7_i64_03", "front": "Graceful vs forced shutdown?", "back": "Graceful warns users, stops processes and services, syncs and unmounts file systems; forced skips this and risks data loss and file-system inconsistency.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch7_i64_n01", "questionText": "After running chmod 754 report.sh, what are the file's permissions?", "options": ["rwxr-xr--", "rwxrw-r--", "rw-r-xr--", "rwxr--r-x"], "correctIndex": 0, "explanation": "7 = rwx for the owner, 5 = r-x for the group and 4 = r-- for others.", "difficulty": "easy"},
+        {"id": "q_ch7_i64_n02", "questionText": "On a modern Linux system, which file stores users' hashed passwords and is readable only by root?", "options": ["/etc/passwd", "/etc/group", "/etc/shadow", "/etc/sudoers"], "correctIndex": 2, "explanation": "/etc/shadow holds salted password hashes and ageing data with root-only access; /etc/passwd shows only an x placeholder.", "difficulty": "easy"},
+        {"id": "q_ch7_i64_n03", "questionText": "Which systemd target corresponds to the traditional SysV run level 3 (multi-user, text mode with networking)?", "options": ["rescue.target", "graphical.target", "reboot.target", "multi-user.target"], "correctIndex": 3, "explanation": "Run levels 2–4 map to multi-user.target; run level 5 maps to graphical.target and 1 to rescue.target.", "difficulty": "medium"},
+        {"id": "q_ch7_i64_n04", "questionText": "An administrator wants to add user ram to the docker group without removing ram from any existing supplementary groups. Which command is correct?", "options": ["usermod -G docker ram", "usermod -aG docker ram", "useradd -G docker ram", "groupadd docker ram"], "correctIndex": 1, "explanation": "The -a (append) flag with -G adds the group while keeping current memberships; -G alone replaces the supplementary group list.", "difficulty": "medium"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,703 @@
+{
+  "topicId": "ch3_i23",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Record Tables, Arrow Chains and Linked Lists"
+    },
+    {
+      "type": "paragraph",
+      "text": "The arrow operator is a postfix operator, like (), [] and the dot, so it binds tighter than every prefix operator such as ++, --, *, & and a cast. That fixes the meaning of the combinations that appear in output questions: ++p->x increments the member, (++p)->x moves the pointer first, p++->x reads the member of the current record and then moves, and *p->q dereferences a pointer member. The address of member m of record i is computed from the base address, the record size and the member offset, which is why p + 1 always jumps over a whole record, padding included."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Expression (p points to arr[0])",
+          "Parsed as",
+          "Effect"
+        ],
+        [
+          "++p->x",
+          "++(p->x)",
+          "arr[0].x increases by 1; p unchanged"
+        ],
+        [
+          "(++p)->x",
+          "p moves first",
+          "reads arr[1].x"
+        ],
+        [
+          "p++->x",
+          "(p++)->x",
+          "reads arr[0].x, then p points to arr[1]"
+        ],
+        [
+          "p->x++",
+          "(p->x)++",
+          "yields the old arr[0].x, then increments it"
+        ],
+        [
+          "*p->q",
+          "*(p->q)",
+          "the object that the member pointer q points to"
+        ],
+        [
+          "&p->x",
+          "&(p->x)",
+          "address of arr[0].x"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\&s[i].m = \\text{base} + i \\times \\text{sizeof(struct T)} + \\text{offsetof}(T, m)",
+      "plainText": "&s[i].m = base address + i × sizeof(struct T) + offsetof(T, m)"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nstruct St { char name[8]; int marks; };\nint main(void) {\n    struct St s[4] = {{\"Asha\", 72}, {\"Bina\", 65}, {\"Chet\", 72}, {\"Dev\", 90}};\n    for (int i = 1; i < 4; i++) {           /* insertion sort, descending */\n        struct St key = s[i];\n        int j = i - 1;\n        while (j >= 0 && s[j].marks < key.marks) { s[j + 1] = s[j]; j--; }\n        s[j + 1] = key;\n    }\n    for (int i = 0; i < 4; i++) printf(\"%s %d\\n\", s[i].name, s[i].marks);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nDev 90\nAsha 72\nChet 72\nBina 65\ni=1 key Bina 65: 72 < 65 false, stays            -> Asha Bina Chet Dev\ni=2 key Chet 72: Bina shifts; 72 < 72 false      -> Asha Chet Bina Dev\ni=3 key Dev 90 : Bina, Chet, Asha shift          -> Dev Asha Chet Bina\nWhole records move (s[j + 1] = s[j]), so every name stays with its marks.\nThe strict < leaves equal keys in input order: the sort is stable."
+    },
+    {
+      "type": "paragraph",
+      "text": "Passing a structure by value copies all of it, including any array member, so a function can change its copy without the caller noticing; a bare array argument, by contrast, always decays to a pointer. An array of structures passed to a function also decays to a pointer to its first record, so the function works on the caller's records. A function may return a structure by value, even one built on the spot with a C99 compound literal such as return (struct P){x, y};, but a returned pointer must point to storage that outlives the call: heap memory, a static object or a record in the caller's array."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\n#include <stdlib.h>\nstruct Node { int d; struct Node *next; };\nint main(void) {\n    struct Node *head = NULL, **tail = &head;\n    for (int i = 1; i <= 3; i++) {                /* append at the end */\n        struct Node *n = malloc(sizeof *n);\n        n->d = i * 10; n->next = NULL;\n        *tail = n; tail = &n->next;\n    }\n    for (struct Node *p = head; p; p = p->next) printf(\"%d \", p->d);\n    while (head) { struct Node *t = head->next; free(head); head = t; }\n    printf(\"\\n%s\\n\", head == NULL ? \"freed\" : \"leak\");\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n10 20 30\nfreed\ni=1: head -> [10] -> NULL                 tail = &node10.next\ni=2: head -> [10] -> [20] -> NULL         tail = &node20.next\ni=3: head -> [10] -> [20] -> [30] -> NULL tail = &node30.next\ntail always holds the address of the last next field (at first &head),\nso appending needs no special case for an empty list and no walk to the end.\nThe free loop saves head->next in t before free(head), so no freed node is read."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes and special cases:",
+      "items": [
+        "malloc(sizeof(p)) or malloc(sizeof(struct T *)) allocates only a pointer's worth of bytes; use sizeof *p or sizeof(struct T).",
+        "Swapping only the key member while sorting separates it from the rest of the record; swap whole elements.",
+        "free(p); p = p->next; reads freed memory; save the next pointer first.",
+        "Inserting at the front of a list or deleting its first node changes head, so the function must receive struct Node ** or return the new head.",
+        "Returning the address of a local structure leaves a dangling pointer, because the local record is destroyed when the function returns.",
+        "Binary search over an array of structures works only if the array is sorted on the same member that is searched for."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{probes}_{\\max} = \\lfloor \\log_2 n \\rfloor + 1",
+      "plainText": "binary search over n sorted records needs at most floor(log2 n) + 1 probes (7 records: 3 probes); linear search needs up to n"
+    },
+    {
+      "type": "examTip",
+      "text": "In output questions, first decide for each call whether it receives a copy (a struct T parameter) or an address (struct T *, or an array of structures). Only the address forms can change the caller's records, and a pointer parameter that is itself reassigned inside the function does not change the caller's pointer."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i23_m001",
+      "questionText": "What does the following fragment print?\n\nstruct S { int a; char c; };\nstruct S arr[3] = {{1, 'x'}, {2, 'y'}, {3, 'z'}};\nprintf(\"%d%c\", arr[2].a, arr[0].c);",
+      "options": [
+        "3x",
+        "3z",
+        "1x",
+        "2y"
+      ],
+      "correctIndex": 0,
+      "explanation": "arr[2] is the third record {3, 'z'}, so arr[2].a is 3; arr[0] is {1, 'x'}, so arr[0].c is 'x'.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m002",
+      "questionText": "Given struct Emp { int id; char name[20]; float sal; } e[50];, assume int and float are 4 bytes and 4-byte aligned (no padding is needed, because every member already starts at a multiple of 4). How many bytes does the array e occupy?",
+      "options": [
+        "28",
+        "1400",
+        "1200",
+        "1450"
+      ],
+      "correctIndex": 1,
+      "explanation": "One record is 4 + 20 + 4 = 28 bytes (sal starts at offset 24, so there is no padding). The array holds 50 records: 50 × 28 = 1400 bytes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m003",
+      "questionText": "What does the following fragment print?\n\nstruct Item { int qty; int price; };\nstruct Item it[3] = {{2, 10}, {1, 25}, {4, 5}};\nint total = 0;\nfor (int i = 0; i < 3; i++)\n    total += it[i].qty * it[i].price;\nprintf(\"%d\", total);",
+      "options": [
+        "45",
+        "47",
+        "280",
+        "65"
+      ],
+      "correctIndex": 3,
+      "explanation": "total = 2 × 10 + 1 × 25 + 4 × 5 = 20 + 25 + 20 = 65.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m004",
+      "questionText": "What does the following fragment print?\n\nstruct St { char n[8]; int m; };\nstruct St s[4] = {{\"Asha\", 70}, {\"Bina\", 85}, {\"Chet\", 85}, {\"Dev\", 60}};\nint best = 0;\nfor (int i = 1; i < 4; i++)\n    if (s[i].m >= s[best].m) best = i;\nprintf(\"%s\", s[best].n);",
+      "options": [
+        "Asha",
+        "Bina",
+        "Chet",
+        "Dev"
+      ],
+      "correctIndex": 2,
+      "explanation": "The loop keeps the index of the highest marks. At i = 1, 85 >= 70 selects Bina; at i = 2, 85 >= 85 is also true, so Chet replaces her; 60 at i = 3 does not. With > instead of >= the first topper, Bina, would be kept.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m005",
+      "questionText": "Assume int is 4 bytes and 4-byte aligned; these structures need no padding. What does this fragment print?\n\nstruct Player { int runs; };\nstruct Team { char name[8]; struct Player p[3]; } t[2];\nprintf(\"%zu %zu\", sizeof t, sizeof t[0].p);",
+      "options": [
+        "20 12",
+        "40 12",
+        "40 3",
+        "48 12"
+      ],
+      "correctIndex": 1,
+      "explanation": "One Team is 8 bytes of name plus 3 × 4 = 12 bytes of players = 20 bytes (p starts at offset 8, already a multiple of 4). t holds 2 teams: 40 bytes. t[0].p is an array of 3 players: 12 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m006",
+      "questionText": "Given struct Student { int roll; char name[20]; } s[10]; and an int i, which call correctly reads the roll number and name of record i?",
+      "options": [
+        "scanf(\"%d %s\", &s[i].roll, s[i].name);",
+        "scanf(\"%d %s\", s[i].roll, s[i].name);",
+        "scanf(\"%d %s\", &s[i]->roll, s[i]->name);",
+        "scanf(\"%d %s\", &s.roll[i], s.name[i]);"
+      ],
+      "correctIndex": 0,
+      "explanation": "%d needs the address of the int member, &s[i].roll (the & applies to the whole s[i].roll). name is an array, which already converts to the address of its first character, so it takes no &. s[i] is a structure, not a pointer, so -> is wrong, and the array s itself has no members.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m007",
+      "questionText": "What does the following fragment print?\n\nstruct P { int x, y; };\nstruct P a = {3, 7}, *p = &a;\np->y = p->x * 2;\nprintf(\"%d %d\", a.x, a.y);",
+      "options": [
+        "3 7",
+        "6 6",
+        "3 14",
+        "3 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "p points to a, so p->y = p->x * 2 assigns 3 × 2 = 6 to a.y; a.x is unchanged.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m008",
+      "questionText": "What does the following fragment print?\n\nstruct P { int x; };\nstruct P arr[2] = {{10}, {20}}, *p = arr;\nint a = ++p->x;\nint b = (++p)->x;\nprintf(\"%d %d %d\", a, b, arr[0].x);",
+      "options": [
+        "20 20 10",
+        "11 11 11",
+        "11 20 11",
+        "11 21 11"
+      ],
+      "correctIndex": 2,
+      "explanation": "-> binds tighter than ++, so ++p->x increments arr[0].x to 11 and a = 11. In (++p)->x the parentheses move p to arr[1] first, so b = 20.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m009",
+      "questionText": "What does the following fragment print?\n\nstruct P { int x; };\nstruct P arr[2] = {{1}, {5}}, *p = arr;\nint a = p++->x;\nint b = p->x++;\nprintf(\"%d %d %d\", a, b, arr[1].x);",
+      "options": [
+        "2 5 6",
+        "1 5 6",
+        "5 6 6",
+        "1 6 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "p++->x is (p++)->x: it reads arr[0].x (1) and then moves p to arr[1]. p->x++ is (p->x)++: it yields the old value of arr[1].x (5) and then increments the member to 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m010",
+      "questionText": "What does the following fragment print?\n\nint v = 5;\nstruct S { int n; int *q; };\nstruct S s = {1, &v}, *p = &s;\n*p->q += 10;\n(*p).n++;\nprintf(\"%d %d\", v, s.n);",
+      "options": [
+        "5 2",
+        "15 1",
+        "Compile error: *p->q is invalid",
+        "15 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "*p->q means *(p->q), the int that member q points to, so v becomes 15. (*p).n++ is the same as p->n++, so s.n becomes 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m011",
+      "questionText": "Given struct P { int x; } arr[3]; and struct P *p = arr + 1;, which expression does NOT refer to arr[2].x?",
+      "options": [
+        "p[1].x",
+        "(p + 1)->x",
+        "p++->x",
+        "(*++p).x"
+      ],
+      "correctIndex": 2,
+      "explanation": "p[1], *(p + 1) and *++p all denote the record after arr[1], i.e. arr[2]. In p++->x the post-increment yields the old value of p, so it reads arr[1].x (p moves to arr[2] only afterwards).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m012",
+      "questionText": "Assume char is 1 byte and int is 4 bytes and 4-byte aligned (typical 64-bit compiler, default alignment). What does this fragment print?\n\nstruct R { char c; int n; };\nstruct R arr[4] = {{'a', 1}, {'b', 2}, {'c', 3}, {'d', 4}};\nstruct R *p = arr, *q = &arr[3];\nprintf(\"%td %td %d\", q - p, (char *)q - (char *)p, (q - 1)->n);",
+      "options": [
+        "3 24 3",
+        "3 15 3",
+        "24 24 3",
+        "3 24 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "Subtracting structure pointers counts records: q − p = 3. Each record is 1 + 3 padding + 4 = 8 bytes, so the byte distance is 3 × 8 = 24 (15 would ignore the padding). q − 1 points to arr[2], whose n is 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m013",
+      "questionText": "What does the following fragment print?\n\nstruct Dept { char name[8]; };\nstruct Emp { int id; struct Dept *d; };\nstruct Dept hr = {\"HR\"};\nstruct Emp e = {1, &hr}, *pe = &e;\nprintf(\"%s %c\", pe->d->name, pe->d->name[1]);",
+      "options": [
+        "HR R",
+        "HR H",
+        "H R",
+        "Compile error: -> cannot be applied twice"
+      ],
+      "correctIndex": 0,
+      "explanation": "pe->d is the pointer member holding the address of hr, so pe->d->name is hr.name, \"HR\". The [] then indexes that array, so pe->d->name[1] is 'R'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m014",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct A { int v[2]; };\nvoid f(struct A a) { a.v[0] = 99; }\nvoid g(int *v) { v[1] = 77; }\nint main(void) {\n    struct A s = {{1, 2}};\n    f(s);\n    g(s.v);\n    printf(\"%d %d\", s.v[0], s.v[1]);\n    return 0;\n}",
+      "options": [
+        "99 77",
+        "1 2",
+        "99 2",
+        "1 77"
+      ],
+      "correctIndex": 3,
+      "explanation": "f receives a copy of the whole structure, and the array inside it is copied too, so a.v[0] = 99 changes only the copy. g receives s.v, which decays to a pointer to the caller's array, so v[1] = 77 changes s.v[1]. Output: 1 77.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m015",
+      "questionText": "Which marked line of this program causes a compile error?\n\n#include <stdio.h>\nstruct P { int x, y; };\nvoid show(const struct P *p) {\n    int t = p->x + p->y;    /* A */\n    printf(\"%d\\n\", t);      /* B */\n    p->x = 0;               /* C */\n}\nint main(void) {\n    struct P a = {1, 2};\n    show(&a);               /* D */\n    return 0;\n}",
+      "options": [
+        "Line A",
+        "Line B",
+        "Line C",
+        "Line D"
+      ],
+      "correctIndex": 2,
+      "explanation": "p is a pointer to const struct P, so the members may be read (line A) but not modified: p->x = 0 is a compile error. Passing the address of a non-const structure to a pointer-to-const parameter (line D) is allowed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m016",
+      "questionText": "For struct Big { double d[100]; int n; };, assume double is 8 bytes and 8-byte aligned, int is 4 bytes and pointers are 8 bytes. How many bytes are copied into the parameter when a struct Big is passed by value, and when its address is passed instead?",
+      "options": [
+        "804 by value, 8 by address",
+        "808 by value, 8 by address",
+        "808 by value, 808 by address",
+        "804 by value, 4 by address"
+      ],
+      "correctIndex": 1,
+      "explanation": "The members need 800 + 4 = 804 bytes, rounded up to a multiple of 8 (the alignment of double): sizeof(struct Big) = 808, all of which is copied by value. Passing the address copies only a pointer, 8 bytes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m017",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct P { int v; };\nvoid swapV(struct P a, struct P b) { struct P t = a; a = b; b = t; }\nvoid swapP(struct P *a, struct P *b) { struct P t = *a; *a = *b; *b = t; }\nint main(void) {\n    struct P x = {1}, y = {2};\n    swapV(x, y);\n    printf(\"%d \", x.v);\n    swapP(&x, &y);\n    printf(\"%d\", x.v);\n    return 0;\n}",
+      "options": [
+        "2 1",
+        "1 1",
+        "1 2",
+        "2 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "swapV exchanges its own copies, so x.v is still 1. swapP exchanges the caller's structures through the pointers (whole structures are assigned with *a = *b), so x.v becomes 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m018",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct C { int n; };\nvoid inc(int *k) { (*k)++; }\nint main(void) {\n    struct C c = {5}, *p = &c;\n    inc(&c.n);\n    inc(&p->n);\n    printf(\"%d\", c.n);\n    return 0;\n}",
+      "options": [
+        "7",
+        "5",
+        "6",
+        "Compile error: &p->n is not allowed"
+      ],
+      "correctIndex": 0,
+      "explanation": "&c.n and &p->n are both the address of the same int member, because . and -> bind tighter than &. Each call adds 1: 5 → 6 → 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m019",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct P { int x; };\nvoid f(struct P *p) { p->x = 7; p = NULL; }\nint main(void) {\n    struct P a = {1}, *q = &a;\n    f(q);\n    printf(\"%d %d\", a.x, q == &a);\n    return 0;\n}",
+      "options": [
+        "7 0",
+        "7 1",
+        "1 1",
+        "Runtime crash: q is NULL after the call"
+      ],
+      "correctIndex": 1,
+      "explanation": "f receives a copy of the pointer q. Through it, p->x = 7 changes a. Setting the copy p to NULL does not affect q in main, so q == &a is still true (1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m020",
+      "questionText": "Why is a function often declared as void print(const struct Student *s) rather than void print(struct Student s)?",
+      "options": [
+        "A structure cannot be passed by value in C",
+        "const makes the function run at compile time",
+        "Passing a pointer gives the function a private copy of the record",
+        "Only an address is copied instead of the whole record, and const stops the function from modifying the caller's record"
+      ],
+      "correctIndex": 3,
+      "explanation": "Passing by value is legal but copies sizeof(struct Student) bytes on every call. A pointer copies only an address, and const gives the same protection a copy would, because the compiler rejects writes through s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m021",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct P { int x; };\nvoid bump(struct P a[], int n) { for (int i = 0; i < n; i++) a[i].x++; }\nvoid bumpOne(struct P p) { p.x++; }\nint main(void) {\n    struct P arr[2] = {{1}, {2}};\n    bump(arr, 2);\n    bumpOne(arr[0]);\n    printf(\"%d %d\", arr[0].x, arr[1].x);\n    return 0;\n}",
+      "options": [
+        "1 2",
+        "3 3",
+        "3 4",
+        "2 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "An array of structures passed to a function decays to a pointer to its first record, so bump changes the caller's elements to 2 and 3. bumpOne receives a copy of arr[0], so its increment is lost.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m022",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct P { int x, y; };\nstruct P make(int a) { struct P t = {a, a * a}; return t; }\nint main(void) {\n    printf(\"%d %d\", make(3).x, make(4).y);\n    return 0;\n}",
+      "options": [
+        "3 16",
+        "3 9",
+        "4 16",
+        "Compile error: a member cannot be selected from a function result"
+      ],
+      "correctIndex": 0,
+      "explanation": "make(3) returns {3, 9}, whose x is 3; make(4) returns {4, 16}, whose y is 16. A member of a returned structure can be selected directly with the dot operator.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m023",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct Arr { int a[3]; };\nstruct Arr twice(struct Arr s) {\n    for (int i = 0; i < 3; i++) s.a[i] *= 2;\n    return s;\n}\nint main(void) {\n    struct Arr x = {{1, 2, 3}}, y = twice(x);\n    printf(\"%d %d\", x.a[2], y.a[2]);\n    return 0;\n}",
+      "options": [
+        "6 6",
+        "3 3",
+        "3 6",
+        "Compile error: a function cannot return an array"
+      ],
+      "correctIndex": 2,
+      "explanation": "The parameter s is a copy of x, array included, so doubling s.a leaves x.a unchanged (x.a[2] = 3). The modified copy is returned into y, so y.a[2] = 6. Wrapping an array in a structure is a way to pass and return it by value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m024",
+      "questionText": "struct P { int x; }; is defined and <stdlib.h> is included. Which function returns a pointer that the caller can safely use after the call (ignore allocation failure)?",
+      "options": [
+        "struct P *f(void) { struct P t = {1}; return &t; }",
+        "struct P *f(void) { struct P *t = malloc(sizeof *t); t->x = 1; return t; }",
+        "struct P *f(struct P t) { return &t; }",
+        "struct P *f(void) { struct P a[2] = {{1}, {2}}; return &a[1]; }"
+      ],
+      "correctIndex": 1,
+      "explanation": "Memory from malloc lives until it is freed, so that pointer stays valid. A local variable, a parameter and a local array all cease to exist when f returns, so the other three functions return dangling pointers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m025",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct P { int s, d; };\nstruct P sd(int a, int b) { return (struct P){a + b, a - b}; }\nint main(void) {\n    struct P r = sd(5, 2);\n    printf(\"%d %d\", r.s, r.d);\n    return 0;\n}",
+      "options": [
+        "5 2",
+        "3 7",
+        "7 3",
+        "Compile error: (struct P){...} is not a valid expression"
+      ],
+      "correctIndex": 2,
+      "explanation": "(struct P){a + b, a - b} is a C99 compound literal: an unnamed structure value {7, 3}, which is returned by value and copied into r.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m026",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct V { int x, y; };\nstruct V add(struct V a, struct V b) { a.x += b.x; a.y += b.y; return a; }\nstruct V scale(struct V a, int k) { a.x *= k; a.y *= k; return a; }\nint main(void) {\n    struct V u = {1, 2}, w = {3, -1};\n    struct V r = scale(add(u, w), 3);\n    printf(\"%d %d %d\", r.x, r.y, u.x);\n    return 0;\n}",
+      "options": [
+        "12 3 4",
+        "12 3 1",
+        "4 1 1",
+        "12 3 12"
+      ],
+      "correctIndex": 1,
+      "explanation": "add works on copies: it returns {1 + 3, 2 + (−1)} = {4, 1} and leaves u unchanged. scale then returns {4 × 3, 1 × 3} = {12, 3}. u.x is still 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m027",
+      "questionText": "Which member declaration, placed inside struct Node { int data; ... };, causes a compile error?",
+      "options": [
+        "struct Node next;",
+        "struct Node *next;",
+        "struct Node *child[2];",
+        "struct Node **link;"
+      ],
+      "correctIndex": 0,
+      "explanation": "While its own definition is being read, struct Node is an incomplete type, so it cannot contain a member of itself by value (such a structure would be infinitely large). Pointers to it have a fixed size, so all the pointer forms are valid self-references.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m028",
+      "questionText": "The structure struct Node { int data; struct Node *next; }; is the typical node of which data structure?",
+      "options": [
+        "A binary tree",
+        "A doubly linked list",
+        "A stack stored in an array",
+        "A singly linked list"
+      ],
+      "correctIndex": 3,
+      "explanation": "The node holds data and one pointer to the next node of the same type, which is exactly a singly linked list node. A binary tree node needs left and right pointers, and a doubly linked list node needs both next and prev.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m029",
+      "questionText": "What does the following fragment print?\n\nstruct Node { int data; struct Node *next; };\nstruct Node a = {1, NULL}, b = {2, &a}, c = {3, &b};\nfor (struct Node *p = &c; p != NULL; p = p->next)\n    printf(\"%d\", p->data);",
+      "options": [
+        "123",
+        "3",
+        "32",
+        "321"
+      ],
+      "correctIndex": 3,
+      "explanation": "The chain is c → b → a → NULL. Starting at c, the loop prints 3, 2 and 1 and stops when p becomes NULL after a.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m030",
+      "questionText": "What does the following fragment print?\n\nstruct Node { int d; struct Node *next; };\nstruct Node n3 = {30, NULL}, n2 = {20, &n3}, n1 = {10, &n2};\nstruct Node *h = &n1;\nh->next = h->next->next;\nint s = 0;\nfor (struct Node *p = h; p; p = p->next) s += p->d;\nprintf(\"%d %d\", s, n2.next->d);",
+      "options": [
+        "60 30",
+        "40 30",
+        "40 20",
+        "30 30"
+      ],
+      "correctIndex": 1,
+      "explanation": "h->next->next is &n3, so n1 now links directly to n3 and the list is 10 → 30: s = 40. The unlinked node n2 itself is not changed and still points to n3, so n2.next->d is 30.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m031",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct Node { int d; struct Node *next; };\nint main(void) {\n    struct Node n[4] = {{1, &n[1]}, {2, &n[2]}, {3, &n[3]}, {4, NULL}};\n    struct Node *prev = NULL, *cur = &n[0], *nx;\n    while (cur) {\n        nx = cur->next;\n        cur->next = prev;\n        prev = cur;\n        cur = nx;\n    }\n    for (cur = prev; cur; cur = cur->next) printf(\"%d\", cur->d);\n    printf(\" %d\", n[1].next->d);\n    return 0;\n}",
+      "options": [
+        "4321 1",
+        "4321 3",
+        "1234 3",
+        "4321 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each pass points the current node back to the previous one, so when the loop ends prev is n[3] and the list reads 4 → 3 → 2 → 1. n[1] (value 2) now points back to n[0], so n[1].next->d is 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m032",
+      "questionText": "Assume every allocation succeeds. What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nstruct Node { int d; struct Node *next; };\nvoid ins(struct Node **h, int v) {\n    while (*h && (*h)->d < v) h = &(*h)->next;\n    struct Node *n = malloc(sizeof *n);\n    n->d = v; n->next = *h; *h = n;\n}\nint main(void) {\n    struct Node *head = NULL;\n    int a[] = {5, 2, 8, 3};\n    for (int i = 0; i < 4; i++) ins(&head, a[i]);\n    for (struct Node *p = head; p; p = p->next) printf(\"%d\", p->d);\n    return 0;\n}",
+      "options": [
+        "5283",
+        "8532",
+        "2358",
+        "3825"
+      ],
+      "correctIndex": 2,
+      "explanation": "ins moves h along the next fields to the first node whose value is not less than v and links the new node in there. Inserting 5, 2, 8, 3 gives 5; then 2 5; then 2 5 8; then 2 3 5 8, so the list stays in ascending order.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m033",
+      "questionText": "p points to the first node of a singly linked list of struct Node { int d; struct Node *next; }. Which code frees every node without reading memory that has already been freed?",
+      "options": [
+        "while (p) { free(p); p = p->next; }",
+        "while (p) { p = p->next; free(p); }",
+        "free(p); p = NULL;",
+        "while (p) { struct Node *t = p->next; free(p); p = t; }"
+      ],
+      "correctIndex": 3,
+      "explanation": "The next pointer must be saved before its node is freed. The first two wrong loops both read p->next from a node that has just been freed (and the second never frees the first node); free(p); p = NULL; releases only the first node and leaks the rest.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m034",
+      "questionText": "Which declaration defines a node suitable for a binary tree?",
+      "options": [
+        "struct T { int key; struct T left, right; };",
+        "struct T { int key; struct T *next; };",
+        "struct T { int key; struct T *left, *right; };",
+        "struct T { int key; int *left, *right; };"
+      ],
+      "correctIndex": 2,
+      "explanation": "A tree node refers to two children of its own type, so it needs two pointers to struct T. Members of type struct T by value are illegal, a single next pointer makes a list node, and int pointers cannot link to other nodes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m035",
+      "questionText": "Given struct Student { int roll; char name[20]; float marks; };, which statement correctly allocates heap memory for exactly one struct Student?",
+      "options": [
+        "struct Student *p = malloc(sizeof(p));",
+        "struct Student *p = malloc(sizeof(struct Student));",
+        "struct Student *p = malloc(sizeof(struct Student *));",
+        "struct Student p = malloc(sizeof(struct Student));"
+      ],
+      "correctIndex": 1,
+      "explanation": "sizeof(struct Student) is the size of the whole record (28 bytes with 4-byte int and float). sizeof(p) and sizeof(struct Student *) are only the size of a pointer, which is too small, and the result of malloc must be stored in a pointer, not in a structure variable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m036",
+      "questionText": "On a typical 64-bit compiler with default alignment (char 1, int 4, double 8 bytes, each aligned to its own size), how many bytes does malloc(10 * sizeof(struct R)) request for struct R { char code; double amt; int qty; };?",
+      "options": [
+        "240",
+        "130",
+        "200",
+        "24"
+      ],
+      "correctIndex": 0,
+      "explanation": "code at 0, 7 padding bytes, amt at 8–15, qty at 16–19, then 4 tail padding bytes to reach a multiple of 8: sizeof(struct R) = 24. Ten records need 10 × 24 = 240 bytes (130 ignores all padding, 200 forgets the tail padding).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m037",
+      "questionText": "What does the following fragment print? (<stdlib.h> is included and every allocation succeeds.)\n\nstruct P { int x; };\nstruct P *a = malloc(3 * sizeof *a);\nfor (int i = 0; i < 3; i++) a[i].x = i * i;\n(a + 1)->x += 5;\nprintf(\"%d %d\", a[1].x, (a + 2)->x);\nfree(a);",
+      "options": [
+        "5 4",
+        "6 4",
+        "6 9",
+        "1 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "The loop stores 0, 1 and 4. (a + 1)->x is the same member as a[1].x, so it becomes 1 + 5 = 6, and (a + 2)->x is a[2].x = 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m038",
+      "questionText": "What does the following fragment print? (<stdlib.h> is included and every allocation succeeds.)\n\nstruct C { int n, m; };\nstruct C *c = calloc(2, sizeof *c);\nc[1].n += 3;\nprintf(\"%d %d %d\", c[0].n, c[1].n, c[1].m);\nfree(c);",
+      "options": [
+        "0 3 3",
+        "1 3 1",
+        "0 3 0",
+        "Unpredictable values, because calloc does not initialise memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "calloc allocates 2 records and sets every byte to zero, so all the int members start at 0. Only c[1].n is changed, to 3. With malloc the initial values would be indeterminate.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m039",
+      "questionText": "What does the following fragment print? (<stdlib.h> is included and every allocation succeeds.)\n\nstruct P { int x; };\nstruct P *a = malloc(2 * sizeof *a);\na[0].x = 4; a[1].x = 6;\nstruct P *t = realloc(a, 4 * sizeof *a);\nif (t) a = t;\na[2].x = a[0].x + a[1].x;\nprintf(\"%d\", a[2].x);\nfree(a);",
+      "options": [
+        "10",
+        "0",
+        "6",
+        "Unpredictable, because realloc discards the old records"
+      ],
+      "correctIndex": 0,
+      "explanation": "realloc keeps the old contents (up to the smaller of the old and new sizes) even if the block moves, so a[0].x and a[1].x are still 4 and 6, and a[2].x = 10. Storing the result in t first avoids losing the block if realloc fails.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i23_m040",
+      "questionText": "After struct P *p = malloc(sizeof *p); the program calls free(p); and then executes p->x = 5;. What is true about that last statement?",
+      "options": [
+        "It is safe: p still holds the same address, so the record is still there",
+        "It is a compile error: a freed pointer cannot be used",
+        "free(p) set p to NULL, so it always crashes with a NULL dereference",
+        "It is undefined behaviour, because p is a dangling pointer after free"
+      ],
+      "correctIndex": 3,
+      "explanation": "free releases the memory but does not change the value stored in p, so p now dangles. Writing through it is undefined behaviour that the compiler does not detect; setting p = NULL right after free makes such mistakes easier to catch.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m041",
+      "questionText": "What does the following fragment print? (<stdlib.h> is included and every allocation succeeds.)\n\nstruct S { int id, m; };\nstruct C { int n; struct S *s; };\nstruct C *c = malloc(sizeof *c);\nc->n = 3;\nc->s = malloc(c->n * sizeof *c->s);\nfor (int i = 0; i < c->n; i++) { c->s[i].id = i + 1; c->s[i].m = 10 * (i + 1); }\nprintf(\"%d %d\", c->s[2].m, (c->s + 1)->id);\nfree(c->s); free(c);",
+      "options": [
+        "20 1",
+        "30 3",
+        "Compile error: c->s[2].m is invalid",
+        "30 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "c->s points to a heap array of 3 records with ids 1, 2, 3 and marks 10, 20, 30. c->s[2].m is 30 and (c->s + 1)->id is the id of record 1, which is 2. The inner array is freed before the outer structure.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m042",
+      "questionText": "What does the following fragment print?\n\nstruct R { int id; char g; };\nstruct R r[7] = {{10, 'A'}, {20, 'B'}, {30, 'C'}, {40, 'D'},\n                 {50, 'E'}, {60, 'F'}, {70, 'G'}};\nint lo = 0, hi = 6, probes = 0, key = 60;\nwhile (lo <= hi) {\n    int mid = (lo + hi) / 2;\n    probes++;\n    if (r[mid].id == key) { printf(\"%c %d\", r[mid].g, probes); break; }\n    else if (r[mid].id < key) lo = mid + 1;\n    else hi = mid - 1;\n}",
+      "options": [
+        "F 3",
+        "E 2",
+        "F 2",
+        "F 6"
+      ],
+      "correctIndex": 2,
+      "explanation": "Probe 1: mid = (0 + 6) / 2 = 3, id 40 < 60, so lo = 4. Probe 2: mid = (4 + 6) / 2 = 5, id 60 matches record F. A linear scan from the start would have needed 6 probes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m043",
+      "questionText": "What does the following fragment print?\n\nstruct S { char c; int m; };\nstruct S s[4] = {{'A', 70}, {'B', 50}, {'C', 70}, {'D', 60}};\nfor (int i = 0; i < 3; i++)\n    for (int j = 0; j < 3 - i; j++)\n        if (s[j].m > s[j + 1].m) {\n            struct S t = s[j]; s[j] = s[j + 1]; s[j + 1] = t;\n        }\nfor (int i = 0; i < 4; i++) printf(\"%c\", s[i].c);",
+      "options": [
+        "BDCA",
+        "BDAC",
+        "ACDB",
+        "CADB"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pass 1 swaps (A, B) and then (C, D): B A D C. Pass 2 swaps (A, D): B D A C. Pass 3 makes no swap. The test is >, so the two 70s (A before C) are never swapped and keep their input order.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i23_m044",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\n#include <stdlib.h>\nstruct P { char name[8]; int age; };\nint cmp(const void *a, const void *b) {\n    const struct P *x = a, *y = b;\n    return y->age - x->age;\n}\nint main(void) {\n    struct P p[3] = {{\"Ram\", 30}, {\"Sita\", 25}, {\"Hari\", 40}};\n    qsort(p, 3, sizeof(struct P), cmp);\n    for (int i = 0; i < 3; i++) printf(\"%c\", p[i].name[0]);\n    return 0;\n}",
+      "options": [
+        "HRS",
+        "SRH",
+        "RSH",
+        "HSR"
+      ],
+      "correctIndex": 0,
+      "explanation": "The comparator returns y->age − x->age, which is negative when x is older, so older people come first: Hari 40, Ram 30, Sita 25. qsort moves whole records of sizeof(struct P) bytes, and the first letters printed are HRS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m045",
+      "questionText": "What does the following fragment print?\n\nstruct S { char name[8]; int m; };\nstruct S s[3] = {{\"Ram\", 60}, {\"Sita\", 40}, {\"Hari\", 50}};\nfor (int i = 0; i < 2; i++)\n    for (int j = i + 1; j < 3; j++)\n        if (s[j].m < s[i].m) {\n            int t = s[i].m; s[i].m = s[j].m; s[j].m = t;\n        }\nprintf(\"%s %d\", s[0].name, s[0].m);",
+      "options": [
+        "Sita 40",
+        "Ram 60",
+        "Ram 40",
+        "Hari 50"
+      ],
+      "correctIndex": 2,
+      "explanation": "The sort swaps only the marks, never the names, so the names stay in their original order while the marks end up ascending: s[0] is still named Ram but now holds 40. Swapping whole records (struct S t = s[i]; …) keeps each name with its marks.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i23_m046",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nstruct Acc { int no; int bal; };\nstruct Acc *find(struct Acc *a, int n, int no) {\n    for (int i = 0; i < n; i++)\n        if (a[i].no == no) return &a[i];\n    return NULL;\n}\nint main(void) {\n    struct Acc acc[3] = {{101, 500}, {102, 1000}, {103, 800}};\n    find(acc, 3, 102)->bal += 500;\n    struct Acc *q = find(acc, 3, 104);\n    printf(\"%d %d\", acc[1].bal, q == NULL);\n    return 0;\n}",
+      "options": [
+        "1000 1",
+        "1500 0",
+        "1000 0",
+        "1500 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "find returns the address of acc[1], so ->bal += 500 updates the array element itself: 1500. No account 104 exists, so the second call returns NULL and q == NULL prints 1.",
+      "difficulty": "medium"
+    }
+  ]
+}

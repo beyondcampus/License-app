@@ -1,0 +1,283 @@
+{
+  "parent": {"id": "ch6_p5", "title": "Two-Dimensional Transformations"},
+  "subtopics": [
+    {
+      "id": "ch6_t5",
+      "title": "2D Translation, Rotation & Scaling",
+      "subtitle": "Homogeneous coordinates and the three basic 3 × 3 transformation matrices",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Transformations as Matrix Operations"},
+          {"type": "paragraph", "text": "A geometric transformation changes the position, orientation or size of an object by mapping every point (x, y) to a new point (x', y'). Because a line segment is determined by its endpoints (and a polygon by its vertices), only those points need to be transformed and the figure is redrawn between them. Writing each transformation as a matrix lets a graphics package combine many steps into one matrix and apply it to thousands of vertices efficiently. The three basic 2D transformations are translation, rotation and scaling; reflection and shear are covered in the next subtopic."},
+          {"type": "heading", "text": "Homogeneous Coordinates"},
+          {"type": "paragraph", "text": "With ordinary 2 × 2 matrices, rotation and scaling are multiplications but translation is an addition (P' = P + T), so a sequence of mixed transformations cannot be collapsed into a single matrix. Homogeneous coordinates represent the 2D point (x, y) as the column vector (x, y, 1), or more generally (x·h, y·h, h) with h ≠ 0. In this form every 2D transformation, translation included, becomes a 3 × 3 matrix multiplication P' = M·P, and a whole sequence becomes a product of matrices."},
+          {"type": "bulletList", "text": "Why homogeneous coordinates matter:", "items": [
+            "Translation, rotation, scaling, reflection and shear all share one representation: a 3 × 3 matrix.",
+            "Composite transformations are formed by multiplying matrices once, then applying the product to every vertex.",
+            "The homogeneous parameter h is 1 for ordinary points in 2D; dividing by h recovers (x, y) when h ≠ 1.",
+            "The bottom row of every 2D affine matrix is (0, 0, 1), so the third coordinate stays 1 after transformation."
+          ]},
+          {"type": "heading", "text": "Translation"},
+          {"type": "paragraph", "text": "Translation moves every point by the same distance: x' = x + t_x and y' = y + t_y, where (t_x, t_y) is the translation (shift) vector. It is a rigid-body transformation: shape, size and orientation are unchanged. Example: translating P(2, 3) by (4, −1) gives P'(6, 2). The inverse translation is T(−t_x, −t_y)."},
+          {"type": "formula", "latex": "T(t_x,t_y)=\\begin{bmatrix}1&0&t_x\\\\0&1&t_y\\\\0&0&1\\end{bmatrix}", "plainText": "T(tx, ty) = [1 0 tx; 0 1 ty; 0 0 1]"},
+          {"type": "heading", "text": "Rotation About the Origin"},
+          {"type": "paragraph", "text": "Rotation by angle θ about the origin (positive θ = counter-clockwise) is derived by writing the point in polar form x = r cos φ, y = r sin φ and adding θ to φ. Expanding cos(φ + θ) and sin(φ + θ) gives x' = x cos θ − y sin θ and y' = x sin θ + y cos θ. Worked example: rotating P(3, 4) by 90° gives x' = 3·0 − 4·1 = −4 and y' = 3·1 + 4·0 = 3, so P' = (−4, 3); its distance from the origin is still 5. Rotating (2, 0) by 30° gives (2 cos 30°, 2 sin 30°) = (1.732, 1)."},
+          {"type": "formula", "latex": "R(\\theta)=\\begin{bmatrix}\\cos\\theta&-\\sin\\theta&0\\\\\\sin\\theta&\\cos\\theta&0\\\\0&0&1\\end{bmatrix}", "plainText": "R(θ) = [cos θ −sin θ 0; sin θ cos θ 0; 0 0 1]"},
+          {"type": "heading", "text": "Scaling"},
+          {"type": "paragraph", "text": "Scaling about the origin multiplies coordinates: x' = x·s_x and y' = y·s_y. If s_x = s_y the scaling is uniform and the shape is preserved; otherwise it is differential and the object is stretched or squashed. Factors greater than 1 enlarge, between 0 and 1 shrink, and negative factors also reflect. Scaling about the origin moves the object as well as resizing it; to keep a point (x_f, y_f) fixed use x' = x·s_x + x_f(1 − s_x), y' = y·s_y + y_f(1 − s_y). Example: scaling (4, 4) by 2 about the fixed point (2, 2) gives x' = 8 + 2(1 − 2) = 6, so (6, 6)."},
+          {"type": "formula", "latex": "S(s_x,s_y)=\\begin{bmatrix}s_x&0&0\\\\0&s_y&0\\\\0&0&1\\end{bmatrix}", "plainText": "S(sx, sy) = [sx 0 0; 0 sy 0; 0 0 1]"},
+          {"type": "table", "rows": [
+            ["Transformation", "Inverse", "Preserves lengths?"],
+            ["Translation T(t_x, t_y)", "T(−t_x, −t_y)", "Yes (rigid body)"],
+            ["Rotation R(θ)", "R(−θ) = R(θ) transpose", "Yes (rigid body, determinant 1)"],
+            ["Scaling S(s_x, s_y)", "S(1/s_x, 1/s_y)", "No (areas scale by s_x·s_y)"]
+          ]},
+          {"type": "bulletList", "text": "Useful properties to remember:", "items": [
+            "Two successive translations add: T(a, b)·T(c, d) = T(a + c, b + d).",
+            "Two successive rotations about the origin add: R(θ1)·R(θ2) = R(θ1 + θ2).",
+            "Two successive scalings multiply: S(a, b)·S(c, d) = S(a·c, b·d).",
+            "The rotation matrix is orthogonal: its inverse equals its transpose and it preserves angles and distances.",
+            "Scaling does not preserve lengths or areas; uniform scaling preserves angles and shape."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "x'=x+t_x,\\quad y'=y+t_y", "plainText": "x' = x + tx, y' = y + ty"},
+          {"type": "formula", "latex": "x'=x\\cos\\theta-y\\sin\\theta,\\quad y'=x\\sin\\theta+y\\cos\\theta", "plainText": "x' = x cos θ − y sin θ, y' = x sin θ + y cos θ"},
+          {"type": "formula", "latex": "x'=x\\,s_x+x_f(1-s_x),\\quad y'=y\\,s_y+y_f(1-s_y)", "plainText": "x' = x·sx + xf(1 − sx), y' = y·sy + yf(1 − sy)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For 90° rotations use cos 90° = 0 and sin 90° = 1: counter-clockwise (x, y) becomes (−y, x); clockwise (θ = −90°) it becomes (y, −x). For 180°, (x, y) becomes (−x, −y)."},
+          {"type": "warning", "text": "Scaling and rotation as defined here are about the origin. An object away from the origin also moves when scaled or rotated unless you use a fixed point or pivot (composite transformation)."},
+          {"type": "note", "text": "Some textbooks use row vectors (P' = P·M); their matrices are the transposes of those shown here and composites are read left-to-right instead of right-to-left."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_t5_01", "title": "Translation matrix", "latex": "T=\\begin{bmatrix}1&0&t_x\\\\0&1&t_y\\\\0&0&1\\end{bmatrix}", "plainText": "T = [1 0 tx; 0 1 ty; 0 0 1]", "description": "Homogeneous 3 × 3 matrix that shifts a point by (tx, ty)."},
+        {"id": "f_ch6_t5_02", "title": "Rotation about origin", "latex": "x'=x\\cos\\theta-y\\sin\\theta,\\quad y'=x\\sin\\theta+y\\cos\\theta", "plainText": "x' = x cos θ − y sin θ, y' = x sin θ + y cos θ", "description": "Counter-clockwise rotation of a point by angle θ about the origin."},
+        {"id": "f_ch6_t5_03", "title": "Scaling matrix", "latex": "S=\\begin{bmatrix}s_x&0&0\\\\0&s_y&0\\\\0&0&1\\end{bmatrix}", "plainText": "S = [sx 0 0; 0 sy 0; 0 0 1]", "description": "Scales x by sx and y by sy about the origin; uniform when sx = sy."},
+        {"id": "f_ch6_t5_04", "title": "Fixed-point scaling", "latex": "x'=x\\,s_x+x_f(1-s_x)", "plainText": "x' = x·sx + xf(1 − sx)", "description": "Scaling that keeps the point (xf, yf) stationary; the y equation is analogous."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_t5_01", "front": "How is the 2D point (x, y) written in homogeneous coordinates?", "back": "As the column vector (x, y, 1), or generally (xh, yh, h) with h ≠ 0; this makes translation a 3 × 3 matrix multiplication.", "difficulty": "easy"},
+        {"id": "fc_ch6_t5_02", "front": "What is the inverse of the rotation matrix R(θ)?", "back": "R(−θ), which equals the transpose of R(θ) because the rotation matrix is orthogonal.", "difficulty": "medium"},
+        {"id": "fc_ch6_t5_03", "front": "Rotate (3, 4) by 90° counter-clockwise about the origin.", "back": "x' = 3·0 − 4·1 = −4, y' = 3·1 + 4·0 = 3, so the result is (−4, 3).", "difficulty": "easy"},
+        {"id": "fc_ch6_t5_04", "front": "What is the difference between uniform and differential scaling?", "back": "Uniform scaling uses sx = sy and preserves shape; differential scaling uses sx ≠ sy and distorts the shape.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch6_t5_n01", "questionText": "The point (2, 5) is rotated by 90° counter-clockwise about the origin. What are its new coordinates?", "options": ["(5, −2)", "(−2, −5)", "(−5, 2)", "(5, 2)"], "correctIndex": 2, "explanation": "With cos 90° = 0 and sin 90° = 1, x' = 2·0 − 5·1 = −5 and y' = 2·1 + 5·0 = 2, giving (−5, 2).", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch6_i51",
+      "title": "2D Reflection, Shear & Composite Transformations",
+      "subtitle": "Mirror and shear matrices, and combining transformations in the right order",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Reflection"},
+          {"type": "paragraph", "text": "A reflection produces the mirror image of an object about an axis (a line) or a point. It is equivalent to a 180° rotation out of the plane about the reflection axis, so sizes and angles are preserved but the orientation (clockwise order of vertices) is reversed. Each reflection is its own inverse: applying it twice returns the original object. The standard reflections have simple matrices made of 0s and ±1s."},
+          {"type": "table", "rows": [
+            ["Reflection about", "Upper 2 × 2 matrix", "(x, y) becomes"],
+            ["x-axis (y = 0)", "[1 0; 0 −1]", "(x, −y)"],
+            ["y-axis (x = 0)", "[−1 0; 0 1]", "(−x, y)"],
+            ["Origin", "[−1 0; 0 −1]", "(−x, −y)"],
+            ["Line y = x", "[0 1; 1 0]", "(y, x)"],
+            ["Line y = −x", "[0 −1; −1 0]", "(−y, −x)"]
+          ]},
+          {"type": "formula", "latex": "M_{y=x}=\\begin{bmatrix}0&1&0\\\\1&0&0\\\\0&0&1\\end{bmatrix}", "plainText": "Reflection about y = x: [0 1 0; 1 0 0; 0 0 1]"},
+          {"type": "heading", "text": "Shear"},
+          {"type": "paragraph", "text": "A shear distorts an object so that it appears as if its layers had slid over one another. An x-direction shear shifts x in proportion to y: x' = x + sh_x·y, y' = y. A y-direction shear shifts y in proportion to x: y' = y + sh_y·x, x' = x. Worked example: an x-shear with sh_x = 2 maps the unit square (0,0), (1,0), (1,1), (0,1) to (0,0), (1,0), (3,1), (2,1), a parallelogram with the same area."},
+          {"type": "formula", "latex": "Sh_x=\\begin{bmatrix}1&sh_x&0\\\\0&1&0\\\\0&0&1\\end{bmatrix},\\ Sh_y=\\begin{bmatrix}1&0&0\\\\sh_y&1&0\\\\0&0&1\\end{bmatrix}", "plainText": "Shx = [1 shx 0; 0 1 0; 0 0 1], Shy = [1 0 0; shy 1 0; 0 0 1]"},
+          {"type": "paragraph", "text": "Shear can also be taken relative to a reference line: x' = x + sh_x(y − y_ref) shears in x relative to the line y = y_ref, and y' = y + sh_y(x − x_ref) shears in y relative to x = x_ref. Points on the reference line do not move."},
+          {"type": "heading", "text": "Composite Transformations"},
+          {"type": "paragraph", "text": "A composite transformation is a sequence of basic transformations combined into one matrix by multiplication. With column vectors, P' = M3·M2·M1·P means M1 is applied first, so the product is read right-to-left. Matrix multiplication is associative but not commutative, so the order matters: rotating then translating gives a different result from translating then rotating. Transformations of the same kind (two translations, two rotations about the same point, two scalings) do commute with each other."},
+          {"type": "heading", "text": "Rotation About an Arbitrary Pivot"},
+          {"type": "paragraph", "text": "To rotate about a pivot (x_r, y_r): (1) translate so the pivot moves to the origin, T(−x_r, −y_r); (2) rotate by θ, R(θ); (3) translate back, T(x_r, y_r). Worked example: rotate P(5, 2) by 90° about (2, 2). Step 1 gives (3, 0), step 2 gives (0, 3), step 3 gives (2, 5). The same three-step idea gives scaling about a fixed point: T(x_f, y_f)·S(s_x, s_y)·T(−x_f, −y_f)."},
+          {"type": "formula", "latex": "R_{pivot}=T(x_r,y_r)\\cdot R(\\theta)\\cdot T(-x_r,-y_r)", "plainText": "R_pivot = T(xr, yr) · R(θ) · T(−xr, −yr)"},
+          {"type": "bulletList", "text": "Reflection about an arbitrary line y = mx + c (θ = tan⁻¹ m):", "items": [
+            "Translate by (0, −c) so the line passes through the origin.",
+            "Rotate by −θ so the line lies along the x-axis.",
+            "Reflect about the x-axis.",
+            "Rotate back by +θ.",
+            "Translate back by (0, c). Composite: M = T(0, c)·R(θ)·M_x·R(−θ)·T(0, −c)."
+          ]},
+          {"type": "bulletList", "text": "Why composite matrices are efficient and other facts:", "items": [
+            "Multiply the matrices once, then apply one 3 × 3 matrix per vertex instead of several.",
+            "Any 2D affine composite has the form x' = a·x + b·y + c, y' = d·x + e·y + f (six numbers).",
+            "Two reflections about lines through the origin at angle α to each other equal a rotation by 2α.",
+            "Rotation and uniform scaling commute; rotation and differential scaling generally do not."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "x'=x+sh_x\\cdot y,\\quad y'=y+sh_y\\cdot x", "plainText": "x-shear: x' = x + shx·y; y-shear: y' = y + shy·x"},
+          {"type": "formula", "latex": "M=T(x_r,y_r)\\,R(\\theta)\\,T(-x_r,-y_r)", "plainText": "M = T(xr, yr) · R(θ) · T(−xr, −yr)"},
+          {"type": "formula", "latex": "x'=x_r+(x-x_r)\\cos\\theta-(y-y_r)\\sin\\theta", "plainText": "x' = xr + (x − xr) cos θ − (y − yr) sin θ"},
+          {"type": "formula", "latex": "y'=y_r+(x-x_r)\\sin\\theta+(y-y_r)\\cos\\theta", "plainText": "y' = yr + (x − xr) sin θ + (y − yr) cos θ"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For pivot problems do the three steps numerically: subtract the pivot, rotate, add the pivot back. It is faster and less error-prone than multiplying out the full matrix."},
+          {"type": "warning", "text": "Write composites right-to-left for column vectors: the first transformation applied is the rightmost matrix. Reversing the order generally gives a different (wrong) result."},
+          {"type": "note", "text": "Reflection reverses the orientation of a figure (its determinant is −1), while shear keeps area unchanged (determinant 1) but does not preserve angles."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i51_01", "title": "Reflection about y = x", "latex": "\\begin{bmatrix}0&1&0\\\\1&0&0\\\\0&0&1\\end{bmatrix}", "plainText": "[0 1 0; 1 0 0; 0 0 1]", "description": "Swaps coordinates so that (x, y) becomes (y, x)."},
+        {"id": "f_ch6_i51_02", "title": "x-direction shear", "latex": "x'=x+sh_x\\cdot y,\\quad y'=y", "plainText": "x' = x + shx·y, y' = y", "description": "Shifts each point horizontally by an amount proportional to its y coordinate."},
+        {"id": "f_ch6_i51_03", "title": "Rotation about a pivot", "latex": "T(x_r,y_r)\\cdot R(\\theta)\\cdot T(-x_r,-y_r)", "plainText": "T(xr, yr) · R(θ) · T(−xr, −yr)", "description": "Composite matrix that rotates by θ about the pivot point (xr, yr)."},
+        {"id": "f_ch6_i51_04", "title": "Scaling about a fixed point", "latex": "T(x_f,y_f)\\cdot S(s_x,s_y)\\cdot T(-x_f,-y_f)", "plainText": "T(xf, yf) · S(sx, sy) · T(−xf, −yf)", "description": "Composite matrix that scales an object while keeping (xf, yf) stationary."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i51_01", "front": "Reflect the point (2, 5) about the line y = −x.", "back": "Reflection about y = −x maps (x, y) to (−y, −x), giving (−5, −2).", "difficulty": "medium"},
+        {"id": "fc_ch6_i51_02", "front": "What is the composite matrix for rotation by θ about the pivot (xr, yr)?", "back": "T(xr, yr) · R(θ) · T(−xr, −yr): move the pivot to the origin, rotate, then move back.", "difficulty": "medium"},
+        {"id": "fc_ch6_i51_03", "front": "Why must composite transformations be applied in a specific order?", "back": "Matrix multiplication is not commutative, so changing the order generally changes the result (for example rotate-then-translate differs from translate-then-rotate).", "difficulty": "easy"},
+        {"id": "fc_ch6_i51_04", "front": "List the steps to reflect about the line y = mx + c.", "back": "Translate by (0, −c), rotate by −tan⁻¹m, reflect about the x-axis, rotate by +tan⁻¹m, translate by (0, c).", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i51_n01", "questionText": "The point (4, 1) is rotated by 90° counter-clockwise about the pivot (1, 1). What is the resulting point?", "options": ["(−1, 4)", "(1, 4)", "(4, −2)", "(1, −2)"], "correctIndex": 1, "explanation": "Translating by (−1, −1) gives (3, 0); rotating 90° gives (0, 3); translating back by (1, 1) gives (1, 4).", "difficulty": "medium"},
+        {"id": "q_ch6_i51_n02", "questionText": "An x-direction shear with sh_x = 2 is applied to the point (1, 3). What is the transformed point?", "options": ["(1, 5)", "(3, 3)", "(2, 6)", "(7, 3)"], "correctIndex": 3, "explanation": "x' = x + sh_x·y = 1 + 2·3 = 7 and y is unchanged, giving (7, 3).", "difficulty": "easy"},
+        {"id": "q_ch6_i51_n03", "questionText": "Which pair of 2D transformations generally gives different results when their order is swapped?", "options": ["A rotation about the origin and a translation", "Two translations", "Two rotations about the origin", "Two scalings about the origin"], "correctIndex": 0, "explanation": "Translations add, rotations about the same point add and scalings multiply, so each of those pairs commutes; rotation and translation do not commute in general.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch6_i52",
+      "title": "2D Viewing Pipeline & Window-to-Viewport Mapping",
+      "subtitle": "From world coordinates to the screen: windows, viewports, NDC and device mapping",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Window and Viewport"},
+          {"type": "paragraph", "text": "A scene is described in world coordinates, a device-independent Cartesian system chosen by the application (metres, kilometres, anything). A window is the rectangular area of the world selected for display: it defines what is seen. A viewport is the rectangular area of the display device where the window's contents are shown: it defines where it is seen. Mapping the window onto the viewport is called the viewing (window-to-viewport, or world-to-screen) transformation."},
+          {"type": "heading", "text": "The 2D Viewing Pipeline"},
+          {"type": "bulletList", "text": "Coordinate systems a 2D picture passes through, and the transformation between each pair:", "items": [
+            "Modelling coordinates (MC): each object defined in its own local frame; the modelling transformation places it in the scene.",
+            "World coordinates (WC): the whole scene; the viewing transformation sets up a viewing frame (origin and view-up vector), which allows a rotated window.",
+            "Viewing coordinates (VC): the window is defined here; the window is mapped to a normalised viewport.",
+            "Normalised device coordinates (NDC): device-independent range 0 to 1 (or −1 to 1) in each axis.",
+            "Device coordinates (DC): pixel coordinates of a specific monitor or plotter, reached by the workstation transformation."
+          ]},
+          {"type": "paragraph", "text": "Clipping is performed against the window (or against the normalised viewport) so that only the visible part of the scene is converted to device coordinates. Because NDC are device-independent, the same picture can be sent to several output devices, each with its own workstation transformation from NDC to its pixel grid."},
+          {"type": "heading", "text": "Window-to-Viewport Mapping"},
+          {"type": "paragraph", "text": "The mapping keeps relative position: a point that is a given fraction of the way across the window appears the same fraction of the way across the viewport. Setting (x_v − xv_min)/(xv_max − xv_min) = (x_w − xw_min)/(xw_max − xw_min) and solving gives x_v = xv_min + (x_w − xw_min)·s_x, with an analogous equation for y. The scale factors s_x and s_y are the ratios of viewport size to window size."},
+          {"type": "formula", "latex": "x_v=xv_{min}+(x_w-xw_{min})\\,s_x,\\quad s_x=\\frac{xv_{max}-xv_{min}}{xw_{max}-xw_{min}}", "plainText": "xv = xvmin + (xw − xwmin)·sx, sx = (xvmax − xvmin)/(xwmax − xwmin)"},
+          {"type": "formula", "latex": "y_v=yv_{min}+(y_w-yw_{min})\\,s_y,\\quad s_y=\\frac{yv_{max}-yv_{min}}{yw_{max}-yw_{min}}", "plainText": "yv = yvmin + (yw − ywmin)·sy, sy = (yvmax − yvmin)/(ywmax − ywmin)"},
+          {"type": "code", "language": "c", "text": "Window   (10,10) to (50,50)   -> 40 x 40\nViewport (100,100) to (300,200) -> 200 x 100\nsx = 200/40 = 5        sy = 100/40 = 2.5\nWorld point (30, 20):\n  xv = 100 + (30 - 10) * 5   = 200\n  yv = 100 + (20 - 10) * 2.5 = 125\nViewport point = (200, 125)\nsx != sy -> picture is stretched horizontally"},
+          {"type": "paragraph", "text": "As a composite matrix the mapping is T(xv_min, yv_min)·S(s_x, s_y)·T(−xw_min, −yw_min): move the window corner to the origin, scale to viewport size, then move to the viewport corner. If the window and viewport have different aspect ratios then s_x ≠ s_y and objects are distorted (circles become ellipses). Choosing s_x = s_y, i.e. equal aspect ratios, preserves the shapes."},
+          {"type": "table", "rows": [
+            ["Action", "What changes", "Visible effect"],
+            ["Zoom in", "Window made smaller, viewport fixed", "Less of the scene shown, objects magnified"],
+            ["Zoom out", "Window made larger, viewport fixed", "More of the scene shown, objects smaller"],
+            ["Panning", "Window moved, size unchanged", "Scene appears to slide across the viewport"],
+            ["Move or resize viewport", "Viewport changed, window fixed", "Same scene drawn at a new screen place or size"]
+          ]},
+          {"type": "bulletList", "text": "Practical points about device coordinates:", "items": [
+            "Many raster devices put the origin at the top-left with y increasing downwards, so y_screen = H − y (H = screen height) may be needed.",
+            "Several viewports can be open at once, each showing a different window of the same world.",
+            "Normalised coordinates let an application be written once and displayed on devices of any resolution."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "s_y=\\frac{yv_{max}-yv_{min}}{yw_{max}-yw_{min}}", "plainText": "sy = (yvmax − yvmin)/(ywmax − ywmin)"},
+          {"type": "formula", "latex": "x_v=xv_{min}+(x_w-xw_{min})\\,s_x", "plainText": "xv = xvmin + (xw − xwmin)·sx"},
+          {"type": "formula", "latex": "M_{wv}=T(xv_{min},yv_{min})\\,S(s_x,s_y)\\,T(-xw_{min},-yw_{min})", "plainText": "Mwv = T(xvmin, yvmin) · S(sx, sy) · T(−xwmin, −ywmin)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Remember: window = what is seen (world coordinates), viewport = where it is seen (device coordinates). Shrinking the window zooms in; moving the window pans."},
+          {"type": "warning", "text": "If the window and viewport aspect ratios differ, s_x ≠ s_y and the picture is distorted. Match the aspect ratios when shapes must be preserved."},
+          {"type": "note", "text": "The step from normalised device coordinates to actual pixel coordinates of a particular output device is called the workstation transformation."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i52_01", "title": "Viewport x coordinate", "latex": "x_v=xv_{min}+(x_w-xw_{min})\\,s_x", "plainText": "xv = xvmin + (xw − xwmin)·sx", "description": "Maps a world x coordinate in the window to the corresponding viewport x coordinate."},
+        {"id": "f_ch6_i52_02", "title": "Viewport y coordinate", "latex": "y_v=yv_{min}+(y_w-yw_{min})\\,s_y", "plainText": "yv = yvmin + (yw − ywmin)·sy", "description": "Maps a world y coordinate in the window to the corresponding viewport y coordinate."},
+        {"id": "f_ch6_i52_03", "title": "Scale factor", "latex": "s_x=\\frac{xv_{max}-xv_{min}}{xw_{max}-xw_{min}}", "plainText": "sx = (xvmax − xvmin)/(xwmax − xwmin)", "description": "Ratio of viewport width to window width; sy is the ratio of heights."},
+        {"id": "f_ch6_i52_04", "title": "Window-to-viewport matrix", "latex": "T(xv_{min},yv_{min})\\,S(s_x,s_y)\\,T(-xw_{min},-yw_{min})", "plainText": "T(xvmin, yvmin) · S(sx, sy) · T(−xwmin, −ywmin)", "description": "Composite form of the viewing transformation: shift, scale, shift."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i52_01", "front": "What is the difference between a window and a viewport?", "back": "A window is the region of world coordinates selected for display (what is seen); a viewport is the region of the device where it is displayed (where it is seen).", "difficulty": "easy"},
+        {"id": "fc_ch6_i52_02", "front": "List the coordinate systems of the 2D viewing pipeline in order.", "back": "Modelling → world → viewing → normalised device → device (screen) coordinates.", "difficulty": "medium"},
+        {"id": "fc_ch6_i52_03", "front": "When does window-to-viewport mapping distort a picture?", "back": "When the window and viewport have different aspect ratios, so sx ≠ sy and, for example, circles become ellipses.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i52_n01", "questionText": "A window spans x_w = 20 to 120 and the viewport spans x_v = 100 to 300. To which viewport x coordinate does the world point x_w = 70 map?", "options": ["150", "240", "200", "140"], "correctIndex": 2, "explanation": "s_x = (300 − 100)/(120 − 20) = 2, so x_v = 100 + (70 − 20)·2 = 200.", "difficulty": "medium"},
+        {"id": "q_ch6_i52_n02", "questionText": "With the viewport kept fixed, how is a zoom-in effect produced in 2D viewing?", "options": ["By enlarging the window", "By shrinking the window", "By moving the window without resizing it", "By moving the viewport to another part of the screen"], "correctIndex": 1, "explanation": "A smaller window mapped onto the same viewport means a larger scale factor, so less of the scene is shown at greater magnification.", "difficulty": "easy"},
+        {"id": "q_ch6_i52_n03", "questionText": "In window-to-viewport mapping, which condition prevents objects from being distorted?", "options": ["The window and viewport have the same aspect ratio (s_x = s_y)", "The viewport is larger than the window", "The window lies in the first quadrant", "The viewport starts at the screen origin"], "correctIndex": 0, "explanation": "Equal aspect ratios give equal scale factors in x and y, so shapes are only resized, not stretched.", "difficulty": "easy"},
+        {"id": "q_ch6_i52_n04", "questionText": "Which sequence correctly orders the coordinate systems in the 2D viewing pipeline?", "options": ["World → modelling → device → normalised device", "Modelling → normalised device → world → device", "Device → world → viewing → modelling", "Modelling → world → viewing → normalised device → device"], "correctIndex": 3, "explanation": "Objects are built in modelling coordinates, placed in world coordinates, expressed in viewing coordinates, normalised to NDC and finally mapped to device coordinates.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch6_i53",
+      "title": "Line Clipping: Cohen–Sutherland & Liang–Barsky",
+      "subtitle": "Region codes, parametric clipping, worked examples and polygon clipping",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Clipping and Point Clipping"},
+          {"type": "paragraph", "text": "Clipping is the procedure that identifies the parts of a picture lying inside a specified region (the clip window) and discards the rest, so that only visible primitives are scan-converted. A point (x, y) is kept if xw_min ≤ x ≤ xw_max and yw_min ≤ y ≤ yw_max. Lines are harder because a segment may be fully inside, fully outside, or cross one or more window edges, so efficient algorithms try to accept or reject whole segments with cheap tests before computing any intersections."},
+          {"type": "heading", "text": "Cohen–Sutherland Region Codes"},
+          {"type": "paragraph", "text": "The window edges extended to infinity divide the plane into nine regions. Each endpoint is given a 4-bit region code in the order T B R L (bit 4 to bit 1): Top = 1 if y > yw_max, Bottom = 1 if y < yw_min, Right = 1 if x > xw_max, Left = 1 if x < xw_min. The window itself has code 0000."},
+          {"type": "table", "rows": [
+            ["Region", "Left (x < xmin)", "Centre", "Right (x > xmax)"],
+            ["Above (y > ymax)", "1001", "1000", "1010"],
+            ["Middle band", "0001", "0000 (window)", "0010"],
+            ["Below (y < ymin)", "0101", "0100", "0110"]
+          ]},
+          {"type": "bulletList", "text": "Cohen–Sutherland procedure for a segment P1P2:", "items": [
+            "Compute the region codes of both endpoints.",
+            "Trivial accept: both codes are 0000, so the whole line is inside.",
+            "Trivial reject: the bitwise AND of the codes is not 0000, so both ends lie outside the same edge.",
+            "Otherwise pick an endpoint that is outside, find where the line meets the boundary indicated by one of its set bits, replace that endpoint with the intersection and recompute its code.",
+            "Repeat until the segment is trivially accepted or rejected."
+          ]},
+          {"type": "formula", "latex": "y=y_1+m(x_b-x_1),\\quad x=x_1+\\frac{y_b-y_1}{m},\\quad m=\\frac{y_2-y_1}{x_2-x_1}", "plainText": "Vertical edge x = xb: y = y1 + m(xb − x1); horizontal edge y = yb: x = x1 + (yb − y1)/m"},
+          {"type": "code", "language": "c", "text": "Window (0,0)-(10,10); line P1(-5,3) to P2(15,8); m = 5/20 = 0.25\ncode(P1) = 0001 (left)   code(P2) = 0010 (right)\nAND = 0000 -> not trivially rejected, not accepted\nClip P1 at x = 0:  y = 3 + 0.25*(0 - (-5)) = 4.25 -> (0, 4.25), code 0000\nClip P2 at x = 10: y = 3 + 0.25*(10 - (-5)) = 6.75 -> (10, 6.75), code 0000\nBoth 0000 -> accept segment (0, 4.25) to (10, 6.75)"},
+          {"type": "heading", "text": "Liang–Barsky Parametric Clipping"},
+          {"type": "paragraph", "text": "Liang–Barsky writes the segment parametrically: x = x1 + t·Δx, y = y1 + t·Δy for 0 ≤ t ≤ 1, where Δx = x2 − x1 and Δy = y2 − y1. A point is inside when xw_min ≤ x ≤ xw_max and yw_min ≤ y ≤ yw_max, which rearranges into four inequalities of the form t·p_k ≤ q_k, one per window edge. Each gives a candidate parameter r_k = q_k/p_k."},
+          {"type": "table", "rows": [
+            ["Edge", "p_k", "q_k"],
+            ["Left (k = 1)", "p1 = −Δx", "q1 = x1 − xw_min"],
+            ["Right (k = 2)", "p2 = Δx", "q2 = xw_max − x1"],
+            ["Bottom (k = 3)", "p3 = −Δy", "q3 = y1 − yw_min"],
+            ["Top (k = 4)", "p4 = Δy", "q4 = yw_max − y1"]
+          ]},
+          {"type": "bulletList", "text": "Rules for finding the visible part:", "items": [
+            "If p_k = 0 the line is parallel to that edge; if also q_k < 0 it lies outside and is rejected.",
+            "If p_k < 0 the line enters across that edge: t_entry = max(0, all q_k/p_k with p_k < 0).",
+            "If p_k > 0 the line leaves across that edge: t_exit = min(1, all q_k/p_k with p_k > 0).",
+            "If t_entry > t_exit the line is completely outside; otherwise the clipped endpoints are at t_entry and t_exit."
+          ]},
+          {"type": "code", "language": "c", "text": "Same line: P1(-5,3), P2(15,8), window (0,0)-(10,10); dx = 20, dy = 5\np1 = -20, q1 = -5 -> r1 = 0.25   (entering)\np2 =  20, q2 = 15 -> r2 = 0.75   (leaving)\np3 =  -5, q3 =  3 -> r3 = -0.6   (entering)\np4 =   5, q4 =  7 -> r4 = 1.4    (leaving)\nt_entry = max(0, 0.25, -0.6) = 0.25   t_exit = min(1, 0.75, 1.4) = 0.75\nt = 0.25 -> (0, 4.25)    t = 0.75 -> (10, 6.75)"},
+          {"type": "table", "rows": [
+            ["Feature", "Cohen–Sutherland", "Liang–Barsky"],
+            ["Approach", "Region codes and repeated edge intersection", "Parametric line and inequalities t·p_k ≤ q_k"],
+            ["Intersections", "May compute several, some later discarded", "Computes only the final two endpoints"],
+            ["Arithmetic", "Repeated divisions and code updates", "At most four divisions q_k/p_k"],
+            ["Best case", "Many lines trivially accepted or rejected", "General use; usually faster overall"]
+          ]},
+          {"type": "paragraph", "text": "Polygon clipping cannot simply clip each edge as a line, because the result must be a closed polygon. The Sutherland–Hodgman algorithm clips the whole vertex list against one window edge at a time (left, right, bottom, top). For each edge from vertex S to vertex P: inside to inside outputs P; inside to outside outputs the intersection; outside to inside outputs the intersection and P; outside to outside outputs nothing. It works for convex clip windows but can leave extra connecting edges for concave polygons, which Weiler–Atherton handles."}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "x=x_1+t\\,\\Delta x,\\quad y=y_1+t\\,\\Delta y,\\quad 0\\le t\\le 1", "plainText": "x = x1 + t·Δx, y = y1 + t·Δy, 0 ≤ t ≤ 1"},
+          {"type": "formula", "latex": "t\\,p_k\\le q_k,\\quad r_k=\\frac{q_k}{p_k}", "plainText": "t·pk ≤ qk, rk = qk/pk"},
+          {"type": "formula", "latex": "t_{entry}=\\max(0,\\,r_k\\ \\text{for}\\ p_k<0),\\ t_{exit}=\\min(1,\\,r_k\\ \\text{for}\\ p_k>0)", "plainText": "t_entry = max(0, rk for pk < 0), t_exit = min(1, rk for pk > 0)"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "To find a region code quickly, test each bit separately in the order T B R L: y above top, y below bottom, x right of right edge, x left of left edge. A point can have at most two bits set."},
+          {"type": "warning", "text": "A bitwise AND of 0000 does not mean the line is visible. Both ends may be outside different edges and the line may still miss the window; further intersection steps decide."},
+          {"type": "note", "text": "In Liang–Barsky, p_k < 0 means the line goes from outside to inside that boundary (entering) and p_k > 0 means inside to outside (leaving)."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i53_01", "title": "Boundary intersection", "latex": "y=y_1+m(x_b-x_1),\\quad x=x_1+\\frac{y_b-y_1}{m}", "plainText": "y = y1 + m(xb − x1); x = x1 + (yb − y1)/m", "description": "Intersection of a line with a vertical edge x = xb or a horizontal edge y = yb in Cohen–Sutherland."},
+        {"id": "f_ch6_i53_02", "title": "Parametric line", "latex": "x=x_1+t\\,\\Delta x,\\quad y=y_1+t\\,\\Delta y", "plainText": "x = x1 + t·Δx, y = y1 + t·Δy", "description": "Liang–Barsky representation of the segment for 0 ≤ t ≤ 1."},
+        {"id": "f_ch6_i53_03", "title": "Liang–Barsky parameters", "latex": "p_1=-\\Delta x,\\ q_1=x_1-xw_{min};\\ p_2=\\Delta x,\\ q_2=xw_{max}-x_1", "plainText": "p1 = −Δx, q1 = x1 − xwmin; p2 = Δx, q2 = xwmax − x1 (y edges analogous)", "description": "Left and right edge terms; bottom and top use −Δy, y1 − ywmin and Δy, ywmax − y1."},
+        {"id": "f_ch6_i53_04", "title": "Entry and exit parameters", "latex": "t_{entry}=\\max(0,\\,q_k/p_k)_{p_k<0},\\ t_{exit}=\\min(1,\\,q_k/p_k)_{p_k>0}", "plainText": "t_entry = max(0, qk/pk for pk < 0), t_exit = min(1, qk/pk for pk > 0)", "description": "The visible segment runs from t_entry to t_exit; if t_entry > t_exit the line is rejected."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i53_01", "front": "What do the four bits of a Cohen–Sutherland region code mean?", "back": "In order T B R L: above the top edge, below the bottom edge, right of the right edge, left of the left edge.", "difficulty": "easy"},
+        {"id": "fc_ch6_i53_02", "front": "In Liang–Barsky, what does p_k = 0 with q_k < 0 indicate?", "back": "The line is parallel to that window edge and lies completely outside it, so it is rejected.", "difficulty": "medium"},
+        {"id": "fc_ch6_i53_03", "front": "Why is Liang–Barsky usually more efficient than Cohen–Sutherland?", "back": "It computes t_entry and t_exit directly from at most four divisions and finds only the final intersection points, instead of repeatedly clipping and recomputing codes.", "difficulty": "medium"},
+        {"id": "fc_ch6_i53_04", "front": "What are the four vertex cases in Sutherland–Hodgman polygon clipping?", "back": "In→in: output P; in→out: output intersection; out→in: output intersection and P; out→out: output nothing.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i53_n01", "questionText": "For the clip window (0, 0) to (10, 10), what is the Cohen–Sutherland region code (TBRL) of the point (12, −3)?", "options": ["1010", "0101", "1001", "0110"], "correctIndex": 3, "explanation": "y = −3 is below ymin (B = 1) and x = 12 is right of xmax (R = 1), so T B R L = 0 1 1 0.", "difficulty": "easy"}
+      ]
+    }
+  ]
+}

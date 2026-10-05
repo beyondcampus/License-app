@@ -1,0 +1,753 @@
+{
+  "topicId": "ch2_i45",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Instruction Set and Programming"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "8085 group",
+          "Typical instructions",
+          "Flags affected"
+        ],
+        [
+          "Data transfer",
+          "MOV, MVI, LXI, LDA, STA, LHLD, SHLD, LDAX, STAX, XCHG",
+          "None"
+        ],
+        [
+          "8-bit arithmetic",
+          "ADD, ADI, ADC, SUB, SBB, CMP, DAA, INR, DCR",
+          "S, Z, AC, P, CY (INR and DCR leave CY)"
+        ],
+        [
+          "16-bit arithmetic",
+          "INX, DCX, DAD",
+          "INX and DCX none; DAD only CY"
+        ],
+        [
+          "Logical and rotate",
+          "ANA, ORA, XRA, CMA, RLC, RRC, RAL, RAR",
+          "ANA: CY = 0, AC = 1; ORA, XRA: CY = 0, AC = 0; CMA none; rotates only CY"
+        ],
+        [
+          "Branch",
+          "JMP, JNZ, JC, CALL, CNZ, RET, RZ, RST n, PCHL",
+          "None"
+        ],
+        [
+          "Stack and machine control",
+          "PUSH, POP, XTHL, SPHL, EI, DI, SIM, RIM, HLT, NOP",
+          "None (POP PSW reloads all flags)"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Result of CMP r (A − r, A unchanged)",
+          "CY",
+          "Z"
+        ],
+        [
+          "A < r",
+          "1",
+          "0"
+        ],
+        [
+          "A = r",
+          "0",
+          "1"
+        ],
+        [
+          "A > r",
+          "0",
+          "0"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "DAA corrects the accumulator after adding two packed BCD bytes. It looks at the lower nibble first: if that nibble is above 9 or AC = 1, it adds 06H. It then looks at the upper nibble: if that nibble is above 9 or CY = 1, it adds 60H and sets CY. On the 8085, DAA is valid only after an addition; the 8086 adds DAS for BCD subtraction."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: BCD addition with DAA (8085)\n  47H + 38H = 7FH        AC = 0, CY = 0\n  low nibble F > 9   -> add 06H -> 85H\n  high nibble 8 <= 9 and CY = 0 -> no change\n  A = 85H, CY = 0        (47 + 38 = 85 in decimal)\n\n  75H + 48H = BDH        AC = 0, CY = 0\n  low nibble D > 9   -> add 06H -> C3H\n  high nibble C > 9  -> add 60H -> 123H\n  A = 23H, CY = 1        (75 + 48 = 123 in decimal)"
+    },
+    {
+      "type": "formula",
+      "latex": "T = T_{init} + N \\cdot T_{loop} - 3,\\qquad t_{delay} = T \\times \\frac{1}{f_{clk}}",
+      "plainText": "T = T_init + N × T_loop − 3 (last JNZ not taken: 7T instead of 10T); delay = T ÷ clock frequency"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; Worked example 2: 8085 delay loop, 2 MHz clock (1 T = 0.5 us)\n        MVI B, 32H     ; 7T, once        (32H = 50)\nLOOP:   DCR B          ; 4T, 50 times\n        JNZ LOOP       ; 10T when taken, 7T on the last pass\n; T = 7 + 50 x (4 + 10) - 3 = 704 T-states\n; delay = 704 x 0.5 us = 352 us\n; MVI B, 00H would give 256 passes, not 0"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: 8085 CALL/RET stack trace, SP = 2800H, HL = 1234H\n2050H CALL 2100H  push 2053H: [27FFH]=20H [27FEH]=53H  SP=27FEH  PC=2100H\n2100H PUSH H      [27FDH]=12H [27FCH]=34H              SP=27FCH\n      ...         (subroutine may change HL)\n      POP H       HL = 1234H                            SP=27FEH\n      RET         PC = 2053H                            SP=2800H"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Task",
+          "8085",
+          "8086"
+        ],
+        [
+          "Counted loop",
+          "DCR C / JNZ label",
+          "LOOP label (CX counts down)"
+        ],
+        [
+          "Multiply",
+          "No instruction; repeated addition or shift-and-add",
+          "MUL (unsigned), IMUL (signed)"
+        ],
+        [
+          "Save flags",
+          "PUSH PSW (A and flags together)",
+          "PUSHF (16-bit FLAGS)"
+        ],
+        [
+          "BCD correction",
+          "DAA after addition only",
+          "DAA after ADD, DAS after SUB"
+        ],
+        [
+          "Subroutine return",
+          "RET, conditional RZ, RNC ...",
+          "RET, RET n (discards n parameter bytes)"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in instruction-result questions:",
+      "items": [
+        "Expecting DCX or INX to set Z; they change no flags, so a 16-bit counter needs MOV A, D / ORA E before JNZ.",
+        "Counting 10T for every JNZ; the final, not-taken JNZ takes 7T.",
+        "Treating a count of 00H as zero passes; DCR from 00H gives FFH, so the loop runs 256 times.",
+        "Forgetting that ANA sets AC on the 8085 and that ANA, ORA and XRA always clear CY.",
+        "Popping registers in the same order they were pushed; the stack is last-in, first-out.",
+        "Confusing RLC (bit 7 goes to bit 0 and CY) with RAL (old CY goes to bit 0)."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For a short program, draw a table with one row per instruction and columns for every register, flag and memory location it touches. Fill each row from the one above; most result questions are then pure bookkeeping."
+    },
+    {
+      "type": "warning",
+      "text": "CMP behaves like SUB for the flags but leaves the accumulator unchanged. After CMP, CY = 1 means the accumulator was smaller (unsigned), which is the opposite of what many students first guess."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i45_m001",
+      "questionText": "On the 8085, A = 6CH and CY = 1. What is the result of XRA A?",
+      "options": [
+        "A = 6CH, Z = 1, CY = 0",
+        "A = FFH, Z = 0, CY = 0",
+        "A = 00H, Z = 1, CY = 0",
+        "A = 00H, Z = 1, CY = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Any value XORed with itself is 0, so A = 00H and Z = 1; XRA always clears CY (and AC). XRA A is a common one-byte way to clear A and CY together.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m002",
+      "questionText": "Which of these 8085 instructions affects no flags at all?",
+      "options": [
+        "INR A",
+        "INX H",
+        "ADD B",
+        "CMP C"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 16-bit increment and decrement instructions INX and DCX change no flags. INR changes S, Z, AC and P; ADD and CMP change all five.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m003",
+      "questionText": "On the 8085, A = 25H and B = 40H. What are CY and Z after CMP B?",
+      "options": [
+        "CY = 1, Z = 0",
+        "CY = 0, Z = 1",
+        "CY = 0, Z = 0",
+        "CY = 1, Z = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "CMP computes A − B = 25H − 40H without storing it. A is smaller, so a borrow occurs (CY = 1) and the result is not zero (Z = 0).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m004",
+      "questionText": "What is the effect of the 8086 instruction CLD?",
+      "options": [
+        "DF = 1, so string instructions auto-decrement SI and DI",
+        "DF = 0, so string instructions auto-increment SI and DI",
+        "CF = 0, clearing the carry",
+        "IF = 0, disabling maskable interrupts"
+      ],
+      "correctIndex": 1,
+      "explanation": "CLD clears the direction flag; with DF = 0 string instructions move SI and DI upward. STD sets DF, CLC clears CF and CLI clears IF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m005",
+      "questionText": "Which 8085 machine-control instruction sets the masks for RST 7.5, 6.5 and 5.5 and can send a bit out on the SOD line?",
+      "options": [
+        "SIM",
+        "RIM",
+        "EI",
+        "DI"
+      ],
+      "correctIndex": 0,
+      "explanation": "SIM (set interrupt mask) takes its control byte from the accumulator for the masks and the serial output bit; RIM reads the masks, pending interrupts and SID back into A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m006",
+      "questionText": "Which registers does the 8085 instruction PUSH PSW save on the stack?",
+      "options": [
+        "The accumulator and the flag register",
+        "The program counter",
+        "Registers B and C",
+        "Registers H and L"
+      ],
+      "correctIndex": 0,
+      "explanation": "PSW (program status word) is the 16-bit pair formed by A (high byte) and the flag register (low byte).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m007",
+      "questionText": "The 8085 instruction JPE LABEL transfers control when:",
+      "options": [
+        "P = 0 (odd parity)",
+        "CY = 1",
+        "S = 0 (positive result)",
+        "P = 1 (even parity)"
+      ],
+      "correctIndex": 3,
+      "explanation": "JPE means jump on parity even, taken when the parity flag is set; JPO is taken when P = 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m008",
+      "questionText": "In 8086 assembly language, how many bytes of memory does the data definition BUF DW 8 DUP(0) reserve?",
+      "options": [
+        "16 bytes",
+        "8 bytes",
+        "32 bytes",
+        "2 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "DW defines 2-byte words and 8 DUP(0) repeats the initial value 0 eight times, so 8 × 2 = 16 bytes are reserved. DB would reserve 8 bytes and DD 32 bytes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m009",
+      "questionText": "What is the carry flag after the 8085 executes STC followed by CMC?",
+      "options": [
+        "CY = 1",
+        "CY = 0",
+        "CY keeps the value it had before STC",
+        "CY = 0 and Z = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "STC sets CY to 1 and CMC complements it, giving CY = 0. Neither instruction touches Z.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m010",
+      "questionText": "Which of these 8086 instructions changes no flags?",
+      "options": [
+        "CMP",
+        "TEST",
+        "NEG",
+        "MOV"
+      ],
+      "correctIndex": 3,
+      "explanation": "Data-transfer instructions such as MOV leave FLAGS alone; CMP, TEST and NEG all update the status flags.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m011",
+      "questionText": "What does the 8086 instruction TEST AL, 01H do?",
+      "options": [
+        "It ANDs AL with 01H and stores the result in AL",
+        "It subtracts 01H from AL and sets the flags",
+        "It ANDs AL with 01H, sets the flags and discards the result",
+        "It sets bit 0 of AL to 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "TEST is a non-destructive AND: the flags (ZF in particular) show whether bit 0 is set, while AL is unchanged. It clears CF and OF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m012",
+      "questionText": "When the 8085 executes RET, the stack pointer:",
+      "options": [
+        "Decreases by 2",
+        "Increases by 2",
+        "Increases by 1",
+        "Does not change"
+      ],
+      "correctIndex": 1,
+      "explanation": "RET pops the 16-bit return address into PC, reading two bytes and adding 2 to SP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m013",
+      "questionText": "What does the 8085 instruction DAD B do?",
+      "options": [
+        "Adds BC to HL and updates all five flags",
+        "Adds B to A and applies decimal adjustment",
+        "Adds BC to HL, leaves the sum in HL and affects only CY",
+        "Doubles the contents of BC"
+      ],
+      "correctIndex": 2,
+      "explanation": "DAD rp is a 16-bit addition HL = HL + rp. Only the carry flag reports an overflow out of bit 15.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m014",
+      "questionText": "On the 8085, A = 5AH. What is A after XRI 0FFH?",
+      "options": [
+        "5AH",
+        "FFH",
+        "00H",
+        "A5H"
+      ],
+      "correctIndex": 3,
+      "explanation": "XOR with 1 inverts a bit, so XOR with FFH complements every bit: 0101 1010 becomes 1010 0101 = A5H.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i45_m015",
+      "questionText": "On the 8085, A = 85H and CY = 0. What are A and CY after RLC?",
+      "options": [
+        "A = 0AH, CY = 1",
+        "A = C2H, CY = 1",
+        "A = 0BH, CY = 1",
+        "A = 0BH, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "85H = 1000 0101. RLC moves bit 7 into both bit 0 and CY: 0000 1011 = 0BH, CY = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m016",
+      "questionText": "On the 8085, A = 85H and CY = 0. What are A and CY after RAL?",
+      "options": [
+        "A = 0BH, CY = 1",
+        "A = 0AH, CY = 0",
+        "A = 42H, CY = 1",
+        "A = 0AH, CY = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "RAL rotates through carry: bit 7 (1) goes to CY and the old CY (0) enters bit 0, so 1000 0101 becomes 0000 1010 = 0AH with CY = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m017",
+      "questionText": "On the 8085, A = 37H and B = 5AH. What are A and CY after SUB B?",
+      "options": [
+        "A = 23H, CY = 0",
+        "A = DDH, CY = 0",
+        "A = 23H, CY = 1",
+        "A = DDH, CY = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "37H − 5AH = −23H, stored as the two's complement 100H − 23H = DDH. A borrow was needed, so CY = 1 (and S = 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m018",
+      "questionText": "What are A and CY after this 8085 sequence? MVI A, 38H / MVI B, 45H / ADD B / DAA",
+      "options": [
+        "A = 7DH, CY = 0",
+        "A = 83H, CY = 1",
+        "A = 83H, CY = 0",
+        "A = 77H, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "38H + 45H = 7DH. The low nibble D is above 9, so DAA adds 06H giving 83H; the high nibble 8 needs no correction. BCD check: 38 + 45 = 83.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m019",
+      "questionText": "On the 8085, A = C5H, B = 3CH and CY = 1. What are A, CY and AC after ANA B?",
+      "options": [
+        "A = 04H, CY = 0, AC = 1",
+        "A = 04H, CY = 0, AC = 0",
+        "A = FDH, CY = 0, AC = 1",
+        "A = 04H, CY = 1, AC = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "1100 0101 AND 0011 1100 = 0000 0100 = 04H. On the 8085, ANA always clears CY and sets AC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m020",
+      "questionText": "On the 8085, HL = 8000H and BC = 9000H. What are HL and CY after DAD B?",
+      "options": [
+        "HL = 1000H, CY = 1",
+        "HL = 1000H, CY = 0",
+        "HL = 0000H, CY = 1",
+        "HL = 8000H, CY = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "8000H + 9000H = 11000H. Only 16 bits fit in HL, so HL = 1000H and the carry out of bit 15 sets CY.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m021",
+      "questionText": "On the 8085, SP = 2100H. After LXI B, 1234H and PUSH B, what are the byte at 20FFH and SP?",
+      "options": [
+        "[20FFH] = 34H, SP = 20FEH",
+        "[20FFH] = 12H, SP = 20FEH",
+        "[20FFH] = 12H, SP = 20FFH",
+        "[2101H] = 12H, SP = 2102H"
+      ],
+      "correctIndex": 1,
+      "explanation": "PUSH B decrements SP and stores B (12H) at 20FFH, decrements again and stores C (34H) at 20FEH; SP ends at 20FEH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m022",
+      "questionText": "An 8085 program starts at 2000H: LXI H, 2050H / MVI C, 0AH / L: MOV A, M ... At which address is the label L?",
+      "options": [
+        "2004H",
+        "2005H",
+        "2003H",
+        "2006H"
+      ],
+      "correctIndex": 1,
+      "explanation": "LXI H occupies 2000H–2002H (3 bytes) and MVI C occupies 2003H–2004H (2 bytes), so MOV A, M starts at 2005H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m023",
+      "questionText": "On the 8085, [2050H] = 49H and [2051H] = 6AH. What is stored at 2052H after LDA 2050H / MOV B, A / LDA 2051H / ADD B / STA 2052H?",
+      "options": [
+        "B3H",
+        "A3H",
+        "6AH",
+        "23H"
+      ],
+      "correctIndex": 0,
+      "explanation": "49H + 6AH: 9 + A = 13H (write 3, carry 1), 4 + 6 + 1 = B, so the sum is B3H, which STA stores at 2052H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m024",
+      "questionText": "What is in A when this 8085 program halts? MVI A, 00H / MVI B, 05H / MVI C, 03H / L: ADD B / DCR C / JNZ L / HLT",
+      "options": [
+        "14H",
+        "0AH",
+        "08H",
+        "0FH"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loop runs C = 3 times, adding B = 5 each time: A = 5 × 3 = 15 = 0FH. This is multiplication by repeated addition.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m025",
+      "questionText": "How many times does the body of this 8085 loop execute? MVI C, 00H / L: DCR C / JNZ L",
+      "options": [
+        "0",
+        "1",
+        "256",
+        "255"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first DCR turns 00H into FFH (not zero), so the loop continues; Z becomes 1 only after C has counted FFH down to 00H, a total of 256 passes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m026",
+      "questionText": "An 8085 programmer writes LXI B, 0005H / L: DCX B / JNZ L as a counted loop. What is wrong with it?",
+      "options": [
+        "DCX B decrements only register C, so B is never tested",
+        "DCX does not affect the Z flag, so JNZ tests a stale flag; MOV A, C / ORA B is needed before JNZ",
+        "JNZ cannot be used after a 16-bit instruction",
+        "LXI B loads the count into B and C in the wrong order"
+      ],
+      "correctIndex": 1,
+      "explanation": "INX and DCX change no flags, so JNZ keeps using whatever Z was set earlier. ORing the two halves of the pair sets Z only when BC = 0000H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m027",
+      "questionText": "What is AX after this 8086 code? MOV CX, 5 / MOV AX, 0 / L: ADD AX, CX / LOOP L",
+      "options": [
+        "000FH",
+        "000EH",
+        "0019H",
+        "0015H"
+      ],
+      "correctIndex": 0,
+      "explanation": "LOOP decrements CX and repeats while CX ≠ 0, so AX = 5 + 4 + 3 + 2 + 1 = 15 = 000FH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m028",
+      "questionText": "On the 8086, AL = B4H. What are AL and CF after SHL AL, 1?",
+      "options": [
+        "AL = 68H, CF = 1",
+        "AL = 5AH, CF = 0",
+        "AL = 68H, CF = 0",
+        "AL = 69H, CF = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "1011 0100 shifted left gives 0110 1000 = 68H; the bit shifted out of bit 7 (1) goes to CF and a 0 enters bit 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m029",
+      "questionText": "On the 8086, AL = F0H. What are AL and CF after SAR AL, 1?",
+      "options": [
+        "AL = 78H, CF = 0",
+        "AL = F8H, CF = 0",
+        "AL = F8H, CF = 1",
+        "AL = E0H, CF = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "SAR shifts right but copies the sign bit into bit 7: 1111 0000 becomes 1111 1000 = F8H (−16 ÷ 2 = −8), and bit 0 (0) goes to CF. SHR would give 78H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m030",
+      "questionText": "What is AL after this 8086 sequence? MOV AL, 0F0H / AND AL, 3CH / OR AL, 01H / XOR AL, 0FFH",
+      "options": [
+        "31H",
+        "CFH",
+        "0EH",
+        "CEH"
+      ],
+      "correctIndex": 3,
+      "explanation": "F0H AND 3CH = 30H; 30H OR 01H = 31H; 31H XOR FFH = CEH (every bit inverted).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m031",
+      "questionText": "On the 8086, AX = 1111H and BX = 2222H. What are AX and BX after PUSH AX / PUSH BX / POP AX / POP BX?",
+      "options": [
+        "AX = 1111H, BX = 2222H",
+        "AX = 2222H, BX = 2222H",
+        "AX = 2222H, BX = 1111H",
+        "AX = 1111H, BX = 1111H"
+      ],
+      "correctIndex": 2,
+      "explanation": "The stack is last-in, first-out: POP AX takes the last value pushed (BX = 2222H) and POP BX takes 1111H, so the registers are swapped.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m032",
+      "questionText": "An 8086 near procedure ends with RET 4. If SP = 0FF0H just before RET 4 executes, what is SP afterwards?",
+      "options": [
+        "0FF2H",
+        "0FF4H",
+        "0FEAH",
+        "0FF6H"
+      ],
+      "correctIndex": 3,
+      "explanation": "RET pops the 2-byte return offset (SP + 2) and then adds the 4 parameter bytes: 0FF0H + 2 + 4 = 0FF6H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m033",
+      "questionText": "The 8086 instruction LOOPE (LOOPZ) label jumps back to label when, after CX is decremented:",
+      "options": [
+        "CX ≠ 0 and ZF = 0",
+        "CX ≠ 0 and ZF = 1",
+        "CX = 0 or ZF = 1",
+        "CX ≠ 0, whatever the value of ZF"
+      ],
+      "correctIndex": 1,
+      "explanation": "LOOPE continues while the count is not exhausted and the last comparison was equal; LOOPNE needs ZF = 0, and plain LOOP ignores ZF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m034",
+      "questionText": "Which statement about 8086 CALL and RET is NOT correct?",
+      "options": [
+        "A near CALL pushes only IP",
+        "A far CALL pushes CS and then IP",
+        "RET 6 adds 6 to SP after popping the return address",
+        "A near RET pops both IP and CS from the stack"
+      ],
+      "correctIndex": 3,
+      "explanation": "A near return pops only IP (2 bytes); popping both IP and CS (4 bytes) is what a far RET does.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m035",
+      "questionText": "On the 8086, AL = 70H and BL = 30H. What are OF and CF after ADD AL, BL?",
+      "options": [
+        "OF = 0, CF = 1",
+        "OF = 0, CF = 0",
+        "OF = 1, CF = 1",
+        "OF = 1, CF = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "70H + 30H = A0H. No carry leaves bit 7 (CF = 0), but two positive signed numbers (+112 and +48) gave a negative-looking result, so OF = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m036",
+      "questionText": "On the 8085, HL = 1234H, DE = 5678H and SP = 2000H, and memory locations 2000H and 2001H hold 9AH and BCH. What are HL and DE after XCHG followed by XTHL?",
+      "options": [
+        "HL = 9ABCH, DE = 1234H",
+        "HL = 5678H, DE = 1234H",
+        "HL = BC9AH, DE = 1234H",
+        "HL = BC9AH, DE = 5678H"
+      ],
+      "correctIndex": 2,
+      "explanation": "XCHG swaps HL and DE, giving HL = 5678H and DE = 1234H. XTHL then exchanges L with [SP] and H with [SP + 1], so L = 9AH and H = BCH (HL = BC9AH), while 2000H and 2001H receive 78H and 56H and SP stays 2000H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i45_m037",
+      "questionText": "On the 8085, A = 9AH and B = 89H. What are A, CY, AC and P after ADD B?",
+      "options": [
+        "A = 23H, CY = 1, AC = 0, P = 1",
+        "A = 23H, CY = 1, AC = 1, P = 0",
+        "A = 23H, CY = 0, AC = 1, P = 0",
+        "A = 13H, CY = 1, AC = 1, P = 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "9AH + 89H = 123H, so A = 23H and CY = 1. Low nibbles A + 9 = 19 > 15 gives AC = 1. 23H = 0010 0011 has three 1s (odd), so P = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m038",
+      "questionText": "What are A and CY after this 8085 sequence? MVI A, 99H / ADI 01H / DAA",
+      "options": [
+        "A = 9AH, CY = 0",
+        "A = A0H, CY = 0",
+        "A = 00H, CY = 1",
+        "A = 00H, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "99H + 01H = 9AH. The low nibble A > 9, so DAA adds 06H: A0H. The high nibble A > 9, so it adds 60H: 100H, leaving A = 00H with CY = 1. BCD check: 99 + 1 = 100.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m039",
+      "questionText": "On the 8085, SP = 2400H. After LXI B, 1234H / PUSH B / POP PSW, what are the accumulator and the flag register?",
+      "options": [
+        "A = 12H, flags = 34H",
+        "A = 34H, flags = 12H",
+        "A = 12H, flags unchanged",
+        "A = 34H, flags unchanged"
+      ],
+      "correctIndex": 0,
+      "explanation": "PUSH B stores B (12H) at 23FFH and C (34H) at 23FEH. POP PSW loads the flag register from [SP] = 34H and A from [SP + 1] = 12H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m040",
+      "questionText": "On the 8085, SP = 2400H and the 3-byte instruction CALL 3000H is stored at 2000H. After the CALL executes, what are [23FFH], [23FEH] and SP?",
+      "options": [
+        "[23FFH] = 03H, [23FEH] = 20H, SP = 23FEH",
+        "[23FFH] = 20H, [23FEH] = 03H, SP = 23FEH",
+        "[23FFH] = 20H, [23FEH] = 00H, SP = 23FEH",
+        "[23FFH] = 20H, [23FEH] = 03H, SP = 2402H"
+      ],
+      "correctIndex": 1,
+      "explanation": "The return address is the next instruction, 2000H + 3 = 2003H. CALL pushes its high byte 20H at 23FFH and low byte 03H at 23FEH, so SP = 23FEH and PC = 3000H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m041",
+      "questionText": "How many T-states does this 8085 delay segment take? MVI C, 0FFH (7T) / L: DCR C (4T) / JNZ L (10T if taken, 7T if not)",
+      "options": [
+        "3570",
+        "3577",
+        "3574",
+        "3588"
+      ],
+      "correctIndex": 2,
+      "explanation": "FFH = 255 passes of 4T + 10T = 3570T, plus 7T for MVI, minus 3T because the last JNZ is not taken: 7 + 255 × 14 − 3 = 3574 T-states.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m042",
+      "questionText": "An 8085 runs at 3 MHz. What delay does this segment produce? LXI D, 03E8H (10T) / L: DCX D (6T) / MOV A, D (4T) / ORA E (4T) / JNZ L (10T taken, 7T not taken)",
+      "options": [
+        "About 5.33 ms",
+        "About 8.00 ms",
+        "About 12.0 ms",
+        "About 24.0 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "03E8H = 1000 passes of 6 + 4 + 4 + 10 = 24T. T = 10 + 1000 × 24 − 3 = 24,007 T-states; at 3 MHz one T-state is 0.333 µs, so the delay is 24,007 ÷ 3 MHz ≈ 8.00 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m043",
+      "questionText": "On the 8086, AL = 80H and BL = 01H. After CMP AL, BL, which of the conditional jumps JA and JG is taken?",
+      "options": [
+        "Both JA and JG are taken",
+        "JG is taken but JA is not taken",
+        "Neither JA nor JG is taken",
+        "JA is taken but JG is not taken"
+      ],
+      "correctIndex": 3,
+      "explanation": "Unsigned, 80H = 128 > 1, so CF = 0 and ZF = 0 and JA is taken. Signed, 80H = −128 < +1: 80H − 01H = 7FH gives SF = 0 and OF = 1, SF ≠ OF, so JG is not taken.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m044",
+      "questionText": "On the 8086, AL = FFH and BL = 02H. What does AX contain after MUL BL, and what would it contain after IMUL BL instead?",
+      "options": [
+        "MUL: AX = 01FEH; IMUL: AX = FFFEH",
+        "MUL: AX = FFFEH; IMUL: AX = 01FEH",
+        "MUL: AX = 01FEH; IMUL: AX = 01FEH",
+        "MUL: AX = 00FEH; IMUL: AX = FFFEH"
+      ],
+      "correctIndex": 0,
+      "explanation": "MUL treats FFH as 255: 255 × 2 = 510 = 01FEH. IMUL treats FFH as −1: −1 × 2 = −2, which is FFFEH as a 16-bit two's complement value.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m045",
+      "questionText": "On the 8086, DX = 0001H, AX = FFFFH, CX = 0002H and BX = 0001H. What are DX and AX after ADD AX, BX / ADC DX, CX?",
+      "options": [
+        "DX = 0003H, AX = 0000H",
+        "DX = 0004H, AX = 0001H",
+        "DX = 0004H, AX = 0000H",
+        "DX = 0003H, AX = FFFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "ADD AX, BX: FFFFH + 0001H = 0000H with CF = 1. ADC DX, CX: 0001H + 0002H + CF = 0004H. The 32-bit sum is 0004 0000H (1FFFFH + 20001H = 40000H).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i45_m046",
+      "questionText": "What is in register B when this 8085 program halts (CY = 0 at the start)? MVI A, 0B5H / MVI B, 00H / MVI C, 08H / L: RAL / JNC SKIP / INR B / SKIP: DCR C / JNZ L / HLT",
+      "options": [
+        "05H",
+        "03H",
+        "08H",
+        "04H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each of the 8 passes rotates one bit of the original A into CY, and B counts the 1s. B5H = 1011 0101 contains five 1s, so B = 05H. INR and DCR do not disturb CY between RAL and JNC.",
+      "difficulty": "hard"
+    }
+  ]
+}

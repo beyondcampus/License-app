@@ -1,0 +1,530 @@
+{
+  "topicId": "ch5_i33",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: IP, ICMP, RARP and DHCP"
+    },
+    {
+      "type": "paragraph",
+      "text": "In four words IP is connectionless, unreliable, best-effort and routed: nothing is set up before sending, delivery is not guaranteed, nothing is retransmitted, and every datagram is routed on its own by its destination address. ICMP is IP's companion for error reporting and diagnostics; the ping command uses its Echo Request and Echo Reply to test connectivity, and traceroute uses Time Exceeded messages to find the path. ARP turns a known IP address into a MAC address, while RARP did the reverse (MAC to IP) and has been replaced by DHCP."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 2400-byte datagram (20-byte header, 2380 data bytes), next link MTU 1000\nData per fragment = 1000 - 20 = 980 -> round down to a multiple of 8 -> 976\nFrag  Data bytes    Offset field      MF  Total length\n1     0-975         0/8    = 0        1   996\n2     976-1951      976/8  = 122      1   996\n3     1952-2379     1952/8 = 244      0   448\nA later link has MTU 500, so fragment 2 is split again (480 data bytes per piece):\n2a    976-1455      976/8  = 122      1   500\n2b    1456-1935     1456/8 = 182      1   500\n2c    1936-1951     1936/8 = 242      1   36\nOffsets stay relative to the original datagram, and 2c keeps MF = 1\nbecause fragment 3 still follows; only the true end of the data has MF = 0"
+    },
+    {
+      "type": "formula",
+      "latex": "d = 8\\left\\lfloor \\frac{\\text{MTU} - H}{8} \\right\\rfloor, \\quad N = \\lceil D/d \\rceil",
+      "plainText": "Data per fragment d = 8 × floor((MTU − H) / 8); number of fragments N = ceil(D / d), where H is the header length and D the original data length"
+    },
+    {
+      "type": "paragraph",
+      "text": "The field sizes fit together: the 13-bit offset counts 8-byte blocks, so it can reach 2^13 × 8 = 65,536 bytes, just enough for the largest datagram of 65,535 bytes allowed by the 16-bit Total Length. Every router must recompute the header checksum because it decrements the TTL, which is also why the checksum covers only the header; checking the whole payload at every hop would be slow and is left to TCP, UDP and the link layer. Fragments are reassembled only at the destination because they may travel by different routes. If any one fragment is lost, the reassembly timer expires and the whole datagram is discarded, so fragmentation multiplies the effect of packet loss."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: IPv4 header checksum (a ping from 192.168.1.10 to 8.8.8.8)\nHeader words: 4500 0054 1A2B 4000 4001 [0000] C0A8 010A 0808 0808\nSum = 4500 + 0054 + 1A2B + 4000 + 4001 + C0A8 + 010A + 0808 + 0808 = 1B142\nFold the carry back in: B142 + 1 = B143\nChecksum = one's complement of B143 = 4EBC, so the header carries 40 01 4E BC\nReceiver: sum of all ten words including 4EBC = B143 + 4EBC = FFFF -> no error found\nNext router: TTL 64 -> 63 turns word 4001 into 3F01, so it recomputes the checksum: 4FBC"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Destination Unreachable (type 3) code",
+          "Meaning",
+          "Usually sent by"
+        ],
+        [
+          "0",
+          "Network unreachable",
+          "A router with no route to the network"
+        ],
+        [
+          "1",
+          "Host unreachable",
+          "The last router, when the host does not answer ARP"
+        ],
+        [
+          "2",
+          "Protocol unreachable",
+          "The destination host, with no handler for the Protocol value"
+        ],
+        [
+          "3",
+          "Port unreachable",
+          "The destination host, with no process on the UDP port"
+        ],
+        [
+          "4",
+          "Fragmentation needed and DF set",
+          "A router; it includes the next-hop MTU for path MTU discovery"
+        ],
+        [
+          "13",
+          "Communication administratively prohibited",
+          "A router or firewall that filters the packet"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace: traceroute (Unix: UDP probes to port 33434 and up, 3 per TTL), target 4 hops away\nTTL 1 -> R1 decrements it to 0, drops the probe, returns Time Exceeded (11/0) -> line 1: R1\nTTL 2 -> R2 returns Time Exceeded -> line 2: R2\nTTL 3 -> R3 returns Time Exceeded -> line 3: R3\nTTL 4 -> target: no process on that UDP port -> Port Unreachable (3/3) -> trace ends\nEach line shows three round-trip times; '* * *' means no answer before the timeout\nWindows tracert sends ICMP Echo Requests instead and stops at the Echo Reply (type 0)\nping: Echo Request (8/0) carries an identifier and sequence number; the reply echoes them\nA reply arriving with TTL 57 from a host that starts at 64 has crossed 64 - 57 = 7 routers"
+    },
+    {
+      "type": "bulletList",
+      "text": "DHCP step by step (Discover, Offer, Request, Acknowledge, remembered as DORA):",
+      "items": [
+        "Discover: the client, still without an address, broadcasts from 0.0.0.0, UDP port 68, to 255.255.255.255, UDP port 67.",
+        "Offer: each server that can help offers an address with mask, default gateway, DNS servers and a lease time.",
+        "Request: the client broadcasts which offer it accepts, which also tells the other servers that their offers were declined.",
+        "Acknowledge: the chosen server confirms the lease. A client that finds the address already in use (for example by an ARP probe) sends DHCPDECLINE, and a server can refuse a request with DHCPNAK.",
+        "Renewal: at T1 (50 % of the lease by default) the client unicasts a Request to its own server; if that fails, at T2 (87.5 %) it broadcasts to any server (rebinding). DHCPRELEASE returns the address early.",
+        "A relay agent on the router turns the client's broadcast into a unicast to a server on another subnet and writes its own interface address into the giaddr field, so the server picks the right address pool."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "RARP",
+          "BOOTP",
+          "DHCP"
+        ],
+        [
+          "Runs over",
+          "The link layer directly (EtherType 0x8035)",
+          "UDP over IP, ports 67 and 68",
+          "UDP over IP, ports 67 and 68"
+        ],
+        [
+          "Crosses routers",
+          "No: a server is needed on every network",
+          "Yes, through a relay agent",
+          "Yes, through a relay agent"
+        ],
+        [
+          "Information given",
+          "The IP address only",
+          "IP address, mask, default gateway, DNS server, boot file",
+          "All of BOOTP's plus a lease time and many more options"
+        ],
+        [
+          "Allocation",
+          "Static MAC-to-IP table",
+          "Static MAC-to-IP table",
+          "Dynamic leases from a pool, or fixed reservations"
+        ],
+        [
+          "Status today",
+          "Obsolete",
+          "Legacy",
+          "The standard method"
+        ]
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Fragmentation checklist: subtract the header from the MTU and round the data down to a multiple of 8; offset field = data bytes before this fragment / 8; Total Length = data + header; every fragment keeps the original Identification; MF = 1 on every fragment except the one holding the last byte of the original data. To find the original size from the last fragment, compute offset × 8 + (Total Length − header) and add one header."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: the fragment offset is in 8-byte units and HLEN in 4-byte words, but Total Length is in bytes and includes the header. The header checksum covers the header only; TCP and UDP checksums cover the data. TTL is decremented by one per router, so it acts as a hop limit rather than a time. A failed ping does not prove a host is down, because many hosts and firewalls block ICMP Echo. ICMP travels inside IP (protocol 1) but is still a network-layer protocol."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i33_m001",
+      "questionText": "What does 'best-effort delivery' mean for IP?",
+      "options": [
+        "IP retransmits every lost datagram until the receiver acknowledges it",
+        "IP tries to deliver every datagram but gives no guarantee: datagrams may be lost, duplicated, delayed or delivered out of order without any notice",
+        "IP reserves bandwidth along the path for each connection before sending",
+        "IP always delivers datagrams in order, although sometimes with extra delay"
+      ],
+      "correctIndex": 1,
+      "explanation": "IP is connectionless and unreliable: it keeps no connection state, sends no acknowledgements and does no retransmission. Reliability and ordering, when needed, are added by TCP above it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m002",
+      "questionText": "Which ICMP messages does the ping command use?",
+      "options": [
+        "Time Exceeded (type 11) and Echo Reply (type 0)",
+        "Router Solicitation (type 10) and Router Advertisement (type 9)",
+        "Destination Unreachable (type 3) and Redirect (type 5)",
+        "Echo Request (type 8) and Echo Reply (type 0)"
+      ],
+      "correctIndex": 3,
+      "explanation": "ping sends Echo Requests and measures the time until the matching Echo Reply returns, reporting reachability, round-trip time and loss. Time Exceeded is the message that traceroute relies on.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m003",
+      "questionText": "How are ICMP messages carried across a network?",
+      "options": [
+        "Inside IP datagrams, with the Protocol field set to 1",
+        "Inside UDP datagrams sent to port 7",
+        "Directly in Ethernet frames with EtherType 0x0806",
+        "Inside TCP segments sent to port 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "ICMP messages are encapsulated in IP datagrams with Protocol = 1, yet ICMP is still counted as a network-layer protocol because it serves IP itself. EtherType 0x0806 identifies ARP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m004",
+      "questionText": "What is the purpose of the Time to Live (TTL) field in an IPv4 header?",
+      "options": [
+        "To tell the destination how long to keep the datagram in its buffer",
+        "To set how long the source waits for an acknowledgement before retransmitting",
+        "To stop a datagram from circulating forever, for example in a routing loop: each router decrements it and discards the datagram when it reaches 0",
+        "To record the time at which the datagram was sent so that delay can be measured"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every router decrements TTL by at least 1, so in practice it is a hop limit; when it reaches 0 the router drops the datagram and sends ICMP Time Exceeded to the source. IP has no acknowledgements or timestamps in this field.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m005",
+      "questionText": "Which pairing of IPv4 Protocol field value and payload is correct?",
+      "options": [
+        "6 – UDP",
+        "1 – ICMP",
+        "17 – TCP",
+        "2 – OSPF"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Protocol field names the payload: 1 ICMP, 2 IGMP, 6 TCP, 17 UDP and 89 OSPF. The distractors swap TCP and UDP or give IGMP's number to OSPF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m006",
+      "questionText": "How does the destination know which IPv4 fragments belong to the same original datagram?",
+      "options": [
+        "They all carry the same fragment offset",
+        "They all carry the same Total Length",
+        "They all carry the same header checksum",
+        "They all carry the same Identification value, together with the same source address, destination address and protocol"
+      ],
+      "correctIndex": 3,
+      "explanation": "The source gives each datagram an Identification number, and every fragment copies it; the receiver groups fragments by Identification, source, destination and protocol. Offsets, lengths and checksums differ from fragment to fragment.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m007",
+      "questionText": "What is the correct order of DHCP messages when a client obtains an address for the first time?",
+      "options": [
+        "Discover, Offer, Request, Acknowledge",
+        "Request, Offer, Discover, Acknowledge",
+        "Discover, Request, Offer, Acknowledge",
+        "Offer, Discover, Acknowledge, Request"
+      ],
+      "correctIndex": 0,
+      "explanation": "The client broadcasts a Discover, servers answer with Offers, the client Requests one offer and the chosen server confirms it with an Acknowledge (DORA).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m008",
+      "questionText": "A UDP datagram reaches its destination host, but no process is listening on the destination port. What does the host send back?",
+      "options": [
+        "ICMP Destination Unreachable with code 1 (host unreachable)",
+        "ICMP Time Exceeded",
+        "ICMP Destination Unreachable with code 3 (port unreachable)",
+        "ICMP Redirect"
+      ],
+      "correctIndex": 2,
+      "explanation": "The host itself is reachable, so it answers with type 3 code 3, port unreachable; host unreachable (code 1) comes from a router that cannot reach the host. Unix traceroute uses exactly this reply to recognise the destination.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i33_m009",
+      "questionText": "An IPv4 datagram has Total Length = 1500 and HLEN = 6. How many bytes of data (payload) does it carry?",
+      "options": [
+        "1476",
+        "1494",
+        "1480",
+        "1440"
+      ],
+      "correctIndex": 0,
+      "explanation": "HLEN counts 4-byte words, so the header is 6 × 4 = 24 bytes and the payload is 1500 − 24 = 1476 bytes. Subtracting 6 gives 1494, and 1480 wrongly assumes a 20-byte header.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m010",
+      "questionText": "An IPv4 header carries 10 bytes of options. What value goes into the HLEN field, and how much padding is needed?",
+      "options": [
+        "HLEN = 30, with no padding",
+        "HLEN = 8, with 2 bytes of padding",
+        "HLEN = 7, with 2 bytes of padding",
+        "HLEN = 10, with 2 bytes of padding"
+      ],
+      "correctIndex": 1,
+      "explanation": "20 + 10 = 30 bytes is not a multiple of 4, so 2 padding bytes bring the header to 32 bytes, and HLEN = 32/4 = 8. HLEN counts 4-byte words, never bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m011",
+      "questionText": "A 3000-byte IPv4 datagram with a 20-byte header must cross a link with an MTU of 1400 bytes. What is the Total Length field of the last fragment?",
+      "options": [
+        "240 bytes",
+        "228 bytes",
+        "200 bytes",
+        "248 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Data per fragment = 1400 − 20 = 1380, rounded down to a multiple of 8 = 1376; 2980 − 2 × 1376 = 228 data bytes remain, so the last fragment's Total Length is 228 + 20 = 248. Not rounding to 8 gives 240, and forgetting the header gives 228.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m012",
+      "questionText": "An IPv4 fragment arrives with fragment offset 250, MF = 1, Total Length 1020 and HLEN 5. Which bytes of the original data does it carry?",
+      "options": [
+        "Bytes 250 to 1269, and more fragments follow",
+        "Bytes 2000 to 3019, and more fragments follow",
+        "Bytes 2000 to 2999, and more fragments follow",
+        "Bytes 2000 to 2999, and it is the last fragment"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first data byte is 250 × 8 = 2000 and the fragment carries 1020 − 20 = 1000 data bytes, so it holds bytes 2000–2999. MF = 1 means it is not the last fragment.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m013",
+      "questionText": "A 1500-byte IPv4 datagram with the DF (don't fragment) bit set reaches a router whose next link has an MTU of 1400 bytes. What does the router do?",
+      "options": [
+        "It drops the datagram and returns ICMP Destination Unreachable, code 4 (fragmentation needed and DF set), giving the next-hop MTU",
+        "It fragments the datagram anyway, because the MTU limit overrides DF",
+        "It forwards the datagram unchanged and leaves the problem to the next router",
+        "It cuts the datagram down to 1400 bytes and clears the DF bit"
+      ],
+      "correctIndex": 0,
+      "explanation": "With DF = 1 the router may not fragment, so it discards the datagram and reports type 3 code 4 with the MTU of the next link. Path MTU discovery sets DF on purpose and uses these messages to find the largest size that fits the whole path.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m014",
+      "questionText": "Which statement about the IPv4 header checksum is NOT correct?",
+      "options": [
+        "It is recomputed by every router, because the TTL field changes at each hop",
+        "It is the one's complement of the one's complement sum of the header's 16-bit words",
+        "A datagram whose header checksum fails is discarded",
+        "It covers both the header and the data, so a corrupted payload is also detected"
+      ],
+      "correctIndex": 3,
+      "explanation": "The IPv4 checksum protects only the header; the data is protected by the TCP or UDP checksum and the link-layer CRC. The other statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m015",
+      "questionText": "With the checksum field set to zero, the one's complement sum of an IPv4 header's 16-bit words (carries already folded back in) is 0x4E2B. What value is placed in the checksum field?",
+      "options": [
+        "0x4E2B",
+        "0xB1D4",
+        "0xB1D5",
+        "0x2B4E"
+      ],
+      "correctIndex": 1,
+      "explanation": "The checksum is the one's complement of the sum: every bit of 0x4E2B is inverted, giving 0xFFFF − 0x4E2B = 0xB1D4. 0xB1D5 is the two's complement and 0x4E2B is the uncomplemented sum.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m016",
+      "questionText": "Host H sends a packet for a remote network to its default router R1. R1's best next hop for that network is router R2, which is on the same LAN as H. What does R1 do?",
+      "options": [
+        "It drops the packet and sends H an ICMP Destination Unreachable",
+        "It sends H a Source Quench so that H slows down",
+        "It forwards the packet to R2 and sends H an ICMP Redirect (type 5) telling it to use R2 for that destination",
+        "It forwards the packet and sends H an ICMP Time Exceeded"
+      ],
+      "correctIndex": 2,
+      "explanation": "When a packet would leave through the same interface it arrived on, towards a next hop on the sender's own subnet, the router still delivers it but advises the host with a Redirect. The host then sends later packets for that destination straight to R2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m017",
+      "questionText": "In which case does a router NOT send an ICMP error message when it discards a datagram?",
+      "options": [
+        "When the discarded datagram itself carries an ICMP error message",
+        "When the TTL of an ordinary unicast TCP segment reaches 0",
+        "When a datagram with DF set is larger than the next link's MTU",
+        "When it has no route to the destination network"
+      ],
+      "correctIndex": 0,
+      "explanation": "ICMP never reports errors about ICMP error messages, nor about non-first fragments or broadcast and multicast datagrams, so that error messages cannot trigger storms of further errors. The other three cases produce Time Exceeded, Fragmentation Needed and Network Unreachable.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m018",
+      "questionText": "A ping reply arrives with TTL = 116. The remote host sets an initial TTL of 128, and every router decrements TTL by 1. How many routers did the reply cross?",
+      "options": [
+        "116",
+        "13",
+        "11",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each router lowers the TTL by one, so the number of routers crossed is 128 − 116 = 12. The reply's TTL itself (116) is not a hop count, and adding or dropping one for the end hosts is the usual off-by-one slip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m019",
+      "questionText": "ping to a company's web server times out every time, yet the website opens normally in a browser. What is the most likely explanation?",
+      "options": [
+        "The server's IP address has been typed wrongly",
+        "The server or a firewall on the path blocks ICMP Echo, while TCP traffic to the web port is allowed",
+        "The DNS server cannot be reached",
+        "The web server has crashed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Many hosts and firewalls drop ICMP Echo Requests for security, so ping fails even though TCP connections to port 443 or 80 work. A wrong address, DNS failure or crashed server would also stop the website loading.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m020",
+      "questionText": "In traceroute output, hop 4 shows '* * *', but hops 5 to 8 answer normally and the trace reaches the destination. What does this mean?",
+      "options": [
+        "The path is broken at hop 4, so hops 5 to 8 are not real",
+        "Hop 4 is the destination host, which never answers probes",
+        "Router 4 forwards the probes but does not return Time Exceeded messages, for example because ICMP is filtered or rate-limited; the path itself works",
+        "Hop 4 is a layer-2 switch, which has no IP address"
+      ],
+      "correctIndex": 2,
+      "explanation": "Later hops answering proves that packets pass through hop 4; that router simply sends no ICMP reply in time. A switch never appears as a hop at all, because it does not decrement TTL.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m021",
+      "questionText": "Why was RARP replaced, first by BOOTP and then by DHCP?",
+      "options": [
+        "RARP runs directly over the link layer, so it cannot cross routers and needs a server on every network, and it supplies only an IP address",
+        "RARP cannot work with 48-bit MAC addresses",
+        "RARP runs over TCP, which made booting too slow",
+        "RARP was designed only for IPv6 networks"
+      ],
+      "correctIndex": 0,
+      "explanation": "A RARP request is a link-layer broadcast (EtherType 0x8035) that routers do not forward, and the reply gives no mask, gateway or DNS server. BOOTP and DHCP run over UDP/IP, cross routers through relay agents and hand out full configuration.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m022",
+      "questionText": "A client that has no IP address yet sends a DHCPDISCOVER. Which addresses and ports does the datagram use?",
+      "options": [
+        "Source 0.0.0.0, UDP port 67; destination 255.255.255.255, UDP port 68",
+        "Source 169.254.0.1, UDP port 68; destination 224.0.0.1, UDP port 67",
+        "Source 127.0.0.1, UDP port 68; destination the server's unicast address, UDP port 67",
+        "Source 0.0.0.0, UDP port 68; destination 255.255.255.255, UDP port 67"
+      ],
+      "correctIndex": 3,
+      "explanation": "Without an address the client uses 0.0.0.0 as its source and the limited broadcast 255.255.255.255 as its destination. DHCP servers listen on UDP port 67 and clients on UDP port 68.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m023",
+      "questionText": "The DHCP server of a company sits on a different subnet from the client PCs. What allows the clients' DHCP broadcasts to reach it?",
+      "options": [
+        "Proxy ARP on the router, which answers the Discover itself",
+        "A DHCP relay agent on the router, which forwards each broadcast to the server by unicast and records the client's subnet in the giaddr field",
+        "Routers forward the limited broadcast 255.255.255.255 to every subnet",
+        "RARP, which carries the request across the router"
+      ],
+      "correctIndex": 1,
+      "explanation": "Routers never forward 255.255.255.255, so the router's relay agent turns the client broadcast into a unicast to the server's address. The giaddr field tells the server which subnet's address pool to use.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m024",
+      "questionText": "A DHCP client obtains an 8-hour lease. With the default timer values, when does it first try to renew the lease with its server (T1), and when does it start rebinding with any server (T2)?",
+      "options": [
+        "T1 after 4 hours and T2 after 8 hours",
+        "T1 after 2 hours and T2 after 4 hours",
+        "T1 after 4 hours and T2 after 7 hours",
+        "T1 after 6 hours and T2 after 7.5 hours"
+      ],
+      "correctIndex": 2,
+      "explanation": "By default T1 = 0.5 × lease = 0.5 × 8 = 4 h and T2 = 0.875 × lease = 0.875 × 8 = 7 h. At 8 h the lease expires and the client must stop using the address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i33_m025",
+      "questionText": "The last fragment of an IPv4 datagram arrives with fragment offset 300, MF = 0, Total Length 628 and HLEN 5. The original datagram also had a 20-byte header with no options. What was the Total Length of the original datagram?",
+      "options": [
+        "3028 bytes",
+        "3008 bytes",
+        "928 bytes",
+        "3048 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "The fragment's data starts at byte 300 × 8 = 2400 and holds 628 − 20 = 608 bytes, so the original data was 2400 + 608 = 3008 bytes; adding one 20-byte header gives 3028. 928 treats the offset as bytes, and 3048 adds a header twice.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i33_m026",
+      "questionText": "A fragment with offset 185, MF = 1 and Total Length 1500 (20-byte header, 1480 data bytes) reaches a link with an MTU of 620 bytes and is split into three fragments. What are their offset fields and MF bits?",
+      "options": [
+        "Offsets 0, 75 and 150, with MF = 1, 1 and 0",
+        "Offsets 185, 260 and 335, with MF = 1, 1 and 0",
+        "Offsets 185, 785 and 1385, with MF = 1 in all three",
+        "Offsets 185, 260 and 335, with MF = 1 in all three"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each new fragment carries 620 − 20 = 600 data bytes (a multiple of 8, 75 units), so the offsets are 185, 185 + 75 = 260 and 260 + 75 = 335, still counted from the start of the original datagram. The fragment being split had MF = 1, so more data follows its last piece too and all three keep MF = 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i33_m027",
+      "questionText": "Compute the checksum field of this IPv4 header, given in hexadecimal with the checksum set to zero: 4500 0030 0001 4000 4006 0000 C0A8 0001 C0A8 0002.",
+      "options": [
+        "0x468C",
+        "0xB973",
+        "0xB975",
+        "0xB974"
+      ],
+      "correctIndex": 1,
+      "explanation": "The words add up to 0x2468A; folding the carry gives 0x468A + 0x2 = 0x468C, and its one's complement is 0xB973. 0x468C forgets to complement, 0xB975 drops the carry instead of adding it back, and 0xB974 is the two's complement.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i33_m028",
+      "questionText": "A router discards a UDP datagram whose TTL has expired (20-byte IPv4 header) and returns ICMP Time Exceeded, including exactly what RFC 792 requires: the original IP header plus the first 8 bytes of its data. The new IPv4 header has no options. What is the Total Length of the datagram carrying the ICMP message?",
+      "options": [
+        "36 bytes",
+        "48 bytes",
+        "56 bytes",
+        "28 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Total = new IP header 20 + ICMP header 8 + original IP header 20 + first 8 data bytes = 56 bytes. The quoted 8 bytes hold the UDP ports, which lets the sender find the affected socket; 48 leaves them out and 36 leaves out the original header.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i33_m029",
+      "questionText": "Unix traceroute sends 3 UDP probes for each TTL value, starting at TTL 1. The destination is behind 5 routers, and every probe is answered. How many probes are sent in total, and which ICMP replies come back?",
+      "options": [
+        "18 probes; 15 Time Exceeded messages and 3 Port Unreachable messages",
+        "15 probes; 15 Time Exceeded messages",
+        "18 probes; 18 Time Exceeded messages",
+        "6 probes; 5 Time Exceeded messages and 1 Port Unreachable message"
+      ],
+      "correctIndex": 0,
+      "explanation": "TTL runs from 1 to 6 (5 routers plus the destination), so 6 × 3 = 18 probes are sent. Each of the 5 routers returns 3 Time Exceeded messages (15), and the destination answers its 3 probes with Port Unreachable, which ends the trace.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i33_m030",
+      "questionText": "Host A pings host B across two routers, R1 and R2, over three Ethernet links, and every ARP cache starts empty. Every device follows RFC 826, so the target of an ARP request also stores the requester's mapping. How many ARP requests are sent in total before A receives the Echo Reply?",
+      "options": [
+        "6",
+        "1",
+        "2",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "On the way out one request is needed on each link: A for R1, R1 for R2 and R2 for B. Each target learned its requester's MAC from the request, so the reply travels back B to R2 to R1 to A with no further ARP, giving 3 rather than 6.",
+      "difficulty": "hard"
+    }
+  ]
+}

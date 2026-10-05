@@ -1,0 +1,688 @@
+{
+  "topicId": "ch1_i67",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Tuned Amplifiers"
+    },
+    {
+      "type": "paragraph",
+      "text": "The Q that sets the bandwidth of a working stage is the loaded Q, not the coil Q quoted on its own. First turn the coil's series loss into an equivalent parallel resistance R_p = Q_u ω_0 L (valid for Q_u above about 10). The tank is then shunted by the transistor's output resistance r_o and by the input resistance of the next stage, so the total resistance across it is R_T = R_p ∥ r_o ∥ R_in. The loaded Q is Q_L = R_T / (ω_0 L) = ω_0 C R_T, which is always lower than Q_u, and the stage gain at resonance is g_m R_T."
+    },
+    {
+      "type": "formula",
+      "latex": "R_T = R_p \\parallel r_o \\parallel R_{in}, \\quad Q_L = \\frac{R_T}{\\omega_0 L} = \\omega_0 C R_T, \\quad BW = \\frac{1}{2\\pi R_T C}",
+      "plainText": "R_T = R_p ∥ r_o ∥ R_in;  Q_L = R_T/(ω_0 L) = ω_0 C R_T;  BW = f_0/Q_L = 1/(2π R_T C)"
+    },
+    {
+      "type": "paragraph",
+      "text": "To keep the loading light, the collector or the next base is connected to a tap on the tank coil, or the tank drives the next stage through a step-down secondary. A resistance R connected across n of the N turns appears across the whole coil as R (N/n)², so a 1 kΩ base input on a tap at one tenth of the turns looks like 100 kΩ across the tank. Tapping lets the designer choose Q_L, and hence bandwidth, while still using a practical coil."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: loaded Q, bandwidth and gain of a 455 kHz IF stage\nGiven: L = 200 µH, coil Q_u = 120, r_o = 100 kΩ, next stage 10 kΩ on a 1:3 tap, g_m = 20 mS\nω_0 L = 2π × 455e3 × 200e-6 = 571.8 Ω;  C = 1/(ω_0² L) = 612 pF\nR_p = Q_u ω_0 L = 120 × 571.8 = 68.6 kΩ\nReflected load = 10 kΩ × 3² = 90 kΩ\nR_T = 68.6 k ∥ 100 k ∥ 90 k = 28.0 kΩ\nQ_L = R_T / (ω_0 L) = 28 000 / 571.8 = 49.0\nBW = f_0 / Q_L = 455 kHz / 49.0 = 9.28 kHz\nA_v(f_0) = g_m R_T = 0.02 × 28 000 = 560 (about 55 dB)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every CE or CS tuned stage has a feedback path through the collector-base capacitance C_bc (C_µ in the hybrid-π model). With a tuned circuit at both input and output, this path can supply enough in-phase feedback near f_0 to make the stage oscillate, exactly as in a tuned-input tuned-output oscillator; even when it does not oscillate, the Miller capacitance C_bc(1 + |A_v|) detunes and loads the input tank. Neutralisation cancels the unwanted feedback: a small capacitor C_N feeds back a current of equal size and opposite phase, taken from a point on the output coil or a separate winding whose voltage is in antiphase with the collector (Hazeltine and Rice circuits). Alternatively the feedback is avoided altogether by a cascode (CE driving CB) or a common-base stage."
+    },
+    {
+      "type": "formula",
+      "latex": "C_N\\,V_N = C_{bc}\\,V_c \\;\\Rightarrow\\; C_N = C_{bc}\\frac{V_c}{V_N} = C_{bc}\\frac{N_1}{N_2}",
+      "plainText": "C_N·V_N = C_bc·V_c  ⇒  C_N = C_bc·V_c/V_N = C_bc·N_1/N_2 (N_1 collector winding, N_2 neutralising winding)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Identical stages n",
+          "Shrink factor √(2^(1/n) − 1)",
+          "Overall BW if each stage is 10 kHz",
+          "Stage BW for 10 kHz overall"
+        ],
+        [
+          "1",
+          "1.000",
+          "10.0 kHz",
+          "10.0 kHz"
+        ],
+        [
+          "2",
+          "0.644",
+          "6.44 kHz",
+          "15.5 kHz"
+        ],
+        [
+          "3",
+          "0.510",
+          "5.10 kHz",
+          "19.6 kHz"
+        ],
+        [
+          "4",
+          "0.435",
+          "4.35 kHz",
+          "23.0 kHz"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: image frequency and RF-stage image rejection\nGiven: AM receiver tuned to f_s = 600 kHz, IF = 455 kHz, LO above the signal, one RF tank with Q = 50\nf_LO = 600 + 455 = 1055 kHz\nImage f_si = f_s + 2 × IF = 600 + 910 = 1510 kHz\nρ = f_si/f_s − f_s/f_si = 2.517 − 0.397 = 2.119\nImage rejection α = √(1 + Q²ρ²) = √(1 + (50 × 2.119)²) ≈ 106, about 40.5 dB"
+    },
+    {
+      "type": "paragraph",
+      "text": "In a class C stage the conduction angle is set by the negative base bias. With a DC bias of −V_B and a drive of peak V_p, the transistor conducts while V_p cos ωt − V_B exceeds V_BE(on), so the half-angle satisfies cos(θ/2) = (V_B + V_BE(on)) / V_p. A smaller angle raises the efficiency towards 100 % but reduces the output power towards zero, so practical stages use about 90° to 150°. When the collector swings from nearly 0 to 2V_CC across the tank resistance R_T, the output power is P = V_pp² / (8 R_T); for V_CC = 12 V and R_T = 200 Ω this is 24² / 1600 = 0.36 W."
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: using the unloaded coil Q in BW = f_0/Q (the loaded Q_L is always smaller, so the real band is wider); forgetting that transistor and stray capacitance add to the tank C and pull f_0 down; dividing the bandwidth by n for n cascaded stages instead of multiplying by √(2^(1/n) − 1); and quoting the image frequency as f_s + IF (that is the local oscillator) instead of f_s + 2 IF."
+    },
+    {
+      "type": "examTip",
+      "text": "Two shortcuts save time: BW = 1/(2π R_T C) needs no f_0 at all, and the gain-bandwidth product g_m/(2πC) gives the largest single-stage gain for a required bandwidth. Double-tuned at critical coupling and a flat-staggered pair both give about √2 times the single-tuned bandwidth."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i67_m001",
+      "questionText": "A tuned RF amplifier uses a fixed 200 µH coil and a variable capacitor to cover 600 kHz to 1.2 MHz. The capacitance needed at the two ends of the band is approximately:",
+      "options": [
+        "176 pF at 600 kHz and 88 pF at 1.2 MHz",
+        "352 pF at 600 kHz and 88 pF at 1.2 MHz",
+        "88 pF at 600 kHz and 352 pF at 1.2 MHz",
+        "352 pF at 600 kHz and 176 pF at 1.2 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "C = 1/(ω²L): at 600 kHz C = 1/((2π × 6 × 10⁵)² × 2 × 10⁻⁴) ≈ 352 pF, and at 1.2 MHz C ≈ 88 pF. Doubling f needs one quarter of the capacitance, because f ∝ 1/√C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m002",
+      "questionText": "An AM receiver IF amplifier is tuned to 455 kHz and has a loaded Q of 65. Its 3 dB bandwidth is:",
+      "options": [
+        "70 kHz",
+        "3.5 kHz",
+        "7 kHz",
+        "29.6 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "BW = f_0/Q = 455 kHz/65 = 7 kHz. Multiplying instead of dividing gives 29.6 MHz; 3.5 kHz is only the half-bandwidth either side of 455 kHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m003",
+      "questionText": "An RF amplifier tuned to 1.2 MHz must have a 3 dB bandwidth of 20 kHz. The loaded Q required is:",
+      "options": [
+        "6",
+        "600",
+        "0.0167",
+        "60"
+      ],
+      "correctIndex": 3,
+      "explanation": "Q = f_0/BW = 1.2 × 10⁶/20 × 10³ = 60. The reciprocal, 0.0167, is the fractional bandwidth BW/f_0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m004",
+      "questionText": "A single-tuned amplifier has f_0 = 2 MHz and a loaded Q of 80. Its lower and upper half-power frequencies are approximately:",
+      "options": [
+        "1.975 MHz and 2.025 MHz",
+        "1.9875 MHz and 2.0125 MHz",
+        "1.99375 MHz and 2.00625 MHz",
+        "1.95 MHz and 2.05 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "BW = f_0/Q = 2 MHz/80 = 25 kHz, split equally about f_0 for a high-Q tank: f_1 = 2 − 0.0125 = 1.9875 MHz and f_2 = 2 + 0.0125 = 2.0125 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m005",
+      "questionText": "The measured half-power frequencies of an FM IF stage are 10.6 MHz and 10.8 MHz. Its loaded Q is approximately:",
+      "options": [
+        "107",
+        "53.5",
+        "26.8",
+        "0.0187"
+      ],
+      "correctIndex": 1,
+      "explanation": "BW = 10.8 − 10.6 = 0.2 MHz and f_0 ≈ (10.6 + 10.8)/2 = 10.7 MHz, so Q = f_0/BW = 10.7/0.2 = 53.5. Using the half-bandwidth gives 107.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m006",
+      "questionText": "A tuned-amplifier tank consists of a 150 µH coil with a series resistance of 12 Ω in parallel with a 150 pF capacitor. Its dynamic impedance at resonance is approximately:",
+      "options": [
+        "1 MΩ",
+        "6.94 kΩ",
+        "83.3 Ω",
+        "83.3 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "Z_D = L/(CR) = 150 × 10⁻⁶/(150 × 10⁻¹² × 12) = 10⁶/12 ≈ 83.3 kΩ. L/C alone (1 MΩ) forgets R, and dividing by R² gives 6.94 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m007",
+      "questionText": "A tank coil has a reactance of 500 Ω at resonance and an unloaded Q of 120. Its equivalent parallel (shunt) loss resistance is:",
+      "options": [
+        "4.17 Ω",
+        "60 kΩ",
+        "620 Ω",
+        "7.2 MΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_p = Q ω_0 L = 120 × 500 = 60 kΩ. Dividing (500/120 = 4.17 Ω) gives the series resistance of the coil instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m008",
+      "questionText": "A 1 MHz tank uses an 80 µH coil whose equivalent parallel loss resistance is 100 kΩ. The transistor output resistance is 50 kΩ and the next stage presents 100 kΩ across the tank. The loaded 3 dB bandwidth is approximately:",
+      "options": [
+        "5.03 kHz",
+        "15.1 kHz",
+        "20.1 kHz",
+        "10.1 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "ω_0 L = 2π × 10⁶ × 80 × 10⁻⁶ = 502.7 Ω; R_T = 100 k ∥ 50 k ∥ 100 k = 25 kΩ, so Q_L = 25 000/502.7 = 49.7 and BW = 1 MHz/49.7 ≈ 20.1 kHz. The unloaded coil alone would give 5.03 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m009",
+      "questionText": "A single-tuned stage has a bandwidth of 6 kHz, set only by the tank's own parallel loss resistance R_p. A resistor equal to R_p is now connected across the tank. The new bandwidth and the gain at resonance become:",
+      "options": [
+        "3 kHz, with the gain doubled",
+        "12 kHz, with the gain unchanged",
+        "12 kHz, with the gain halved",
+        "8.5 kHz, with the gain reduced by √2"
+      ],
+      "correctIndex": 2,
+      "explanation": "Shunting R_p with an equal resistor halves R_T. Q_L = R_T/(ω_0 L) halves, so BW = f_0/Q_L doubles to 12 kHz, and the gain g_m R_T halves.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m010",
+      "questionText": "A CE tuned amplifier is biased at I_C = 1.3 mA (take V_T = 26 mV). The total resistance across its tank at resonance is 20 kΩ. The voltage gain magnitude at resonance is:",
+      "options": [
+        "26",
+        "500",
+        "2000",
+        "1000"
+      ],
+      "correctIndex": 3,
+      "explanation": "g_m = I_C/V_T = 1.3 mA/26 mV = 50 mS; |A_v| = g_m R_T = 0.05 × 20 000 = 1000 (60 dB). 26 is I_C R_T in volts, not a gain.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m011",
+      "questionText": "A single-tuned stage uses a transistor with g_m = 40 mS, and the total capacitance across its tank is 200 pF. If the 3 dB bandwidth must be 200 kHz, the largest voltage gain obtainable at resonance is approximately:",
+      "options": [
+        "31.8",
+        "796",
+        "159",
+        "1590"
+      ],
+      "correctIndex": 2,
+      "explanation": "The gain-bandwidth product is g_m/(2πC) = 0.04/(2π × 200 × 10⁻¹²) = 31.8 MHz. Gain = 31.8 MHz/200 kHz ≈ 159.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m012",
+      "questionText": "Three identical synchronously tuned stages, each with a 3 dB bandwidth of 30 kHz, are cascaded. The overall bandwidth is approximately:",
+      "options": [
+        "10 kHz",
+        "17.3 kHz",
+        "15.3 kHz",
+        "90 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "BW_n = BW √(2^(1/n) − 1) = 30 × √(2^(1/3) − 1) = 30 × 0.510 ≈ 15.3 kHz. Dividing by n (10 kHz) or by √n (17.3 kHz) is wrong.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m013",
+      "questionText": "Two identical synchronously tuned stages must give an overall 3 dB bandwidth of 10 kHz. The bandwidth each stage must have on its own is approximately:",
+      "options": [
+        "20 kHz",
+        "14.1 kHz",
+        "6.44 kHz",
+        "15.5 kHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "For two stages BW_2 = BW_1 √(2^(1/2) − 1) = 0.644 BW_1, so BW_1 = 10/0.644 ≈ 15.5 kHz. 6.44 kHz is what two 10 kHz stages would give together.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m014",
+      "questionText": "In a double-tuned amplifier the primary tank has Q_1 = 40 and the secondary tank has Q_2 = 90. The critical coefficient of coupling is:",
+      "options": [
+        "0.0167",
+        "0.0154",
+        "60",
+        "0.0111"
+      ],
+      "correctIndex": 0,
+      "explanation": "k_c = 1/√(Q_1 Q_2) = 1/√3600 = 1/60 ≈ 0.0167. Using the arithmetic mean, 2/(Q_1 + Q_2) = 0.0154, is a common slip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m015",
+      "questionText": "A 455 kHz double-tuned IF transformer has identical primary and secondary tanks, each with Q = 50, and is critically coupled. Its 3 dB bandwidth is approximately:",
+      "options": [
+        "9.1 kHz",
+        "6.43 kHz",
+        "18.2 kHz",
+        "12.9 kHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "At critical coupling with equal Q, BW ≈ √2 f_0/Q = 1.414 × 455 kHz/50 ≈ 12.9 kHz, compared with 9.1 kHz for a single tank of the same Q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m016",
+      "questionText": "The primary and secondary of a double-tuned transformer are identical 200 µH coils, and each tank has Q = 100. The mutual inductance needed for critical coupling is:",
+      "options": [
+        "2 µH",
+        "20 µH",
+        "0.2 µH",
+        "4 µH"
+      ],
+      "correctIndex": 0,
+      "explanation": "k_c = 1/√(Q_1 Q_2) = 1/100 = 0.01, and M = k√(L_1 L_2) = 0.01 × 200 µH = 2 µH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m017",
+      "questionText": "A flat-staggered pair of single-tuned stages is to be centred on 38.9 MHz, and each stage alone has a 3 dB bandwidth of 1 MHz. The two stages should be tuned to, and the overall bandwidth is about:",
+      "options": [
+        "37.9 MHz and 39.9 MHz; 2 MHz",
+        "38.9 MHz and 38.9 MHz; 0.64 MHz",
+        "38.4 MHz and 39.4 MHz; 1.41 MHz",
+        "38.65 MHz and 39.15 MHz; 1 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "For a maximally flat staggered pair each stage is offset by half its own bandwidth, f_0 ± BW/2 = 38.9 ± 0.5 MHz, and the overall band is √2 × 1 MHz ≈ 1.41 MHz. Tuning both to 38.9 MHz is synchronous tuning, which narrows the band to 0.64 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m018",
+      "questionText": "The base of the next stage, with an input resistance of 2 kΩ, is connected to a tap at one fifth of the total turns of the collector tank coil. The resistance it reflects across the whole tank is:",
+      "options": [
+        "50 kΩ",
+        "10 kΩ",
+        "400 Ω",
+        "80 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "A resistance across n of N turns appears across the whole coil as R (N/n)² = 2 kΩ × 5² = 50 kΩ, which loads the tank far less than 2 kΩ would.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m019",
+      "questionText": "In a neutralised tuned amplifier the neutralising capacitor is driven from a winding whose voltage is in antiphase with the collector voltage and half its size. If C_bc = 4 pF, the neutralising capacitor needed is:",
+      "options": [
+        "2 pF",
+        "4 pF",
+        "16 pF",
+        "8 pF"
+      ],
+      "correctIndex": 3,
+      "explanation": "The two feedback currents must cancel: C_N × (V_c/2) = C_bc × V_c, so C_N = 2 C_bc = 8 pF. Equal capacitors work only when the neutralising voltage equals the collector voltage, as in a centre-tapped coil.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m020",
+      "questionText": "The input tank of a tuned CE stage is designed to resonate at 10 MHz with 100 pF. The transistor has C_bc = 1 pF and a voltage gain magnitude of 20, and its Miller capacitance appears across the input tank. The input tank now resonates at approximately:",
+      "options": [
+        "9.95 MHz",
+        "8.26 MHz",
+        "9.09 MHz",
+        "11.0 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "C_M = C_bc(1 + |A_v|) = 1 × 21 = 21 pF, so the tank capacitance becomes 121 pF and f = 10 MHz × √(100/121) = 9.09 MHz. Counting only C_bc (101 pF) gives 9.95 MHz, hence the need for neutralisation or a cascode.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m021",
+      "questionText": "A class C tuned amplifier is driven by a 3 V peak sinusoid at its base. Taking V_BE(on) = 0.7 V, the DC base bias needed for a conduction angle of 120° is:",
+      "options": [
+        "−1.5 V",
+        "−0.8 V",
+        "−2.3 V",
+        "+0.8 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "Conduction lasts while 3 cos ωt − V_B > 0.7; for a 120° angle the half-angle is 60°, so V_B + 0.7 = 3 cos 60° = 1.5 V and V_B = 0.8 V, i.e. a bias of −0.8 V. −1.5 V forgets V_BE(on).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m022",
+      "questionText": "An ideal class C tuned amplifier runs from V_CC = 15 V, and the equivalent resistance of its loaded tank at resonance is 1 kΩ. With the collector swinging from 0 to 2V_CC, the output power is:",
+      "options": [
+        "225 mW",
+        "112.5 mW",
+        "450 mW",
+        "56.3 mW"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_pp = 2V_CC = 30 V, so P = V_pp²/(8R) = 900/8000 = 0.1125 W = 112.5 mW. Using V_CC²/R gives 225 mW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m023",
+      "questionText": "A class C amplifier transistor conducts over an angle of 36° in each cycle. Its duty cycle is:",
+      "options": [
+        "20 %",
+        "10 %",
+        "5 %",
+        "36 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "Duty cycle = conduction angle/360° = 36/360 = 0.1, i.e. 10 %. The short pulses keep dissipation low and efficiency high.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m024",
+      "questionText": "A class C stage driven at 4 MHz is used as a frequency tripler. Its collector tank uses a 1 µH coil. The tank capacitance required is approximately:",
+      "options": [
+        "176 pF",
+        "1.58 nF",
+        "58.6 pF",
+        "528 pF"
+      ],
+      "correctIndex": 0,
+      "explanation": "The tank must resonate at 3 × 4 = 12 MHz: C = 1/(ω²L) = 1/((2π × 12 × 10⁶)² × 10⁻⁶) ≈ 176 pF. Tuning to the 4 MHz input would need 1.58 nF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m025",
+      "questionText": "A superheterodyne AM receiver with a 455 kHz IF and the local oscillator above the signal is tuned to 800 kHz. The image frequency is:",
+      "options": [
+        "1255 kHz",
+        "1710 kHz",
+        "345 kHz",
+        "910 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_si = f_s + 2 × IF = 800 + 910 = 1710 kHz. 1255 kHz is the local oscillator frequency; the image lies an IF above the oscillator.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m026",
+      "questionText": "A receiver with a 455 kHz IF (LO above the signal) is tuned to 1000 kHz and has one RF tuned stage with a loaded Q of 100 ahead of the mixer. Its image rejection ratio is approximately:",
+      "options": [
+        "139",
+        "191",
+        "100",
+        "1.39"
+      ],
+      "correctIndex": 0,
+      "explanation": "f_si = 1000 + 910 = 1910 kHz; ρ = 1910/1000 − 1000/1910 = 1.910 − 0.524 = 1.386; α = √(1 + (Qρ)²) = √(1 + 138.6²) ≈ 139, about 42.8 dB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m027",
+      "questionText": "The total capacitance across the tank of a tuned stage is 100 pF. For a 3 dB bandwidth of 10 kHz, the total resistance across the tank must be approximately:",
+      "options": [
+        "15.9 kΩ",
+        "159 kΩ",
+        "1.59 MΩ",
+        "100 kΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "BW = 1/(2π R_T C), so R_T = 1/(2π × 100 × 10⁻¹² × 10⁴) ≈ 159 kΩ. The result does not depend on f_0 or L.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m028",
+      "questionText": "A 10.7 MHz FM IF stage has a total tank capacitance of 100 pF and a total resistance of 10 kΩ across the tank. Its loaded Q and bandwidth are approximately:",
+      "options": [
+        "67 and 159 kHz",
+        "6.7 and 1.59 MHz",
+        "672 and 15.9 kHz",
+        "67 and 1.59 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q_L = ω_0 C R_T = 2π × 10.7 × 10⁶ × 10⁻¹⁰ × 10⁴ ≈ 67.2, and BW = f_0/Q_L = 1/(2π R_T C) ≈ 159 kHz; both results follow from R_T and C alone.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m029",
+      "questionText": "The collector tank of a 455 kHz IF amplifier uses a total capacitance of 1 nF. The inductance required is approximately:",
+      "options": [
+        "350 µH",
+        "12.2 µH",
+        "122 µH",
+        "1.22 mH"
+      ],
+      "correctIndex": 2,
+      "explanation": "L = 1/(ω_0² C) = 1/((2π × 455 × 10³)² × 10⁻⁹) ≈ 1.22 × 10⁻⁴ H = 122 µH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m030",
+      "questionText": "A tank designed with L = 10 µH and C = 100 pF is connected to a transistor that adds 10 pF of output capacitance in parallel. The actual resonant frequency is approximately:",
+      "options": [
+        "5.03 MHz",
+        "5.28 MHz",
+        "4.58 MHz",
+        "4.80 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "Designed f_0 = 1/(2π√(10⁻⁵ × 10⁻¹⁰)) = 5.03 MHz. With 110 pF, f = 5.03/√1.1 ≈ 4.80 MHz; the device capacitance must be counted as part of the tank.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i67_m031",
+      "questionText": "An FM receiver with a 10.7 MHz IF is tuned to a station at 98 MHz, with the local oscillator above the signal. The local oscillator frequency is:",
+      "options": [
+        "87.3 MHz",
+        "119.4 MHz",
+        "10.7 MHz",
+        "108.7 MHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "f_LO = f_s + IF = 98 + 10.7 = 108.7 MHz. 119.4 MHz (f_s + 2 IF) is the image frequency.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m032",
+      "questionText": "The high collector efficiency of a class C tuned amplifier arises mainly because:",
+      "options": [
+        "The tank circuit stores energy without any loss",
+        "The transistor is biased at the centre of its DC load line",
+        "The supply current stays constant over the whole cycle",
+        "Collector current flows only in short pulses around the instant when V_CE is at its minimum"
+      ],
+      "correctIndex": 3,
+      "explanation": "Dissipation is the product of v_CE and i_C; the tank holds v_CE near its minimum during the brief conduction pulses, so little power is lost in the transistor and most of the DC input reaches the tank.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m033",
+      "questionText": "Neutralisation in a tuned RF amplifier is used to:",
+      "options": [
+        "Cancel the feedback through the collector-base capacitance that could make the stage oscillate",
+        "Remove the DC component from the output",
+        "Increase the Q of the tank coil",
+        "Set the conduction angle of a class C stage"
+      ],
+      "correctIndex": 0,
+      "explanation": "C_bc couples the tuned output back to the tuned input; a neutralising capacitor feeds back an equal current of opposite phase so the stage stays stable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m034",
+      "questionText": "Which arrangement largely removes the need for neutralisation in a tuned amplifier?",
+      "options": [
+        "A common-emitter stage with a higher-Q tank",
+        "Two common-emitter stages tuned to the same frequency",
+        "Using a larger emitter bypass capacitor",
+        "A cascode stage (common emitter driving common base)"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a cascode the CE transistor sees the low input resistance of the CB stage, so its voltage gain and Miller feedback are tiny, and the CB stage has almost no output-to-input coupling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m035",
+      "questionText": "When the tank of a single-tuned amplifier is loaded more heavily (a lower resistance is connected across it), the:",
+      "options": [
+        "Bandwidth decreases and the gain increases",
+        "Bandwidth increases and the gain at resonance decreases",
+        "Resonant frequency increases",
+        "Bandwidth and gain both increase"
+      ],
+      "correctIndex": 1,
+      "explanation": "Heavier loading lowers R_T, so Q_L = R_T/(ω_0 L) and the gain g_m R_T both fall while BW = f_0/Q_L rises; f_0 depends only on L and C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m036",
+      "questionText": "A double-tuned amplifier whose coefficient of coupling is greater than the critical value (over-coupled) has a frequency response that is:",
+      "options": [
+        "Double-humped, with a dip at the centre frequency",
+        "A single sharp peak with the highest possible gain",
+        "Flat from zero frequency up to f_0",
+        "Identical to that of a single-tuned stage"
+      ],
+      "correctIndex": 0,
+      "explanation": "Above critical coupling the two tuned circuits interact to give two peaks either side of f_0 with a dip between them; the passband is wider but less flat.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m037",
+      "questionText": "Compared with critical coupling, an under-coupled double-tuned amplifier (k less than k_c) gives:",
+      "options": [
+        "A single peak with lower gain and a narrower passband",
+        "A double-humped response",
+        "A flat passband wider than √2 f_0/Q",
+        "Higher gain and a wider passband"
+      ],
+      "correctIndex": 0,
+      "explanation": "With loose coupling too little energy transfers to the secondary, so the response is a single, lower, narrower peak; maximum secondary output and flattest top occur at k = k_c.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m038",
+      "questionText": "In a stagger-tuned amplifier:",
+      "options": [
+        "The stages are tuned to slightly different frequencies so the overall response has a wide, flat top",
+        "All stages are tuned exactly to the same frequency",
+        "Each stage uses a double-tuned transformer",
+        "The transistors are biased in class C"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stagger tuning offsets single-tuned stages above and below the centre frequency; their combined response is broad and flat, as needed in TV and radar IF strips.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m039",
+      "questionText": "A superheterodyne receiver converts every station to a fixed intermediate frequency mainly so that:",
+      "options": [
+        "The local oscillator can be removed",
+        "Most of the gain and selectivity can be provided by fixed-tuned stages that need no retuning",
+        "The image frequency is eliminated completely",
+        "The audio stage can be operated in class C"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fixed IF stages can be optimised once for gain, bandwidth and skirt selectivity; only the RF stage and oscillator must track the station being received.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m040",
+      "questionText": "Which statement about tuned amplifiers is NOT correct?",
+      "options": [
+        "Their gain peaks at the resonant frequency of the tank",
+        "Their bandwidth is approximately f_0 divided by the loaded Q",
+        "They are well suited to amplifying the whole audio band from 20 Hz to 20 kHz",
+        "They are used as the IF stages of radio receivers"
+      ],
+      "correctIndex": 2,
+      "explanation": "A tuned amplifier is a narrow-band circuit with a fractional bandwidth of about 1/Q; the audio band is three decades wide and needs a wide-band RC- or direct-coupled amplifier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m041",
+      "questionText": "At its resonant frequency, the output voltage of a common-emitter tuned amplifier is phase-shifted relative to the input by:",
+      "options": [
+        "180°",
+        "90°",
+        "0°",
+        "45°"
+      ],
+      "correctIndex": 0,
+      "explanation": "At f_0 the tank is purely resistive, so the stage behaves like a resistor-loaded CE amplifier with a 180° phase inversion; away from f_0 the reactive tank adds up to ±90°.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i67_m042",
+      "questionText": "Placing a tuned RF amplifier stage ahead of the mixer in a superheterodyne receiver mainly improves the:",
+      "options": [
+        "Stability of the local oscillator",
+        "Bandwidth of the IF stages",
+        "Image-frequency rejection and the signal-to-noise ratio",
+        "Audio output power"
+      ],
+      "correctIndex": 2,
+      "explanation": "The RF tank attenuates the image before it reaches the mixer, and gain ahead of the noisy mixer improves the overall noise figure.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m043",
+      "questionText": "A class C tuned amplifier often obtains its negative base bias from an RC network at the base. This works because:",
+      "options": [
+        "The input signal forward-biases the base-emitter junction on its peaks and charges the capacitor, which clamps the base to a negative average voltage",
+        "The resistor supplies a steady positive current into the base",
+        "The capacitor resonates with the tank coil",
+        "The emitter bypass capacitor reverses the supply polarity"
+      ],
+      "correctIndex": 0,
+      "explanation": "This signal bias (clamper) action makes the base DC level about −(V_p − 0.7 V); the RC time constant must be long compared with the signal period so the bias stays steady.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m044",
+      "questionText": "When a class C stage is used as a frequency multiplier with its tank tuned to the nth harmonic of the drive, increasing n:",
+      "options": [
+        "Increases the output power, because more pulses reach the tank",
+        "Reduces the available output power and efficiency, because the harmonic content of the current pulses falls",
+        "Leaves the output power unchanged",
+        "Requires the conduction angle to be increased to 360°"
+      ],
+      "correctIndex": 1,
+      "explanation": "The tank still receives one current pulse per input cycle but must ring for n cycles between pulses; the nth harmonic component of the pulse train falls with n, so doublers and triplers are common and higher orders are rare.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m045",
+      "questionText": "The shape factor of a tuned amplifier, the ratio of its 60 dB bandwidth to its 6 dB bandwidth, ideally approaches:",
+      "options": [
+        "0, meaning an infinitely narrow passband",
+        "√2, as for a critically coupled double-tuned stage",
+        "Q, the loaded quality factor of the tank",
+        "1, meaning skirts that fall almost vertically outside the passband"
+      ],
+      "correctIndex": 3,
+      "explanation": "An ideal (brick-wall) filter has the same width at 6 dB and 60 dB down, so the ratio is 1. A single-tuned stage has a very large shape factor; double tuning, stagger tuning and ceramic or crystal IF filters bring it closer to 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i67_m046",
+      "questionText": "In a radio receiver, automatic gain control (AGC) acts mainly by:",
+      "options": [
+        "Changing the resonant frequency of the IF stages",
+        "Switching the output stage between class A and class C",
+        "Varying the gain of the RF and IF amplifier stages according to the received signal strength",
+        "Adjusting the local oscillator frequency"
+      ],
+      "correctIndex": 2,
+      "explanation": "A DC voltage derived from the detector reduces the gain of the tuned RF and IF stages on strong signals, keeping the audio output roughly constant.",
+      "difficulty": "easy"
+    }
+  ]
+}

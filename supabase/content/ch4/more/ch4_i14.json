@@ -1,0 +1,695 @@
+{
+  "topicId": "ch4_i14",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Pipeline Timing, Stalls and Speedup Limits"
+    },
+    {
+      "type": "paragraph",
+      "text": "Where k + n − 1 comes from: the first task needs k clocks to pass through all k stages (the fill time), and after that the full pipeline delivers one result per clock, so the other n − 1 tasks add n − 1 clocks. The clock cannot be shorter than the slowest stage plus the delay d of the latch (pipeline register) that separates the stages, so τ = max(τ_i) + d. A non-pipelined unit has no latches and needs only the sum of the stage delays per task, so with unequal stages the speedup for very long batches tends to Σ τ_i / τ, which is below k. Pipelining also lengthens the latency of one task to k τ ≥ Σ τ_i; it is the throughput that improves."
+    },
+    {
+      "type": "formula",
+      "latex": "\\tau = \\max_i \\tau_i + d,\\qquad S_{\\infty} = \\frac{\\sum_i \\tau_i}{\\max_i \\tau_i + d}",
+      "plainText": "Clock τ = max(τ_i) + d; batch time T_k = (k + n − 1)·τ; limiting speedup S∞ = (Σ τ_i) / (max τ_i + d)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Stages 45, 60, 75, 50 ns; latch d = 5 ns; n = 1000 tasks\nClock          τ = max(45, 60, 75, 50) + 5 = 80 ns\nPipelined      T = (4 + 1000 − 1) × 80 = 80 240 ns ≈ 80.24 µs\nNon-pipelined  1000 × (45 + 60 + 75 + 50) = 1000 × 230 = 230 000 ns\nSpeedup        S = 230 000 / 80 240 ≈ 2.87  (limit 230/80 = 2.875, not k = 4)\nEfficiency     E = S/k = 2.87/4 ≈ 0.72  (imbalance and latches waste 28%)\nLatency        one task: 4 × 80 = 320 ns, against 230 ns unpipelined"
+    },
+    {
+      "type": "paragraph",
+      "text": "Hazards are paid for in stall cycles. With an ideal CPI of 1, each stall adds directly to the average, so CPI_eff = 1 + Σ f_j c_j, where f_j is the fraction of instructions that suffer c_j stall cycles, and for balanced stages the speedup over the unpipelined machine becomes k / CPI_eff. A branch resolved at the end of stage s has s − 1 wrong-path instructions behind it: with predict-not-taken only taken branches pay this penalty, while a pipeline that stalls fetch until every branch resolves pays it on all of them."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "5-stage pipeline, ideal CPI = 1, full forwarding, predict-not-taken\nLoads     25% of instructions; 40% of them are followed at once by a user\n          → 1 load-use stall each: 0.25 × 0.40 × 1 = 0.10 cycles/instr\nBranches  20% of instructions; 65% taken; taken penalty 2 cycles\n          → 0.20 × 0.65 × 2 = 0.26 cycles/instr\nCPI_eff = 1 + 0.10 + 0.26 = 1.36\nSpeedup over the unpipelined datapath (5 clocks/instr, same clock)\n          = 5 / 1.36 ≈ 3.68"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Dependence (5-stage, split-cycle register file)",
+          "Distance",
+          "Stalls without forwarding",
+          "Stalls with forwarding"
+        ],
+        [
+          "ALU result → next instruction",
+          "1",
+          "2",
+          "0"
+        ],
+        [
+          "ALU result → second instruction after",
+          "2",
+          "1",
+          "0"
+        ],
+        [
+          "ALU result → third instruction after",
+          "3",
+          "0",
+          "0"
+        ],
+        [
+          "Load result → next instruction",
+          "1",
+          "2",
+          "1"
+        ],
+        [
+          "Load result → second instruction after",
+          "2",
+          "1",
+          "0"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Cycle          1    2    3    4    5    6    7    8\nLW  R1,0(R2)   IF   ID   EX   MEM  WB\nADD R3,R1,R4        IF   ID   ID   EX   MEM  WB\nOR  R7,R8,R9             IF   IF   ID   EX   MEM  WB\nCycle 4: ADD is held in ID, OR is held in IF and a bubble enters EX.\nCycle 5: LW's data in the MEM/WB register is forwarded to ADD's EX.\nTotal 8 cycles instead of the ideal 5 + 3 − 1 = 7."
+    },
+    {
+      "type": "paragraph",
+      "text": "A vector instruction on n elements streams through a k-stage pipelined unit in about k + n − 1 clocks, so vector machines hide the fill time by working on long vectors and by chaining the output of one pipelined unit into the next. Memory must keep up: if a module needs m clocks per access, at least m modules are interleaved, with consecutive addresses in consecutive modules, so that one word can be delivered every clock although no single module is any faster. Matrix work shows why this matters: multiplying two n × n matrices takes n^2 inner products of length n, that is n^3 multiply-add operations, 27 for n = 3 and a million for n = 100."
+    },
+    {
+      "type": "paragraph",
+      "text": "Amdahl's law applies the same reasoning to parallel processors. If a fraction f of the original run time can be spread perfectly over p processors and the remaining 1 − f is serial, the new time is (1 − f) + f/p of the old one. The serial part sets a hard ceiling of 1/(1 − f): a program that is 10% serial can never run more than 10 times faster, and 16 processors give only 1/(0.1 + 0.9/16) = 6.4. Replacing p by the speedup of any enhanced part gives the general form used for vector units and other accelerators."
+    },
+    {
+      "type": "formula",
+      "latex": "S(p) = \\frac{1}{(1 - f) + f/p},\\qquad S_{max} = \\frac{1}{1 - f}",
+      "plainText": "S(p) = 1 / ((1 − f) + f/p); S_max = 1/(1 − f) as p → ∞, where f is the parallelisable fraction of the original time"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips in pipeline problems: taking the average stage delay instead of the slowest one for the clock, forgetting the latch delay (or adding it to the non-pipelined time), counting nk or k + n cycles instead of k + n − 1, and quoting a speedup above k, or above Σ τ_i / τ when the stages are unequal. In CPI problems, multiply the branch penalty by the fraction of instructions that actually pay it, for example only taken branches under predict-not-taken."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i14_m001",
+      "questionText": "Flynn's taxonomy classifies computer architectures according to:",
+      "options": [
+        "The number of processors and the number of memory modules",
+        "The number of concurrent instruction streams and data streams",
+        "The word length and the clock frequency of the processor",
+        "Whether memory is shared by all processors or distributed among them"
+      ],
+      "correctIndex": 1,
+      "explanation": "Flynn classifies machines by how many instruction streams and how many data streams are processed at the same time, giving SISD, SIMD, MISD and MIMD. Shared versus distributed memory is a later subdivision of MIMD, not Flynn's criterion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m002",
+      "questionText": "A quad-core processor in which each core fetches its own instructions and works on its own data belongs to which of Flynn's classes?",
+      "options": [
+        "SIMD",
+        "MISD",
+        "SISD",
+        "MIMD"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each core has its own instruction stream and its own data stream, so the machine is multiple-instruction, multiple-data. Multicore CPUs, multiprocessors and clusters are all MIMD.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m003",
+      "questionText": "According to Mano, a uniprocessor that obtains its parallelism from an instruction pipeline and multiple functional units belongs to which of Flynn's classes?",
+      "options": [
+        "SISD, because there is still one instruction stream operating on one data stream",
+        "MIMD, because several instructions are in execution at the same time",
+        "SIMD, because one control unit drives all the pipeline stages",
+        "MISD, because several stages work on the same data item"
+      ],
+      "correctIndex": 0,
+      "explanation": "Mano states that an SISD computer may achieve parallel processing by means of multiple functional units or pipeline processing. Overlapping the phases of one instruction stream does not create extra instruction or data streams, so the machine remains SISD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m004",
+      "questionText": "Which statement about a SIMD array processor is correct?",
+      "options": [
+        "Each processing element fetches and decodes its own instruction stream from a shared memory",
+        "It is a single arithmetic pipeline whose stages work on successive elements of a vector",
+        "A master control unit broadcasts each instruction to many processing elements, each with its own local memory, which execute it on different data",
+        "All processing elements operate on one shared data item with different instructions"
+      ],
+      "correctIndex": 2,
+      "explanation": "In Mano's SIMD array processor identical processing elements with local memories execute the same broadcast instruction in lockstep on different data. Independent instruction streams would be MIMD, a single pipeline is a vector processor, and one data item with many instructions is MISD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m005",
+      "questionText": "A 6-stage pipeline has a clock period of 5 ns and no stalls. How long does it take to complete 50 tasks?",
+      "options": [
+        "1500 ns",
+        "250 ns",
+        "275 ns",
+        "55 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "T = (k + n − 1)τ = (6 + 50 − 1) × 5 ns = 55 × 5 = 275 ns. 1500 ns is the non-pipelined time (50 × 6 × 5 ns), 250 ns forgets the k − 1 fill cycles and 55 is the number of clock cycles, not the time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m006",
+      "questionText": "In the space-time diagram of a 4-segment pipeline (one clock per segment, no stalls), task T1 enters segment 1 in clock cycle 1. In which clock cycle does task T6 complete segment 4?",
+      "options": [
+        "Cycle 9",
+        "Cycle 10",
+        "Cycle 24",
+        "Cycle 6"
+      ],
+      "correctIndex": 0,
+      "explanation": "Task Ti enters segment 1 in cycle i and leaves segment k in cycle i + k − 1, so T6 finishes in cycle 6 + 4 − 1 = 9. Cycle 24 would be the non-pipelined finish (6 × 4).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m007",
+      "questionText": "A 5-stage pipeline with equal stage delays processes 20 tasks without stalls. What is its efficiency (the fraction of the ideal speedup k that is achieved)?",
+      "options": [
+        "0.800",
+        "0.200",
+        "4.17",
+        "0.833"
+      ],
+      "correctIndex": 3,
+      "explanation": "E = n/(k + n − 1) = 20/24 ≈ 0.833, equivalently S/k with S = 100/24 ≈ 4.17. 0.800 comes from using k + n instead of k + n − 1, and 4.17 is the speedup itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m008",
+      "questionText": "A 5-stage pipeline with a 4 ns clock processes a batch of 10 tasks with no stalls. What is the throughput measured over the whole batch?",
+      "options": [
+        "250 million tasks per second",
+        "178.6 million tasks per second",
+        "50 million tasks per second",
+        "166.7 million tasks per second"
+      ],
+      "correctIndex": 1,
+      "explanation": "Time = (5 + 10 − 1) × 4 ns = 56 ns, so H = 10/56 ns ≈ 178.6 × 10^6 tasks/s. 250 million is the ideal 1/τ reached only for very long batches, 50 million is the non-pipelined rate 1/(5 × 4 ns) and 166.7 million counts k + n cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m009",
+      "questionText": "The four stages of a pipeline have delays of 40, 30, 60 and 50 ns, and each interstage latch adds 10 ns. What is the minimum clock period?",
+      "options": [
+        "70 ns",
+        "60 ns",
+        "55 ns",
+        "190 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "τ = max(τ_i) + d = 60 + 10 = 70 ns. 60 ns forgets the latch, 55 ns uses the average stage delay (45 + 10) and 190 ns adds a single latch delay to the sum of the four stage delays (180 + 10).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m010",
+      "questionText": "A non-pipelined unit takes 100 ns per instruction. It is split into 4 stages with delays of 20, 25, 30 and 25 ns, and a 5 ns latch is added after each stage. Ignoring hazards, what speedup does the pipeline give for 200 instructions?",
+      "options": [
+        "3.28",
+        "3.94",
+        "2.82",
+        "4.00"
+      ],
+      "correctIndex": 2,
+      "explanation": "τ = 30 + 5 = 35 ns; pipelined time = (4 + 199) × 35 = 7105 ns; non-pipelined time = 200 × 100 = 20 000 ns; S = 20 000/7105 ≈ 2.82. Ignoring the latch gives 3.28, and the equal-stage formula nk/(k + n − 1) gives 3.94.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m011",
+      "questionText": "A task needs 40 ns in a non-pipelined unit that has no latches. In a 4-stage pipeline the stage delays are 10, 8, 12 and 10 ns and each latch adds 2 ns. What is the maximum speedup obtainable for a very long stream of tasks?",
+      "options": [
+        "4.00",
+        "2.86",
+        "3.33",
+        "3.43"
+      ],
+      "correctIndex": 1,
+      "explanation": "τ = 12 + 2 = 14 ns, and for n → ∞ the speedup tends to t_n/τ = 40/14 ≈ 2.86. 3.33 forgets the latch (40/12), 3.43 wrongly adds four latch delays to the non-pipelined time (48/14), and 4 holds only for balanced stages with no latch overhead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m012",
+      "questionText": "A four-segment floating-point adder pipeline has segment delays of 60, 70, 100 and 80 ns and interface registers with a 10 ns delay. How long does it take to add 100 pairs of numbers, with no stalls?",
+      "options": [
+        "31.0 µs",
+        "10.30 µs",
+        "11.00 µs",
+        "11.33 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "τ = 100 + 10 = 110 ns; T = (4 + 100 − 1) × 110 ns = 103 × 110 = 11 330 ns ≈ 11.33 µs. 31.0 µs is the non-pipelined time 100 × (60 + 70 + 100 + 80) ns, 10.30 µs forgets the register delay and 11.00 µs forgets the fill cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m013",
+      "questionText": "A 5-stage pipeline has stage delays of 20, 25, 20, 30 and 25 ns and a 5 ns latch after each stage. The non-pipelined unit takes 120 ns per instruction. When the pipeline is clocked at its minimum clock period, what is the latency of a single instruction in it?",
+      "options": [
+        "120 ns",
+        "145 ns",
+        "35 ns",
+        "175 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every stage occupies one full clock τ = 30 + 5 = 35 ns, so an instruction needs kτ = 5 × 35 = 175 ns from entry to exit: pipelining raises latency while it improves throughput. 145 ns adds the latches to the raw delays but ignores that each stage must wait for the whole clock, and 35 ns is the clock period.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m014",
+      "questionText": "A non-pipelined processor takes 50 ns per instruction. It is pipelined either into 5 or into 10 equal stages, and each latch adds 2 ns. For a very long instruction stream with no hazards, how many times faster is the 10-stage design than the 5-stage design?",
+      "options": [
+        "2.00",
+        "1.71",
+        "7.14",
+        "0.58"
+      ],
+      "correctIndex": 1,
+      "explanation": "5 stages: τ = 50/5 + 2 = 12 ns; 10 stages: τ = 50/10 + 2 = 7 ns. For a long stream the time per instruction is τ, so the ratio is 12/7 ≈ 1.71, not 2, because the latch overhead does not shrink. 7.14 is the 10-stage speedup over the non-pipelined processor (50/7) and 0.58 inverts the ratio.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m015",
+      "questionText": "A 5-stage pipeline with equal stages and no stalls must reach a speedup of at least 4 over the non-pipelined unit. What is the minimum number of tasks n in the batch?",
+      "options": [
+        "20",
+        "12",
+        "16",
+        "80"
+      ],
+      "correctIndex": 2,
+      "explanation": "nk/(k + n − 1) ≥ 4 → 5n ≥ 4(n + 4) → n ≥ 16. Check: 16 × 5/(5 + 15) = 80/20 = 4.0 exactly, while n = 15 gives 75/19 ≈ 3.95.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m016",
+      "questionText": "A 4-stage pipeline with equal stages and a 20 ns clock processes 36 tasks without stalls. What are its efficiency and its throughput?",
+      "options": [
+        "0.923 and 46.2 million tasks per second",
+        "0.923 and 50.0 million tasks per second",
+        "0.900 and 45.0 million tasks per second",
+        "0.250 and 12.5 million tasks per second"
+      ],
+      "correctIndex": 0,
+      "explanation": "Cycles = 4 + 36 − 1 = 39. E = n/(k + n − 1) = 36/39 ≈ 0.923 and H = 36/(39 × 20 ns) = 36/780 ns ≈ 46.2 × 10^6 tasks/s. 50.0 million is the ideal 1/τ, the 0.900 and 45.0 pair counts k + n = 40 cycles, and 0.250 and 12.5 million are non-pipelined figures.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m017",
+      "questionText": "Which of the following is NOT a reason why the actual speedup of a k-stage pipeline is less than k?",
+      "options": [
+        "The k − 1 cycles needed to fill the pipeline",
+        "Using separate instruction and data caches",
+        "Unequal stage delays, since the clock must suit the slowest stage",
+        "The delay of the latches between stages"
+      ],
+      "correctIndex": 1,
+      "explanation": "Fill time, stage imbalance and latch overhead all pull the speedup below k. Separate instruction and data caches remove a structural hazard, so they help the pipeline approach its ideal rather than limiting it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m018",
+      "questionText": "Pipelining an instruction unit mainly improves:",
+      "options": [
+        "Throughput: more instructions are completed per unit time, although the latency of each instruction is not reduced",
+        "The latency of each individual instruction, which becomes k times shorter",
+        "The number of instructions in the program, which decreases",
+        "The hit ratio of the instruction cache"
+      ],
+      "correctIndex": 0,
+      "explanation": "Overlapping instructions raises the completion rate towards one per clock, but each instruction still passes through all k stages, and the latch overhead makes its latency slightly longer than before.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m019",
+      "questionText": "Which statement about the registers (latches) placed between pipeline stages is correct?",
+      "options": [
+        "They shorten the latency of a single task by storing partial results",
+        "They are needed only in arithmetic pipelines, not in instruction pipelines",
+        "They remove all data hazards because every result is stored in them",
+        "They hold each stage's result for the next stage, so every stage can work on a different task in the same clock, but their delay is added to the clock period"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pipeline registers isolate the stages so that k tasks can be in progress at once; the price is the latch delay d in τ = max τ_i + d. Data hazards still need forwarding or stalls even though results pass through the latches.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m020",
+      "questionText": "In a four-segment floating-point adder pipeline, which segment shifts the mantissa of the number with the smaller exponent to the right?",
+      "options": [
+        "Segment 1: compare the exponents",
+        "Segment 3: add or subtract the mantissas",
+        "Segment 2: align the mantissas",
+        "Segment 4: normalise the result"
+      ],
+      "correctIndex": 2,
+      "explanation": "Segment 1 subtracts the exponents to find their difference, segment 2 shifts the smaller-exponent mantissa right by that difference, segment 3 adds the aligned mantissas and segment 4 normalises the result.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m021",
+      "questionText": "In the classic 5-stage RISC pipeline IF–ID–EX–MEM–WB, in which stage does a load instruction read the data cache?",
+      "options": [
+        "IF",
+        "EX",
+        "MEM",
+        "WB"
+      ],
+      "correctIndex": 2,
+      "explanation": "EX computes the effective address, MEM reads the data cache at that address and WB writes the loaded value into the destination register. IF reads the instruction cache, not the data cache.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m022",
+      "questionText": "In Mano's four-segment instruction pipeline (FI, DA, FO, EX), if there is only one memory, which two segments can need memory in the same clock cycle and so conflict?",
+      "options": [
+        "DA and EX",
+        "FI and DA",
+        "DA and FO",
+        "FI and FO"
+      ],
+      "correctIndex": 3,
+      "explanation": "FI fetches a new instruction while FO of an earlier instruction fetches its operand from memory, so both need memory at once. Mano notes that separate instruction and data memories remove this conflict.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m023",
+      "questionText": "In Mano's three-segment RISC pipeline (I: instruction fetch, A: ALU operation, E: execute), what does the delayed-load technique do?",
+      "options": [
+        "The compiler places a no-operation, or an independent instruction, after a load whose result is needed by the next instruction, instead of relying on a hardware interlock",
+        "The hardware delays every load by one extra cycle so that the data cache can be refreshed",
+        "The compiler moves the load after the instruction that uses its result",
+        "The processor fetches the operands of two loads in the same cycle"
+      ],
+      "correctIndex": 0,
+      "explanation": "In Mano's RISC pipeline a loaded value is not yet available to the very next instruction, so the compiler detects the conflict and inserts a no-op (or schedules an unrelated instruction) in that slot; this software solution is called delayed load.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m024",
+      "questionText": "A conditional branch is not resolved until the EX stage, but the instructions that follow it have already been fetched. The resulting problem is a:",
+      "options": [
+        "Structural hazard",
+        "Control (branch) hazard",
+        "RAW data hazard",
+        "WAW data hazard"
+      ],
+      "correctIndex": 1,
+      "explanation": "A control hazard arises when the PC changes after instructions on the wrong path have already entered the pipeline; they must be flushed, or the branch handled by prediction or delayed branching.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m025",
+      "questionText": "For the instruction sequence below, which list of dependences is complete and correct?\n\nI1: LOAD R1, 0(R2)\nI2: ADD  R3, R1, R4\nI3: SUB  R1, R5, R6",
+      "options": [
+        "RAW I1→I2 on R1; WAR I2→I3 on R1; WAW I1→I3 on R1",
+        "RAW I1→I2 on R1 only",
+        "RAW I1→I2 on R1; RAW I2→I3 on R1; WAW I1→I3 on R1",
+        "WAR I1→I2 on R1; RAW I2→I3 on R1; WAW I1→I3 on R1"
+      ],
+      "correctIndex": 0,
+      "explanation": "I2 reads R1 written by I1 (RAW), I3 writes R1 that I2 reads (WAR), and I1 and I3 both write R1 (WAW). No other register is shared: R3 is written by I2 and not used again.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m026",
+      "questionText": "In a simple in-order 5-stage pipeline where operands are read only in ID and results are written only in WB, which data hazards can occur?",
+      "options": [
+        "RAW, WAR and WAW can all occur",
+        "Only RAW; WAR and WAW cannot occur because reads and writes happen in fixed stages in program order",
+        "Only WAW, because two instructions can write the same register",
+        "Only WAR, because a later instruction may write before an earlier one reads"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every instruction reads its operands in ID before any later instruction reaches WB, and writes happen in program order in WB, so only true (RAW) dependences cause hazards. WAR and WAW hazards appear with out-of-order completion, for example with long floating-point pipelines.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m027",
+      "questionText": "A 5-stage pipeline (IF, ID, EX, MEM, WB) has no forwarding; the register file is written in the first half of a clock and read in the second half, and the hazard is handled by stalling the dependent instruction in ID. How many stall cycles occur between the two instructions below?\n\nADD R1, R2, R3\nSUB R4, R1, R5",
+      "options": [
+        "0",
+        "1",
+        "3",
+        "2"
+      ],
+      "correctIndex": 3,
+      "explanation": "ADD writes R1 in WB in cycle 5, so SUB can read R1 in ID no earlier than cycle 5 instead of cycle 3: 2 stall cycles. Forwarding from the EX/MEM register would remove them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m028",
+      "questionText": "A 5-stage pipeline (IF, ID, EX, MEM, WB) has full forwarding and a hazard-detection unit, and there are no other stalls. How many clock cycles are needed for the sequence below, from the first IF to the last WB?\n\nLW  R1, 0(R2)\nADD R3, R1, R4\nSUB R5, R3, R6",
+      "options": [
+        "7",
+        "9",
+        "8",
+        "11"
+      ],
+      "correctIndex": 2,
+      "explanation": "The ideal time is 5 + 3 − 1 = 7 cycles. The load-use dependence LW→ADD costs one stall because the loaded value is ready only after MEM, while ADD→SUB is covered by forwarding with no stall, giving 8 cycles (11 without forwarding).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m029",
+      "questionText": "A 5-stage pipeline (IF, ID, EX, MEM, WB) has no forwarding; the register file is written in the first half and read in the second half of a clock, and hazards are handled by stalling in ID. How many cycles does the sequence take, from the first IF to the last WB?\n\nI1: ADD R1, R2, R3\nI2: SUB R4, R1, R5\nI3: AND R6, R1, R7\nI4: OR  R8, R4, R6",
+      "options": [
+        "8",
+        "10",
+        "14",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "I1 writes R1 in cycle 5, so I2 reads it then and executes in cycle 6 (2 stalls); R1 is then ready for I3, which executes in cycle 7 and writes R6 in cycle 9. I4 must read R6 in cycle 9 and executes in cycle 10 (2 more stalls), so its WB is in cycle 12, against 8 cycles with no hazards.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m030",
+      "questionText": "Operand forwarding (bypassing) removes many RAW stalls by:",
+      "options": [
+        "Writing every result to memory so that later instructions can load it",
+        "Having the compiler insert no-operation instructions between dependent instructions",
+        "Routing a result from a pipeline register straight to the ALU input of a following instruction before it is written to the register file",
+        "Predicting the value that the earlier instruction will produce"
+      ],
+      "correctIndex": 2,
+      "explanation": "Forwarding adds multiplexers at the ALU inputs fed from the EX/MEM and MEM/WB registers, so a result can be used in the very next cycle instead of waiting for write-back. Inserting no-ops is a software remedy that keeps the lost cycles rather than removing them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m031",
+      "questionText": "Why does a load followed immediately by an instruction that uses the loaded register still need one stall cycle in a 5-stage pipeline with full forwarding?",
+      "options": [
+        "The register file cannot be read and written in the same cycle",
+        "The loaded data is available only at the end of MEM, but the dependent instruction needs it at the start of its EX in that same cycle",
+        "Loads use the instruction cache, which causes a structural hazard",
+        "The branch predictor must first check the address of the load"
+      ],
+      "correctIndex": 1,
+      "explanation": "An ALU result exists at the end of EX, one cycle before the next instruction's EX, so it can be forwarded; a load result exists only after MEM, which coincides with the next instruction's EX, so one bubble is unavoidable unless the compiler schedules an independent instruction there.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m032",
+      "questionText": "In a pipeline with an ideal CPI of 1, 20% of the instructions are branches and every branch causes a 2-cycle stall. What is the effective CPI?",
+      "options": [
+        "1.4",
+        "1.2",
+        "1.6",
+        "3.0"
+      ],
+      "correctIndex": 0,
+      "explanation": "CPI = 1 + f_branch × penalty = 1 + 0.20 × 2 = 1.4. 1.2 uses a 1-cycle penalty, 1.6 wrongly counts 3 cycles per branch and 3.0 adds the full penalty to every instruction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m033",
+      "questionText": "A 5-stage pipeline with an ideal CPI of 1 uses predict-not-taken. 25% of instructions are branches and 60% of branches are taken; each taken branch costs 3 cycles, not-taken branches cost nothing, and there are no other stalls. What is its speedup over a non-pipelined version of the same datapath that takes 5 clock cycles per instruction at the same clock?",
+      "options": [
+        "2.86",
+        "3.45",
+        "3.85",
+        "5.00"
+      ],
+      "correctIndex": 1,
+      "explanation": "CPI = 1 + 0.25 × 0.60 × 3 = 1.45, so S = 5/1.45 ≈ 3.45. Penalising every branch gives CPI 1.75 and S = 2.86; penalising the not-taken branches instead (0.40) gives CPI 1.30 and S = 3.85.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m034",
+      "questionText": "In Stallings' six-stage instruction pipeline (FI, DI, CO, FO, EI, WO), a conditional branch is resolved at the end of its EI stage and turns out to be taken. With no branch prediction, how many instructions fetched after the branch must be discarded?",
+      "options": [
+        "5",
+        "3",
+        "6",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "While the branch moves from FI to the end of EI, the four following instructions enter FI, DI, CO and FO behind it; all four are on the wrong path and are flushed, a penalty of 4 cycles (Stallings' example: a branch at I3 to I15 discards I4 to I7).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m035",
+      "questionText": "Which technique for dealing with conditional branches keeps a small, very fast memory of the most recently fetched instructions in sequence, so that a short loop can be executed again without fetching from memory?",
+      "options": [
+        "Branch target buffer",
+        "Multiple streams",
+        "Loop buffer",
+        "Delayed branch"
+      ],
+      "correctIndex": 2,
+      "explanation": "Stallings lists multiple streams, prefetch of the branch target, the loop buffer, branch prediction and delayed branch. The loop buffer holds the last few sequential instructions, so a backward branch to a target inside it is served from the buffer; a branch target buffer instead stores branch addresses with their targets and prediction bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m036",
+      "questionText": "A loop-closing branch is taken 9 times and then not taken once each time the loop runs, and the loop is run many times. In steady state, how many mispredictions per run of the loop does a 1-bit predictor make, and how many does a 2-bit saturating-counter predictor make?",
+      "options": [
+        "2 and 1",
+        "1 and 1",
+        "1 and 0",
+        "2 and 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 1-bit predictor misses at the loop exit and again at the first branch of the next run, because the exit flipped its bit. The 2-bit counter only drops from strongly to weakly taken at the exit and still predicts taken on re-entry, so it misses once per run.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m037",
+      "questionText": "What is stored in a branch target buffer (BTB)?",
+      "options": [
+        "The instructions placed in the delay slots of all branches",
+        "Both the taken and not-taken paths of every branch in the program",
+        "The addresses of recently executed branch instructions together with their target addresses and prediction history",
+        "The return addresses of subroutine calls saved on the stack"
+      ],
+      "correctIndex": 2,
+      "explanation": "The BTB is a small associative memory looked up with the address of the instruction being fetched; on a hit the predicted target is fetched at once, so a correctly predicted taken branch costs no cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m038",
+      "questionText": "A pipeline with an ideal CPI of 1 has a single unified memory port. 30% of instructions are loads or stores, and each data access stalls instruction fetch for 1 cycle. How many times faster is the same pipeline with separate instruction and data caches, at the same clock?",
+      "options": [
+        "1.30",
+        "1.43",
+        "1.00",
+        "0.77"
+      ],
+      "correctIndex": 0,
+      "explanation": "With one port CPI = 1 + 0.30 × 1 = 1.30; with split caches the structural hazard disappears and CPI = 1, so the split design is 1.30/1 = 1.30 times faster. 1.43 misuses 1/(1 − 0.3) and 0.77 inverts the ratio.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m039",
+      "questionText": "A pipelined processor runs at 800 MHz and, because of stalls, its effective CPI is 1.6. What is its instruction throughput?",
+      "options": [
+        "800 MIPS",
+        "500 MIPS",
+        "1280 MIPS",
+        "160 MIPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Throughput = f/CPI = 800 × 10^6/1.6 = 500 × 10^6 instructions per second = 500 MIPS. 800 MIPS is the stall-free ideal and 1280 MIPS multiplies by the CPI instead of dividing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m040",
+      "questionText": "Why do vector processors use interleaved main memory?",
+      "options": [
+        "So that the vector instruction can be decoded while memory is idle",
+        "To keep instructions and data in separate memories and so avoid structural hazards",
+        "To reduce the access time of each individual memory module",
+        "So that consecutive elements lie in different modules whose accesses overlap, letting memory deliver about one operand per clock to the pipeline"
+      ],
+      "correctIndex": 3,
+      "explanation": "Interleaving does not make any module faster; with m modules on consecutive addresses, m accesses proceed in parallel and a new word can be delivered every clock once the stream is under way.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m041",
+      "questionText": "A vector pipeline needs one operand every 10 ns, and each memory module has a cycle time of 80 ns. With consecutive elements in consecutive modules (low-order interleaving), what is the minimum number of modules?",
+      "options": [
+        "8",
+        "4",
+        "10",
+        "80"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each module can start a new access only every 80 ns, so 80/10 = 8 modules working in rotation are needed to deliver one word every 10 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m042",
+      "questionText": "How many multiply-add operations are needed to multiply two 20 × 20 matrices?",
+      "options": [
+        "400",
+        "16 000",
+        "8000",
+        "7600"
+      ],
+      "correctIndex": 2,
+      "explanation": "The product has n^2 = 400 elements, each an inner product of n = 20 terms, so n^3 = 20^3 = 8000 multiply-add operations are needed. 400 counts only the inner products, 16 000 counts the multiplications and additions separately and 7600 counts only the additions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m043",
+      "questionText": "90% of a program's execution time can be parallelised perfectly and the rest is serial. According to Amdahl's law, what speedup is obtained on 10 processors?",
+      "options": [
+        "10.0",
+        "9.00",
+        "1.10",
+        "5.26"
+      ],
+      "correctIndex": 3,
+      "explanation": "S = 1/((1 − f) + f/p) = 1/(0.10 + 0.90/10) = 1/0.19 ≈ 5.26. 9.00 simply multiplies 0.9 × 10, and 1.10 swaps the serial and parallel fractions.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i14_m044",
+      "questionText": "4% of a program is strictly sequential and the rest can be parallelised perfectly. What is the maximum speedup with an unlimited number of processors?",
+      "options": [
+        "96",
+        "25",
+        "1.04",
+        "Unlimited, because it grows with the number of processors"
+      ],
+      "correctIndex": 1,
+      "explanation": "S_max = 1/(1 − f) = 1/0.04 = 25, because the serial 4% never shrinks. 1.04 is 1/0.96, which uses the parallel fraction instead of the serial one.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i14_m045",
+      "questionText": "An enhancement makes one part of a program run 8 times faster, and the whole program becomes 3 times faster. What fraction of the original execution time did the enhanced part take?",
+      "options": [
+        "37.5%",
+        "66.7%",
+        "87.5%",
+        "76.2%"
+      ],
+      "correctIndex": 3,
+      "explanation": "Amdahl: 1/((1 − f) + f/8) = 3 → 1 − 7f/8 = 1/3 → f = (2/3)(8/7) = 16/21 ≈ 0.762. 37.5% is 3/8, 66.7% is 1 − 1/3 without the factor 8/7, and 87.5% is 7/8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i14_m046",
+      "questionText": "Which statement correctly distinguishes a superscalar processor from a superpipelined one?",
+      "options": [
+        "A superscalar processor issues several instructions per clock to multiple parallel pipelines, while a superpipelined processor splits its stages into shorter ones so that it can be clocked faster",
+        "A superscalar processor always has more pipeline stages than a superpipelined one",
+        "A superpipelined processor issues several instructions per clock, while a superscalar one issues one",
+        "Both terms describe SIMD vector units operating on whole arrays"
+      ],
+      "correctIndex": 0,
+      "explanation": "Superscalar designs replicate pipelines and issue independent instructions in parallel; superpipelining gets more overlap from many short stages and a shorter cycle. Both exploit instruction-level parallelism within one instruction stream.",
+      "difficulty": "medium"
+    }
+  ]
+}

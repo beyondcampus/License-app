@@ -1,0 +1,720 @@
+{
+  "topicId": "ch1_t6",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Amplifier Models and Feedback"
+    },
+    {
+      "type": "paragraph",
+      "text": "Any linear amplifier can be drawn as a two-port with an input resistance R_i, an output resistance R_o and a controlled source. Which source is used depends on the input and output quantities: a voltage amplifier has a voltage-controlled voltage source A_vo·v_i, a current amplifier a current-controlled current source A_is·i_i, a transconductance amplifier a voltage-controlled current source G_m·v_i, and a transresistance amplifier a current-controlled voltage source R_m·i_i. The four models are interchangeable for a given circuit (for example G_m = A_vo/R_o), but the one whose ideal impedances match the real circuit gives the simplest analysis."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Amplifier type",
+          "Gain and unit",
+          "Ideal R_i",
+          "Ideal R_o"
+        ],
+        [
+          "Voltage",
+          "A_v = v_o/v_i (V/V)",
+          "Infinite",
+          "Zero"
+        ],
+        [
+          "Current",
+          "A_i = i_o/i_i (A/A)",
+          "Zero",
+          "Infinite"
+        ],
+        [
+          "Transconductance",
+          "G_m = i_o/v_i (A/V, siemens)",
+          "Infinite",
+          "Infinite"
+        ],
+        [
+          "Transresistance",
+          "R_m = v_o/i_i (V/A, ohms)",
+          "Zero",
+          "Zero"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "With a real source and load, each port forms a voltage divider, so the gain actually obtained is smaller than the open-circuit gain. For a voltage amplifier fed from a source of resistance R_s and driving R_L, only R_i/(R_i + R_s) of the source voltage reaches the input and only R_L/(R_L + R_o) of the internal voltage reaches the load. In a cascade the next stage's R_i is the load of the previous one, so every interface costs a divider factor; this is why buffers (high R_i, low R_o) are placed between stages."
+    },
+    {
+      "type": "formula",
+      "latex": "\\frac{v_o}{v_s} = \\frac{R_i}{R_i + R_s}\\,A_{vo}\\,\\frac{R_L}{R_L + R_o}",
+      "plainText": "vo/vs = [Ri/(Ri + Rs)] · Avo · [RL/(RL + Ro)]"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: loaded voltage amplifier\nv_s = 10 mV, R_s = 10 kΩ, R_i = 40 kΩ, A_vo = 100, R_o = 1 kΩ, R_L = 4 kΩ\nv_i = 10 mV × 40/(40 + 10) = 8 mV\nv_o = 100 × 8 mV × 4/(4 + 1) = 0.64 V\nA_v = v_o/v_i = 80;  overall v_o/v_s = 64 = 20 log 64 = 36.1 dB\nP_i = v_i²/R_i = (8 mV)²/40 kΩ = 1.6 nW\nP_o = v_o²/R_L = (0.64 V)²/4 kΩ = 102.4 µW\nA_p = 64 000 = 10 log 64 000 = 48.1 dB  (not 20 log 80, since R_i ≠ R_L)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Negative feedback returns a fraction β of the output and subtracts it from the input. If A is the gain without feedback, the closed-loop gain is A_f = A/(1 + Aβ); the quantity 1 + Aβ is the amount of feedback (desensitivity), often quoted in dB as 20 log(1 + Aβ). When Aβ >> 1 the gain approaches 1/β and depends only on the passive feedback network. The same factor that divides the gain also divides fractional gain changes, harmonic distortion and noise generated inside the loop, widens the bandwidth (f_H rises and f_L falls by 1 + Aβ, so the gain-bandwidth product stays constant) and multiplies or divides the input and output resistances. Positive feedback (Aβ subtracting from 1) raises the gain and is used deliberately only in oscillators and Schmitt triggers."
+    },
+    {
+      "type": "formula",
+      "latex": "A_f = \\frac{A}{1 + A\\beta},\\quad \\frac{dA_f}{A_f} = \\frac{1}{1 + A\\beta}\\,\\frac{dA}{A},\\quad f_{Hf} = f_H(1 + A\\beta)",
+      "plainText": "Af = A/(1 + Aβ); dAf/Af = (dA/A)/(1 + Aβ); fHf = fH(1 + Aβ), fLf = fL/(1 + Aβ)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Topology (sampling-mixing)",
+          "Stabilises",
+          "R_i with feedback",
+          "R_o with feedback"
+        ],
+        [
+          "Voltage-series (series-shunt)",
+          "Voltage gain",
+          "R_i(1 + Aβ), higher",
+          "R_o/(1 + Aβ), lower"
+        ],
+        [
+          "Current-series (series-series)",
+          "Transconductance",
+          "R_i(1 + Aβ), higher",
+          "R_o(1 + Aβ), higher"
+        ],
+        [
+          "Current-shunt (shunt-series)",
+          "Current gain",
+          "R_i/(1 + Aβ), lower",
+          "R_o(1 + Aβ), higher"
+        ],
+        [
+          "Voltage-shunt (shunt-shunt)",
+          "Transresistance",
+          "R_i/(1 + Aβ), lower",
+          "R_o/(1 + Aβ), lower"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: voltage-series feedback\nA = 1000, β = 0.019, R_i = 10 kΩ, R_o = 2 kΩ, f_H = 20 kHz\n1 + Aβ = 1 + 19 = 20  (26 dB of feedback)\nA_f = 1000/20 = 50\nIf A falls 20 % to 800: A_f = 800/(1 + 15.2) = 49.4, only 1.2 % lower\nf_Hf = 20 kHz × 20 = 400 kHz  (gain × bandwidth: 1000 × 20k = 50 × 400k)\nR_if = 10 kΩ × 20 = 200 kΩ,  R_of = 2 kΩ/20 = 100 Ω"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: two-stage cascade with loading\nR_s = 10 kΩ; stage 1: R_i1 = 50 kΩ, A_vo1 = 40, R_o1 = 4 kΩ\nstage 2: R_i2 = 12 kΩ, A_vo2 = 25, R_o2 = 500 Ω; R_L = 2 kΩ\nInput divider      50/(50 + 10)   = 0.833\nInterstage divider 12/(12 + 4)    = 0.75\nOutput divider     2/(2 + 0.5)    = 0.8\nv_o/v_s = 0.833 × 40 × 0.75 × 25 × 0.8 = 500  ->  54 dB\nUnloaded product 40 × 25 = 1000 (60 dB): loading costs 6 dB"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: multiplying open-circuit gains without the divider factors at each interface; using Aβ instead of 1 + Aβ for the amount of feedback; applying 20 log to a power ratio; and assuming feedback raises the input resistance in every case. Series mixing at the input raises R_i, shunt mixing lowers it; voltage sampling at the output lowers R_o, current sampling raises it."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_t6_m001",
+      "questionText": "The gain of a transconductance amplifier is measured in:",
+      "options": [
+        "Ohms (V/A)",
+        "Volts per volt (dimensionless)",
+        "Watts",
+        "Siemens (A/V)"
+      ],
+      "correctIndex": 3,
+      "explanation": "A transconductance amplifier gives an output current for an input voltage, so G_m = i_o/v_i has units of amperes per volt, that is siemens.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m002",
+      "questionText": "An amplifier that accepts an input current and delivers a proportional output voltage is a:",
+      "options": [
+        "Transresistance amplifier",
+        "Transconductance amplifier",
+        "Current amplifier",
+        "Voltage amplifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "Its gain R_m = v_o/i_i has units of volts per ampere (ohms), hence transresistance. A transconductance amplifier does the reverse.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m003",
+      "questionText": "An ideal transconductance amplifier should have:",
+      "options": [
+        "Zero input resistance and zero output resistance",
+        "Infinite input resistance and zero output resistance",
+        "Infinite input resistance and infinite output resistance",
+        "Zero input resistance and infinite output resistance"
+      ],
+      "correctIndex": 2,
+      "explanation": "It senses a voltage, so it should draw no input current (R_i infinite), and it delivers a current, so the output should behave as an ideal current source (R_o infinite).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m004",
+      "questionText": "Applying negative feedback to an amplifier:",
+      "options": [
+        "Increases its gain and narrows its bandwidth",
+        "Increases its harmonic distortion",
+        "Makes it oscillate",
+        "Reduces its gain but makes the gain more stable"
+      ],
+      "correctIndex": 3,
+      "explanation": "A_f = A/(1 + Aβ) is smaller than A, but it depends much less on A, so the gain is desensitised to device changes. Bandwidth widens and distortion falls.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m005",
+      "questionText": "Positive (regenerative) feedback is used deliberately in:",
+      "options": [
+        "Low-distortion audio pre-amplifiers",
+        "Oscillators and Schmitt triggers",
+        "Emitter-follower buffers",
+        "Precision instrumentation amplifiers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Positive feedback increases the loop gain until the circuit oscillates or snaps between states. Amplifiers that need stable, low-distortion gain use negative feedback.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m006",
+      "questionText": "An amplifier has a power gain of 30 dB. The output power is how many times the input power?",
+      "options": [
+        "1000",
+        "31.6",
+        "30",
+        "100"
+      ],
+      "correctIndex": 0,
+      "explanation": "Power ratio = 10^(dB/10) = 10^(30/10) = 1000. The value 31.6 is 10^(30/20), which would be a voltage ratio.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m007",
+      "questionText": "An attenuator network halves the signal voltage. Its gain expressed in decibels is approximately:",
+      "options": [
+        "−3 dB",
+        "−6 dB",
+        "+6 dB",
+        "−0.5 dB"
+      ],
+      "correctIndex": 1,
+      "explanation": "Gain = 20 log10(0.5) = −6.02 dB. −3 dB corresponds to halving the power, which is a voltage ratio of 0.707.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m008",
+      "questionText": "An amplifier gives different gains to the different frequency components of a complex input signal, so the output waveform shape differs from the input although no new frequencies are created. This defect is called:",
+      "options": [
+        "Frequency distortion",
+        "Harmonic distortion",
+        "Crossover distortion",
+        "Intermodulation distortion"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unequal gain across the band is frequency (amplitude-frequency) distortion, caused by the amplifier's limited bandwidth. Harmonic and intermodulation distortion come from non-linearity and create new frequencies; crossover distortion is a class B output-stage defect.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m009",
+      "questionText": "For a given amplifying device, the product of mid-band gain and bandwidth is:",
+      "options": [
+        "Approximately constant, so raising the gain widens the bandwidth",
+        "Proportional to the gain",
+        "Proportional to the square of the bandwidth",
+        "Approximately constant, so raising the gain narrows the bandwidth"
+      ],
+      "correctIndex": 3,
+      "explanation": "The gain-bandwidth product is roughly fixed by the device, so gain can be traded for bandwidth: negative feedback that lowers the gain by a factor widens the bandwidth by the same factor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m010",
+      "questionText": "A power level quoted in dBm is expressed relative to:",
+      "options": [
+        "1 mW",
+        "1 W",
+        "1 µW",
+        "1 kW"
+      ],
+      "correctIndex": 0,
+      "explanation": "dBm = 10 log10(P/1 mW), so 0 dBm = 1 mW, 10 dBm = 10 mW and 30 dBm = 1 W.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m011",
+      "questionText": "A voltage gain of −50 means that the output voltage is:",
+      "options": [
+        "50 times smaller than the input",
+        "50 dB below the input",
+        "50 times the input and inverted (180° phase shift)",
+        "50 V less than the input"
+      ],
+      "correctIndex": 2,
+      "explanation": "The magnitude 50 gives the amplification and the minus sign indicates phase inversion, as in a common-emitter or common-source stage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m012",
+      "questionText": "Which of the following is NOT an effect of negative feedback?",
+      "options": [
+        "Wider bandwidth",
+        "Increased voltage gain",
+        "Reduced harmonic distortion",
+        "Reduced sensitivity to changes in transistor parameters"
+      ],
+      "correctIndex": 1,
+      "explanation": "Negative feedback always divides the gain by 1 + Aβ. Wider bandwidth, lower distortion and desensitised gain are its benefits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m013",
+      "questionText": "A voltage amplifier is designed so that its input resistance is much larger than the source resistance. This ensures that:",
+      "options": [
+        "The amplifier draws maximum current from the source",
+        "The amplifier output resistance becomes small",
+        "The bandwidth of the amplifier increases",
+        "Almost all of the source voltage appears across the amplifier input"
+      ],
+      "correctIndex": 3,
+      "explanation": "R_s and R_i form a divider, so v_i = v_s R_i/(R_i + R_s); with R_i >> R_s, v_i ≈ v_s and little signal is lost at the input.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t6_m014",
+      "questionText": "In voltage-series (series-shunt) negative feedback, the feedback signal is:",
+      "options": [
+        "Sampled from the output current and applied in shunt with the input",
+        "Sampled from the output voltage and applied in shunt with the input",
+        "Sampled from the output voltage and applied in series with the input",
+        "Sampled from the output current and applied in series with the input"
+      ],
+      "correctIndex": 2,
+      "explanation": "The first word names the output quantity sampled (voltage, by a shunt connection) and the second the way it is mixed at the input (series). This topology gives a stabilised voltage amplifier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m015",
+      "questionText": "A voltage amplifier has A_vo = 200, R_i = 20 kΩ and R_o = 2 kΩ. It is fed from a source of resistance 5 kΩ and drives an 8 kΩ load. The overall voltage gain v_o/v_s is:",
+      "options": [
+        "128",
+        "160",
+        "200",
+        "64"
+      ],
+      "correctIndex": 0,
+      "explanation": "v_o/v_s = [20/(20 + 5)] × 200 × [8/(8 + 2)] = 0.8 × 200 × 0.8 = 128. Including only one of the two dividers gives 160.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m016",
+      "questionText": "An amplifier has an open-circuit output voltage of 6 V and an output resistance of 600 Ω. With a 600 Ω load connected, the output voltage is:",
+      "options": [
+        "6 V",
+        "3 V",
+        "4.24 V",
+        "1.5 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "The load and output resistances divide the internal voltage: V_L = 6 × 600/(600 + 600) = 3 V. This is the matched (maximum-power) condition.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m017",
+      "questionText": "An amplifier's output voltage is 5 V on open circuit and falls to 4 V when a 1 kΩ load is connected. Its output resistance is:",
+      "options": [
+        "1 kΩ",
+        "200 Ω",
+        "250 Ω",
+        "1.25 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "4 = 5 × 1k/(1k + R_o) gives R_o = 1k × (5/4 − 1) = 250 Ω. Dividing the 1 V drop by the 5 V would wrongly give 200 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m018",
+      "questionText": "A 10 mV source with an internal resistance of 10 kΩ is connected to an amplifier, and the voltage measured across the amplifier input is 8 mV. The amplifier input resistance is:",
+      "options": [
+        "50 kΩ",
+        "12.5 kΩ",
+        "40 kΩ",
+        "8 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 2 mV lost across R_s gives the current 2 mV/10 kΩ = 0.2 µA, so R_i = 8 mV/0.2 µA = 40 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m019",
+      "questionText": "A transconductance amplifier with G_m = 10 mS and very high output resistance drives a 2 kΩ load. Its voltage gain v_o/v_i is:",
+      "options": [
+        "5",
+        "20",
+        "0.02",
+        "200"
+      ],
+      "correctIndex": 1,
+      "explanation": "The output current is G_m v_i, which flows through R_L, so v_o/v_i = G_m R_L = 10 mS × 2 kΩ = 20.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m020",
+      "questionText": "A transresistance amplifier has R_m = 10 kΩ and very low output resistance. For an input signal current of 50 µA, the output voltage is:",
+      "options": [
+        "5 V",
+        "0.05 V",
+        "0.5 V",
+        "50 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "v_o = R_m i_i = 10 kΩ × 50 µA = 0.5 V; with low R_o the load has no effect on this value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m021",
+      "questionText": "A voltage-amplifier model has A_vo = 100 and R_o = 5 kΩ. The short-circuit transconductance G_m of the equivalent Norton (transconductance) model is:",
+      "options": [
+        "0.05 mS",
+        "20 mS",
+        "2 mS",
+        "200 mS"
+      ],
+      "correctIndex": 1,
+      "explanation": "Shorting the output gives i_sc = A_vo v_i/R_o, so G_m = A_vo/R_o = 100/5 kΩ = 20 mS, with the same R_o in parallel with the current source.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m022",
+      "questionText": "A 10 dBm signal is applied to an amplifier with a power gain of 20 dB. The output power is:",
+      "options": [
+        "1 W",
+        "100 mW",
+        "200 mW",
+        "30 mW"
+      ],
+      "correctIndex": 0,
+      "explanation": "Decibels add: 10 dBm + 20 dB = 30 dBm, and P = 1 mW × 10^(30/10) = 1 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m023",
+      "questionText": "An amplifier with a constant gain-bandwidth product of 1 MHz is set to a mid-band voltage gain of 40 dB. Its bandwidth is approximately:",
+      "options": [
+        "10 kHz",
+        "25 kHz",
+        "100 kHz",
+        "1 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "40 dB is a gain of 100, so BW = GBW/A = 1 MHz/100 = 10 kHz. Dividing by 40 instead of by 100 gives 25 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m024",
+      "questionText": "An amplifier with open-loop gain A = 500 is given negative feedback with β = 0.02. The closed-loop gain is approximately:",
+      "options": [
+        "50",
+        "10",
+        "45.5",
+        "55.6"
+      ],
+      "correctIndex": 2,
+      "explanation": "A_f = A/(1 + Aβ) = 500/(1 + 10) = 45.5. The value 50 is the 1/β approximation, which is not accurate here because Aβ is only 10; 55.6 uses 1 − Aβ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m025",
+      "questionText": "An amplifier with A = 10 000 has negative feedback with β = 0.01. The amount of feedback, 20 log(1 + Aβ), is approximately:",
+      "options": [
+        "20 dB",
+        "100 dB",
+        "80 dB",
+        "40 dB"
+      ],
+      "correctIndex": 3,
+      "explanation": "1 + Aβ = 1 + 100 = 101, and 20 log10(101) = 40.1 dB, so the gain is reduced from 80 dB to about 40 dB.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m026",
+      "questionText": "An amplifier with A = 1000 and upper cut-off frequency 10 kHz is given negative feedback with β = 0.009. The new upper cut-off frequency is:",
+      "options": [
+        "1 kHz",
+        "100 kHz",
+        "10 kHz",
+        "1 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "1 + Aβ = 1 + 9 = 10, so f_Hf = f_H(1 + Aβ) = 10 kHz × 10 = 100 kHz, while the gain falls to 1000/10 = 100.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m027",
+      "questionText": "A feedback amplifier has 1 + Aβ = 20. If the open-loop gain changes by 10 %, the closed-loop gain changes by about:",
+      "options": [
+        "10 %",
+        "5 %",
+        "20 %",
+        "0.5 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "dA_f/A_f = (dA/A)/(1 + Aβ) = 10 %/20 = 0.5 %. This desensitivity is the main reason for using negative feedback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m028",
+      "questionText": "Which feedback topology is used to build a stable transresistance amplifier?",
+      "options": [
+        "Series-shunt (voltage-series)",
+        "Series-series (current-series)",
+        "Shunt-series (current-shunt)",
+        "Shunt-shunt (voltage-shunt)"
+      ],
+      "correctIndex": 3,
+      "explanation": "A transresistance amplifier takes a current in (shunt mixing, low R_i) and gives a voltage out (voltage sampling, low R_o), which is shunt-shunt feedback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m029",
+      "questionText": "Voltage-series negative feedback changes the input and output resistances of an amplifier as follows:",
+      "options": [
+        "Both input and output resistance decrease",
+        "Input resistance increases and output resistance decreases",
+        "Both input and output resistance increase",
+        "Input resistance decreases and output resistance increases"
+      ],
+      "correctIndex": 1,
+      "explanation": "Series mixing multiplies R_i by 1 + Aβ and voltage sampling divides R_o by 1 + Aβ, moving the circuit towards an ideal voltage amplifier.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m030",
+      "questionText": "Current-series (series-series) negative feedback:",
+      "options": [
+        "Increases both the input and the output resistance",
+        "Increases the input resistance but decreases the output resistance",
+        "Decreases the input resistance but increases the output resistance",
+        "Decreases both the input and the output resistance"
+      ],
+      "correctIndex": 0,
+      "explanation": "Series mixing raises R_i and current sampling raises R_o, each by 1 + Aβ; this suits a transconductance amplifier, whose ideal R_i and R_o are both infinite.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m031",
+      "questionText": "Which statement about cascaded amplifier stages is NOT correct?",
+      "options": [
+        "The overall bandwidth of several identical stages is wider than that of one stage",
+        "The overall linear gain is the product of the loaded stage gains",
+        "The overall gain in decibels is the sum of the stage gains in decibels",
+        "The first stage has the greatest effect on the overall noise"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each stage adds its own roll-off, so the bandwidth of a cascade is narrower than that of a single stage. The other statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m032",
+      "questionText": "Two identical non-interacting stages, each with an upper cut-off frequency of 100 kHz, are cascaded. The overall upper cut-off frequency is approximately:",
+      "options": [
+        "50 kHz",
+        "64.4 kHz",
+        "100 kHz",
+        "141 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_H(overall) = f_H √(2^(1/n) − 1) = 100 kHz × √(1.414 − 1) = 100 kHz × 0.644 = 64.4 kHz. Halving the bandwidth (50 kHz) overestimates the reduction.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m033",
+      "questionText": "An amplifier's high-frequency response is set by a single RC low-pass section. At its upper cut-off frequency f_H, the phase of the output relative to its mid-band phase is shifted by:",
+      "options": [
+        "0°",
+        "−90°",
+        "−180°",
+        "−45°"
+      ],
+      "correctIndex": 3,
+      "explanation": "For a single-pole response the extra phase shift is −arctan(f/f_H), which equals −arctan(1) = −45° at f = f_H. It approaches −90° only when f is far above f_H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m034",
+      "questionText": "An amplifier takes an input of 10 mV across its 1 kΩ input resistance and produces 1 V across a 100 Ω load. Its power gain is:",
+      "options": [
+        "40 dB",
+        "50 dB",
+        "30 dB",
+        "100 dB"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_i = (10 mV)²/1 kΩ = 0.1 µW and P_o = (1 V)²/100 Ω = 10 mW, so A_p = 10^5 = 50 dB. 40 dB is the voltage gain, which equals the power gain only when the two resistances are equal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m035",
+      "questionText": "A source with high internal resistance must drive a low-resistance load without losing signal. The stage placed between them should have:",
+      "options": [
+        "Low input resistance and high output resistance",
+        "Low input and low output resistance",
+        "High input resistance and low output resistance",
+        "High input and high output resistance"
+      ],
+      "correctIndex": 2,
+      "explanation": "High R_i avoids loading the source and low R_o avoids losing signal in the load divider; this is the role of a buffer such as an emitter follower.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m036",
+      "questionText": "In a negative-feedback amplifier with loop gain Aβ >> 1, the closed-loop gain is approximately:",
+      "options": [
+        "1/β, set by the feedback network alone",
+        "A, the open-loop gain",
+        "Aβ, the loop gain",
+        "A/β"
+      ],
+      "correctIndex": 0,
+      "explanation": "A_f = A/(1 + Aβ) → A/(Aβ) = 1/β when Aβ >> 1. Precision resistors in the feedback network therefore fix the gain.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m037",
+      "questionText": "An amplifier with A = 100 produces 10 % second-harmonic distortion. Negative feedback with β = 0.04 is added and the input is raised to give the same output level. The distortion becomes:",
+      "options": [
+        "10 %",
+        "0.4 %",
+        "50 %",
+        "2 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "Distortion generated inside the loop is divided by 1 + Aβ = 1 + 4 = 5, so it falls from 10 % to 2 %.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t6_m038",
+      "questionText": "An amplifier has A = 200, R_i = 5 kΩ and R_o = 2 kΩ. Voltage-series negative feedback with β = 0.05 is applied. The input and output resistances with feedback are:",
+      "options": [
+        "R_if = 455 Ω, R_of = 22 kΩ",
+        "R_if = 55 kΩ, R_of = 182 Ω",
+        "R_if = 55 kΩ, R_of = 22 kΩ",
+        "R_if = 50 kΩ, R_of = 200 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "1 + Aβ = 1 + 10 = 11. Series mixing gives R_if = 5 kΩ × 11 = 55 kΩ, and voltage sampling gives R_of = 2 kΩ/11 = 182 Ω. Using Aβ = 10 instead of 11 gives 50 kΩ and 200 Ω.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m039",
+      "questionText": "A voltage amplifier with A_vo = 500, R_i = 4 kΩ and R_o = 100 Ω is driven from a 1 kΩ source and feeds a 400 Ω load. The overall voltage gain v_o/v_s in decibels is approximately:",
+      "options": [
+        "54.0 dB",
+        "52.0 dB",
+        "25.1 dB",
+        "50.1 dB"
+      ],
+      "correctIndex": 3,
+      "explanation": "v_o/v_s = [4/(4 + 1)] × 500 × [400/(400 + 100)] = 0.8 × 500 × 0.8 = 320, and 20 log10(320) = 50.1 dB. 54 dB is the unloaded 500.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m040",
+      "questionText": "Stage 1 (A_vo1 = 50, R_i1 = 10 kΩ, R_o1 = 5 kΩ) drives stage 2 (A_vo2 = 40, R_i2 = 5 kΩ, R_o2 = 1 kΩ), which feeds a 4 kΩ load. The source is ideal (zero resistance). The overall voltage gain is:",
+      "options": [
+        "800",
+        "2000",
+        "1000",
+        "1600"
+      ],
+      "correctIndex": 0,
+      "explanation": "Interstage divider 5/(5 + 5) = 0.5 and output divider 4/(4 + 1) = 0.8, so A = 50 × 0.5 × 40 × 0.8 = 800. Ignoring loading gives 2000.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m041",
+      "questionText": "An amplifier with A = 2000 has negative feedback with β = 0.05. If ageing reduces A to 1000 (a 50 % drop), the closed-loop gain falls by about:",
+      "options": [
+        "0.98 %",
+        "50 %",
+        "0.05 %",
+        "5 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "Before: A_f = 2000/(1 + 100) = 19.80. After: A_f = 1000/(1 + 50) = 19.61. The change is 0.19/19.80 ≈ 0.98 %, although A itself halved.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m042",
+      "questionText": "An amplifier with open-loop gain A = 100 must have a closed-loop gain of 20 using negative feedback. The feedback fraction β required is:",
+      "options": [
+        "0.05",
+        "0.2",
+        "0.04",
+        "0.01"
+      ],
+      "correctIndex": 2,
+      "explanation": "20 = 100/(1 + 100β) gives 1 + 100β = 5, so β = 0.04. The value 0.05 comes from the 1/β approximation, which is poor when Aβ is only 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m043",
+      "questionText": "An RC-coupled amplifier has A = 500, f_L = 50 Hz and f_H = 50 kHz. Negative feedback with β = 0.018 is applied. The new lower and upper cut-off frequencies are:",
+      "options": [
+        "500 Hz and 500 kHz",
+        "5 Hz and 5 kHz",
+        "50 Hz and 500 kHz",
+        "5 Hz and 500 kHz"
+      ],
+      "correctIndex": 3,
+      "explanation": "1 + Aβ = 1 + 9 = 10. Feedback divides f_L and multiplies f_H by this factor: f_Lf = 50/10 = 5 Hz and f_Hf = 50 kHz × 10 = 500 kHz, while the gain drops to 50.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m044",
+      "questionText": "A current amplifier (A_is = 100, R_i = 100 Ω, R_o = 10 kΩ) is driven by a Norton source of 10 µA in parallel with 900 Ω and feeds a 1 kΩ load. The overall current gain i_o/i_s is approximately:",
+      "options": [
+        "100",
+        "81.8",
+        "90",
+        "90.9"
+      ],
+      "correctIndex": 1,
+      "explanation": "Input current division: i_i = i_s × 900/(900 + 100) = 0.9i_s. Output division: i_o = 100i_i × 10k/(10k + 1k) = 90.9i_i. Overall 0.9 × 100 × 0.909 = 81.8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m045",
+      "questionText": "A 1 mW signal passes through a pre-amplifier with 20 dB gain, a cable with 6 dB loss and a power amplifier with 30 dB gain. The output power is approximately:",
+      "options": [
+        "44 mW",
+        "2.51 W",
+        "25.1 W",
+        "251 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Input is 0 dBm; output = 0 + 20 − 6 + 30 = 44 dBm, so P = 1 mW × 10^4.4 = 25.1 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t6_m046",
+      "questionText": "A transconductance amplifier has G_m = 20 mS, a very high input resistance and an output resistance of 10 kΩ. With a 10 kΩ load, its voltage gain v_o/v_i is:",
+      "options": [
+        "200",
+        "50",
+        "100",
+        "400"
+      ],
+      "correctIndex": 2,
+      "explanation": "The output current G_m v_i divides between R_o and R_L, so v_o = G_m v_i (R_o ∥ R_L) = 20 mS × 5 kΩ × v_i, giving a gain of 100. Ignoring R_o gives 200.",
+      "difficulty": "hard"
+    }
+  ]
+}

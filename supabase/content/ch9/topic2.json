@@ -1,0 +1,1259 @@
+{
+  "parent": {
+    "id": "ch9_p2",
+    "title": "Problem Solving & Searching Techniques"
+  },
+  "subtopics": [
+    {
+      "id": "ch9_t2",
+      "title": "Problem Formulation, State-Space Search & Well-Defined Problems",
+      "subtitle": "Problem-solving agents, state spaces, formulation components and classic toy problems",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Problem-Solving Agents"
+          },
+          {
+            "type": "paragraph",
+            "text": "A problem-solving agent is a goal-based agent that decides what to do by finding a sequence of actions that leads to a desirable state. It works in four phases: goal formulation (decide what state of the world is wanted), problem formulation (decide which states and actions to consider), search (examine possible action sequences to find a solution) and execution (carry out the actions). Because the whole plan is computed before acting, the classic formulation assumes the environment is fully observable, deterministic, discrete and known."
+          },
+          {
+            "type": "paragraph",
+            "text": "Problem solving as state-space search means representing every possible configuration of the problem as a state and every legal move as an operator that maps one state to another. The set of all states reachable from the initial state by any sequence of actions is the state space; it forms a directed graph whose nodes are states and whose arcs are actions. A path in this graph is a sequence of states connected by actions, and a solution is a path from the initial state to a goal state. An optimal solution has the lowest path cost among all solutions."
+          },
+          {
+            "type": "heading",
+            "text": "Well-Defined Problems: Formulation Components"
+          },
+          {
+            "type": "bulletList",
+            "text": "A problem is well defined when these components are specified precisely:",
+            "items": [
+              "Initial state: the state the agent starts in, e.g. In(Kathmandu) for a route-finding problem.",
+              "Actions (operators): ACTIONS(s) returns the set of actions applicable in state s.",
+              "Transition model: RESULT(s, a) returns the state reached by doing action a in state s; together with the initial state and actions it defines the state space.",
+              "Goal test: decides whether a given state is a goal; it may be an explicit set of states (a single city) or an abstract property (checkmate).",
+              "Path cost: a function assigning a numeric cost to each path, usually the sum of step costs c(s, a, s') which are assumed non-negative."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "g(\\text{path}) = \\sum_{i} c(s_{i}, a_{i}, s_{i+1}),\\quad c \\ge 0",
+            "plainText": "path cost g = sum of step costs c(s_i, a_i, s_i+1), each c >= 0"
+          },
+          {
+            "type": "paragraph",
+            "text": "Abstraction is essential in formulation: real-world detail irrelevant to the goal (weather, scenery, radio station) is removed so that the state description holds only what matters. A good abstraction keeps every abstract solution expandable into a real solution while making the state space as small as possible. The same puzzle can be formulated in very different ways; for 8-queens an incremental formulation adds one queen at a time, whereas a complete-state formulation starts with all eight queens on the board and moves them."
+          },
+          {
+            "type": "heading",
+            "text": "Toy and Real-World Problems"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Toy problem",
+                "State",
+                "Actions / operators",
+                "Goal test"
+              ],
+              [
+                "8-puzzle",
+                "Location of 8 numbered tiles and the blank on a 3x3 board",
+                "Move blank Left, Right, Up or Down",
+                "Tiles match the goal configuration (9!/2 = 181,440 reachable states)"
+              ],
+              [
+                "Water jug (4 L and 3 L)",
+                "Pair (x, y) of litres in each jug, start (0, 0)",
+                "Fill a jug, empty a jug, pour one into the other until full or empty",
+                "Exactly 2 L in a jug, e.g. (2, y) or (x, 2)"
+              ],
+              [
+                "Missionaries and cannibals",
+                "(M, C, B) on the start bank, start (3, 3, 1)",
+                "Boat carries 1 or 2 people across",
+                "(0, 0, 0) with cannibals never outnumbering missionaries on either bank"
+              ],
+              [
+                "8-queens",
+                "Arrangement of 0 to 8 queens on the board",
+                "Add a queen to a square not attacked (incremental)",
+                "8 queens placed with no two attacking each other"
+              ],
+              [
+                "Vacuum world",
+                "Agent location and dirt in each of 2 squares (8 states)",
+                "Left, Right, Suck",
+                "All squares clean"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Real-world problems solved by the same formulation:",
+            "items": [
+              "Route finding and airline travel planning (states are locations and times, cost is distance, time or fare).",
+              "Touring and travelling-salesperson problems (visit every city exactly once with minimum total distance).",
+              "VLSI layout: placing cells and routing wires on a chip to minimise area and delay.",
+              "Robot navigation in a continuous space, automatic assembly sequencing and protein design."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Search Trees, Graphs and Frontier"
+          },
+          {
+            "type": "paragraph",
+            "text": "Search algorithms build a search tree whose root is the initial state; expanding a node applies every applicable action to generate its child nodes. The set of generated but not yet expanded leaf nodes is the frontier (open list); the search strategy is simply the rule for choosing which frontier node to expand next. A node is a data structure holding the state, its parent node, the action that produced it, the path cost g(n) and its depth, so several nodes may contain the same state. Tree search can revisit repeated states and loop forever on redundant paths; graph search adds an explored set (closed list) and never re-adds a state that is already explored or on the frontier."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "function GRAPH-SEARCH(problem):\n  frontier <- {node(problem.initial)}\n  explored <- empty set\n  loop:\n    if frontier is empty: return failure\n    node <- remove a node chosen by the strategy\n    if problem.goal_test(node.state): return solution(node)\n    add node.state to explored\n    for each action in problem.actions(node.state):\n      child <- child_node(problem, node, action)\n      if child.state not in explored and not in frontier:\n        add child to frontier"
+          },
+          {
+            "type": "bulletList",
+            "text": "Search strategies are compared on four criteria using three size parameters:",
+            "items": [
+              "Completeness: is the algorithm guaranteed to find a solution when one exists? Optimality: does it find the lowest-cost solution?",
+              "Time complexity: how long it takes, measured in nodes generated. Space complexity: how much memory it needs, measured in nodes stored.",
+              "b = branching factor (maximum number of successors of any node); d = depth of the shallowest goal node; m = maximum length of any path in the state space (may be infinite)."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "N_{\\text{tree}}(b, d) = 1 + b + b^{2} + \\cdots + b^{d} = \\frac{b^{d+1} - 1}{b - 1}",
+            "plainText": "nodes in a uniform tree to depth d = 1 + b + b^2 + ... + b^d = (b^(d+1) - 1)/(b - 1)"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "g(\\text{path}) = \\sum_{i} c(s_{i}, a_{i}, s_{i+1})",
+            "plainText": "path cost = sum of step costs along the path"
+          },
+          {
+            "type": "formula",
+            "latex": "N_{\\text{tree}}(b, d) = \\frac{b^{d+1} - 1}{b - 1} = O(b^{d})",
+            "plainText": "nodes in a uniform tree to depth d = (b^(d+1) - 1)/(b - 1) = O(b^d)"
+          },
+          {
+            "type": "formula",
+            "latex": "|S_{8\\text{-puzzle}}| = \\frac{9!}{2} = 181{,}440",
+            "plainText": "reachable 8-puzzle states = 9!/2 = 181,440"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Learn the five components of a well-defined problem in order: initial state, actions, transition model, goal test, path cost. Do not confuse them with PEAS (performance, environment, actuators, sensors), which describes an agent's task environment."
+          },
+          {
+            "type": "note",
+            "text": "A state is a configuration of the world; a node is a bookkeeping structure in the search tree (state + parent + action + path cost + depth). Two different nodes can hold the same state when it is reached by different paths."
+          },
+          {
+            "type": "warning",
+            "text": "b, d and m are different: d is the depth of the shallowest goal, m is the maximum depth of the whole space. DFS complexity is written with m, BFS and IDS with d."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_t2_01",
+          "title": "Path cost",
+          "latex": "g(\\text{path}) = \\sum_{i} c(s_{i}, a_{i}, s_{i+1})",
+          "plainText": "g = sum of step costs c(s_i, a_i, s_i+1)",
+          "description": "The cost of a path is the sum of the non-negative step costs of the actions along it."
+        },
+        {
+          "id": "f_ch9_t2_02",
+          "title": "Nodes in a uniform search tree",
+          "latex": "1 + b + b^{2} + \\cdots + b^{d} = \\frac{b^{d+1} - 1}{b - 1}",
+          "plainText": "1 + b + b^2 + ... + b^d = (b^(d+1) - 1)/(b - 1)",
+          "description": "Total nodes in a tree with branching factor b down to depth d, which grows as O(b^d)."
+        },
+        {
+          "id": "f_ch9_t2_03",
+          "title": "8-puzzle state count",
+          "latex": "\\frac{9!}{2} = 181{,}440",
+          "plainText": "9!/2 = 181,440",
+          "description": "Only half of the 9! tile arrangements are reachable from any given 8-puzzle start state."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_t2_01",
+          "front": "What are the five components of a well-defined search problem?",
+          "back": "Initial state, actions, transition model RESULT(s, a), goal test and path-cost function.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_t2_02",
+          "front": "What is the difference between the frontier and the explored set?",
+          "back": "The frontier (open list) holds generated nodes not yet expanded; the explored set (closed list) holds states already expanded so graph search does not revisit them.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_t2_03",
+          "front": "What do b, d and m denote in search complexity analysis?",
+          "back": "b is the branching factor, d the depth of the shallowest goal, and m the maximum depth of any path in the state space.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_t2_04",
+          "front": "Give one toy problem and one real-world problem that are formulated as state-space search.",
+          "back": "Toy: 8-puzzle, water jug, missionaries and cannibals, 8-queens. Real-world: route finding, travelling salesperson, VLSI layout, robot navigation.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_t2_n01",
+          "questionText": "Two jugs hold 4 L and 3 L, both start empty, and the only actions are fill a jug, empty a jug, or pour one jug into the other. What is the minimum number of actions needed to have exactly 2 L in either jug?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "correctIndex": 1,
+          "explanation": "Fill the 3 L jug (0,3), pour into the 4 L (3,0), fill the 3 L again (3,3), pour until the 4 L is full (4,2): 4 actions. A breadth-first search of the state space confirms no 3-action sequence reaches 2 L.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_t2_n02",
+          "questionText": "How many distinct states of the 8-puzzle are reachable from a given start configuration?",
+          "options": [
+            "9! = 362,880",
+            "8! = 40,320",
+            "9!/2 = 181,440",
+            "3^9 = 19,683"
+          ],
+          "correctIndex": 2,
+          "explanation": "There are 9! arrangements of eight tiles and a blank, but the state space splits into two disjoint halves by parity, so only 9!/2 = 181,440 are reachable from any start.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_t2_n03",
+          "questionText": "The main purpose of the explored (closed) set in graph search, compared with plain tree search, is to:",
+          "options": [
+            "Store the heuristic value of each node",
+            "Prevent repeated states and redundant paths from being expanded again",
+            "Hold the nodes that are waiting to be expanded",
+            "Record the order in which goal states were found"
+          ],
+          "correctIndex": 1,
+          "explanation": "Graph search remembers every expanded state and discards newly generated nodes whose states are already explored or on the frontier, avoiding loops; the frontier is what holds nodes awaiting expansion.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_t2_n04",
+          "questionText": "In the analysis of search algorithms, the symbol m stands for:",
+          "options": [
+            "The maximum length of any path in the state space",
+            "The depth of the shallowest goal node",
+            "The maximum number of successors of any node",
+            "The number of goal states in the space"
+          ],
+          "correctIndex": 0,
+          "explanation": "m is the maximum depth of the state space (possibly infinite); d is the shallowest goal depth and b the branching factor. DFS space O(bm) is expressed with m.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i21",
+      "title": "Constraint Satisfaction Problems",
+      "subtitle": "Variables, domains and constraints; backtracking with MRV, degree, LCV and arc consistency",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What a CSP Is"
+          },
+          {
+            "type": "paragraph",
+            "text": "A constraint satisfaction problem (CSP) is a search problem whose states have a factored structure: a set of variables X = {X1, ..., Xn}, a domain Di of allowed values for each variable, and a set of constraints C that specify which combinations of values are allowed. A state is an assignment of values to some or all variables; an assignment is consistent if it violates no constraint and complete if every variable has a value. A solution is a complete, consistent assignment. Because the structure is explicit, general-purpose heuristics can prune huge parts of the space without problem-specific knowledge."
+          },
+          {
+            "type": "bulletList",
+            "text": "Kinds of domains and constraints:",
+            "items": [
+              "Discrete finite domains (colours, digits 0 to 9), discrete infinite domains (integers, as in job-shop scheduling start times) and continuous domains (linear programming).",
+              "Unary constraint: restricts one variable, e.g. SA != green.",
+              "Binary constraint: relates two variables, e.g. WA != NT; a binary CSP can be drawn as a constraint graph.",
+              "Global (higher-order) constraint: involves many variables, e.g. Alldiff(F, T, U, W, R, O) in a cryptarithmetic puzzle.",
+              "Preference (soft) constraints express which solutions are better and turn the problem into constraint optimisation."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Standard Examples"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "CSP",
+                "Variables",
+                "Domains",
+                "Constraints"
+              ],
+              [
+                "Map colouring of Australia",
+                "WA, NT, SA, Q, NSW, V, T",
+                "{red, green, blue}",
+                "Adjacent regions differ, e.g. WA != NT, SA != Q"
+              ],
+              [
+                "Cryptarithmetic TWO + TWO = FOUR",
+                "Letters F, T, U, W, R, O and carries C1, C2, C3",
+                "Digits 0 to 9 (carries 0 or 1)",
+                "Alldiff on letters, column sums O + O = R + 10 C1 etc., leading digits non-zero"
+              ],
+              [
+                "8-queens",
+                "Q1 to Q8, one per column",
+                "Row numbers 1 to 8",
+                "No two queens share a row or diagonal"
+              ],
+              [
+                "Sudoku",
+                "81 cells",
+                "Digits 1 to 9",
+                "Alldiff in every row, column and 3x3 box"
+              ],
+              [
+                "Timetabling / scheduling",
+                "Classes or tasks",
+                "Time slots and rooms",
+                "No clashes, precedence, capacity limits"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "In the constraint graph each node is a variable and each edge joins two variables that share a constraint. For Australia, SA is adjacent to five regions (WA, NT, Q, NSW, V) while Tasmania has no edges and forms an independent sub-problem. Graph structure matters: a tree-structured CSP can be solved in O(n d^2) time, whereas a general CSP is NP-complete. In cryptarithmetic, the extra carry in the leftmost column forces the leading digit of the answer: in TWO + TWO = FOUR, F must be 1."
+          },
+          {
+            "type": "formula",
+            "latex": "|\\text{complete assignments}| = d^{\\,n}",
+            "plainText": "number of complete assignments = d^n (n variables, domain size d)"
+          },
+          {
+            "type": "heading",
+            "text": "Backtracking Search"
+          },
+          {
+            "type": "paragraph",
+            "text": "Backtracking search is depth-first search that assigns one variable per level and backtracks as soon as a variable has no legal value left. It exploits commutativity: the order in which values are assigned does not change the final assignment, so only one variable needs to be considered at each node, giving d^n leaves instead of n! d^n. Its efficiency depends on three choices: which variable to assign next, in what order to try its values, and what inference to perform after each assignment."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "function BACKTRACK(assignment, csp):\n  if assignment is complete: return assignment\n  var <- SELECT-UNASSIGNED-VARIABLE(csp)       # MRV, then degree\n  for value in ORDER-DOMAIN-VALUES(var)         # LCV\n    if value is consistent with assignment:\n      add {var = value} to assignment\n      inferences <- INFERENCE(csp, var, value)  # forward checking / AC-3\n      if inferences != failure:\n        result <- BACKTRACK(assignment, csp)\n        if result != failure: return result\n      remove {var = value} and inferences\n  return failure"
+          },
+          {
+            "type": "bulletList",
+            "text": "Ordering heuristics:",
+            "items": [
+              "Minimum remaining values (MRV, most-constrained variable, fail-first): choose the variable with the fewest legal values left, so failures are detected early.",
+              "Degree heuristic: break ties by choosing the variable involved in the most constraints with unassigned variables (SA in the Australia map, degree 5).",
+              "Least-constraining value (LCV): try first the value that rules out the fewest choices for neighbouring variables, leaving maximum flexibility.",
+              "Variable selection is fail-first, value selection is fail-last: we want to fail fast on hopeless variables but succeed with the chosen value."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Constraint Propagation: Forward Checking and Arc Consistency"
+          },
+          {
+            "type": "paragraph",
+            "text": "Forward checking: whenever variable X is assigned, delete from the domain of every unassigned neighbour Y any value inconsistent with X. For example, WA = red removes red from NT and SA, leaving {green, blue}. If any domain becomes empty the branch is abandoned at once. Forward checking only looks one step ahead and does not check constraints between two unassigned neighbours, so it can miss that NT = blue and SA = blue are both forced."
+          },
+          {
+            "type": "paragraph",
+            "text": "Arc consistency is stronger. The directed arc X -> Y is consistent if for every value x in the domain of X there is some value y in the domain of Y that satisfies the constraint between them; values of X without support are deleted. AC-3 keeps a queue of arcs, revises each, and whenever the domain of X shrinks it re-enqueues all arcs Z -> X. Its worst-case time is O(c d^3) for c binary constraints. Example: with X, Y in {1, 2, 3} and X < Y, making X -> Y consistent removes 3 from X, and making Y -> X consistent removes 1 from Y."
+          },
+          {
+            "type": "formula",
+            "latex": "X \\to Y \\text{ consistent} \\iff \\forall x \\in D_X\\ \\exists y \\in D_Y : (x, y) \\text{ satisfies } C_{XY}",
+            "plainText": "arc X -> Y consistent iff for every x in D_X there exists y in D_Y with (x, y) satisfying C_XY"
+          },
+          {
+            "type": "bulletList",
+            "text": "Other techniques worth knowing:",
+            "items": [
+              "Node consistency: every value in a domain satisfies the variable's unary constraints.",
+              "Maintaining arc consistency (MAC): run AC-3 after each assignment, stronger than forward checking.",
+              "Conflict-directed backjumping: jump back to the variable that actually caused the failure instead of the most recent one.",
+              "Min-conflicts local search: start from a complete assignment and repeatedly change a conflicted variable to the value with fewest conflicts; solves million-queens problems in a few steps."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "|\\text{complete assignments}| = d^{\\,n}",
+            "plainText": "complete assignments = d^n"
+          },
+          {
+            "type": "formula",
+            "latex": "X \\to Y \\text{ consistent} \\iff \\forall x \\in D_X\\ \\exists y \\in D_Y : C_{XY}(x, y)",
+            "plainText": "X -> Y consistent iff every x in D_X has a supporting y in D_Y"
+          },
+          {
+            "type": "formula",
+            "latex": "T_{\\text{AC-3}} = O(c\\, d^{3}),\\quad T_{\\text{tree CSP}} = O(n\\, d^{2})",
+            "plainText": "AC-3 time O(c d^3); tree-structured CSP solved in O(n d^2)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Keep the three heuristics apart: MRV and degree choose the variable, LCV chooses the value. MRV is fail-first; LCV is the value least likely to cause failure."
+          },
+          {
+            "type": "note",
+            "text": "Forward checking checks only arcs from unassigned neighbours to the just-assigned variable; arc consistency (AC-3) propagates further and can detect failures forward checking misses."
+          },
+          {
+            "type": "warning",
+            "text": "Arc consistency is directional: X -> Y being consistent does not imply Y -> X is consistent. AC-3 must check both directions of every constraint."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i21_01",
+          "title": "Size of the assignment space",
+          "latex": "|\\text{complete assignments}| = d^{\\,n}",
+          "plainText": "d^n",
+          "description": "A CSP with n variables each of domain size d has d^n complete assignments to search among."
+        },
+        {
+          "id": "f_ch9_i21_02",
+          "title": "Arc consistency condition",
+          "latex": "\\forall x \\in D_X\\ \\exists y \\in D_Y : C_{XY}(x, y)",
+          "plainText": "for every x in D_X there exists y in D_Y satisfying C_XY",
+          "description": "Arc X -> Y is consistent when every value of X has at least one supporting value in Y."
+        },
+        {
+          "id": "f_ch9_i21_03",
+          "title": "AC-3 and tree-CSP complexity",
+          "latex": "O(c\\, d^{3})\\ \\text{(AC-3)},\\quad O(n\\, d^{2})\\ \\text{(tree CSP)}",
+          "plainText": "AC-3: O(c d^3); tree CSP: O(n d^2)",
+          "description": "AC-3 on c binary constraints runs in O(c d^3), and a tree-structured CSP is solvable in time linear in n."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i21_01",
+          "front": "What three sets define a constraint satisfaction problem?",
+          "back": "A set of variables, a domain of possible values for each variable, and a set of constraints on allowed value combinations.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i21_02",
+          "front": "What does the least-constraining-value heuristic do?",
+          "back": "It orders a variable's values so the value that rules out the fewest options for neighbouring variables is tried first.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i21_03",
+          "front": "How does forward checking work?",
+          "back": "After each assignment it removes inconsistent values from the domains of unassigned neighbours and backtracks immediately if any domain becomes empty.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i21_04",
+          "front": "When is the arc X -> Y consistent?",
+          "back": "When every value in the domain of X has at least one value in the domain of Y that satisfies the constraint between them.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i21_n01",
+          "questionText": "The Australia map-colouring CSP has 7 regions, each to be coloured red, green or blue. How many complete assignments (consistent or not) exist?",
+          "options": [
+            "21",
+            "343",
+            "2187",
+            "5040"
+          ],
+          "correctIndex": 2,
+          "explanation": "With n = 7 variables and domain size d = 3 there are d^n = 3^7 = 2187 complete assignments; 21 is 3 × 7 and 343 is 7^3.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch9_i21_n02",
+          "questionText": "In the Australia map-colouring problem the first assignment is WA = red. With forward checking, what are the domains of NT and SA immediately afterwards?",
+          "options": [
+            "Both remain {red, green, blue}",
+            "NT = {green, blue} and SA = {green, blue}",
+            "NT = {green} and SA = {blue}",
+            "NT = {red} and SA = {green, blue}"
+          ],
+          "correctIndex": 1,
+          "explanation": "Forward checking deletes red from every unassigned neighbour of WA, which are NT and SA, leaving {green, blue} for each; it does not yet check the NT-SA constraint.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i21_n03",
+          "questionText": "Variables X and Y both have domain {1, 2, 3} and the constraint is X < Y. After making the arc X -> Y consistent, the domain of X is:",
+          "options": [
+            "{1, 2, 3}",
+            "{2, 3}",
+            "{1}",
+            "{1, 2}"
+          ],
+          "correctIndex": 3,
+          "explanation": "X = 3 has no value of Y greater than it, so 3 is removed; 1 and 2 are supported by Y = 2 or 3. Making Y -> X consistent would separately remove 1 from Y.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i21_n04",
+          "questionText": "In the cryptarithmetic CSP TWO + TWO = FOUR (distinct digits, no leading zeros), the letter F must be:",
+          "options": [
+            "0",
+            "1",
+            "2",
+            "Any digit greater than 4"
+          ],
+          "correctIndex": 1,
+          "explanation": "The sum of two three-digit numbers is at most 1998, so the thousands digit F can only come from a carry of 1; F cannot be 0 because it is a leading digit.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i22",
+      "title": "Uninformed Search: BFS, DFS, Depth-Limited, Iterative Deepening & Bidirectional",
+      "subtitle": "Blind search strategies: data structures, completeness, optimality, time and space",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Uninformed (Blind) Search"
+          },
+          {
+            "type": "paragraph",
+            "text": "Uninformed search strategies use only the information in the problem definition: they can generate successors and recognise a goal, but they have no estimate of how close a state is to the goal. They differ only in the order in which frontier nodes are expanded, which is fixed by the data structure used for the frontier. All are measured with b (branching factor), d (depth of the shallowest goal), m (maximum depth), l (depth limit) and C* (cost of the optimal solution)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Breadth-first and uniform-cost search:",
+            "items": [
+              "Breadth-first search (BFS) expands the shallowest unexpanded node first using a FIFO queue, so all nodes at depth k are expanded before any at depth k + 1.",
+              "BFS is complete if b is finite and optimal when all step costs are equal; applying the goal test when a node is generated, its time and space are both O(b^d). Memory, not time, is its main weakness.",
+              "Uniform-cost search (UCS) expands the node with the lowest path cost g(n) using a priority queue; it is Dijkstra's algorithm on the state space.",
+              "UCS is complete if every step cost is at least some epsilon > 0 and is optimal for any non-negative costs; it applies the goal test when a node is selected for expansion. Time and space are O(b^(1 + floor(C*/epsilon)))."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Depth-first family:",
+            "items": [
+              "Depth-first search (DFS) expands the deepest node first using a LIFO stack (or recursion). It needs only O(bm) memory because it stores a single path plus the unexpanded siblings of its nodes.",
+              "DFS is not complete in infinite spaces or with loops (tree search), and is not optimal because it returns the first goal found, not the shallowest. Time is O(b^m), which can be far larger than O(b^d).",
+              "Depth-limited search (DLS) is DFS that treats nodes at depth l as having no successors; it avoids infinite descent but is incomplete if l < d and non-optimal if l > d. Time O(b^l), space O(bl).",
+              "Iterative deepening search (IDS) runs DLS with l = 0, 1, 2, ... until a goal is found. It is complete, optimal for unit step costs, uses O(bd) space and O(b^d) time; it is the preferred blind method when the space is large and d unknown."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Bidirectional search runs two simultaneous searches, one forward from the initial state and one backward from the goal, and stops when the two frontiers meet. Because each search only needs to reach depth d/2, the cost is about 2 b^(d/2), which is dramatically less than b^d. It requires that predecessors of a state can be computed (reversible actions) and that the goal is explicit; with BFS in both directions it is complete and optimal for unit costs, but it must store at least one frontier, so space is also O(b^(d/2))."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Strategy",
+                "Complete?",
+                "Optimal?",
+                "Time / Space"
+              ],
+              [
+                "BFS (FIFO queue)",
+                "Yes, if b finite",
+                "Yes, for unit step costs",
+                "O(b^d) / O(b^d)"
+              ],
+              [
+                "Uniform-cost (priority queue on g)",
+                "Yes, if step cost >= epsilon",
+                "Yes, any non-negative costs",
+                "O(b^(1+C*/eps)) / same"
+              ],
+              [
+                "DFS (LIFO stack)",
+                "No (infinite paths, loops)",
+                "No",
+                "O(b^m) / O(bm)"
+              ],
+              [
+                "Depth-limited (limit l)",
+                "No, if l < d",
+                "No",
+                "O(b^l) / O(bl)"
+              ],
+              [
+                "Iterative deepening",
+                "Yes, if b finite",
+                "Yes, for unit step costs",
+                "O(b^d) / O(bd)"
+              ],
+              [
+                "Bidirectional (BFS both ways)",
+                "Yes, if b finite",
+                "Yes, for unit step costs",
+                "O(b^(d/2)) / O(b^(d/2))"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "T_{BFS} = O(b^{d}),\\quad S_{DFS} = O(bm),\\quad S_{IDS} = O(bd),\\quad T_{bi} = O(b^{d/2})",
+            "plainText": "BFS time O(b^d); DFS space O(bm); IDS space O(bd); bidirectional time O(b^(d/2))"
+          },
+          {
+            "type": "heading",
+            "text": "Why Iterative Deepening Is Not Wasteful"
+          },
+          {
+            "type": "paragraph",
+            "text": "IDS regenerates the upper levels on every iteration, but in a tree with constant branching most nodes lie on the bottom level, so the repetition costs little. Nodes at depth 1 are generated d times, at depth 2 d - 1 times, and nodes at depth d only once. For b = 10 and d = 5, IDS generates 50 + 400 + 3,000 + 20,000 + 100,000 = 123,450 nodes against 111,110 for BFS, only about 11 percent more while using linear memory."
+          },
+          {
+            "type": "formula",
+            "latex": "N_{IDS} = d\\,b + (d-1)\\,b^{2} + \\cdots + 1\\cdot b^{d} = O(b^{d})",
+            "plainText": "N(IDS) = d b + (d - 1) b^2 + ... + 1 b^d = O(b^d)"
+          },
+          {
+            "type": "heading",
+            "text": "Traced Example"
+          },
+          {
+            "type": "paragraph",
+            "text": "Consider the tree with root A, children B and C, where B has children D and E, and C has children F and G; the goal is G. Tracing the frontier shows how the data structure alone changes the order of expansion. Children are generated left to right."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Tree: A -> B, C ; B -> D, E ; C -> F, G ; goal = G\n\nBFS (queue)   expand order: A, B, C, D, E, F, G\n  queue: [A] -> [B C] -> [C D E] -> [D E F G] -> ... -> G\nDFS (stack)   expand order: A, B, D, E, C, F, G\n  stack: [A] -> [B C] -> [D E C] -> [E C] -> [C] -> [F G]\nIDS           l=0: A | l=1: A B C | l=2: A B D E C F G\nUCS with costs S-A 1, S-B 5, A-G 10, B-G 3:\n  pop S(0) -> A(1) -> B(5) -> G(8) via B ; G(11) via A never chosen"
+          },
+          {
+            "type": "bulletList",
+            "text": "Choosing a blind strategy:",
+            "items": [
+              "Unit costs, plenty of memory, shallow goal: BFS.",
+              "Varying step costs and an optimal answer is required: uniform-cost search.",
+              "Large or infinite space, unknown depth, little memory: iterative deepening.",
+              "Known single goal with reversible actions: bidirectional search."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "T_{BFS} = S_{BFS} = O(b^{d})",
+            "plainText": "BFS time = space = O(b^d)"
+          },
+          {
+            "type": "formula",
+            "latex": "S_{DFS} = O(bm),\\quad S_{IDS} = O(bd)",
+            "plainText": "DFS space O(bm); IDS space O(bd)"
+          },
+          {
+            "type": "formula",
+            "latex": "T_{bi} = O(b^{d/2}),\\quad T_{UCS} = O\\!\\left(b^{1 + \\lfloor C^{*}/\\epsilon \\rfloor}\\right)",
+            "plainText": "bidirectional O(b^(d/2)); UCS O(b^(1 + floor(C*/epsilon)))"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Data structures are a favourite MCQ: BFS uses a FIFO queue, DFS a LIFO stack, uniform-cost a priority queue ordered by g(n), A* a priority queue ordered by f(n)."
+          },
+          {
+            "type": "warning",
+            "text": "BFS is optimal only when all step costs are equal. With unequal costs the shallowest goal need not be the cheapest; uniform-cost search is the optimal blind strategy then."
+          },
+          {
+            "type": "note",
+            "text": "IDS combines the completeness and unit-cost optimality of BFS with the O(bd) memory of DFS, at the price of regenerating upper levels, which adds only about b/(b - 1) overhead."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i22_01",
+          "title": "BFS complexity",
+          "latex": "T = S = O(b^{d})",
+          "plainText": "BFS time = space = O(b^d)",
+          "description": "BFS stores and generates every node down to the shallowest goal depth d."
+        },
+        {
+          "id": "f_ch9_i22_02",
+          "title": "DFS and IDS space",
+          "latex": "S_{DFS} = O(bm),\\quad S_{IDS} = O(bd)",
+          "plainText": "DFS O(bm); IDS O(bd)",
+          "description": "Depth-first methods store only the current path and its unexpanded siblings, so memory is linear in depth."
+        },
+        {
+          "id": "f_ch9_i22_03",
+          "title": "IDS node count",
+          "latex": "N_{IDS} = \\sum_{i=1}^{d} (d - i + 1)\\, b^{i}",
+          "plainText": "N(IDS) = sum over i = 1..d of (d - i + 1) b^i",
+          "description": "Nodes at depth i are regenerated d - i + 1 times, giving 123,450 nodes for b = 10 and d = 5."
+        },
+        {
+          "id": "f_ch9_i22_04",
+          "title": "Bidirectional search",
+          "latex": "T = S = O(b^{d/2})",
+          "plainText": "O(b^(d/2))",
+          "description": "Two searches each reaching depth d/2 cost about 2 b^(d/2), far less than b^d."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i22_01",
+          "front": "Which uninformed search is optimal for arbitrary non-negative step costs?",
+          "back": "Uniform-cost search, which always expands the frontier node with the lowest path cost g(n).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i22_02",
+          "front": "When is depth-limited search incomplete?",
+          "back": "When the depth limit l is less than the depth d of the shallowest goal, because the goal is never reached.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i22_03",
+          "front": "What two conditions does bidirectional search need?",
+          "back": "An explicit goal state to search back from, and the ability to compute predecessors (reversible actions).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i22_04",
+          "front": "What is the space complexity of iterative deepening search?",
+          "back": "O(bd), linear in the solution depth, like depth-first search.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i22_n01",
+          "questionText": "For a uniform tree with branching factor b = 10 and the shallowest goal at depth d = 5, how many nodes does iterative deepening search generate in the worst case (not counting the root)?",
+          "options": [
+            "111,110",
+            "100,000",
+            "123,450",
+            "555,550"
+          ],
+          "correctIndex": 2,
+          "explanation": "IDS generates d·b + (d−1)b^2 + ... + b^d = 5(10) + 4(100) + 3(1,000) + 2(10,000) + 1(100,000) = 123,450; 111,110 is the BFS count.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i22_n02",
+          "questionText": "A graph has edges S→A (cost 1), S→B (cost 5), A→G (cost 10) and B→G (cost 3). Which path and cost does uniform-cost search return from S to G?",
+          "options": [
+            "S-A-G with cost 11",
+            "S-B-G with cost 8",
+            "S-A-G with cost 1",
+            "S-B-G with cost 5"
+          ],
+          "correctIndex": 1,
+          "explanation": "UCS pops S(0), A(1), B(5); G is on the frontier at 11 via A and then 8 via B, and G(8) is selected first, so the optimal path S-B-G costs 5 + 3 = 8.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i23",
+      "title": "Informed & Local Search: Greedy Best-First, A*, Hill Climbing & Simulated Annealing",
+      "subtitle": "Heuristics, admissibility and consistency, an A* trace, hill climbing and annealing",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Heuristics and Best-First Search"
+          },
+          {
+            "type": "paragraph",
+            "text": "Informed (heuristic) search uses problem-specific knowledge in the form of a heuristic function h(n), the estimated cost of the cheapest path from node n to a goal, with h(goal) = 0. Best-first search is graph search that expands the frontier node with the lowest value of an evaluation function f(n), kept in a priority queue. The choice of f defines the algorithm: f(n) = h(n) gives greedy best-first search and f(n) = g(n) + h(n) gives A*."
+          },
+          {
+            "type": "bulletList",
+            "text": "Greedy best-first search, f(n) = h(n):",
+            "items": [
+              "Expands the node that appears closest to the goal, e.g. straight-line distance to the destination in route finding.",
+              "Often fast, but not optimal because it ignores the cost already spent g(n).",
+              "Not complete in tree-search form (it can oscillate forever between two states); complete in finite spaces with graph search.",
+              "Worst-case time and space O(b^m), though a good heuristic reduces this greatly."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "f(n) = g(n) + h(n)",
+            "plainText": "f(n) = g(n) + h(n): cost so far plus estimated cost to goal"
+          },
+          {
+            "type": "paragraph",
+            "text": "A* search ranks nodes by f(n) = g(n) + h(n), the estimated cost of the cheapest solution through n. A heuristic is admissible if it never overestimates the true cost h*(n); with an admissible h, A* tree search is optimal. A heuristic is consistent (monotone) if for every node n and successor n' reached by action a, h(n) <= c(n, a, n') + h(n'), a form of the triangle inequality. Every consistent heuristic is admissible, and with consistency A* graph search is optimal because f values along any path never decrease, so the first time a node is expanded its cheapest path has been found."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{admissible: } h(n) \\le h^{*}(n);\\quad \\text{consistent: } h(n) \\le c(n,a,n') + h(n')",
+            "plainText": "admissible: h(n) <= h*(n); consistent: h(n) <= c(n, a, n') + h(n')"
+          },
+          {
+            "type": "bulletList",
+            "text": "Properties and heuristic design:",
+            "items": [
+              "A* is complete (finite b, step costs >= epsilon), optimal under the conditions above, and optimally efficient: no other optimal algorithm using the same h expands fewer nodes. Its drawback is memory, since it keeps all generated nodes.",
+              "8-puzzle heuristics: h1 = number of misplaced tiles, h2 = sum of Manhattan distances of tiles from their goal squares; both are admissible and h2 dominates h1 (h2 >= h1 everywhere), so A* with h2 expands fewer nodes.",
+              "Admissible heuristics come from relaxed problems (remove a rule, e.g. tiles may move anywhere gives h1) or from pattern databases.",
+              "If h = 0, A* becomes uniform-cost search; memory-bounded variants include IDA* and SMA*."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Worked A* Trace"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Edges: S-A 1, S-B 4, A-B 2, A-G 12, B-G 5\nh: S=7, A=6, B=4, G=0   (admissible and consistent)\nstep  expand     frontier after expansion (f = g + h)\n 1    S (f=7)    A: 1+6=7,  B: 4+4=8\n 2    A (f=7)    B: 3+4=7 (better path via A), G: 13+0=13\n 3    B (f=7)    G: 8+0=8 (replaces G at 13)\n 4    G (f=8)    goal -> path S-A-B-G, cost 8\nGreedy (f=h): S -> B (h=4) -> G  => path S-B-G, cost 9 (not optimal)"
+          },
+          {
+            "type": "heading",
+            "text": "Local Search: Hill Climbing"
+          },
+          {
+            "type": "paragraph",
+            "text": "Local search keeps only a current state and moves to neighbouring states; the path does not matter, only the final configuration, as in 8-queens or VLSI layout. It uses constant memory and can work in very large or continuous spaces. Hill climbing (steepest ascent) repeatedly moves to the best neighbour and stops when no neighbour is better; it is greedy and neither complete nor optimal."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Problem",
+                "What happens",
+                "Remedy"
+              ],
+              [
+                "Local maximum",
+                "A peak higher than its neighbours but lower than the global maximum; the search halts there",
+                "Random-restart hill climbing, simulated annealing"
+              ],
+              [
+                "Plateau (flat local maximum or shoulder)",
+                "All neighbours have equal value, so there is no direction to move",
+                "Allow a limited number of sideways moves, big random jumps"
+              ],
+              [
+                "Ridge",
+                "A sequence of local maxima whose slope rises in a direction no single operator follows",
+                "Apply several operators at once, move in more than one dimension"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Hill-climbing variants:",
+            "items": [
+              "Simple (first-choice) hill climbing: take the first neighbour that improves on the current state; good when there are many successors.",
+              "Steepest-ascent hill climbing: examine all neighbours and take the best.",
+              "Stochastic hill climbing: choose randomly among uphill moves, with probability depending on steepness.",
+              "Random-restart hill climbing: repeat from random initial states; complete with probability approaching 1. Local beam search keeps k states, and genetic algorithms combine pairs of states."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Simulated Annealing"
+          },
+          {
+            "type": "paragraph",
+            "text": "Simulated annealing, inspired by slowly cooling metal, picks a random neighbour. If it is better, the move is always made; if it is worse by an amount |ΔE|, the move is made with probability e^(ΔE/T), where ΔE = value(next) − value(current) is negative, so worse moves and lower temperatures make acceptance less likely. The temperature T starts high, allowing the search to escape local maxima, and is lowered by a cooling schedule such as T(k+1) = αT(k) with α around 0.8 to 0.99. If T decreases slowly enough, the algorithm finds a global optimum with probability approaching 1. For example, a move 2 worse at T = 5 is accepted with probability e^(−0.4) ≈ 0.67, but at T = 1 only e^(−2) ≈ 0.14."
+          },
+          {
+            "type": "formula",
+            "latex": "P(\\text{accept worse move}) = e^{\\Delta E / T} = e^{-|\\Delta E| / T},\\quad T_{k+1} = \\alpha T_{k}",
+            "plainText": "P(accept) = e^(dE/T) = e^(-|dE|/T); cooling T(k+1) = alpha T(k)"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "f(n) = g(n) + h(n)",
+            "plainText": "A*: f(n) = g(n) + h(n); greedy: f(n) = h(n)"
+          },
+          {
+            "type": "formula",
+            "latex": "h(n) \\le h^{*}(n),\\qquad h(n) \\le c(n,a,n') + h(n')",
+            "plainText": "admissible h(n) <= h*(n); consistent h(n) <= c(n,a,n') + h(n')"
+          },
+          {
+            "type": "formula",
+            "latex": "P = e^{\\Delta E / T},\\ \\Delta E < 0",
+            "plainText": "simulated annealing acceptance P = e^(dE/T) for a worse move (dE < 0)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Admissible means never overestimates; consistent means obeys the triangle inequality. Consistency implies admissibility, not the other way round, and it is the condition needed for A* graph search to stay optimal without reopening nodes."
+          },
+          {
+            "type": "warning",
+            "text": "Watch the sign in the annealing formula. For maximisation with ΔE = new − current < 0 it is e^(ΔE/T); for cost minimisation with ΔE = new cost − old cost > 0 it is written e^(−ΔE/T). Both give a probability between 0 and 1."
+          },
+          {
+            "type": "note",
+            "text": "In A* trace questions, apply the goal test when the goal is removed from the frontier, not when it is first generated; otherwise a suboptimal path (G at f = 13 in the worked trace) may be returned."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i23_01",
+          "title": "A* evaluation function",
+          "latex": "f(n) = g(n) + h(n)",
+          "plainText": "f(n) = g(n) + h(n)",
+          "description": "A* ranks nodes by path cost so far plus estimated cost to the goal; greedy best-first uses h(n) alone."
+        },
+        {
+          "id": "f_ch9_i23_02",
+          "title": "Admissibility",
+          "latex": "h(n) \\le h^{*}(n)",
+          "plainText": "h(n) <= h*(n)",
+          "description": "An admissible heuristic never overestimates the true cheapest cost to reach a goal."
+        },
+        {
+          "id": "f_ch9_i23_03",
+          "title": "Consistency (monotonicity)",
+          "latex": "h(n) \\le c(n,a,n') + h(n')",
+          "plainText": "h(n) <= c(n, a, n') + h(n')",
+          "description": "A consistent heuristic satisfies the triangle inequality, so f never decreases along a path."
+        },
+        {
+          "id": "f_ch9_i23_04",
+          "title": "Simulated annealing acceptance",
+          "latex": "P = e^{\\Delta E / T} = e^{-|\\Delta E| / T}",
+          "plainText": "P = e^(dE/T) = e^(-|dE|/T)",
+          "description": "Probability of accepting a worse move; it falls as the move gets worse or the temperature drops."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i23_01",
+          "front": "Why is greedy best-first search not optimal?",
+          "back": "It expands by h(n) only and ignores the path cost g(n) already incurred, so it can commit to a path that looks close but is expensive.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i23_02",
+          "front": "For the 8-puzzle, which heuristic dominates: misplaced tiles or Manhattan distance?",
+          "back": "Manhattan distance h2 dominates misplaced tiles h1 because h2 >= h1 for every state, and both are admissible, so A* with h2 expands fewer nodes.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i23_03",
+          "front": "Name the three landscape features that trap hill climbing.",
+          "back": "Local maxima, plateaux (flat regions or shoulders) and ridges.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i23_04",
+          "front": "What does the temperature T control in simulated annealing?",
+          "back": "The probability of accepting worse moves: high T accepts them often to escape local maxima, and as T is lowered the search behaves like hill climbing.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i23_n01",
+          "questionText": "Edges: S-A (1), S-B (4), A-B (2), A-G (12), B-G (5). Heuristic values: h(S) = 7, h(A) = 6, h(B) = 4, h(G) = 0. What is the cost of the path A* graph search returns from S to G?",
+          "options": [
+            "7",
+            "8",
+            "9",
+            "13"
+          ],
+          "correctIndex": 1,
+          "explanation": "A* expands S (f=7), A (f=7), then B via A with g=3 (f=7), which puts G on the frontier at g=8; G is then selected at f=8, giving S-A-B-G with cost 1 + 2 + 5 = 8. Greedy search would return S-B-G with cost 9.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i23_n02",
+          "questionText": "In simulated annealing (maximisation), a randomly chosen neighbour is worse than the current state by 2 units (ΔE = −2) and the temperature is T = 5. The probability of accepting this move is approximately:",
+          "options": [
+            "0.14",
+            "0.40",
+            "0.67",
+            "0.82"
+          ],
+          "correctIndex": 2,
+          "explanation": "P = e^(ΔE/T) = e^(−2/5) = e^(−0.4) ≈ 0.670; at T = 1 the same move would be accepted with probability e^(−2) ≈ 0.14.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i23_n03",
+          "questionText": "Steepest-ascent hill climbing stops at a state where every neighbour has a lower value, although a higher peak exists elsewhere in the landscape. This state is a:",
+          "options": [
+            "Ridge",
+            "Plateau",
+            "Global maximum",
+            "Local maximum"
+          ],
+          "correctIndex": 3,
+          "explanation": "A local maximum is higher than all its neighbours but lower than the global maximum; a plateau has equal-valued neighbours and a ridge is a sloping chain of local maxima hard to climb with single moves.",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch9_i24",
+      "title": "Game Playing: Adversarial Search, Minimax & Alpha-Beta Pruning",
+      "subtitle": "Game formulation, minimax, alpha-beta pruning with a worked tree, and evaluation cutoffs",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Games as Adversarial Search"
+          },
+          {
+            "type": "paragraph",
+            "text": "Adversarial search deals with multi-agent environments in which agents' goals conflict. The classic setting is a two-player, turn-taking, deterministic, zero-sum game of perfect information such as chess, checkers, tic-tac-toe or Go: both players see the full state, and one player's gain is exactly the other's loss. The players are called MAX (moves first, wants a high utility) and MIN (wants a low utility). Unlike ordinary search, the agent cannot plan a fixed action sequence, because it must respond to whatever the opponent does; the answer is a strategy (contingent plan)."
+          },
+          {
+            "type": "bulletList",
+            "text": "A game is formally defined by:",
+            "items": [
+              "S0: the initial state (board set-up).",
+              "PLAYER(s): whose turn it is in state s; ACTIONS(s): the legal moves.",
+              "RESULT(s, a): the transition model giving the state after a move.",
+              "TERMINAL-TEST(s): true when the game is over; such states are terminal states.",
+              "UTILITY(s, p): the payoff of terminal state s for player p, e.g. +1, 0, −1 for win, draw, loss (chess), or 0 to 192 in backgammon."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "The Minimax Algorithm"
+          },
+          {
+            "type": "paragraph",
+            "text": "Minimax assumes both players play optimally. The minimax value of a node is the utility (for MAX) of being in that state: at a terminal it is the utility, at a MAX node it is the maximum of its children's values, and at a MIN node the minimum. Values are backed up from the leaves to the root by a complete depth-first traversal, and MAX chooses the move leading to the child with the highest value. Minimax is complete for finite trees and optimal against an optimal opponent; its time is O(b^m) and space O(bm). For chess, b ≈ 35 and m ≈ 100, so exact minimax is infeasible."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{MAX: } v(s) = \\max_a v(R(s,a)),\\quad \\text{MIN: } v(s) = \\min_a v(R(s,a))",
+            "plainText": "MINIMAX(s) = UTILITY(s) if terminal; max over actions if MAX to move; min over actions if MIN to move"
+          },
+          {
+            "type": "heading",
+            "text": "Alpha-Beta Pruning"
+          },
+          {
+            "type": "paragraph",
+            "text": "Alpha-beta pruning computes exactly the same minimax decision while skipping branches that cannot influence it. Alpha is the best (highest) value found so far for MAX along the path to the root, and beta is the best (lowest) value found so far for MIN. At a MIN node, once its value falls to alpha or below, MAX will never let play reach it, so the remaining children are pruned (alpha cut-off); at a MAX node, once its value reaches beta or above, the remaining children are pruned (beta cut-off). Alpha starts at minus infinity and beta at plus infinity."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "function MAX-VALUE(s, alpha, beta):\n  if TERMINAL(s): return UTILITY(s)\n  v <- -infinity\n  for a in ACTIONS(s):\n    v <- max(v, MIN-VALUE(RESULT(s,a), alpha, beta))\n    if v >= beta: return v          # prune remaining children\n    alpha <- max(alpha, v)\n  return v\n# MIN-VALUE is symmetric: v <- +infinity, take min,\n# prune if v <= alpha, update beta <- min(beta, v)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example (root MAX, three MIN children, leaves read left to right). B has leaves 3, 12, 8, so B = 3 and alpha at the root becomes 3. At C the first leaf is 2; since C can now be at most 2, which is below alpha = 3, the leaves 4 and 6 are pruned. At D the leaves 14, 5 and 2 must all be examined because each keeps D above 3 until the last one: D = 2. The root value is max(3, <=2, 2) = 3, and 2 of the 9 leaves were never evaluated."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "              MAX root = 3\n       /           |            \\\n   MIN B=3     MIN C<=2       MIN D=2\n   3 12 8      2  [4] [6]     14  5  2\n\nB: alpha = 3 after leaves 3, 12, 8\nC: leaf 2 <= alpha 3  -> prune 4 and 6\nD: 14 -> 5 -> 2 (all needed); root = max(3, 2, 2) = 3"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Move ordering",
+                "Nodes examined",
+                "Effective branching factor",
+                "Search depth for same time"
+              ],
+              [
+                "Minimax (no pruning)",
+                "O(b^m)",
+                "b",
+                "d"
+              ],
+              [
+                "Alpha-beta, random ordering",
+                "About O(b^(3m/4))",
+                "About b^(3/4)",
+                "About 4d/3"
+              ],
+              [
+                "Alpha-beta, perfect ordering",
+                "O(b^(m/2))",
+                "sqrt(b)",
+                "About 2d"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "T_{\\alpha\\beta}^{\\text{best}} = O\\!\\left(b^{m/2}\\right) = O\\!\\left((\\sqrt{b})^{m}\\right)",
+            "plainText": "alpha-beta best case O(b^(m/2)) = O(sqrt(b)^m)"
+          },
+          {
+            "type": "bulletList",
+            "text": "Improving move ordering in practice:",
+            "items": [
+              "Try captures first, then threats, then forward moves, then backward moves.",
+              "Killer-move heuristic: try first the moves that caused cut-offs elsewhere at the same depth.",
+              "Iterative deepening supplies the best move from the previous, shallower search as the first move to try.",
+              "Transposition tables cache values of positions reached by different move orders."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Cutoffs and Evaluation Functions"
+          },
+          {
+            "type": "paragraph",
+            "text": "Real games cannot be searched to the terminal states, so the search is stopped by a CUTOFF-TEST (usually a depth limit) and non-terminal leaves are scored by a heuristic evaluation function EVAL(s) estimating the expected utility. Evaluation functions are commonly weighted linear sums of features, such as material values in chess (pawn 1, knight and bishop 3, rook 5, queen 9). Fixed-depth cutoffs suffer from the horizon effect, where an unavoidable loss is pushed just beyond the search depth; quiescence search extends the search in volatile positions (pending captures) until a quiet position is reached, and singular extensions deepen forcing moves."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "T_{\\text{minimax}} = O(b^{m}),\\quad S_{\\text{minimax}} = O(bm)",
+            "plainText": "minimax time O(b^m), space O(bm)"
+          },
+          {
+            "type": "formula",
+            "latex": "T_{\\alpha\\beta}^{\\text{best}} = O(b^{m/2})",
+            "plainText": "alpha-beta with perfect ordering O(b^(m/2))"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{EVAL}(s) = \\sum_{i=1}^{n} w_{i} f_{i}(s)",
+            "plainText": "EVAL(s) = sum of w_i f_i(s)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Alpha-beta never changes the minimax value or the chosen move; it only reduces the number of nodes examined. With perfect move ordering it searches about twice as deep in the same time."
+          },
+          {
+            "type": "note",
+            "text": "Alpha is updated only at MAX nodes and beta only at MIN nodes. Prune at a MIN node when its value <= alpha, and at a MAX node when its value >= beta."
+          },
+          {
+            "type": "warning",
+            "text": "The pruning pattern depends on the order in which children are visited. When tracing an alpha-beta question, always go strictly left to right unless the question says otherwise."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch9_i24_01",
+          "title": "Minimax complexity",
+          "latex": "T = O(b^{m}),\\quad S = O(bm)",
+          "plainText": "time O(b^m), space O(bm)",
+          "description": "Minimax explores the whole game tree depth-first, so time is exponential in depth while memory is linear."
+        },
+        {
+          "id": "f_ch9_i24_02",
+          "title": "Alpha-beta best case",
+          "latex": "O(b^{m/2}) = O((\\sqrt{b})^{m})",
+          "plainText": "O(b^(m/2))",
+          "description": "With perfect move ordering alpha-beta has an effective branching factor of sqrt(b), doubling the reachable depth."
+        },
+        {
+          "id": "f_ch9_i24_03",
+          "title": "Linear evaluation function",
+          "latex": "\\text{EVAL}(s) = \\sum_{i=1}^{n} w_{i} f_{i}(s)",
+          "plainText": "EVAL(s) = sum of w_i f_i(s)",
+          "description": "A heuristic score for a non-terminal position at the cutoff depth, built from weighted features such as material."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch9_i24_01",
+          "front": "What do alpha and beta represent in alpha-beta pruning?",
+          "back": "Alpha is the best value found so far for MAX along the current path; beta is the best (lowest) value found so far for MIN.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i24_02",
+          "front": "What is the horizon effect?",
+          "back": "A depth-limited search wrongly judges a position because an unavoidable bad event is pushed just beyond the search depth; quiescence search reduces it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch9_i24_03",
+          "front": "Which components define a game for adversarial search?",
+          "back": "Initial state, PLAYER, ACTIONS, RESULT, TERMINAL-TEST and UTILITY.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch9_i24_04",
+          "front": "What is the effective branching factor of alpha-beta with perfect move ordering?",
+          "back": "About sqrt(b), giving O(b^(m/2)) time instead of O(b^m).",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch9_i24_n01",
+          "questionText": "A MAX root has three MIN children B, C and D, searched left to right with alpha-beta pruning. The leaves are B: (5, 6, 7), C: (3, 9, 8) and D: (6, 4, 10). How many leaves are pruned (never evaluated)?",
+          "options": [
+            "2",
+            "3",
+            "4",
+            "0"
+          ],
+          "correctIndex": 1,
+          "explanation": "B = 5 sets alpha = 5. At C the first leaf 3 <= 5, so 9 and 8 are pruned. At D, 6 gives beta = 6, then 4 <= alpha 5, so 10 is pruned. Three leaves are pruned and the root value is 5.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch9_i24_n02",
+          "questionText": "With perfect move ordering, alpha-beta pruning examines O(b^(m/2)) nodes. Compared with plain minimax in the same amount of time, this lets the program search to about:",
+          "options": [
+            "The same depth, but with fewer errors",
+            "One extra ply",
+            "Half the depth",
+            "Twice the depth"
+          ],
+          "correctIndex": 3,
+          "explanation": "The effective branching factor drops from b to sqrt(b), and (sqrt b)^(2d) = b^d, so roughly twice the depth can be searched for the same cost.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch9_i24_n03",
+          "questionText": "A chess program with a fixed-depth cutoff keeps making delaying moves that only push an unavoidable queen loss just beyond its search depth. This problem is called the:",
+          "options": [
+            "Horizon effect",
+            "Local maximum problem",
+            "Zero-sum property",
+            "Transposition problem"
+          ],
+          "correctIndex": 0,
+          "explanation": "The horizon effect arises when a depth cutoff hides an inevitable loss beyond the search horizon; quiescence search and singular extensions are used to counter it.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

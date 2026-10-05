@@ -1,0 +1,691 @@
+{
+  "topicId": "ch3_i14",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Recursion, Call Counts and Function Pointers"
+    },
+    {
+      "type": "paragraph",
+      "text": "A function call is a fixed sequence: the caller evaluates the arguments, the values are copied into the parameters of a new stack frame together with the return address, and control jumps to the function. When return runs, its value is handed back and the frame is discarded. In recursion every active call has its own frame, so the name n refers to a different variable in each call. Two numbers describe a recursion and must not be confused: the depth is the largest number of frames alive at one moment (it decides stack use), while the total number of calls is how many frames are ever created (it decides running time)."
+    },
+    {
+      "type": "paragraph",
+      "text": "The Tower of Hanoi shows how a recurrence gives a closed form. To move n disks from A to C, move the top n - 1 disks to the spare peg B, move the largest disk to C, then move the n - 1 disks from B onto it. The move count therefore obeys T(n) = 2T(n - 1) + 1 with T(1) = 1, giving 1, 3, 7, 15, 31, ... Adding 1 to both sides gives T(n) + 1 = 2(T(n - 1) + 1), so T(n) + 1 doubles at every step and equals 2^n. The smallest disk moves on every other move, 2^(n - 1) times in all."
+    },
+    {
+      "type": "formula",
+      "latex": "T(n) = 2T(n-1) + 1,\\quad T(1) = 1 \\;\\Rightarrow\\; T(n) = 2^{n} - 1",
+      "plainText": "T(n) = 2T(n - 1) + 1 with T(1) = 1, so T(n) = 2^n - 1 (3 disks: 7 moves, 5 disks: 31, 10 disks: 1023)"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nvoid hanoi(int n, char from, char to, char via) {\n    if (n == 0) return;\n    hanoi(n - 1, from, via, to);\n    printf(\"%d:%c%c \", n, from, to);\n    hanoi(n - 1, via, to, from);\n}\nint main(void) {\n    hanoi(3, 'A', 'C', 'B');\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 1:AC 2:AB 1:CB 3:AC 1:BA 2:BC 1:AC\n\nhanoi(3,A,C,B)\n  hanoi(2,A,B,C)  prints 1:AC 2:AB 1:CB   (3 moves)\n  move disk 3     prints 3:AC            (1 move)\n  hanoi(2,B,C,A)  prints 1:BA 2:BC 1:AC   (3 moves)\nTotal = 3 + 1 + 3 = 7 = 2^3 - 1 moves; disk 1 moves 4 = 2^2 times\nCalls, counting the n == 0 calls: 2^4 - 1 = 15; maximum depth 4"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint sd(int n) {\n    if (n == 0) return 0;\n    int r = n % 10 + sd(n / 10);\n    printf(\"sd(%d)=%d \", n, r);\n    return r;\n}\nint main(void) {\n    sd(472);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: sd(4)=4 sd(47)=11 sd(472)=13\n\nWinding (calls go down, nothing printed yet):\n  sd(472) -> sd(47) -> sd(4) -> sd(0) returns 0\nUnwinding (each frame finishes its own line):\n  sd(4)   r = 4 + 0   = 4    printed first\n  sd(47)  r = 7 + 4   = 11\n  sd(472) r = 2 + 11  = 13   printed last\nStatements after the recursive call run in reverse order of the calls."
+    },
+    {
+      "type": "formula",
+      "latex": "C(n) = C(n-1) + C(n-2) + 1,\\ C(0) = C(1) = 1 \\;\\Rightarrow\\; C(n) = 2F(n+1) - 1",
+      "plainText": "Calls made by naive fib(n): C(n) = C(n - 1) + C(n - 2) + 1, C(0) = C(1) = 1, so C(n) = 2F(n + 1) - 1 (fib(5): 2 * 8 - 1 = 15)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Recursive function",
+          "Total calls for argument n",
+          "Maximum depth"
+        ],
+        [
+          "fact(n), base n <= 1",
+          "n (for n >= 1)",
+          "n (for n >= 1)"
+        ],
+        [
+          "power(x, n) = x * power(x, n - 1), base n == 0",
+          "n + 1",
+          "n + 1"
+        ],
+        [
+          "Fast power, n halved each call, base n == 0",
+          "floor(log2 n) + 2 for n >= 1 (n = 10: 5)",
+          "Same as the calls"
+        ],
+        [
+          "fib(n) with two calls, base n < 2",
+          "2F(n + 1) - 1 (n = 5: 15)",
+          "n (for n >= 1)"
+        ],
+        [
+          "hanoi(n), base n == 0",
+          "2^(n + 1) - 1, of which 2^n - 1 do a move",
+          "n + 1"
+        ],
+        [
+          "gcd(a, b) by Euclid",
+          "Grows only with the number of digits (logarithmic)",
+          "Same as the calls"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Function pointers, lifetimes and common mistakes:",
+      "items": [
+        "int (*fp)(int, int) = add; declares fp as a pointer to a function taking two ints and returning int; without the parentheses, int *fp(int, int); declares a function that returns int *.",
+        "A function name decays to its address, so fp = add and fp = &add are equivalent, and fp(2, 3) and (*fp)(2, 3) both call add.",
+        "An array of function pointers such as int (*op[3])(int, int) = {add, sub, mul}; replaces a switch with a table lookup: op[choice](a, b).",
+        "Passing a function pointer as a parameter creates a callback: qsort calls the programmer's int cmp(const void *, const void *) for every comparison.",
+        "Never return the address of an automatic local: its frame is gone after the return. Return the value, or the address of a static or malloc'ed object.",
+        "In C a static local must be initialised with a constant expression (static int n = 0; is fine, static int n = f(); is not), and the initialisation happens only once.",
+        "Changing a parameter never changes the caller's argument, and in recursion n-- inside one call does not alter n in the caller's frame; f(n--) even passes the old value and recurses forever."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "To trace a recursive function, write one line per call with its argument, then unwind from the deepest call upward. Statements before the recursive call run in call order (on the way down); statements after it run in reverse order (on the way back). Count calls with a recurrence such as C(n) = 2C(n - 1) + 1 rather than by listing every call."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i14_m001",
+      "questionText": "Which of the following is a valid C prototype for a function avg that takes two int arguments and returns a double?",
+      "options": [
+        "double avg(int a, b);",
+        "double avg(int, int);",
+        "int avg(double, double);",
+        "avg(int, int) double;"
+      ],
+      "correctIndex": 1,
+      "explanation": "A prototype is return type, name and a parenthesised list of parameter types, ended by a semicolon; names are optional. 'int a, b' leaves b without a type, the third declares the wrong types, and the return type must come first.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m002",
+      "questionText": "In a C function prototype, the names of the parameters are:",
+      "options": [
+        "Optional; only the types are required, and any names given need not match the definition",
+        "Mandatory, and they must match the names used in the definition",
+        "Mandatory, but they may differ from the names used in the definition",
+        "Not allowed; a prototype may list only the types"
+      ],
+      "correctIndex": 0,
+      "explanation": "The compiler checks calls against the number and types of parameters, so int add(int, int); and int add(int x, int y); are equivalent prototypes. Names in a prototype are only documentation and may differ from the definition.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m003",
+      "questionText": "In the call area(len, 5), what are len and 5 called?",
+      "options": [
+        "Formal parameters",
+        "Local variables of area",
+        "Actual arguments",
+        "Function prototypes"
+      ],
+      "correctIndex": 2,
+      "explanation": "The values written in a call are the actual arguments; the names in the function header that receive copies of them are the formal parameters.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m004",
+      "questionText": "In C11, how does the declaration int f(); differ from int f(void); ?",
+      "options": [
+        "They are identical: both declare a function that takes no arguments",
+        "int f(); declares a function taking one int argument by default",
+        "int f(void); is a syntax error in C; void is allowed only as a return type",
+        "int f(); says nothing about the parameters, so calls are not checked, while int f(void); declares that f takes no arguments"
+      ],
+      "correctIndex": 3,
+      "explanation": "In C (up to C17) an empty list is an old-style declaration with unspecified parameters, so f(1, 2) still compiles; with (void) the compiler rejects any argument. Only C++ (and C23) treat f() as taking no parameters.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m005",
+      "questionText": "Which statement inside main() causes a compile error?\n\n#include <stdio.h>\nint sq(int n);\nvoid hello(void);\nint main(void) {\n    int a = sq(3.5);\n    int b = sq(2, 3);\n    hello();\n    sq(4);\n    return 0;\n}\nint sq(int n) { return n * n; }\nvoid hello(void) { printf(\"hi\"); }",
+      "options": [
+        "int a = sq(3.5);",
+        "int b = sq(2, 3);",
+        "hello();",
+        "sq(4);"
+      ],
+      "correctIndex": 1,
+      "explanation": "The prototype says sq takes exactly one int, so a call with two arguments violates the prototype and is rejected. 3.5 is simply converted to int, and ignoring a return value (sq(4);) is legal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m006",
+      "questionText": "A C function must change the value of the caller's int variable x. How should it be called and declared?",
+      "options": [
+        "Call f(x) and declare the parameter as int p",
+        "Call f(*x) and declare the parameter as int *p",
+        "Call f(&x), declare the parameter as int *p and assign through *p",
+        "Call f(x) and declare the parameter as int &p"
+      ],
+      "correctIndex": 2,
+      "explanation": "C only passes copies, so the function needs the address of x: f(&x) with an int * parameter, and *p = value writes into x itself. int &p is a C++ reference and is not valid C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m007",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint f(int *p, int q) {\n    *p += q;\n    q += *p;\n    return q;\n}\nint main(void) {\n    int a = 2, b = 3;\n    int c = f(&a, b);\n    printf(\"%d %d %d\", a, b, c);\n    return 0;\n}",
+      "options": [
+        "5 8 8",
+        "2 3 8",
+        "5 3 5",
+        "5 3 8"
+      ],
+      "correctIndex": 3,
+      "explanation": "Through p the function changes a: *p = 2 + 3 = 5. q is a copy of b, so q = 3 + 5 = 8 is returned into c while b stays 3, giving 5 3 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m008",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid f(int n) {\n    if (n == 0)\n        return;\n    printf(\"%d\", n);\n    f(n - 1);\n    printf(\"%d\", n);\n}\nint main(void) {\n    f(3);\n    return 0;\n}",
+      "options": [
+        "321123",
+        "321321",
+        "123321",
+        "321"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each call prints n once on the way down, before its recursive call, and once on the way back, after that call returns. f(3), f(2) and f(1) print 3, 2, 1; f(0) returns at once; then the pending second printf calls run innermost first, printing 1, 2, 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m009",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid g(int *p, int n) {\n    while (n-- > 0)\n        *p += n;\n}\nint main(void) {\n    int s = 0, k = 4;\n    g(&s, k);\n    printf(\"%d %d\", s, k);\n    return 0;\n}",
+      "options": [
+        "10 4",
+        "6 4",
+        "6 0",
+        "10 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "n-- tests the old value and then decrements, so the body sees n = 3, 2, 1, 0 and s = 3 + 2 + 1 + 0 = 6. n is a copy of k, so k is still 4 in main.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m010",
+      "questionText": "How many values can a C function send back to its caller with one return statement?",
+      "options": [
+        "As many as are listed, separated by commas",
+        "At most two",
+        "None; results must be passed through global variables",
+        "Exactly one value, although that value may be a whole struct"
+      ],
+      "correctIndex": 3,
+      "explanation": "return expr; delivers a single value converted to the return type. To hand back several results, return a struct or write through pointer parameters; return a, b; uses the comma operator and returns only b.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m011",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint f(int a, int b) {\n    return a, b;\n}\nint main(void) {\n    printf(\"%d\", f(3, 7));\n    return 0;\n}",
+      "options": [
+        "7",
+        "3",
+        "10",
+        "Compile error: a function cannot return two values"
+      ],
+      "correctIndex": 0,
+      "explanation": "a, b is a single expression using the comma operator: a is evaluated and discarded, and the value of the whole expression is b. So f(3, 7) returns 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m012",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint check(int n) {\n    if (n % 2 == 0)\n        return n / 2;\n    return 3 * n + 1;\n    printf(\"never \");\n}\nint main(void) {\n    printf(\"%d %d\", check(6), check(7));\n    return 0;\n}",
+      "options": [
+        "never never 3 22",
+        "3 3",
+        "3 22",
+        "3 21"
+      ],
+      "correctIndex": 2,
+      "explanation": "return ends the function immediately, so the printf after it is never reached. check(6) = 6 / 2 = 3 and check(7) = 3 * 7 + 1 = 22.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m013",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\ndouble avg(int a, int b) {\n    return (a + b) / 2;\n}\nint main(void) {\n    printf(\"%.1f\", avg(3, 4));\n    return 0;\n}",
+      "options": [
+        "3.5",
+        "4.0",
+        "3",
+        "3.0"
+      ],
+      "correctIndex": 3,
+      "explanation": "(a + b) / 2 is int / int, so 7 / 2 = 3 before the conversion to the double return type; printing 3.0 with %.1f gives 3.0. Writing (a + b) / 2.0 would give 3.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m014",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid f(void) {\n    static int s = 1;\n    int a = 1;\n    s *= 2;\n    a *= 2;\n    printf(\"%d%d \", s, a);\n}\nint main(void) {\n    f(); f(); f();\n    return 0;\n}",
+      "options": [
+        "22 42 82",
+        "22 22 22",
+        "22 44 88",
+        "21 41 81"
+      ],
+      "correctIndex": 0,
+      "explanation": "The static s is initialised once and keeps doubling across calls (2, 4, 8), while the auto a is recreated as 1 on every call and printed as 2 each time: 22 42 82.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m015",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint x = 1;\nvoid show(void) { printf(\"%d \", x); }\nint main(void) {\n    int x = 2;\n    {\n        int x = 3;\n        printf(\"%d \", x);\n    }\n    printf(\"%d \", x);\n    show();\n    return 0;\n}",
+      "options": [
+        "3 3 3",
+        "3 2 2",
+        "3 2 1",
+        "1 2 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inside the inner block the innermost x (3) hides the others; after the block main's own x (2) is visible again. show() cannot see main's locals, so it prints the global x (1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m016",
+      "questionText": "A static local variable declared without an initialiser, such as static int count; inside a function, starts with the value:",
+      "options": [
+        "0",
+        "An unpredictable (garbage) value",
+        "1",
+        "-1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Objects with static storage duration (globals and static locals) are zero-initialised before the program starts; only automatic locals start with indeterminate values.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m017",
+      "questionText": "How does a static local variable differ from a global variable?",
+      "options": [
+        "The static local is destroyed when its function returns",
+        "The static local lives on the stack, the global in the data segment",
+        "The static local starts with a garbage value, the global with 0",
+        "The static local is visible only inside its function, although both keep their values for the whole run"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both have static storage duration: one copy, zero-initialised, alive for the whole program. The difference is scope: a static local can be named only inside its own block, a global from its declaration to the end of the file.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m018",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint f(int n) {\n    static int calls = 0;\n    calls++;\n    if (n <= 1)\n        return calls;\n    return f(n - 1);\n}\nint main(void) {\n    printf(\"%d \", f(3));\n    printf(\"%d\", f(2));\n    return 0;\n}",
+      "options": [
+        "3 2",
+        "3 3",
+        "1 1",
+        "3 5"
+      ],
+      "correctIndex": 3,
+      "explanation": "calls is shared by every call and never reset. f(3) runs f(3), f(2), f(1), so calls = 3 is returned; f(2) then runs f(2), f(1), taking calls to 4 and 5, and returns 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m019",
+      "questionText": "Where are the automatic (local) variables and parameters of a C function normally stored, and when do they cease to exist?",
+      "options": [
+        "On the stack, in the function's frame; they disappear when the function returns",
+        "In the data segment; they disappear when the program ends",
+        "On the heap; they disappear when free() is called",
+        "In the code segment next to the function; they never disappear"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each call pushes a stack frame holding its parameters and auto locals, and the frame is popped on return. That is why their values are not kept between calls and why their addresses must not be used after the return.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m020",
+      "questionText": "Which storage class, applied to a variable declared outside all functions, gives it internal linkage so that other source files cannot access it?",
+      "options": [
+        "extern",
+        "static",
+        "auto",
+        "register"
+      ],
+      "correctIndex": 1,
+      "explanation": "static at file scope limits the name to its own translation unit (internal linkage). extern declares a name defined elsewhere, and auto and register apply only to block-scope variables.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m021",
+      "questionText": "C functions are classified as library functions and user-defined functions. Which of the following is a user-defined function?",
+      "options": [
+        "printf()",
+        "scanf()",
+        "sqrt()",
+        "main()"
+      ],
+      "correctIndex": 3,
+      "explanation": "The programmer writes the body of main() in every program (the system only calls it), so it is classed as a user-defined function. printf() and scanf() come ready-made from <stdio.h> and sqrt() from <math.h>, so they are library functions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m022",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint sd(int n) {\n    if (n == 0)\n        return 0;\n    return n % 10 + sd(n / 10);\n}\nint main(void) {\n    printf(\"%d\", sd(4096));\n    return 0;\n}",
+      "options": [
+        "10",
+        "6904",
+        "19",
+        "4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each call adds the last digit n % 10 and recurses on n / 10: 6 + 9 + 0 + 4 + sd(0) = 19.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m023",
+      "questionText": "Consider this recursive power function. How many calls of pw are made in total (including the first) to evaluate pw(2, 10), and what value is returned?\n\nlong pw(long x, int n) {\n    if (n == 0)\n        return 1;\n    long h = pw(x, n / 2);\n    if (n % 2 == 0)\n        return h * h;\n    return x * h * h;\n}",
+      "options": [
+        "11 calls, 1024",
+        "4 calls, 1024",
+        "5 calls, 1024",
+        "5 calls, 2048"
+      ],
+      "correctIndex": 2,
+      "explanation": "n is halved at each level: pw(2,10) -> pw(2,5) -> pw(2,2) -> pw(2,1) -> pw(2,0), which is 5 calls. Unwinding: 1, 2 * 1 * 1 = 2, 2 * 2 = 4, 2 * 4 * 4 = 32, 32 * 32 = 1024.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m024",
+      "questionText": "For the function below, how many calls of gcd are made in total (including the first) by gcd(36, 84), and what is returned?\n\nint gcd(int a, int b) {\n    if (b == 0)\n        return a;\n    return gcd(b, a % b);\n}",
+      "options": [
+        "3 calls, 12",
+        "4 calls, 12",
+        "4 calls, 6",
+        "5 calls, 12"
+      ],
+      "correctIndex": 1,
+      "explanation": "gcd(36, 84) -> gcd(84, 36 % 84 = 36) -> gcd(36, 84 % 36 = 12) -> gcd(12, 36 % 12 = 0), which returns 12. When a < b the first step just swaps the pair, so 4 calls are made.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m025",
+      "questionText": "What is the minimum number of moves needed to solve the Tower of Hanoi with 5 disks?",
+      "options": [
+        "31",
+        "32",
+        "25",
+        "63"
+      ],
+      "correctIndex": 0,
+      "explanation": "T(n) = 2T(n - 1) + 1 with T(1) = 1 gives T(n) = 2^n - 1, so T(5) = 32 - 1 = 31 moves.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m026",
+      "questionText": "In the standard recursive Tower of Hanoi solution for 6 disks, how many times is the smallest disk moved?",
+      "options": [
+        "6",
+        "63",
+        "32",
+        "31"
+      ],
+      "correctIndex": 2,
+      "explanation": "Disk k (1 = smallest) moves 2^(n - k) times, so the smallest disk moves 2^(6 - 1) = 32 times. It moves on every odd-numbered move (1, 3, 5, ..., 63) of the 2^6 - 1 = 63 moves.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m027",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint moves = 0, calls = 0;\nvoid hanoi(int n, char from, char to, char via) {\n    calls++;\n    if (n == 0)\n        return;\n    hanoi(n - 1, from, via, to);\n    moves++;\n    hanoi(n - 1, via, to, from);\n}\nint main(void) {\n    hanoi(4, 'A', 'C', 'B');\n    printf(\"%d %d\", moves, calls);\n    return 0;\n}",
+      "options": [
+        "15 15",
+        "16 31",
+        "15 31",
+        "15 16"
+      ],
+      "correctIndex": 2,
+      "explanation": "moves follows M(n) = 2M(n - 1) + 1, so M(4) = 2^4 - 1 = 15. Every call, including the 16 calls with n = 0, is counted: C(n) = 2C(n - 1) + 1 with C(0) = 1 gives 2^5 - 1 = 31.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m028",
+      "questionText": "With the function below, how many times is fib called in total (including the first call) when fib(5) is evaluated?\n\nint fib(int n) {\n    if (n < 2)\n        return n;\n    return fib(n - 1) + fib(n - 2);\n}",
+      "options": [
+        "8",
+        "5",
+        "16",
+        "15"
+      ],
+      "correctIndex": 3,
+      "explanation": "Calls satisfy C(n) = C(n - 1) + C(n - 2) + 1 with C(0) = C(1) = 1: C(2) = 3, C(3) = 5, C(4) = 9, C(5) = 15. Equivalently C(n) = 2F(n + 1) - 1 = 2 * 8 - 1 = 15.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m029",
+      "questionText": "The factorial function below is called as fact(0). What happens?\n\nint fact(int n) {\n    if (n == 1)\n        return 1;\n    return n * fact(n - 1);\n}",
+      "options": [
+        "It returns 1, because 0! = 1",
+        "It returns 0",
+        "The base case is never reached (n becomes -1, -2, ...), so the calls continue until the stack overflows",
+        "The compiler rejects the call because 0 is not a valid argument"
+      ],
+      "correctIndex": 2,
+      "explanation": "The only base case is n == 1, and starting from 0 the argument moves away from it. Every call adds a stack frame, so the program eventually crashes with a stack overflow; testing n <= 1 fixes it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m030",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid bin(int n) {\n    if (n > 1)\n        bin(n / 2);\n    printf(\"%d\", n % 2);\n}\nint main(void) {\n    bin(13);\n    return 0;\n}",
+      "options": [
+        "1101",
+        "1011",
+        "110",
+        "11010"
+      ],
+      "correctIndex": 0,
+      "explanation": "The recursive call comes before the printf, so remainders are printed while unwinding, most significant first: 13 -> 6 -> 3 -> 1, printing 1, 3 % 2 = 1, 6 % 2 = 0, 13 % 2 = 1, which is 1101 (binary 13).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m031",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid f(int n) {\n    if (n <= 0)\n        return;\n    f(n - 1);\n    printf(\"%d\", n);\n    f(n - 2);\n}\nint main(void) {\n    f(4);\n    return 0;\n}",
+      "options": [
+        "1234",
+        "1231412",
+        "4321",
+        "12314"
+      ],
+      "correctIndex": 1,
+      "explanation": "Let P(n) be what f(n) prints: P(n) = P(n - 1), then n, then P(n - 2). P(1) = 1, P(2) = 1 2, P(3) = 12 3 1 = 1231, and P(4) = 1231 4 12 = 1231412.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m032",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nvoid rev(const char *s) {\n    if (*s == '\\0')\n        return;\n    rev(s + 1);\n    putchar(*s);\n}\nint main(void) {\n    rev(\"EXAM\");\n    return 0;\n}",
+      "options": [
+        "EXAM",
+        "M",
+        "MAXE",
+        "EXAMMAXE"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each call first recurses on the rest of the string and prints its own character afterwards, so the characters come out while the calls unwind: last character first, giving MAXE.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m033",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint isEven(int n);\nint isOdd(int n) { return n == 0 ? 0 : isEven(n - 1); }\nint isEven(int n) { return n == 0 ? 1 : isOdd(n - 1); }\nint main(void) {\n    printf(\"%d %d\", isEven(7), isOdd(7));\n    return 0;\n}",
+      "options": [
+        "1 0",
+        "1 1",
+        "0 0",
+        "0 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "The two functions call each other, stepping n down by 1 and flipping between even and odd. isEven(7) reaches isOdd(0) = 0, and isOdd(7) reaches isEven(0) = 1, so the output is 0 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m034",
+      "questionText": "When function A calls function B and B in turn calls A, the recursion is called:",
+      "options": [
+        "Tail recursion",
+        "Indirect (mutual) recursion",
+        "Nested function definition",
+        "Direct recursion"
+      ],
+      "correctIndex": 1,
+      "explanation": "Direct recursion is a function calling itself; when the cycle passes through another function it is indirect or mutual recursion. A prototype is needed so that the first function can call the second before its definition.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m035",
+      "questionText": "What does f(6, 4) return, and what does the function compute for b >= 0?\n\nint f(int a, int b) {\n    if (b == 0)\n        return 0;\n    return a + f(a, b - 1);\n}",
+      "options": [
+        "10: the sum a + b",
+        "30: a times (b + 1)",
+        "1296: a raised to the power b",
+        "24: the product a * b by repeated addition"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each level adds one copy of a and reduces b by 1 until b = 0 returns 0, so f(6, 4) = 6 + 6 + 6 + 6 + 0 = 24, that is a * b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m036",
+      "questionText": "What happens when f(3) is called?\n\nint f(int n) {\n    if (n == 0)\n        return 0;\n    return f(n--);\n}",
+      "options": [
+        "Every call passes 3 again, so the recursion never ends and the stack overflows",
+        "It returns 0 after 4 calls",
+        "It returns 0 after 3 calls",
+        "Compile error: n-- cannot be used as an argument"
+      ],
+      "correctIndex": 0,
+      "explanation": "n-- yields the old value of n, so the next call receives 3 again and the local n is decremented only after the argument is taken. The base case is never reached; f(n - 1) is the correct call.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m037",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint count = 0;\nint f(int n) {\n    count++;\n    if (n <= 1)\n        return 1;\n    return f(n - 1) + f(n - 1);\n}\nint main(void) {\n    int r = f(4);\n    printf(\"%d %d\", r, count);\n    return 0;\n}",
+      "options": [
+        "8 8",
+        "8 15",
+        "16 31",
+        "4 7"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each level doubles the result, so f(4) = 2^3 = 8. Every call with n > 1 makes two calls, giving 1 + 2 + 4 + 8 = 15 calls in total.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m038",
+      "questionText": "Which statement about recursion and iteration is correct?",
+      "options": [
+        "Recursion always uses less memory than the equivalent loop",
+        "A recursive function runs faster than a loop because it needs no condition tests",
+        "Every recursive algorithm can be rewritten iteratively, if necessary with an explicit stack",
+        "Problems such as the Tower of Hanoi cannot be solved without recursion"
+      ],
+      "correctIndex": 2,
+      "explanation": "Recursion and iteration are equally powerful: a loop plus an explicit stack can imitate any recursion. Recursion usually costs more time (call overhead) and memory (one frame per active call).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m039",
+      "questionText": "When a function calls itself, what does each active call get?",
+      "options": [
+        "Its own stack frame holding its own copies of the parameters and automatic local variables",
+        "One shared set of local variables used by all the active calls",
+        "Its own copy of every global variable",
+        "Its own copy of the function's machine code"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every call pushes a new frame with fresh parameters, auto locals and a return address, so n in one call is a different variable from n in the call below it. Globals, statics and the code are shared.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m040",
+      "questionText": "A recursive call is called a tail call when:",
+      "options": [
+        "It is the first statement in the function",
+        "It is the last action of the function, so nothing is left to do after it returns",
+        "It is made from main",
+        "The function has no parameters"
+      ],
+      "correctIndex": 1,
+      "explanation": "In return gcd(b, a % b); the call's result is returned unchanged, so it is a tail call; in return n * fact(n - 1); a multiplication is still pending. Compilers can turn tail calls into jumps, removing the stack growth.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m041",
+      "questionText": "Which statement about where functions may be defined in standard C is correct?",
+      "options": [
+        "A function may be defined inside the body of another function, where it becomes local to that function",
+        "Every function must be defined outside all other functions; functions may call one another, but their definitions cannot be nested",
+        "Only main may contain the definitions of other functions",
+        "A function may be defined inside another function only if it is declared static"
+      ],
+      "correctIndex": 1,
+      "explanation": "Standard C allows function definitions only at file scope, so one definition can never be placed inside another, although any function may call any other function that has been declared. GCC accepts nested functions only as a non-standard extension, and Clang rejects them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i14_m042",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint m(int n) {\n    if (n > 100)\n        return n - 10;\n    return m(m(n + 11));\n}\nint main(void) {\n    printf(\"%d %d\", m(105), m(99));\n    return 0;\n}",
+      "options": [
+        "95 100",
+        "95 91",
+        "95 90",
+        "91 91"
+      ],
+      "correctIndex": 1,
+      "explanation": "m(105) = 105 - 10 = 95 at once. m(99) = m(m(110)) = m(100), and m(100) = m(m(111)) = m(101) = 91. Here the argument of the outer call is itself a recursive call (nested recursion); this is McCarthy's 91 function, which returns 91 for every n up to 101 but n - 10 above 100.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i14_m043",
+      "questionText": "What is the output of the following program?\n\n#include <stdio.h>\nint apply(int (*f)(int), int x) { return f(f(x)); }\nint twice(int n) { return 2 * n; }\nint inc(int n) { return n + 1; }\nint main(void) {\n    printf(\"%d %d\", apply(twice, 3), apply(inc, 3));\n    return 0;\n}",
+      "options": [
+        "6 4",
+        "12 4",
+        "12 5",
+        "9 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "apply calls the function it receives twice: twice(twice(3)) = twice(6) = 12 and inc(inc(3)) = inc(4) = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m044",
+      "questionText": "In the call qsort(arr, n, sizeof(int), cmp); from <stdlib.h>, what is cmp?",
+      "options": [
+        "The number of comparisons qsort may perform",
+        "A macro from stdlib.h that selects ascending order",
+        "An array of flags giving the sort order of each element",
+        "A pointer to a comparison function written by the programmer, which qsort calls back"
+      ],
+      "correctIndex": 3,
+      "explanation": "qsort receives the address of a function int cmp(const void *, const void *) and calls it whenever it must compare two elements. Passing a function pointer in this way is a callback.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i14_m045",
+      "questionText": "What is wrong with the following function?\n\nint *make(void) {\n    int x = 5;\n    return &x;\n}",
+      "options": [
+        "It returns the address of the local x, which no longer exists after make returns, so the caller gets a dangling pointer",
+        "Nothing: x keeps its value because its address was returned",
+        "A C function is not allowed to return a pointer",
+        "It compiles only if it is declared static int *make(void)"
+      ],
+      "correctIndex": 0,
+      "explanation": "x is an automatic variable in make's stack frame, which is released on return, so using the returned pointer is undefined behaviour. Return the value, or make x static or allocate it with malloc.",
+      "difficulty": "medium"
+    }
+  ]
+}

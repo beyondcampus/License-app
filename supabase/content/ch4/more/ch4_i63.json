@@ -1,0 +1,704 @@
+{
+  "topicId": "ch4_i63",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Pipelined Datapaths and IC Technology"
+    },
+    {
+      "type": "paragraph",
+      "text": "Data launched by one register at a clock edge must settle at the next register one setup time before the following edge, so every stage needs t_cq + t_logic + t_su ≤ T and the whole pipeline runs at the pace of its slowest stage; this is why stages should be balanced. If the capturing register's clock arrives δ later than the launching one (positive skew), the setup requirement relaxes by δ, but the hold check t_cq + t_logic,min ≥ t_hold + δ becomes harder. The clock period does not appear in the hold check, so a hold violation cannot be cured by slowing the clock. Latency is the number of register stages L times T, while the throughput is one result per clock once the pipeline is full."
+    },
+    {
+      "type": "formula",
+      "latex": "T_{clk} \\ge t_{cq} + \\max_i t_{logic,i} + t_{su} - \\delta, \\quad t_{lat} = L\\,T_{clk}",
+      "plainText": "T_clk ≥ t_cq + (largest stage logic delay) + t_su − skew; latency = L × T_clk"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: a 14 ns path split into 3 register stages\nBlocks 3.5, 6.0, 4.5 ns; t_cq = 0.5 ns, t_su = 0.5 ns, no skew\nUnpipelined: T = 0.5 + 14.0 + 0.5 = 15.0 ns -> f = 66.7 MHz\n3 stages:    T = 0.5 + max(3.5, 6.0, 4.5) + 0.5 = 7.0 ns -> 142.9 MHz\nLatency:     3 x 7.0 = 21.0 ns (was 15.0 ns: longer, not shorter)\nThroughput:  1 result per 7.0 ns = 142.9 M results/s (x 2.14)\nRebalanced (move 1 ns of logic from stage 2 to stage 1): 4.5, 5.0, 4.5 ns\n             T = 5.0 + 1.0 = 6.0 ns -> 166.7 MHz"
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "-- Worked example 2: y = a + b + c + d in two stages (ieee.numeric_std)\n-- ports: clk; a, b, c, d : in unsigned(7 downto 0);\n--        y : out unsigned(9 downto 0)\narchitecture rtl of sum4_pipe is\n  signal s1, s2 : unsigned(8 downto 0) := (others => '0');\nbegin\n  process (clk)\n  begin\n    if rising_edge(clk) then\n      s1 <= resize(a, 9) + resize(b, 9);       -- stage 1\n      s2 <= resize(c, 9) + resize(d, 9);       -- stage 1\n      y  <= resize(s1, 10) + resize(s2, 10);   -- stage 2\n    end if;\n  end process;\nend architecture;"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "GHDL --std=08 run of sum4_pipe, 10 ns clock, inputs change between edges\nInputs before edge 1: 1, 2, 3, 4   edge 2: 10, 20, 30, 40   edge 3: all 255\nafter edge 1: s1 = 3,   s2 = 7     y = 0     (pipeline still filling)\nafter edge 2: s1 = 30,  s2 = 70    y = 10    (= 1 + 2 + 3 + 4)\nafter edge 3: s1 = 510, s2 = 510   y = 100\nafter edge 4:                      y = 1020  (4 x 255 needs 10 bits)\nLatency = 2 clocks; a new set of four inputs is accepted every clock."
+    },
+    {
+      "type": "bulletList",
+      "text": "A typical FPGA or ASIC implementation flow, in order:",
+      "items": [
+        "RTL design in VHDL, checked by functional (behavioural) simulation against a testbench.",
+        "Synthesis: the RTL is translated and optimised into a gate-level netlist; technology mapping fits it onto library cells, or onto LUTs, flip-flops, DSP slices and block RAM in an FPGA.",
+        "Place and route: every cell gets a physical site and the nets are routed, so the real wire delays become known.",
+        "Static timing analysis: arrival and required times are computed on every path without test vectors; slack = required time − arrival time must be ≥ 0 for both setup and hold.",
+        "Optional timing simulation with back-annotated delays; then an FPGA bitstream is generated, or for an ASIC the final layout is sent for mask making (tape-out)."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "N_{BE} = \\frac{NRE_{ASIC} - NRE_{FPGA}}{u_{FPGA} - u_{ASIC}}",
+      "plainText": "N_BE = (NRE_ASIC − NRE_FPGA) / (unit cost_FPGA − unit cost_ASIC)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Worked example 3: an FPGA version needs $5,000 of one-time tools and boards and costs $18 per chip, while an ASIC needs $150,000 of design and verification plus a $250,000 mask set and then costs $3 per chip. N_BE = (400,000 − 5,000) / (18 − 3) = 26,333.3 units, so the FPGA is cheaper up to 26,333 units and the ASIC from 26,334 units upward; at 50,000 units the totals are $905,000 for the FPGA against $550,000 for the ASIC. One mask respin adds another $250,000 to the ASIC NRE and moves break-even to 43,000 units. The ASIC unit cost itself comes from wafer cost / (dies per wafer × yield) plus packaging and test."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Configuration technology",
+          "Volatile?",
+          "Reprogrammable?",
+          "Typical use"
+        ],
+        [
+          "SRAM cells",
+          "Yes, reloaded at every power-up",
+          "Yes, unlimited",
+          "Most high-capacity FPGAs"
+        ],
+        [
+          "Flash / EEPROM",
+          "No",
+          "Yes, limited erase cycles",
+          "CPLDs, GALs, flash-based FPGAs"
+        ],
+        [
+          "Antifuse",
+          "No",
+          "No, one-time programmable",
+          "Radiation-tolerant and secure FPGAs"
+        ],
+        [
+          "Bipolar fuse",
+          "No",
+          "No, one-time programmable",
+          "Early PROMs and PALs"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "LUT mapping and CMOS facts behind many calculations:",
+      "items": [
+        "A k-input LUT is a 2^k × 1 memory addressed by its inputs; bit n of its INIT value is the output for input value n, so it can realise any of the 2^(2^k) functions of k inputs with the same delay.",
+        "A LUT has one output, so a function with m output bits needs at least m LUTs even when it has few inputs.",
+        "Wide AND, OR or XOR trees: each k-LUT merges k signals into one, so n inputs need ⌈(n − 1)/(k − 1)⌉ LUTs; a 12-input AND needs ⌈11/3⌉ = 4 four-input LUTs in 2 levels.",
+        "A 2^s-to-1 multiplexer has 2^s + s inputs, so a 4-to-1 multiplexer (6 inputs) is the largest that fits in one 6-input LUT.",
+        "Static CMOS pairs a pMOS pull-up network with an nMOS pull-down network that are never both on in steady state, so only leakage flows when idle; an n-input NAND or NOR uses 2n transistors.",
+        "In a NAND the series transistors are nMOS and in a NOR they are pMOS; because pMOS has lower carrier mobility, NAND gates are faster for the same size and are preferred."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: using a variable in a clocked process where a register stage was intended (a variable that is assigned before it is read is only a wire, so the stage disappears); forgetting to delay an operand that bypasses a stage, which mixes data from different samples; quoting the unpipelined path delay instead of the slowest stage plus register overhead when asked for f_max; dividing throughput by the latency; and trying to fix a hold violation by lowering the clock frequency."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i63_m001",
+      "questionText": "A 4-stage pipelined VHDL design accepts one new input at every rising edge of clk. Its testbench generates the clock with clk <= not clk after 2 ns; (clk starts at '0'). Once the pipeline is full, how many results per second of simulated time does the design deliver?",
+      "options": [
+        "500 million",
+        "250 million",
+        "62.5 million",
+        "125 million"
+      ],
+      "correctIndex": 1,
+      "explanation": "The signal toggles every 2 ns, so the clock period is 4 ns (250 MHz), and a full pipeline delivers one result per clock: 250 million per second (GHDL counted 125 results in 500 ns). The 4 stages add latency but do not divide the rate; 500 million comes from taking 2 ns as the period.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m002",
+      "questionText": "a, b, a_r, b_r and y are unsigned(7 downto 0) signals initialised to 0 (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std). The pairs (a, b) = (1, 2), (3, 4), (5, 6) and (7, 8) are applied before rising edges 1, 2, 3 and 4 respectively. What is y just after the 3rd rising edge?\n\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    a_r <= a;\n    b_r <= b;\n    y   <= a_r + b_r;\n  end if;\nend process;",
+      "options": [
+        "3",
+        "11",
+        "15",
+        "7"
+      ],
+      "correctIndex": 3,
+      "explanation": "The inputs are registered first, so at each edge y takes the sum of the pair captured one edge earlier: 3 after edge 2, 3 + 4 = 7 after edge 3 and 11 after edge 4 (GHDL trace). The adder has a latency of 2 clocks from the input pins.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m003",
+      "questionText": "In this multiply-accumulate pipeline a and b are unsigned(7 downto 0), prod and acc are unsigned(15 downto 0), and all are initialised to 0 (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std). The pairs (a, b) = (2, 3), (4, 5) and (1, 7) are applied before rising edges 1, 2 and 3, and (0, 0) afterwards. What is acc just after the 3rd rising edge?\n\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    prod <= a * b;        -- stage 1\n    acc  <= acc + prod;   -- stage 2\n  end if;\nend process;",
+      "options": [
+        "26",
+        "6",
+        "20",
+        "33"
+      ],
+      "correctIndex": 0,
+      "explanation": "acc adds the product registered one edge earlier: prod = 6, 20, 7 after edges 1, 2, 3, so acc = 0, 6, 26 after those edges, and the full 6 + 20 + 7 = 33 appears only after edge 4 (GHDL trace).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m004",
+      "questionText": "Two versions of y = (a + b) × c are written with all signals assigned inside if rising_edge(clk) then ... end if; (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std). The adder takes 3 ns, the multiplier 7 ns, and every register adds 1 ns (clock-to-Q plus setup); there is no skew. What are the maximum clock frequencies of A and B, and their latencies in clock cycles from the inputs a, b, c to y?\n\n-- A\na_r <= a;  b_r <= b;  c_r <= c;\ny   <= (a_r + b_r) * c_r;\n\n-- B\na_r <= a;  b_r <= b;  c_r <= c;\ns   <= a_r + b_r;  c_d <= c_r;\ny   <= s * c_d;",
+      "options": [
+        "A: 90.9 MHz, 2 cycles; B: 125 MHz, 2 cycles",
+        "A: 100 MHz, 2 cycles; B: 142.9 MHz, 3 cycles",
+        "A: 90.9 MHz, 2 cycles; B: 125 MHz, 3 cycles",
+        "A: 90.9 MHz, 1 cycle; B: 250 MHz, 2 cycles"
+      ],
+      "correctIndex": 2,
+      "explanation": "In A the adder and the multiplier sit between the same pair of registers, so T = 3 + 7 + 1 = 11 ns (90.9 MHz); in B the slowest stage is the multiplier, so T = 7 + 1 = 8 ns (125 MHz). The extra register costs one cycle: GHDL shows y after 2 edges in A and after 3 edges in B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m005",
+      "questionText": "The pipeline below is meant to compute y = a*b + c for each input set, but c is not delayed. a, b and c are unsigned(7 downto 0), prod and y are unsigned(15 downto 0), all initialised to 0 (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std). The sets (a, b, c) = (2, 3, 1), (4, 5, 10) and (6, 7, 100) are applied before rising edges 1, 2 and 3. What values does y show just after edges 2 and 3?\n\nif rising_edge(clk) then\n  prod <= a * b;                  -- stage 1\n  y    <= prod + resize(c, 16);   -- stage 2\nend if;",
+      "options": [
+        "7 and 30",
+        "30 and 142",
+        "16 and 120",
+        "6 and 20"
+      ],
+      "correctIndex": 2,
+      "explanation": "At edge 2, prod still holds 2 × 3 = 6 from edge 1 but c is already the second set's 10, so y = 16; at edge 3, y = 20 + 100 = 120 (GHDL trace). The intended 7 and 30 need c delayed by one register (c_d <= c) so that it stays aligned with prod.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m006",
+      "questionText": "The pipelined dot-product unit below starts a new sum when first = '1'; the flag is delayed by f1 so that it stays with its product (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; a and b are unsigned(7 downto 0), prod is unsigned(15 downto 0), acc is unsigned(19 downto 0), first and f1 are std_logic, all initialised to 0). Before rising edges 1 to 5, (first, a, b) = ('1', 1, 2), ('0', 3, 4), ('0', 5, 6), ('1', 7, 8) and ('0', 0, 0). What is acc just after edges 4 and 5?\n\nif rising_edge(clk) then\n  prod <= a * b;  f1 <= first;     -- stage 1\n  if f1 = '1' then\n    acc <= resize(prod, 20);       -- stage 2: new sum\n  else\n    acc <= acc + prod;             -- stage 2: accumulate\n  end if;\nend if;",
+      "options": [
+        "44 and 56",
+        "30 and 86",
+        "56 and 56",
+        "44 and 100"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stage 2 sees each product one edge after its inputs, together with its delayed flag: acc = 2 after edge 2, 2 + 12 = 14 after edge 3, 14 + 30 = 44 after edge 4 (the first dot product), and 56 after edge 5, when the delayed flag restarts the sum with 7 × 8 (GHDL trace). Testing first instead of f1 restarts one product too early and gives 30 and 86.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m007",
+      "questionText": "A 3-register pipeline (r1 <= din; r2 <= r1; dout <= r2; in one clocked process) is simulated in GHDL with clk <= not clk after 5 ns and clk starting at '0', so rising edges occur at 5, 15, 25 ns and so on. A new sample is placed on din before every rising edge, sample 1 before the first edge. At what simulation time does dout first show sample 10?",
+      "options": [
+        "95 ns",
+        "105 ns",
+        "125 ns",
+        "115 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "Rising edge n occurs at 10n − 5 ns. Sample 10 enters r1 at edge 10, r2 at edge 11 and dout at edge 12, i.e. at 10 × 12 − 5 = 115 ns, which is the time the GHDL run reported. In general sample n leaves a k-stage pipeline at edge n + k − 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m008",
+      "questionText": "The pipeline below stalls when en = '0' (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; din, r1 and r2 are unsigned(7 downto 0) initialised to 0). Before rising edges 1 to 5, din = 11, 22, 33, 44, 55 and en = '1', '1', '0', '1', '1' respectively. What is r2 just after the 5th rising edge?\n\nif rising_edge(clk) then\n  if en = '1' then\n    r1 <= din;\n    r2 <= r1;\n  end if;\nend if;",
+      "options": [
+        "33",
+        "44",
+        "22",
+        "55"
+      ],
+      "correctIndex": 1,
+      "explanation": "Edges 1 and 2 give r1 = 22, r2 = 11; at edge 3 (en = '0') both registers hold, so sample 33 is never captured; edge 4 gives r1 = 44, r2 = 22 and edge 5 gives r1 = 55, r2 = 44 (GHDL trace). A stalled pipeline holds its contents, so the source must also hold its data while en = '0' if no sample may be lost.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m009",
+      "questionText": "The 2-register pipeline below has a synchronous reset (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; all data are unsigned(7 downto 0) initialised to 0). Before rising edges 1 to 5, din = 1, 2, 3, 4, 5, and rst is '1' only before edge 3. What is r2 just after edges 4 and 5?\n\nif rising_edge(clk) then\n  if rst = '1' then\n    r1 <= (others => '0');\n    r2 <= (others => '0');\n  else\n    r1 <= din;\n    r2 <= r1;\n  end if;\nend if;",
+      "options": [
+        "3 and 4",
+        "2 and 3",
+        "0 and 0",
+        "0 and 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Edge 3 clears both registers, so samples 2 and 3 are lost. At edge 4, r1 = 4 while r2 copies the cleared r1 = 0; at edge 5, r2 = 4 (GHDL trace: r2 = 0, then 4). After a reset, valid data needs as many edges as there are stages to reach the output again.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m010",
+      "questionText": "In the pipeline below the output register loads only valid results (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; a and b are unsigned(7 downto 0), prod and y are unsigned(15 downto 0), vin and v1 are std_logic, all initialised to 0). Before rising edges 1 to 4, (vin, a, b) = ('1', 2, 3), ('0', 9, 9), ('1', 4, 5) and ('0', 7, 7). What is y just after edges 3 and 4?\n\nif rising_edge(clk) then\n  prod <= a * b;  v1 <= vin;    -- stage 1\n  if v1 = '1' then\n    y <= prod;                  -- stage 2\n  end if;\nend if;",
+      "options": [
+        "81 and 20",
+        "6 and 20",
+        "20 and 20",
+        "6 and 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "At edge 2, y loads 2 × 3 = 6 because v1 = '1'. At edge 3, v1 carries the '0' of the bubble, so y keeps 6 and the invalid 81 is ignored; at edge 4 it loads 4 × 5 = 20 (GHDL trace). Without the valid test y would show 81 after edge 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m011",
+      "questionText": "The architecture below is instantiated with generic map (N => 6) (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; sr starts at all zeros). din changes before a rising edge and then holds. Counting that edge as the first, after how many rising edges does dout show the new value, and how many flip-flops does the delay line contain?\n\ntype arr_t is array (0 to N - 1) of unsigned(7 downto 0);\nsignal sr : arr_t := (others => (others => '0'));\n...\nprocess (clk)\nbegin\n  if rising_edge(clk) then\n    sr <= din & sr(0 to N - 2);\n  end if;\nend process;\ndout <= sr(N - 1);",
+      "options": [
+        "5 edges and 40 flip-flops",
+        "6 edges and 6 flip-flops",
+        "6 edges and 48 flip-flops",
+        "7 edges and 56 flip-flops"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each edge shifts the array by one element, so din reaches sr(5) after 6 edges; dout is a concurrent copy of sr(5) and adds no register (GHDL: dout changed at edge 6). The array holds 6 × 8 = 48 bits, and GHDL synthesis infers one 48-bit register.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m012",
+      "questionText": "How many flip-flops does the clocked process below describe? a, b, c, a_r, b_r, c_r and c_d are unsigned(7 downto 0); prod and y are unsigned(15 downto 0); vin, v1, v2 and vout are std_logic (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std).\n\nif rising_edge(clk) then\n  a_r <= a;  b_r <= b;  c_r <= c;  v1 <= vin;   -- stage 1\n  prod <= a_r * b_r;  c_d <= c_r;  v2 <= v1;    -- stage 2\n  y <= prod + c_d;  vout <= v2;                 -- stage 3\nend if;",
+      "options": [
+        "67",
+        "64",
+        "59",
+        "51"
+      ],
+      "correctIndex": 0,
+      "explanation": "Stage 1 holds 8 + 8 + 8 + 1 = 25 bits, stage 2 holds 16 + 8 + 1 = 25 bits (the product of two 8-bit values has 16 bits) and stage 3 holds 16 + 1 = 17 bits, 67 in total; GHDL synthesis infers exactly these registers. Forgetting the valid bits gives 64 and forgetting the delayed c gives 59.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m013",
+      "questionText": "A 16-bit adder is split over two pipeline stages: stage 1 adds the low bytes and keeps the carry, stage 2 adds the high bytes (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; a, b and y are unsigned(15 downto 0), lo is unsigned(8 downto 0), ah and bh are unsigned(7 downto 0), all initialised to 0). a = x\"12FF\", b = x\"0101\" are applied before rising edge 1, and a = x\"0001\", b = x\"0001\" before edge 2. What is y just after edge 2?\n\nif rising_edge(clk) then\n  lo <= resize(a(7 downto 0), 9) + b(7 downto 0);\n  ah <= a(15 downto 8);\n  bh <= b(15 downto 8);\n  y  <= (ah + bh + lo(8 downto 8)) & lo(7 downto 0);\nend if;",
+      "options": [
+        "x\"1400\"",
+        "x\"0002\"",
+        "x\"1300\"",
+        "x\"1302\""
+      ],
+      "correctIndex": 0,
+      "explanation": "At edge 1, lo = x\"FF\" + x\"01\" = x\"100\" (carry 1, low byte x\"00\") and ah, bh = x\"12\", x\"01\". At edge 2, y = (x\"12\" + x\"01\" + 1) & x\"00\" = x\"1400\" = x\"12FF\" + x\"0101\" (GHDL confirms). The high bytes are registered alongside lo, so both halves belong to the same input and the carry is kept.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m014",
+      "questionText": "The entity below models a 3-input FPGA look-up table (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std). With INIT = x\"E8\", which function of i(2), i(1) and i(0) does it implement?\n\nentity lut3 is\n  generic (INIT : std_logic_vector(7 downto 0) := x\"E8\");\n  port (i : in std_logic_vector(2 downto 0); y : out std_logic);\nend entity;\narchitecture rtl of lut3 is\nbegin\n  y <= INIT(to_integer(unsigned(i)));\nend architecture;",
+      "options": [
+        "Odd parity: y = i(2) xor i(1) xor i(0)",
+        "3-input AND: y = i(2) and i(1) and i(0)",
+        "Majority: y = '1' when at least two of the inputs are '1'",
+        "2-to-1 multiplexer: y = i(1) when i(2) = '1', else i(0)"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bit n of INIT is the output for input value n. x\"E8\" = 1110 1000 sets bits 3, 5, 6 and 7, i.e. inputs 011, 101, 110 and 111, exactly the combinations with two or more 1s (GHDL sweep of all 8 inputs). Parity would need x\"96\", the AND x\"80\" and the multiplexer x\"CA\".",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m015",
+      "questionText": "The two-stage pipeline below computes an absolute difference (VHDL-2008, ieee.std_logic_1164 and ieee.numeric_std; a and b are unsigned(7 downto 0), d is signed(8 downto 0), y is unsigned(8 downto 0)). a = 10 and b = 250 are applied before the first rising edge and held. What is y just after the 2nd rising edge?\n\nif rising_edge(clk) then\n  d <= signed(resize(a, 9)) - signed(resize(b, 9));  -- stage 1\n  y <= unsigned(abs(d));                              -- stage 2\nend if;",
+      "options": [
+        "16",
+        "240",
+        "272",
+        "260"
+      ],
+      "correctIndex": 1,
+      "explanation": "Zero-extending to 9 bits and treating the results as signed gives d = 10 − 250 = −240 (bit pattern 1_0001_0000) after edge 1, and abs gives y = 240 after edge 2 (GHDL trace). An 8-bit unsigned subtraction would wrap to 16, and reading d's bit pattern as unsigned would give 272.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m016",
+      "questionText": "An FPGA datapath is pipelined into four stages whose combinational delays are 6 ns, 9 ns, 7 ns and 8 ns. Every pipeline register has a clock-to-Q delay of 0.6 ns and a setup time of 0.4 ns, and there is no clock skew. What are the maximum clock frequency and the latency of one data item (one clock period per stage)?",
+      "options": [
+        "100 MHz and 31 ns",
+        "133.3 MHz and 30 ns",
+        "111.1 MHz and 36 ns",
+        "100 MHz and 40 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "The slowest stage sets the period: T = 0.6 + 9 + 0.4 = 10 ns, so f_max = 100 MHz. Latency = 4 × 10 ns = 40 ns, longer than the 30 + 1 = 31 ns of the unpipelined path, because every stage is padded to the slowest one and carries its own register overhead.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m017",
+      "questionText": "A 24 ns combinational path can be divided into any number of stages with equal delay. Each pipeline register adds 1 ns (clock-to-Q plus setup). What is the minimum number of stages that allows a clock of at least 200 MHz?",
+      "options": [
+        "5",
+        "6",
+        "4",
+        "7"
+      ],
+      "correctIndex": 1,
+      "explanation": "200 MHz means T ≤ 5 ns, leaving 5 − 1 = 4 ns of logic per stage, so k ≥ 24 / 4 = 6. With 5 stages each needs 4.8 + 1 = 5.8 ns (about 172 MHz); 5 is obtained only if the register overhead is forgotten.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m018",
+      "questionText": "A combinational chain consists of five blocks in series with delays of 3, 5, 2, 4 and 6 ns, in that order. Pipeline registers may only be placed between blocks. With two registers inserted (three stages) and register overhead ignored, what is the smallest clock period that can be achieved?",
+      "options": [
+        "8 ns",
+        "6 ns",
+        "6.67 ns",
+        "10 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "The best cut is 3 + 5 | 2 + 4 | 6, giving stages of 8, 6 and 6 ns, so T = 8 ns; checking all six ways of placing the two registers in the four gaps between blocks confirms that none does better. 20 / 3 ≈ 6.67 ns would require splitting a block, and 6 ns is only the lower bound set by the largest block.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m019",
+      "questionText": "A pipelined FIR filter in an FPGA accepts one 16-bit sample every clock at 250 MHz and has a latency of 12 clock cycles. What is its steady-state throughput?",
+      "options": [
+        "20.8 million samples/s (333 Mbit/s)",
+        "125 million samples/s (2 Gbit/s)",
+        "3,000 million samples/s (48 Gbit/s)",
+        "250 million samples/s (4 Gbit/s)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Once the pipeline is full one result leaves every clock, so throughput = 250 × 10^6 samples/s × 16 bits = 4 Gbit/s. The 12-cycle latency (48 ns) only delays the first output; dividing by it gives the wrong 20.8 million.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m020",
+      "questionText": "A designer tries to speed up the accumulator acc <= acc + x; by adding one more register inside its loop (t <= acc + x; acc <= t;), while still presenting a new x on every clock. What happens?",
+      "options": [
+        "It produces the same running total one cycle later, at nearly twice the clock rate",
+        "Synthesis removes the extra register, so the behaviour does not change",
+        "Each addition now uses the sum from two cycles earlier, so the circuit keeps two interleaved partial sums instead of one running total",
+        "Every x is added twice, so the total becomes double the correct value"
+      ],
+      "correctIndex": 2,
+      "explanation": "A feedback loop needs its result in the very next cycle, so a register inside the loop changes the function. With x = 1 to 6 on successive edges, GHDL shows the loop holding 1 + 3 + 5 = 9 and 2 + 4 + 6 = 12 instead of the total 21. Such loops are sped up by interleaving two data streams or by adding the partial sums at the end.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m021",
+      "questionText": "What does retiming do during synthesis or physical optimisation?",
+      "options": [
+        "It adds new pipeline stages, increasing latency to raise the clock frequency",
+        "It reruns place and route with a tighter clock constraint",
+        "It moves existing registers across combinational logic to balance stage delays, without changing the cycle-by-cycle behaviour seen at the outputs",
+        "It changes the clock frequency at run time to save power"
+      ],
+      "correctIndex": 2,
+      "explanation": "Retiming relocates registers, for example from after an adder to before it, so the longest register-to-register delay shrinks while every input-to-output path keeps the same number of registers; latency and function are unchanged. Adding stages is pipelining, and changing frequency at run time is dynamic voltage and frequency scaling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m022",
+      "questionText": "In static timing analysis of a register-to-register path, the launching flip-flop has a clock-to-Q delay of 0.5 ns, the logic between the flip-flops takes 6.2 ns and the capturing flip-flop has a setup time of 0.4 ns. The clock period is 8 ns and there is no skew. What is the setup slack?",
+      "options": [
+        "+1.3 ns (timing met)",
+        "+1.8 ns (timing met)",
+        "−0.9 ns (timing violated)",
+        "+0.9 ns (timing met)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Arrival time = 0.5 + 6.2 = 6.7 ns; required time = 8 − 0.4 = 7.6 ns; slack = 7.6 − 6.7 = +0.9 ns. Positive slack means the path meets the 125 MHz clock.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m023",
+      "questionText": "A launching flip-flop has a clock-to-Q delay of 0.8 ns. The logic to the capturing flip-flop has a maximum delay of 7.0 ns and a minimum delay of 0.3 ns. The capturing flip-flop has a setup time of 0.5 ns and a hold time of 0.8 ns, and its clock arrives 0.6 ns later than the launching flip-flop's clock. What is the minimum clock period, and is the hold requirement met?",
+      "options": [
+        "7.7 ns; hold is violated by 0.3 ns",
+        "8.9 ns; hold is met",
+        "8.3 ns; hold is met",
+        "7.7 ns; hold is met"
+      ],
+      "correctIndex": 0,
+      "explanation": "Setup: T ≥ 0.8 + 7.0 + 0.5 − 0.6 = 7.7 ns, because the late capture clock gives the data extra time. Hold: new data arrives 0.8 + 0.3 = 1.1 ns after the launch edge but must not change before t_hold + skew = 0.8 + 0.6 = 1.4 ns, so hold fails by 0.3 ns; the skew that helps setup hurts hold.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m024",
+      "questionText": "Post-route static timing analysis reports a hold-time violation on a very short path between two flip-flops. Which fix addresses it?",
+      "options": [
+        "Lower the clock frequency",
+        "Add delay, such as buffers or longer routing, to that short path",
+        "Replace the launching flip-flop with a faster one that has a smaller clock-to-Q delay",
+        "Add a pipeline register to the longest path in the design"
+      ],
+      "correctIndex": 1,
+      "explanation": "A hold violation means new data arrives too soon after the clock edge. The hold check, t_cq + t_min ≥ t_hold + skew, does not contain the clock period, so slowing the clock does nothing; adding delay to the short path fixes it, a faster flip-flop makes it worse, and pipelining the long path only helps setup.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m025",
+      "questionText": "Which statement about static timing analysis (STA) is correct?",
+      "options": [
+        "It needs a testbench that exercises the critical path in order to find it",
+        "It checks that the logic function of the design matches the specification",
+        "It can be run only on the RTL code, before synthesis",
+        "It checks the delay of every timing path against the clock constraints without needing test vectors"
+      ],
+      "correctIndex": 3,
+      "explanation": "STA adds up cell and wire delays along all timing paths and compares arrival times with required times for setup and hold, so it is exhaustive and needs no stimulus. Functional correctness is checked by simulation or formal verification, and STA is most accurate after place and route.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m026",
+      "questionText": "What does logic synthesis produce from an RTL VHDL description?",
+      "options": [
+        "The configuration bitstream that is downloaded into the FPGA",
+        "A testbench that checks the design's outputs",
+        "A gate-level netlist of library cells, or of LUTs, flip-flops and other device primitives, and their connections",
+        "The final placed layout with exact wire lengths"
+      ],
+      "correctIndex": 2,
+      "explanation": "Synthesis translates and optimises the RTL into a netlist of target primitives. Placement, routing and the real wire delays come later in place and route, and the bitstream is generated only after that.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m027",
+      "questionText": "Which sequence gives the usual order of steps in an FPGA design flow?",
+      "options": [
+        "RTL coding → place and route → synthesis → bitstream generation → static timing analysis",
+        "RTL coding and functional simulation → synthesis → place and route → static timing analysis → bitstream generation",
+        "RTL coding → static timing analysis → synthesis → functional simulation → place and route",
+        "Synthesis → RTL coding → functional simulation → bitstream generation → place and route"
+      ],
+      "correctIndex": 1,
+      "explanation": "The RTL is first verified by functional simulation, then synthesised to a netlist, placed and routed on the device, checked with the real wire delays by static timing analysis, and finally converted into a bitstream for programming.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m028",
+      "questionText": "For which of these would full-custom IC design, with every transistor and wire laid out by hand, be most justified?",
+      "options": [
+        "The SRAM cell and critical datapath of a microprocessor sold in tens of millions",
+        "A 500-unit industrial controller that must ship in three months",
+        "A prototype whose logic will change every few weeks",
+        "A one-off laboratory test fixture"
+      ],
+      "correctIndex": 0,
+      "explanation": "Full-custom design gives the best speed, area and power but has the highest NRE and longest design time, so it pays off only for very high volumes and heavily repeated, performance-critical structures such as memory cells and CPU datapaths. Low volumes and changing designs suit FPGAs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m029",
+      "questionText": "Which statement about standard-cell ASIC design is correct?",
+      "options": [
+        "Pre-designed, pre-characterised cells of a common height are placed in rows and routed, and every mask layer is made for the design",
+        "Only the metal interconnect layers are customised, on wafers of prefabricated transistors",
+        "The finished chip can be reconfigured in the field by loading a new bitstream",
+        "Every transistor is individually sized and laid out by hand to reach maximum speed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Standard-cell design uses a library of gates and flip-flops with a fixed height and varying width, placed in rows by automatic place-and-route tools, and all masks are custom. Metal-only customisation describes a gate array, field reconfiguration an FPGA and hand layout full-custom design.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m030",
+      "questionText": "Which of these devices is classified as a simple PLD (SPLD) rather than a CPLD or an FPGA?",
+      "options": [
+        "A device with dozens of PAL-like function blocks linked by a central switch matrix",
+        "A GAL (generic array logic) device with one programmable AND array feeding a few output macrocells",
+        "A device with thousands of LUT-and-flip-flop logic blocks in a routing mesh",
+        "A mask-programmed gate array"
+      ],
+      "correctIndex": 1,
+      "explanation": "SPLDs are single-array devices such as the PLA, PAL and GAL. Many PAL-like blocks joined by a switch matrix form a CPLD, LUT blocks in a routing mesh form an FPGA, and a gate array is a semi-custom ASIC, not a PLD.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m031",
+      "questionText": "A PLA has 8 inputs, 16 product terms and 4 outputs, and each input is available in true and complemented form in the AND array. Ignoring any output-inversion option, how many programmable connections do its AND and OR arrays have in total?",
+      "options": [
+        "192",
+        "256",
+        "384",
+        "320"
+      ],
+      "correctIndex": 3,
+      "explanation": "AND array: 2 × 8 literals × 16 product terms = 256 connections; OR array: 16 terms × 4 outputs = 64; total 256 + 64 = 320. Forgetting the complemented inputs gives 128 + 64 = 192.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m032",
+      "questionText": "A 4-bit × 4-bit unsigned multiplier is to be implemented as a look-up table in a PROM. What PROM size is needed?",
+      "options": [
+        "16 × 8 = 128 bits",
+        "256 × 4 = 1,024 bits",
+        "256 × 8 = 2,048 bits",
+        "64 × 8 = 512 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two 4-bit operands form an 8-bit address, giving 2^8 = 256 words, and the largest product 15 × 15 = 225 needs 8 output bits, so the PROM is 256 × 8 = 2,048 bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m033",
+      "questionText": "Which statement comparing CPLDs and FPGAs is NOT correct?",
+      "options": [
+        "A CPLD joins PAL-like macrocells through a central interconnect, so its pin-to-pin delays are predictable",
+        "A CPLD implements logic mainly in small look-up tables, while an FPGA uses a few wide sum-of-products blocks",
+        "Most CPLDs keep their configuration in non-volatile memory and work immediately at power-up",
+        "An FPGA has far more flip-flops, which suits register-rich pipelined designs"
+      ],
+      "correctIndex": 1,
+      "explanation": "The statement reverses the two architectures: a CPLD is built from PAL-like sum-of-products macrocells, while an FPGA uses many small LUT-based logic blocks, each with a flip-flop. The other three statements are standard textbook comparisons.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m034",
+      "questionText": "What must happen each time an SRAM-based FPGA is powered up?",
+      "options": [
+        "Nothing, because the SRAM cells keep their contents without power",
+        "Its configuration must first be erased with ultraviolet light",
+        "Its configuration bitstream must be loaded again, usually from an external non-volatile flash memory",
+        "Its antifuses must be programmed again with a high-voltage programmer"
+      ],
+      "correctIndex": 2,
+      "explanation": "SRAM configuration cells are volatile, so the FPGA forgets its design when power is removed and is configured again from a flash memory or a host processor at every power-up. The same property lets it be reprogrammed an unlimited number of times.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m035",
+      "questionText": "Which is a characteristic of antifuse-based FPGAs?",
+      "options": [
+        "They are one-time programmable and non-volatile, which suits radiation-exposed and security-sensitive designs",
+        "They can be reprogrammed in the system an unlimited number of times",
+        "They lose their configuration whenever power is removed",
+        "They are erased with ultraviolet light before being reprogrammed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Programming an antifuse permanently creates a low-resistance link, so the configuration survives power-off, cannot be changed and is hard to read back or upset by radiation. Unlimited reprogramming and volatility describe SRAM FPGAs, and UV erasure describes EPROM-based parts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m036",
+      "questionText": "How many different Boolean functions can a single 4-input look-up table be configured to implement?",
+      "options": [
+        "16",
+        "64",
+        "256",
+        "65,536"
+      ],
+      "correctIndex": 3,
+      "explanation": "A 4-input LUT stores 2^4 = 16 configuration bits, and each of the 2^16 = 65,536 bit patterns is a different truth table, so it can realise any function of 4 inputs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m037",
+      "questionText": "What is the minimum number of 4-input LUTs needed to implement a 16-input AND gate in an FPGA, without using carry chains or dedicated multiplexers?",
+      "options": [
+        "4",
+        "8",
+        "5",
+        "16"
+      ],
+      "correctIndex": 2,
+      "explanation": "Four LUTs each AND four of the inputs and a fifth LUT ANDs their four outputs, giving two logic levels. In general each k-LUT reduces the signal count by k − 1, so n inputs need ⌈(16 − 1)/(4 − 1)⌉ = 5 LUTs; 4 forgets the second level.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m038",
+      "questionText": "Which of these functions CANNOT be implemented in a single 6-input LUT?",
+      "options": [
+        "A 4-to-1 multiplexer including its two select lines",
+        "An 8-to-1 multiplexer",
+        "Any Boolean function of 5 inputs",
+        "The parity (XOR) of 6 inputs"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 6-input LUT implements any single-output function of up to 6 inputs. A 4-to-1 multiplexer has 4 + 2 = 6 inputs and fits, but an 8-to-1 multiplexer has 8 + 3 = 11 inputs and needs several LUTs or the dedicated multiplexers between them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m039",
+      "questionText": "An FPGA design needs a fast pipelined multiply-accumulate unit. Which dedicated FPGA resource is designed for this?",
+      "options": [
+        "A block RAM",
+        "An I/O block",
+        "A clock manager (PLL)",
+        "A DSP slice with a hardware multiplier, an adder/accumulator and built-in pipeline registers"
+      ],
+      "correctIndex": 3,
+      "explanation": "DSP slices contain hard multipliers and accumulators with optional pipeline registers, so a MAC runs faster and uses far fewer LUTs than one built from general logic. Block RAM stores data, I/O blocks connect to pins and PLLs generate clocks.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m040",
+      "questionText": "An ASIC needs $600,000 of NRE. Its wafers cost $4,000 each and hold 400 dies, of which 80 % work, and each good die then costs $2 to package and test. The FPGA alternative costs $30 per unit with no NRE. Above roughly what production volume is the ASIC cheaper in total?",
+      "options": [
+        "About 38,700 units",
+        "About 33,300 units",
+        "About 34,300 units",
+        "About 30,000 units"
+      ],
+      "correctIndex": 0,
+      "explanation": "ASIC unit cost = 4,000 / (400 × 0.8) + 2 = 12.50 + 2 = $14.50, so N = 600,000 / (30 − 14.50) ≈ 38,710 units. Ignoring the yield gives a $12 unit cost and 33,333 units; ignoring packaging gives 34,286 units.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i63_m041",
+      "questionText": "An ASIC version of a product has $400,000 NRE and costs $8 per unit. An FPGA version would need $25,000 NRE. At the expected volume of 25,000 units, what is the highest FPGA unit price at which the FPGA version costs no more in total than the ASIC?",
+      "options": [
+        "$24",
+        "$16",
+        "$15",
+        "$23"
+      ],
+      "correctIndex": 3,
+      "explanation": "ASIC total = 400,000 + 8 × 25,000 = $600,000. The FPGA needs 25,000 + 25,000 × p ≤ 600,000, so p ≤ 575,000 / 25,000 = $23. Ignoring the FPGA's own NRE gives $24.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m042",
+      "questionText": "Why does a static CMOS gate draw almost no current while its inputs are not changing?",
+      "options": [
+        "For either output level one of the pull-up (pMOS) and pull-down (nMOS) networks is off, so there is no direct path from VDD to ground",
+        "A clock disconnects the gate from VDD between clock edges",
+        "Its pull-up is a resistor that is switched off when the gate is idle",
+        "It is built from bipolar transistors that turn fully off"
+      ],
+      "correctIndex": 0,
+      "explanation": "In static CMOS the pMOS network conducts only when the nMOS network is off and vice versa, so apart from small leakage, current flows only while the output switches and charges or discharges the load capacitance, which is why P_dyn = αCV²f.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m043",
+      "questionText": "How many transistors does a static CMOS 3-input NOR gate use, and how are its pMOS transistors connected?",
+      "options": [
+        "6 transistors, with the three pMOS in parallel",
+        "6 transistors, with the three pMOS in series",
+        "3 transistors, with the pMOS in series",
+        "4 transistors, with a single pMOS pull-up"
+      ],
+      "correctIndex": 1,
+      "explanation": "A static CMOS gate with n inputs uses n nMOS and n pMOS transistors, so 2 × 3 = 6. A NOR output is pulled high only when all inputs are 0, so its pMOS are in series and its nMOS in parallel (a NAND is the reverse); a single pMOS pull-up describes pseudo-nMOS logic, not static CMOS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m044",
+      "questionText": "Why are NAND gates usually preferred to NOR gates in static CMOS logic?",
+      "options": [
+        "A NAND needs fewer transistors than a NOR with the same number of inputs",
+        "A NOR gate draws static current whenever its output is low",
+        "A NAND puts its nMOS transistors in series, and nMOS has higher carrier mobility than pMOS, so a NAND is faster for the same transistor sizes",
+        "A NAND is functionally complete but a NOR is not"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both gates use 2n transistors and both are functionally complete. The difference is that a NOR stacks the slower pMOS transistors in series in its pull-up, so it needs much wider pMOS to switch as fast as a NAND.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i63_m045",
+      "questionText": "A CMOS chip has a total switched capacitance of 2 nF, an activity factor of 0.15, a supply of 1.2 V and a 400 MHz clock. Using P = αCV²f, what is its dynamic power?",
+      "options": [
+        "172.8 mW",
+        "144 mW",
+        "1,152 mW",
+        "17.28 mW"
+      ],
+      "correctIndex": 0,
+      "explanation": "P = 0.15 × 2 × 10^-9 F × (1.2 V)² × 400 × 10^6 Hz = 0.1728 W = 172.8 mW. Forgetting to square V gives 144 mW, and leaving out α gives 1,152 mW.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i63_m046",
+      "questionText": "Assume Moore's law with the number of transistors per chip doubling every 2 years. Roughly how long does it take for the transistor count to grow 1000-fold?",
+      "options": [
+        "About 6 years",
+        "About 10 years",
+        "About 15 years",
+        "About 20 years"
+      ],
+      "correctIndex": 3,
+      "explanation": "1000 = 2^n gives n = log2(1000) ≈ 9.97 doublings, and 9.97 × 2 years ≈ 20 years. Using log10 instead gives 6 years, one doubling per year gives 10 and doubling every 18 months gives about 15.",
+      "difficulty": "medium"
+    }
+  ]
+}

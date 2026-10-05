@@ -1,0 +1,696 @@
+{
+  "topicId": "ch1_i21",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Superposition"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why superposition works: nodal or mesh analysis of a linear circuit gives a set of linear equations [G][V] = [I_s] whose right-hand side contains only the independent sources. The solution is [V] = [G]⁻¹[I_s], so every node voltage, and hence every branch current, is a weighted sum of the source values. Each weight is the response to that source alone with the others set to zero, which is exactly what superposition computes one source at a time."
+    },
+    {
+      "type": "formula",
+      "latex": "y = k_1 x_1 + k_2 x_2 + \\cdots + k_n x_n",
+      "plainText": "y = k1·x1 + k2·x2 + ... + kn·xn (response as weighted sum of independent sources)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The weights k are fixed by the passive elements and dependent sources only, so measuring the response twice with known source values lets you find them and predict the response for any other values. Dependent sources change the weights but do not add terms, which is why they stay in the circuit in every step."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: two voltage sources feeding one node\n30 V behind 6 Ω and 12 V behind 3 Ω feed node T; T to ref 6 Ω.\n30 V alone (12 V shorted): 3 ∥ 6 = 2 Ω\n   V_T' = 30 × 2/(6 + 2) = 7.5 V  → I' in 6 Ω = 1.25 A\n12 V alone (30 V shorted): 6 ∥ 6 = 3 Ω\n   V_T'' = 12 × 3/(3 + 3) = 6 V   → I'' = 1 A\nTotal: V_T = 13.5 V, I = 2.25 A, P = 2.25² × 6 = 30.375 W\nNodal check: (5 + 4)/(1/6 + 1/3 + 1/6) = 9/0.6667 = 13.5 V  ✓\nWrong: I'²R + I''²R = 9.375 + 6 = 15.375 W"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: dependent source kept active\n20 V behind 5 Ω feeds node A; A to ref 10 Ω;\n3 A independent source into A; dependent source draws 0.1·V_A out of A.\nNode conductance with dependent source: 0.2 + 0.1 + 0.1 = 0.4 S\n20 V alone: V' = (20/5)/0.4 = 10 V\n3 A alone:  V'' = 3/0.4 = 7.5 V\nV_A = 17.5 V\nCheck KCL: (20 − 17.5)/5 + 3 = 3.5 A in;\n           17.5/10 + 0.1 × 17.5 = 1.75 + 1.75 = 3.5 A out  ✓"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Quantity",
+          "Superpose directly?",
+          "Reason"
+        ],
+        [
+          "Branch current or voltage",
+          "Yes",
+          "Linear function of the sources"
+        ],
+        [
+          "Phasors of one frequency",
+          "Yes",
+          "Complex but still linear"
+        ],
+        [
+          "Responses at different frequencies",
+          "Yes, in the time domain",
+          "A phasor exists for one frequency only"
+        ],
+        [
+          "Power, same-frequency sources",
+          "No",
+          "P ∝ I², cross term 2I'I''R appears"
+        ],
+        [
+          "Average power, different frequencies",
+          "Yes",
+          "Cross terms average to zero over a period"
+        ],
+        [
+          "Circuit with a diode or lamp",
+          "No",
+          "Element is non-linear"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Sources of different frequencies are a special case worth remembering. If a resistor carries a DC current I₀ and sinusoids of RMS values I₁, I₂ at other frequencies, the products of different frequencies average to zero, so the average power is (I₀² + I₁² + I₂²)R and the RMS current is the square root of the sum of squares. A series capacitor passes none of the DC part in steady state, and an inductor offers no opposition to it."
+    },
+    {
+      "type": "formula",
+      "latex": "I_{rms} = \\sqrt{I_0^2 + I_1^2 + I_2^2 + \\cdots}",
+      "plainText": "I_rms = √(I0² + I1² + I2² + ...) for components of different frequencies"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes:",
+      "items": [
+        "Opening a voltage source or shorting a current source instead of the reverse.",
+        "Removing the internal resistance of a practical source together with its EMF.",
+        "Switching off dependent sources.",
+        "Losing track of direction: record the direction of every partial current before adding.",
+        "Adding partial powers, or adding RMS magnitudes of same-frequency phasors that are out of phase."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Superposition is quickest when you need the contribution of one particular source, or when each single-source circuit collapses to a simple divider. For the full solution of a many-source circuit, nodal analysis is usually shorter; use it to check your superposition answer."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i21_m001",
+      "questionText": "The superposition theorem is a direct consequence of which two properties of a linear circuit?",
+      "options": [
+        "Additivity and homogeneity",
+        "Reciprocity and symmetry",
+        "Bilateral and passive behaviour",
+        "Time invariance and causality"
+      ],
+      "correctIndex": 0,
+      "explanation": "Linearity means additivity (the response to x₁ + x₂ is y₁ + y₂) and homogeneity (the response to kx is ky). Superposition is additivity applied to the independent sources.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m002",
+      "questionText": "When the superposition theorem is applied, an independent current source that is not being considered is replaced by:",
+      "options": [
+        "A short circuit",
+        "An open circuit",
+        "A resistor equal to the load",
+        "A voltage source of equal value"
+      ],
+      "correctIndex": 1,
+      "explanation": "Deactivating a current source means setting its current to zero, which is an open circuit; its terminal voltage can still take any value.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m003",
+      "questionText": "A practical voltage source of 24 V with an internal resistance of 0.5 Ω is to be deactivated in a superposition step. It is replaced by:",
+      "options": [
+        "A 0.5 Ω resistor",
+        "A short circuit",
+        "An open circuit",
+        "A 48 A current source"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only the ideal EMF is set to zero (short circuit); the internal resistance is part of the circuit and must remain, so the source becomes a 0.5 Ω resistor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m004",
+      "questionText": "A linear circuit contains two independent voltage sources, one independent current source and one current-controlled voltage source. How many single-source circuits must be solved when superposition is applied one source at a time?",
+      "options": [
+        "3",
+        "4",
+        "2",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only independent sources are taken one at a time: 2 + 1 = 3 partial circuits. The dependent source stays active in each of them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m005",
+      "questionText": "During each step of the superposition method, the resistors, inductors and capacitors of the circuit are:",
+      "options": [
+        "Left unchanged in every step",
+        "Short-circuited",
+        "Removed along with the inactive sources",
+        "Replaced by their reciprocals"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only the independent sources are switched on and off; every passive element stays exactly where it is.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m006",
+      "questionText": "Source 1 acting alone produces +4 V across a resistor, and source 2 acting alone produces 1.5 V across the same resistor with the opposite polarity. The actual voltage across the resistor is:",
+      "options": [
+        "5.5 V",
+        "2.5 V",
+        "4 V",
+        "1.5 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "Opposite polarities subtract: V = 4 + (−1.5) = 2.5 V, with the polarity set by source 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m007",
+      "questionText": "In a linear circuit, a 10 V source acting alone drives 1.5 A through a certain resistor. If that source is raised to 25 V (other sources still off), the current through the resistor due to it becomes:",
+      "options": [
+        "1.5 A",
+        "2.5 A",
+        "3.75 A",
+        "9.375 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Homogeneity: the response scales with the source, so I = 1.5 × 25/10 = 3.75 A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m008",
+      "questionText": "The superposition theorem cannot be used directly to find which of these quantities?",
+      "options": [
+        "The current through a resistor",
+        "The voltage across a resistor",
+        "The voltage between two nodes",
+        "The power dissipated in a resistor"
+      ],
+      "correctIndex": 3,
+      "explanation": "Currents and voltages are linear responses and can be added; power depends on I² or V², so it must be calculated from the total current or voltage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m009",
+      "questionText": "Two ideal voltage sources of 10 V and 6 V act in the same direction round a single loop containing an 8 Ω resistor. Using superposition, the loop current is:",
+      "options": [
+        "2 A",
+        "0.5 A",
+        "1.25 A",
+        "16 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "10 V alone gives 10/8 = 1.25 A and 6 V alone gives 6/8 = 0.75 A in the same direction; total 2 A.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m010",
+      "questionText": "A circuit is excited by a 50 Hz source and a 150 Hz source. The partial responses obtained by superposition must be added:",
+      "options": [
+        "As phasors at 50 Hz",
+        "As phasors at 150 Hz",
+        "As RMS magnitudes",
+        "As instantaneous (time-domain) functions"
+      ],
+      "correctIndex": 3,
+      "explanation": "A phasor is defined only for one frequency, so each frequency is solved separately and the results, such as 3 sin(ωt) and 2 sin(3ωt − 30°), are added in the time domain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m011",
+      "questionText": "Two ideal current sources of 3 A and 1 A both drive current in the same direction into a single 5 Ω resistor connected across them. By superposition, the voltage across the resistor is:",
+      "options": [
+        "15 V",
+        "10 V",
+        "80 V",
+        "20 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "3 A alone gives 3 × 5 = 15 V and 1 A alone gives 1 × 5 = 5 V; the total is 20 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m012",
+      "questionText": "With the voltage source shorted, a 3 A current source feeds a 4 Ω resistor and an 8 Ω resistor that are in parallel. The partial current in the 8 Ω resistor is:",
+      "options": [
+        "2 A",
+        "1.5 A",
+        "1 A",
+        "0.75 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Current divider: I₈ = 3 × 4/(4 + 8) = 1 A. Using 8/(4 + 8) gives the 2 A that flows in the 4 Ω.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m013",
+      "questionText": "With the current source opened, a 20 V source drives a 4 Ω and a 6 Ω resistor in series. The partial voltage across the 6 Ω resistor is:",
+      "options": [
+        "8 V",
+        "20 V",
+        "12 V",
+        "2 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Voltage divider: V₆ = 20 × 6/(4 + 6) = 12 V; the 8 V appears across the 4 Ω.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m014",
+      "questionText": "Every independent source in a linear resistive circuit is multiplied by 3. The power dissipated in any resistor becomes:",
+      "options": [
+        "3 times its original value",
+        "9 times its original value",
+        "Unchanged",
+        "6 times its original value"
+      ],
+      "correctIndex": 1,
+      "explanation": "By homogeneity every current is multiplied by 3, and since P = I²R the power grows by 3² = 9.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i21_m015",
+      "questionText": "A 24 V source in series with 4 Ω and a 12 V source in series with 4 Ω both feed node T (positive terminals toward T, negative terminals on the reference). A 2 Ω resistor joins T to the reference. The current in the 2 Ω resistor due to the 24 V source alone is:",
+      "options": [
+        "3 A",
+        "4.5 A",
+        "6 A",
+        "2 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "Short the 12 V source: 4 Ω ∥ 2 Ω = 1.333 Ω, source current = 24/(4 + 1.333) = 4.5 A, and the 2 Ω takes 4.5 × 4/6 = 3 A. The 4.5 A is the total source current, not the 2 Ω share.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m016",
+      "questionText": "For the same circuit (24 V behind 4 Ω and 12 V behind 4 Ω feeding node T, 2 Ω from T to the reference), the total current in the 2 Ω resistor is:",
+      "options": [
+        "3 A",
+        "1.5 A",
+        "4.5 A",
+        "9 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "24 V alone gives 3 A; 12 V alone gives [12/(4 + 1.333)] × 4/6 = 1.5 A in the same direction; total 4.5 A. Check by nodal: V_T = (6 + 3)/(0.25 + 0.25 + 0.5) = 9 V, and 9/2 = 4.5 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m017",
+      "questionText": "An 18 V source in series with 3 Ω is connected across a 6 Ω resistor. A 3 A current source is also connected across the 6 Ω resistor, driving current through it in the direction opposite to that driven by the 18 V source. The current in the 6 Ω resistor is:",
+      "options": [
+        "3 A in the direction set by the 18 V source",
+        "2 A in the direction set by the 18 V source",
+        "1 A in the direction set by the 18 V source",
+        "1 A in the direction set by the current source"
+      ],
+      "correctIndex": 2,
+      "explanation": "18 V alone: 18/(3 + 6) = 2 A. 3 A alone: 3 × 3/(3 + 6) = 1 A in the opposite direction. Net 2 − 1 = 1 A in the direction of the 18 V source's contribution.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m018",
+      "questionText": "A 4 A current source feeds node A and a 2 A current source feeds node B, both from the reference. Resistors: A to reference 6 Ω, A to B 3 Ω, B to reference 3 Ω. By superposition, the voltage of node B is:",
+      "options": [
+        "6 V",
+        "10.5 V",
+        "4.5 V",
+        "18 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "4 A alone: A sees 6 ∥ (3 + 3) = 3 Ω, so V_A' = 12 V and V_B' = 12 × 3/6 = 6 V. 2 A alone: B sees 3 ∥ (3 + 6) = 2.25 Ω, so V_B'' = 4.5 V. V_B = 6 + 4.5 = 10.5 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m019",
+      "questionText": "Two sources acting separately drive 1 A and 2 A, in the same direction, through a 5 Ω resistor. By how much does the sum of the two individual powers fall short of the true power in the resistor?",
+      "options": [
+        "0 W",
+        "25 W",
+        "10 W",
+        "20 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "True P = (1 + 2)² × 5 = 45 W; individual powers 1² × 5 + 2² × 5 = 25 W. The shortfall is the cross term 2 × 1 × 2 × 5 = 20 W.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m020",
+      "questionText": "Which statement about deactivated sources in a superposition step is correct?",
+      "options": [
+        "A shorted voltage source carries no current",
+        "An opened current source always has zero voltage across it",
+        "Deactivated sources are removed together with their internal resistances",
+        "A shorted voltage source may carry current, and an opened current source may have a voltage across it"
+      ],
+      "correctIndex": 3,
+      "explanation": "A short fixes only the voltage (0 V) and an open fixes only the current (0 A); the other variable is set by the rest of the circuit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m021",
+      "questionText": "Two sources of the same frequency produce phasor currents of 5∠0° A and 5∠60° A (RMS) in the same resistor. The RMS current in the resistor is:",
+      "options": [
+        "10 A",
+        "5 A",
+        "8.66 A",
+        "7.07 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "Superpose the phasors: 5 + (2.5 + j4.33) = 7.5 + j4.33, magnitude √(7.5² + 4.33²) = 8.66 A. Adding magnitudes gives 10 A, which is correct only if the currents are in phase.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m022",
+      "questionText": "A 10 Ω resistor carries a 3 A DC current from one source and a 4 A RMS sinusoidal current from another source. The average power in the resistor is:",
+      "options": [
+        "250 W",
+        "490 W",
+        "160 W",
+        "90 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "For different frequencies the cross term averages to zero, so P = (3² + 4²) × 10 = 250 W, and the RMS current is 5 A. (3 + 4)² × 10 = 490 W wrongly adds the currents directly.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m023",
+      "questionText": "In a linear circuit with sources V₁ and V₂, V₁ = 10 V acting alone gives 2 A through a resistor, and V₂ = 5 V acting alone gives 0.5 A through it in the opposite direction. What current flows when V₁ = 15 V and V₂ = 20 V act together?",
+      "options": [
+        "5 A",
+        "3 A",
+        "4.5 A",
+        "1 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "I = aV₁ + bV₂ with a = 2/10 = 0.2 A/V and b = −0.5/5 = −0.1 A/V. I = 0.2 × 15 − 0.1 × 20 = 3 − 2 = 1 A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m024",
+      "questionText": "Which of the following statements about the superposition theorem is NOT correct?",
+      "options": [
+        "It applies to linear circuits with more than one independent source",
+        "Dependent sources are deactivated in the same way as independent sources",
+        "Power must be calculated from the total current or voltage",
+        "It can be used in AC circuits with phasors of the same frequency"
+      ],
+      "correctIndex": 1,
+      "explanation": "Dependent sources depend on circuit variables and must stay active in every partial circuit; switching them off gives wrong results. The other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m025",
+      "questionText": "A 30 V source in series with 5 Ω feeds node A. A 10 Ω resistor joins A to the reference, and a 2 A current source draws current out of node A to the reference. By superposition, the voltage of node A is:",
+      "options": [
+        "20 V",
+        "26.67 V",
+        "13.33 V",
+        "6.67 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "30 V alone: V' = 30 × 10/15 = 20 V. 2 A alone (source shorted): V'' = −2 × (5 ∥ 10) = −6.67 V. V_A = 20 − 6.67 = 13.33 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m026",
+      "questionText": "A resistor is connected in series with an ideal current source. When that current source is deactivated during superposition, the resistor:",
+      "options": [
+        "Is short-circuited along with the source",
+        "Carries no current, because the branch is open-circuited",
+        "Carries the same current as before",
+        "Must be replaced by an open circuit before the source is removed"
+      ],
+      "correctIndex": 1,
+      "explanation": "Opening the current source breaks the whole series branch, so the resistor carries zero current in that partial circuit. When the source is active the branch current equals the source current whatever the resistor's value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m027",
+      "questionText": "Three sources act on a 4 Ω resistor. Acting alone, the 12 V source drives 1.5 A through it from left to right, the 6 V source drives 0.5 A from right to left, and the 1 A current source drives 0.25 A from left to right. The resultant current is:",
+      "options": [
+        "1.25 A from left to right",
+        "2.25 A from left to right",
+        "0.75 A from left to right",
+        "1.25 A from right to left"
+      ],
+      "correctIndex": 0,
+      "explanation": "Taking left to right as positive: I = 1.5 − 0.5 + 0.25 = 1.25 A, left to right.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m028",
+      "questionText": "The main practical drawback of the superposition theorem compared with nodal or mesh analysis is that:",
+      "options": [
+        "It cannot handle current sources",
+        "A separate circuit must be solved for each independent source",
+        "It gives only approximate results",
+        "It works only for DC circuits"
+      ],
+      "correctIndex": 1,
+      "explanation": "Superposition is exact for linear circuits and handles any source type, but with many sources it means solving many circuits; it is most useful when each partial circuit reduces easily or when the contribution of one source is wanted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m029",
+      "questionText": "A 10 V source in series with 2 Ω feeds node A, and a 3 Ω resistor joins A to the reference. A current source is also connected between A and the reference. In the step where only the 10 V source acts, the voltage across the terminals of the opened current source is:",
+      "options": [
+        "0 V",
+        "6 V",
+        "10 V",
+        "4 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "With the current source open, 2 Ω and 3 Ω form a divider: V_A = 10 × 3/5 = 6 V. An opened current source has zero current, not zero voltage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m030",
+      "questionText": "Analysing a transistor amplifier separately for DC bias conditions and for the small AC signal, then combining the results, is justified by:",
+      "options": [
+        "Kirchhoff's current law alone",
+        "The maximum power transfer theorem",
+        "Superposition applied to the linearised small-signal model",
+        "Source transformation of the bias supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "Around a fixed operating point the transistor is replaced by a linear model, so the DC (bias) response and the AC (signal) response can be found separately and added.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m031",
+      "questionText": "Two 10 V sources, each in series with 5 Ω, feed node A with positive terminals toward A; a 5 Ω load joins A to the reference. By superposition, the voltage of node A is:",
+      "options": [
+        "6.67 V",
+        "10 V",
+        "3.33 V",
+        "5 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each source alone: 10 × (5 ∥ 5)/(5 + 5 ∥ 5) = 10 × 2.5/7.5 = 3.33 V. Both together: 3.33 + 3.33 = 6.67 V (nodal check: (2 + 2)/0.6 = 6.67 V).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m032",
+      "questionText": "An ideal 12 V source is connected between node A and the reference, and a 6 Ω resistor is connected directly across it. Node A is joined to node B by 3 Ω; node B has 4 Ω to the reference and a 2 A current source feeding into it. The current in the 6 Ω resistor is:",
+      "options": [
+        "2.86 A",
+        "1.14 A",
+        "2 A",
+        "0 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 6 Ω is directly across the ideal 12 V source, so its current is 12/6 = 2 A whatever the rest of the circuit does. In superposition, the 2 A source contributes nothing to it because the shorted voltage source short-circuits the 6 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m033",
+      "questionText": "A network has two sources: 10 V behind 2 Ω and 20 V behind 3 Ω, both connected in parallel across output terminals a–b with positive terminals at a. Using superposition, the open-circuit (Thevenin) voltage V_ab is:",
+      "options": [
+        "30 V",
+        "15 V",
+        "6 V",
+        "14 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "10 V alone: 10 × 3/(2 + 3) = 6 V. 20 V alone: 20 × 2/(2 + 3) = 8 V. V_ab = 6 + 8 = 14 V. 6 V is only the first contribution.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m034",
+      "questionText": "Which statement about the way sources are handled in superposition is correct?",
+      "options": [
+        "Sources may be taken singly or in groups, in any order, and the final result is the same",
+        "Voltage sources must always be taken before current sources",
+        "Each source must be taken singly; grouping two sources is not allowed",
+        "The result depends on the order in which sources are taken"
+      ],
+      "correctIndex": 0,
+      "explanation": "Additivity holds for any split of the inputs, so sources can be taken one at a time or in convenient groups, in any order, and the partial results add to the same total.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m035",
+      "questionText": "A two-source network gives 2 A in a resistor with source 1 alone and 3 A (same direction) with source 2 alone, but 4 A is measured with both sources active. The most likely conclusion is:",
+      "options": [
+        "The network is linear and the result is expected",
+        "The two sources are dependent on each other",
+        "The network contains a non-linear element, so superposition does not hold",
+        "One of the partial measurements must have used a shorted current source"
+      ],
+      "correctIndex": 2,
+      "explanation": "For a linear network superposition predicts 2 + 3 = 5 A. A different measured value shows the response is not additive, which is the signature of a non-linear element (e.g. a diode or lamp).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m036",
+      "questionText": "Superposition can NOT be applied directly to a resistive network that contains:",
+      "options": [
+        "A fixed carbon resistor",
+        "A tungsten lamp whose resistance rises with current",
+        "An ideal inductor",
+        "A dependent current source controlled by a resistor current"
+      ],
+      "correctIndex": 1,
+      "explanation": "A resistance that changes with current makes the V–I relation non-linear, violating additivity. Fixed R, L, C and linear dependent sources keep the circuit linear.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m037",
+      "questionText": "A 5 A current source feeds node A, a 2 A current source draws current out of node A, and node A has 4 Ω and 12 Ω resistors to the reference. By superposition, the voltage of node A is:",
+      "options": [
+        "21 V",
+        "15 V",
+        "9 V",
+        "6 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "4 Ω ∥ 12 Ω = 3 Ω. 5 A alone: +15 V; 2 A alone: −6 V; total 15 − 6 = 9 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i21_m038",
+      "questionText": "A 12 V source behind 2 Ω and a second source V₂ behind 3 Ω both feed node T; a 6 Ω resistor joins T to the reference. For zero current in the 6 Ω resistor, V₂ must be:",
+      "options": [
+        "12 V connected with polarity opposite to the 12 V source",
+        "8 V connected with polarity opposite to the 12 V source",
+        "18 V connected with the same polarity as the 12 V source",
+        "18 V connected with polarity opposite to the 12 V source"
+      ],
+      "correctIndex": 3,
+      "explanation": "Zero current means V_T = 0, so the 2 Ω carries 12/2 = 6 A and the 3 Ω must carry 6 A back: |V₂| = 6 × 3 = 18 V, opposing. By superposition the two partial currents in 6 Ω, (12/2)k and (V₂/3)k, must cancel.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m039",
+      "questionText": "A 10 V DC source and a 10 V (RMS) 50 Hz AC source are connected in series and drive a series combination of R = 10 Ω and a capacitor with X_C = 10 Ω at 50 Hz. In steady state, the RMS current is:",
+      "options": [
+        "0.707 A",
+        "1.225 A",
+        "1.414 A",
+        "0.5 A"
+      ],
+      "correctIndex": 0,
+      "explanation": "DC alone: the capacitor blocks steady DC, so I_dc = 0. AC alone: |Z| = √(10² + 10²) = 14.14 Ω, I = 10/14.14 = 0.707 A. Total RMS = √(0² + 0.707²) = 0.707 A. 1.225 A wrongly lets 1 A DC flow.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m040",
+      "questionText": "In the circuit with a 24 V source behind 4 Ω and a 12 V source behind 4 Ω feeding node T, and 2 Ω from T to the reference, the 12 V source is reversed. The new current in the 2 Ω resistor and its power are:",
+      "options": [
+        "4.5 A and 40.5 W",
+        "1.5 A and 4.5 W",
+        "1.5 A and 22.5 W",
+        "3 A and 18 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "Contributions: 3 A from the 24 V source and 1.5 A from the 12 V source, now opposing: I = 3 − 1.5 = 1.5 A. P = 1.5² × 2 = 4.5 W. Subtracting partial powers (18 − 4.5) or adding them gives wrong values.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m041",
+      "questionText": "A 10 V source in series with 2 Ω feeds node A; a 3 Ω resistor joins A to the reference, and a 5 A current source feeds node A from the reference. Using superposition, find the current in the 10 V source and whether it delivers or absorbs power.",
+      "options": [
+        "1 A into its + terminal; it absorbs 10 W",
+        "2 A out of its + terminal; it delivers 20 W",
+        "3 A into its + terminal; it absorbs 30 W",
+        "1 A out of its + terminal; it delivers 10 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "10 V alone: 10/(2 + 3) = 2 A out of the + terminal. 5 A alone (source shorted): the 2 Ω takes 5 × 3/5 = 3 A, flowing into the + terminal. Net 3 − 2 = 1 A into the + terminal, so the source absorbs 10 × 1 = 10 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m042",
+      "questionText": "A 10 V source behind 2 Ω feeds node A; node A has a 4 Ω resistor to the reference, a 2 A independent current source feeding into it, and a dependent current source that draws 0.25·V_A amperes out of A to the reference. Using superposition, V_A is:",
+      "options": [
+        "9.33 V",
+        "5 V",
+        "4.67 V",
+        "7 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "Keep the dependent source active in both steps; the node conductance is 0.5 + 0.25 + 0.25 = 1 S. 10 V alone: V' = 5/1 = 5 V; 2 A alone: V'' = 2/1 = 2 V; V_A = 7 V. Wrongly switching off the dependent source gives 6.67 + 2.67 = 9.33 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m043",
+      "questionText": "In a linear circuit, with V₁ = 10 V and V₂ = 10 V a resistor current of 4 A is measured; with V₁ = 10 V and V₂ reversed to −10 V the current is 1 A. What current flows when V₁ = 20 V and V₂ = 5 V?",
+      "options": [
+        "6.25 A",
+        "5 A",
+        "4.5 A",
+        "5.75 A"
+      ],
+      "correctIndex": 3,
+      "explanation": "I = aV₁ + bV₂: 10a + 10b = 4 and 10a − 10b = 1 give a = 0.25 A/V and b = 0.15 A/V. Then I = 0.25 × 20 + 0.15 × 5 = 5 + 0.75 = 5.75 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m044",
+      "questionText": "Node A is fed by a 12 V source behind 3 Ω, a 6 V source behind 6 Ω (positive terminals toward A) and a 1 A current source; a 2 Ω load joins A to the reference. The load current due to the 6 V source alone, and the total load current, are:",
+      "options": [
+        "1 A and 3 A",
+        "0.5 A and 3 A",
+        "0.5 A and 2.5 A",
+        "2 A and 3.5 A"
+      ],
+      "correctIndex": 1,
+      "explanation": "With the other sources off, A sees 3 ∥ 6 ∥ 2 = 1 Ω. 6 V alone: (6/6) × 1 = 1 V → 0.5 A. 12 V alone: (12/3) × 1 = 4 V → 2 A. 1 A alone: 1 V → 0.5 A. Total 2 + 0.5 + 0.5 = 3 A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m045",
+      "questionText": "A 30 V source behind 6 Ω feeds node A; A has 3 Ω to the reference and 2 Ω to node B; B has 6 Ω to the reference and a 4 A current source feeding into it. By superposition, the voltage of node A is:",
+      "options": [
+        "8 V",
+        "4.8 V",
+        "3.2 V",
+        "12.8 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "30 V alone: A sees 3 ∥ (2 + 6) = 2.18 Ω, V_A' = 30 × 2.18/8.18 = 8 V. 4 A alone: B sees 6 ∥ (2 + 6 ∥ 3) = 2.4 Ω, V_B'' = 9.6 V, V_A'' = 9.6 × 2/4 = 4.8 V. V_A = 8 + 4.8 = 12.8 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i21_m046",
+      "questionText": "A single loop contains two independent sources, 12 V and 6 V, aiding each other, resistors of 2 Ω and 4 Ω, and a current-controlled voltage source of 3I (I = loop current) that acts as a drop. By superposition, the power delivered by the 12 V source is:",
+      "options": [
+        "16 W",
+        "24 W",
+        "36 W",
+        "12 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "Keep the dependent source in both steps, so the loop behaves as 2 + 4 + 3 = 9 Ω. 12 V alone: 1.333 A; 6 V alone: 0.667 A; I = 2 A. P = 12 × 2 = 24 W. Switching the dependent source off gives I = 3 A and 36 W; using only the 12 V contribution gives 16 W.",
+      "difficulty": "hard"
+    }
+  ]
+}

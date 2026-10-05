@@ -1,0 +1,513 @@
+{
+  "topicId": "ch5_t5",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: HTTP and HTTPS"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on HTTP and HTTPS, cleaned up and corrected:",
+      "items": [
+        "HTTP uses TCP port 80 and HTTPS uses TCP port 443 by default; a port written in the URL overrides the default, as in http://intranet.local:8080/.",
+        "HTTP is stateless: every request is handled on its own and the server remembers nothing between requests unless the application adds cookies or tokens.",
+        "HTTP/1.0 and HTTP/1.1 are text-based, so a packet analyser such as Wireshark shows requests, cookies and typed passwords in plain view. HTTP/2 and HTTP/3 use binary frames and in practice always run over TLS.",
+        "PUT does not update part of a resource: it replaces the whole resource at that URL, or creates it. Partial changes use PATCH, and POST submits data (such as a form) for the server to process.",
+        "HTTPS is HTTP over TLS. The SSL versions are obsolete and prohibited (SSL 2.0 and 3.0 are broken), so an 'SSL certificate' today is really a certificate used with TLS 1.2 or TLS 1.3.",
+        "Use HTTPS for every page, not only for passwords and card numbers: browsers mark plain-HTTP pages 'Not secure', and without TLS anyone on the path can read or silently change any page."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "C: GET /news/today.html HTTP/1.1\nC: Host: www.example.com\nC: User-Agent: Mozilla/5.0\nC: Accept: text/html\nC: (blank line ends the headers; a GET has no body)\nS: HTTP/1.1 200 OK\nS: Date: Sun, 27 Sep 2026 09:00:00 GMT\nS: Content-Type: text/html; charset=utf-8\nS: Content-Length: 5120\nS: Cache-Control: max-age=600\nS: (blank line, then exactly 5120 bytes of HTML)"
+    },
+    {
+      "type": "paragraph",
+      "text": "A method is safe if it only reads, so the server's state does not change: GET, HEAD, OPTIONS and TRACE. A method is idempotent if sending the same request several times leaves the server in the same state as sending it once: all the safe methods plus PUT and DELETE. POST is neither, so submitting an order form twice can create two orders. That is why a browser or proxy may retry an idempotent request after a dropped connection on its own, while a browser asks before re-sending a POST, and why a plain link (a GET) must never perform an action such as deleting a record."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Code",
+          "Name",
+          "When it is used"
+        ],
+        [
+          "201",
+          "Created",
+          "A POST or PUT created a new resource; Location gives its URL"
+        ],
+        [
+          "204",
+          "No Content",
+          "Success with no body, for example after a DELETE"
+        ],
+        [
+          "206",
+          "Partial Content",
+          "Reply to a Range request, used to resume a download"
+        ],
+        [
+          "307 / 308",
+          "Temporary / Permanent Redirect",
+          "Like 302 / 301, but the method and body must be kept"
+        ],
+        [
+          "405",
+          "Method Not Allowed",
+          "The resource exists but does not accept this method"
+        ],
+        [
+          "429",
+          "Too Many Requests",
+          "The client has exceeded a rate limit"
+        ],
+        [
+          "502 / 504",
+          "Bad Gateway / Gateway Timeout",
+          "A proxy got an invalid reply / no reply in time from the upstream server"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "T = 2\\,RTT + \\left\\lceil \\frac{N}{M} \\right\\rceil \\cdot 2\\,RTT",
+      "plainText": "T = 2 RTT + ceiling(N / M) x 2 RTT for a base file plus N small objects fetched over M parallel non-persistent connections"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: base page + 10 small objects on one server\nRTT = 20 ms, DNS lookup = 50 ms, plain HTTP (no TLS), transmission times negligible\nNon-persistent, serial:      50 + 2x20 + 10 x 2x20        = 490 ms\nNon-persistent, 5 parallel:  50 + 2x20 + ceil(10/5) x 2x20 = 170 ms\nPersistent, no pipelining:   50 + 2x20 + 10 x 20          = 290 ms\nPersistent, pipelined:       50 + 2x20 + 1 x 20           = 110 ms\nThe 2x20 term is the base file: 1 RTT for TCP setup + 1 RTT for request/response"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: an institutional web cache\nRequests 30/s, average object 0.5 Mbit, access link 20 Mbps\nAccess-link load without cache = 30 x 0.5 / 20 = 0.75 (75 %)\nCache hit ratio h = 0.6, so only the 40 % misses cross the link\nAccess-link load with cache = (1 - 0.6) x 0.75 = 0.30 (30 %)\nHit served over the LAN in 10 ms; miss via the origin in 400 ms\nAverage response = 0.6 x 10 + 0.4 x 400 = 6 + 160 = 166 ms"
+    },
+    {
+      "type": "formula",
+      "latex": "T_{\\text{avg}} = h\\,T_{\\text{hit}} + (1-h)\\,T_{\\text{miss}}",
+      "plainText": "Average response time = h x hit time + (1 - h) x miss time, where h is the cache hit ratio"
+    },
+    {
+      "type": "bulletList",
+      "text": "Headers that make virtual hosting, caching and cookies work:",
+      "items": [
+        "Host: www.example.com lets one IP address serve many websites (virtual hosting); HTTP/1.1 requires it in every request.",
+        "Cache-Control: max-age=600 lets a cache reuse its copy for 600 s; no-cache allows storing but forces revalidation before each reuse; no-store forbids storing at all.",
+        "ETag and If-None-Match: the server labels a version, for example ETag: \"v7\"; a cache revalidates with If-None-Match: \"v7\" and receives 304 Not Modified if its copy is still current.",
+        "Set-Cookie attributes: Expires or Max-Age (without either it is a session cookie, deleted when the browser session ends), Secure (send only over HTTPS), HttpOnly (hidden from page scripts), SameSite (limits sending on cross-site requests), Domain and Path.",
+        "Transfer-Encoding: chunked sends a body of unknown length as size-prefixed pieces ending with a zero-length chunk, so the persistent connection can carry the next response."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Versions, set-up cost and certificates (round trips until the first byte of a small page, transmission ignored):",
+      "items": [
+        "HTTP/1.1 or HTTP/2 over TCP with TLS 1.3: 1 RTT for TCP + 1 RTT for TLS + 1 RTT for the request = 3 RTT. TLS 1.2 needs a 2-RTT handshake, giving 4 RTT.",
+        "HTTP/3 over QUIC merges the transport and TLS 1.3 handshakes into 1 RTT, so the first byte arrives after 2 RTT; with 0-RTT resumption the request travels in the very first flight.",
+        "HTTP/2 multiplexes streams as binary frames over one TCP connection, but one lost TCP segment stalls every stream until it is retransmitted; QUIC recovers losses per stream, so only the affected stream waits.",
+        "HTTP/1.1 pipelining sends several requests without waiting, but responses must return in request order, so one slow response blocks the rest; browsers disabled it and opened about six parallel connections per host instead.",
+        "Certificate check: the chain must lead to a trusted root CA, the certificate must be in date and not revoked, and its Subject Alternative Name must match the host. The Strict-Transport-Security (HSTS) header then tells the browser to use only HTTPS for that site."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: counting N objects instead of N + 1 (the base file is also fetched); charging a new TCP handshake to every object on a persistent connection; and believing HTTPS hides everything. An observer still sees the server's IP address and usually the host name (in the DNS query and the TLS SNI field), but not the path, query string, headers, cookies or body."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_t5_m001",
+      "questionText": "Which application-layer protocol transfers web pages from a web server to a browser?",
+      "options": [
+        "FTP",
+        "HTTP",
+        "DNS",
+        "SMTP"
+      ],
+      "correctIndex": 1,
+      "explanation": "HTTP (HyperText Transfer Protocol) carries the browser's requests and the server's responses for web pages and their objects, by default on TCP port 80. FTP transfers files, DNS resolves names and SMTP sends mail.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m002",
+      "questionText": "What is the main difference between HTTP and HTTPS?",
+      "options": [
+        "HTTPS is a faster version of HTTP that compresses every page",
+        "HTTP uses port 443 while HTTPS uses port 80",
+        "HTTPS carries HTTP inside a TLS connection, so the traffic is encrypted and the server proves its identity with a certificate",
+        "HTTPS encrypts only the password fields of a form"
+      ],
+      "correctIndex": 2,
+      "explanation": "HTTPS is ordinary HTTP sent through TLS (the successor of SSL) on port 443: TLS encrypts and integrity-protects the whole exchange and authenticates the server with its X.509 certificate. Plain HTTP uses port 80 and sends everything in clear text.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m003",
+      "questionText": "Which statement correctly describes how HTTPS (HTTP over TLS) protects the data it carries?",
+      "options": [
+        "Public-key cryptography and the server's certificate are used in the handshake to agree on session keys, and the page data is then encrypted with a fast symmetric cipher",
+        "Every HTTP message is encrypted with the server's RSA public key, and no symmetric cipher is used",
+        "The browser and the server share one fixed symmetric key that is built into the browser for each website",
+        "Only the URL is encrypted; the headers and the body travel in plain text"
+      ],
+      "correctIndex": 0,
+      "explanation": "TLS is a hybrid scheme: asymmetric cryptography (certificate verification plus an ECDHE key exchange) sets up fresh session keys, and the bulk data is protected with a symmetric cipher such as AES-GCM, which is far faster. The whole HTTP message, including the path, headers and body, is encrypted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m004",
+      "questionText": "For the URL http://www.example.com/docs/page.html?lang=en#section2, which part is used only by the browser and is never sent to the server in the HTTP request?",
+      "options": [
+        "?lang=en, the query string",
+        "/docs/page.html, the path",
+        "www.example.com, the host name",
+        "#section2, the fragment"
+      ],
+      "correctIndex": 3,
+      "explanation": "The browser sends the path and query in the request line (GET /docs/page.html?lang=en HTTP/1.1) and the host name in the Host header. The fragment only tells the browser which part of the page to show, so it never leaves the browser.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m005",
+      "questionText": "A user opens the URL http://intranet.local:8080/reports. To which TCP port on the server does the browser connect?",
+      "options": [
+        "80",
+        "8080",
+        "443",
+        "8443"
+      ],
+      "correctIndex": 1,
+      "explanation": "A port written after the host name in the URL overrides the scheme's default. Without it, http would use port 80 and https port 443.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m006",
+      "questionText": "Which line is a correctly formed HTTP/1.1 request line?",
+      "options": [
+        "GET /index.html HTTP/1.1",
+        "HTTP/1.1 200 OK",
+        "HTTP/1.1 GET /index.html",
+        "GET HTTP/1.1 www.example.com/index.html"
+      ],
+      "correctIndex": 0,
+      "explanation": "A request line is the method, the request target and the version separated by spaces, for example GET /index.html HTTP/1.1; the host goes in the separate Host header. HTTP/1.1 200 OK is a response status line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m007",
+      "questionText": "Which HTTP method asks for the same status line and headers that a GET would return, but without the message body?",
+      "options": [
+        "OPTIONS",
+        "TRACE",
+        "HEAD",
+        "PATCH"
+      ],
+      "correctIndex": 2,
+      "explanation": "HEAD lets a client check whether a resource exists, its size (Content-Length) or its Last-Modified date without downloading it. OPTIONS lists the supported methods, TRACE echoes the request back and PATCH partially modifies a resource.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m008",
+      "questionText": "Which HTTP method is idempotent but NOT safe?",
+      "options": [
+        "GET",
+        "HEAD",
+        "POST",
+        "DELETE"
+      ],
+      "correctIndex": 3,
+      "explanation": "DELETE changes server state, so it is not safe, but deleting the same resource twice leaves the same state as deleting it once, so it is idempotent (PUT is the other such method). GET and HEAD are both safe and idempotent, and POST is neither.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m009",
+      "questionText": "Which of these status codes reports a failure on the server side rather than a problem with the client's request?",
+      "options": [
+        "400 Bad Request",
+        "502 Bad Gateway",
+        "404 Not Found",
+        "429 Too Many Requests"
+      ],
+      "correctIndex": 1,
+      "explanation": "5xx codes are server errors; 502 means a gateway or proxy received an invalid response from the upstream server. Every 4xx code, including 400, 404 and 429, reports a problem with the client's request.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m010",
+      "questionText": "A reverse proxy forwards a request to an application server, which does not reply before the proxy's time limit expires. Which status code does the proxy return to the browser?",
+      "options": [
+        "408 Request Timeout",
+        "502 Bad Gateway",
+        "504 Gateway Timeout",
+        "503 Service Unavailable"
+      ],
+      "correctIndex": 2,
+      "explanation": "504 means a gateway or proxy did not receive a timely response from the upstream server. 408 is used when the client is too slow to send its request, 502 when the upstream reply is invalid, and 503 when the server itself is overloaded or in maintenance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m011",
+      "questionText": "A browser requests http://old.example.com/about and receives this response:\nHTTP/1.1 301 Moved Permanently\nLocation: https://www.example.com/about\nWhat does the browser do next?",
+      "options": [
+        "It sends a new request to https://www.example.com/about and may remember the redirect for later visits",
+        "It displays the body of the 301 response as the page",
+        "It keeps retrying http://old.example.com/about until it gets 200 OK",
+        "It treats the page as deleted and shows an error"
+      ],
+      "correctIndex": 0,
+      "explanation": "A 3xx code means further action is needed, and the browser follows the Location header automatically. Because 301 is permanent, browsers and search engines may cache it and update their links, unlike a temporary 302 or 307.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m012",
+      "questionText": "Why must every HTTP/1.1 request carry a Host header?",
+      "options": [
+        "So that the server learns the client's IP address and can send the reply",
+        "So that a proxy knows which TCP port to open to the origin server",
+        "So that the server knows which browser and version sent the request",
+        "So that one server at a single IP address can host many websites and know which site each request is for"
+      ],
+      "correctIndex": 3,
+      "explanation": "Many sites often share one IP address (virtual hosting) and the request line carries only the path, so the Host header names the wanted site. The client's address comes from the IP header and the browser type from User-Agent.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m013",
+      "questionText": "A server builds a large page on the fly and does not know its length when it starts sending on a persistent HTTP/1.1 connection. How can the client tell where the body ends while the connection stays open?",
+      "options": [
+        "The body ends at the first blank line after the headers",
+        "The server uses Transfer-Encoding: chunked, sending each piece with its size and ending with a zero-length chunk",
+        "The client stops reading when no data has arrived for one RTT",
+        "The server sends a 100 Continue status line after the last byte"
+      ],
+      "correctIndex": 1,
+      "explanation": "Chunked transfer coding frames the body as size-prefixed chunks followed by a final chunk of size 0, so the end of the message is explicit and the connection can carry the next response. The blank line marks the end of the headers, not of the body.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m014",
+      "questionText": "Which Set-Cookie attribute stops scripts running in the page from reading the cookie, limiting the damage of a cross-site scripting (XSS) attack?",
+      "options": [
+        "Secure",
+        "SameSite=Strict",
+        "HttpOnly",
+        "Max-Age"
+      ],
+      "correctIndex": 2,
+      "explanation": "HttpOnly hides the cookie from document.cookie, so injected JavaScript cannot steal a session ID. Secure only restricts sending to HTTPS, SameSite limits sending on cross-site requests and Max-Age sets the lifetime.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m015",
+      "questionText": "A server sends Set-Cookie: sid=81fa2 with no Expires or Max-Age attribute. What kind of cookie is this?",
+      "options": [
+        "A session cookie, deleted when the browser session ends",
+        "A permanent cookie that never expires",
+        "A cookie that expires after exactly 24 hours",
+        "An invalid cookie that the browser discards"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without Expires or Max-Age the browser keeps the cookie only for the current browsing session. Adding either attribute makes it a persistent cookie kept until that date or age.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m016",
+      "questionText": "A web page has a base HTML file and 7 small referenced objects, all on the same server. RTT = 25 ms and transmission times are negligible. Using plain HTTP (no TLS) with a persistent connection that must first be opened, and no pipelining (one request at a time), how long does it take to fetch the whole page, counting the TCP handshake but no DNS lookup?",
+      "options": [
+        "400 ms",
+        "200 ms",
+        "75 ms",
+        "225 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "One RTT sets up TCP, then each of the 8 objects costs one request/response RTT: T = 2 RTT + 7 RTT = 9 x 25 ms = 225 ms. Non-persistent HTTP would take 8 x 2 x 25 = 400 ms, and pipelining would cut it to about 3 RTT = 75 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m017",
+      "questionText": "A browser with an empty DNS cache follows a link to a page made of a base HTML file and 12 small images on the same server. The DNS lookup takes 40 ms in total, the RTT to the web server is 30 ms and transmission times are negligible. The browser uses non-persistent plain HTTP (no TLS) with up to 4 parallel TCP connections, and each connection needs a TCP handshake. How long does it take until the whole page has arrived?",
+      "options": [
+        "240 ms",
+        "820 ms",
+        "280 ms",
+        "190 ms"
+      ],
+      "correctIndex": 2,
+      "explanation": "T = DNS + 2 RTT for the base file + ceil(12 / 4) x 2 RTT = 40 + 60 + 3 x 60 = 280 ms. Serial non-persistent HTTP would need 40 + 13 x 60 = 820 ms, and forgetting the DNS lookup gives 240 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m018",
+      "questionText": "A page has a 50 kB base HTML file and 4 images of 100 kB each on the same server. RTT = 50 ms and the link rate is 8 Mbps (1 kB = 1000 bytes, 1 Mbps = 10^6 bit/s); request sizes, headers and processing are negligible, there is no DNS lookup or TLS, and one TCP handshake (1 RTT) opens the connection. A response starts arriving one RTT after its request is sent, or right after the previous response if the link is still busy, so pipelined responses follow one another back to back. With persistent HTTP and pipelining (all image requests sent together once the base file has arrived), how long does the whole page take?",
+      "options": [
+        "600 ms",
+        "750 ms",
+        "950 ms",
+        "150 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "Transmission: base 50,000 x 8 / (8 x 10^6) = 50 ms and each image 100 ms. T = 1 RTT (TCP) + (1 RTT + 50 ms) for the base + (1 RTT + 4 x 100 ms) for the pipelined images = 50 + 100 + 450 = 600 ms; without pipelining it is 50 + 100 + 4 x 150 = 750 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m019",
+      "questionText": "RTT = 40 ms and transmission times are negligible. A browser fetches one small page over a brand-new connection (i) with HTTP/2 over TCP and a full TLS 1.3 handshake, and (ii) with HTTP/3 over QUIC without 0-RTT resumption. Measured from the first packet the client sends (the server address is already known, so no DNS lookup), when does the first byte of the page arrive in each case?",
+      "options": [
+        "(i) 160 ms, (ii) 80 ms",
+        "(i) 120 ms, (ii) 80 ms",
+        "(i) 120 ms, (ii) 40 ms",
+        "(i) 80 ms, (ii) 40 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "(i) 1 RTT TCP + 1 RTT TLS 1.3 + 1 RTT request = 3 x 40 = 120 ms; (ii) QUIC merges the transport and TLS 1.3 handshakes into 1 RTT, plus 1 RTT for the request = 80 ms. 160 ms would need TLS 1.2's 2-RTT handshake, and 40 ms needs 0-RTT resumption.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m020",
+      "questionText": "An HTTP/2 connection is carrying 10 streams when a single TCP segment belonging to one of them is lost. What happens, and how does HTTP/3 behave differently?",
+      "options": [
+        "Only the affected stream stalls in HTTP/2 as well, because every HTTP/2 frame carries a stream ID",
+        "HTTP/2 resends all 10 streams from the beginning, while HTTP/3 opens a new connection for each stream",
+        "Nothing stalls in either version, because both use forward error correction instead of retransmission",
+        "All 10 streams stall until the segment is retransmitted, because TCP delivers bytes strictly in order; QUIC recovers losses per stream, so only the affected stream waits"
+      ],
+      "correctIndex": 3,
+      "explanation": "HTTP/2 removed head-of-line blocking at the HTTP layer, but all its streams share one TCP byte stream, so a missing segment holds back the data of every stream in the receive buffer. QUIC runs over UDP and orders data per stream, so a loss delays only the stream it belongs to.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m021",
+      "questionText": "Which feature was introduced by HTTP/2 and was NOT available in HTTP/1.1?",
+      "options": [
+        "Multiplexing many concurrent requests and responses as interleaved binary frames over one TCP connection",
+        "Persistent connections that carry several requests and responses",
+        "The mandatory Host header that allows virtual hosting",
+        "Running over UDP by means of the QUIC protocol"
+      ],
+      "correctIndex": 0,
+      "explanation": "HTTP/2 splits messages into binary frames tagged with stream IDs, interleaves them on one connection and compresses headers with HPACK. Persistent connections and the Host header already existed in HTTP/1.1, and QUIC over UDP belongs to HTTP/3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m022",
+      "questionText": "HTTP/1.1 allows pipelining, yet browsers turned it off. What was the main limitation that made it of little use?",
+      "options": [
+        "Each pipelined request needs its own new TCP connection",
+        "Only POST requests may be pipelined, while most page objects are fetched with GET",
+        "Responses must return in the order of the requests, so one slow response holds up every response queued behind it",
+        "Pipelining works only when the server closes the connection after each response"
+      ],
+      "correctIndex": 2,
+      "explanation": "HTTP/1.1 responses carry no request identifier, so they must come back in order; a slow first object causes head-of-line blocking, and faulty proxies made things worse. Browsers opened several parallel connections instead, and HTTP/2 solved the problem with multiplexed streams.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m023",
+      "questionText": "An institution's users make 40 web requests per second for objects of 400 kbit on average, over a 20 Mbps access link. A web cache with a hit ratio of 0.45 is installed. Assuming 1 Mbps = 10^6 bit/s and that only cache misses cross the access link, what is the access-link utilisation with the cache?",
+      "options": [
+        "80%",
+        "44%",
+        "36%",
+        "55%"
+      ],
+      "correctIndex": 1,
+      "explanation": "Without the cache the load is 40 x 0.4 Mbit / 20 Mbps = 0.8. Only the misses (1 - 0.45 = 0.55) use the link: 0.55 x 0.8 = 0.44, i.e. 44%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m024",
+      "questionText": "A proxy cache has a hit ratio of 0.7. A hit is served in 5 ms, while a miss, which must go to the origin server, takes 250 ms. What is the average response time seen by the users?",
+      "options": [
+        "176.5 ms",
+        "127.5 ms",
+        "250 ms",
+        "78.5 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "T_avg = h x T_hit + (1 - h) x T_miss = 0.7 x 5 + 0.3 x 250 = 3.5 + 75 = 78.5 ms. Swapping h and 1 - h gives 176.5 ms, and a plain average of the two times gives 127.5 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m025",
+      "questionText": "A cache holds a copy of an object that the server labelled with ETag: \"v7\". Which request header does the cache send to ask the server whether that copy is still current?",
+      "options": [
+        "If-None-Match: \"v7\"",
+        "If-Modified-Since: \"v7\"",
+        "ETag: \"v7\"",
+        "Cache-Control: no-store"
+      ],
+      "correctIndex": 0,
+      "explanation": "If-None-Match carries the stored entity tag; the server replies 304 Not Modified with no body if the tag still matches, or 200 with the new version. If-Modified-Since takes a date rather than a tag, and ETag itself is a response header.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m026",
+      "questionText": "An online bank wants to make sure that no browser or proxy cache ever stores its account-statement pages. Which Cache-Control directive should these responses carry?",
+      "options": [
+        "no-cache",
+        "no-store",
+        "max-age=0",
+        "public"
+      ],
+      "correctIndex": 1,
+      "explanation": "no-store forbids every cache from keeping the response. no-cache and max-age=0 still allow the copy to be stored and only require revalidation before reuse, and public explicitly allows shared caches to store it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m027",
+      "questionText": "Where is a reverse proxy placed, and what is it typically used for?",
+      "options": [
+        "Inside each user's browser, to store cookies for later visits",
+        "At the edge of the client organisation, forwarding its users' requests to any website on the Internet",
+        "In front of one or more web servers, receiving client requests on their behalf for load balancing, caching and TLS termination",
+        "Inside the DNS hierarchy, translating host names into server IP addresses"
+      ],
+      "correctIndex": 2,
+      "explanation": "A reverse proxy represents the servers: clients connect to it as if it were the site, and it spreads requests over back-end servers, caches responses and handles HTTPS. A proxy at the client organisation's edge that serves its own users is a forward proxy.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t5_m028",
+      "questionText": "During an HTTPS connection to https://bank.example.com, which check does the browser perform on the server's certificate?",
+      "options": [
+        "That it contains the server's private key",
+        "That it was issued within the last 24 hours",
+        "That it is signed with the browser's own private key",
+        "That it chains to a trusted root CA, is within its validity period, is not revoked and names bank.example.com as a subject"
+      ],
+      "correctIndex": 3,
+      "explanation": "The browser checks the signature chain up to a root CA in its trust store, the validity dates, the revocation status and that the Subject Alternative Name matches the host. A certificate carries only the public key; the private key never leaves the server.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t5_m029",
+      "questionText": "A user on public Wi-Fi opens https://bank.example.com/accounts?id=123. Assuming ordinary unencrypted DNS and no Encrypted Client Hello, what can a passive eavesdropper on the Wi-Fi still learn?",
+      "options": [
+        "The server's IP address and the host name bank.example.com, but not the path, query string, headers or cookies",
+        "The full URL including ?id=123, because TLS never encrypts URLs",
+        "Nothing at all, not even the server's IP address",
+        "The cookies, because TLS encrypts only the message body"
+      ],
+      "correctIndex": 0,
+      "explanation": "IP headers must stay readable for routing, and the host name leaks through the DNS query and the TLS SNI field. Everything inside the HTTP message, including the request line with the path and query, the headers and the cookies, is encrypted by TLS.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t5_m030",
+      "questionText": "Which statement about HTTP is NOT correct?",
+      "options": [
+        "HTTP is stateless: the server keeps no memory of earlier requests from a client",
+        "The request line and headers of HTTP/1.1 messages are human-readable ASCII text",
+        "HTTP/1.1 closes the TCP connection after every response unless the client asks otherwise",
+        "Without TLS, the contents of HTTP messages can be read by anyone on the path"
+      ],
+      "correctIndex": 2,
+      "explanation": "HTTP/1.1 uses persistent connections by default, and either side sends Connection: close to end one. The other three statements are true; statelessness is the reason cookies are needed.",
+      "difficulty": "medium"
+    }
+  ]
+}

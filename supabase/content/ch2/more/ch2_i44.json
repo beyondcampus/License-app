@@ -1,0 +1,728 @@
+{
+  "topicId": "ch2_i44",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Addressing Modes"
+    },
+    {
+      "type": "paragraph",
+      "text": "In the 8086 the execution unit forms the effective address (EA) with a 16-bit adder: it adds whichever of base, index and displacement the instruction names, and an 8-bit displacement is first sign-extended, so [BX-2] is encoded as BX + FEH treated as −2. Any carry out of bit 15 is discarded, so the EA wraps around inside the 64 KB segment rather than spilling into the next one. The bus interface unit then adds the segment base (segment × 10H); on the 8086 a sum above FFFFFH wraps to the bottom of memory because only 20 address lines exist."
+    },
+    {
+      "type": "formula",
+      "latex": "EA = (B + I + d) \\bmod 2^{16},\\quad PA = (16 \\cdot Seg + EA) \\bmod 2^{20}",
+      "plainText": "EA = (Base + Index + displacement) mod 65536; PA = (Segment × 16 + EA) mod 2^20"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Operand or access",
+          "Default segment",
+          "Override allowed?"
+        ],
+        [
+          "[BX], [SI], [DI], direct address",
+          "DS",
+          "Yes (ES:, CS:, SS:)"
+        ],
+        [
+          "Any form containing BP",
+          "SS",
+          "Yes (DS:, ES:, CS:)"
+        ],
+        [
+          "String source at SI",
+          "DS",
+          "Yes"
+        ],
+        [
+          "String destination at DI",
+          "ES",
+          "No"
+        ],
+        [
+          "PUSH, POP, CALL, RET (SP)",
+          "SS",
+          "No"
+        ],
+        [
+          "Instruction fetch (IP)",
+          "CS",
+          "No"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Relative addressing, used by JMP SHORT, the conditional jumps and LOOP, stores only a signed distance. By the time the jump executes, IP already points to the byte after the jump instruction, so the displacement is measured from there, not from the jump opcode. An 8-bit displacement therefore reaches from 128 bytes backward to 127 bytes forward of the next instruction, and because the code does not contain an absolute address it still works if the program is loaded elsewhere."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Target} = IP_{next} + \\text{sext}(d),\\quad d = \\text{Target} - (\\text{Addr} + \\text{Len})",
+      "plainText": "Target = IP of next instruction + sign-extended displacement; d = Target − (jump address + jump length)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: word array MAT at offset 0600H, 8 words per row, DS = 1500H\nRead MAT[3][5] (zero-based, row-major) with MOV AX, [BX+SI+0600H]\n  bytes per row  = 8 words x 2         = 16 = 0010H\n  BX (row part)  = 3 x 0010H           = 0030H\n  SI (col part)  = 5 x 2               = 000AH\n  EA             = 0030H + 000AH + 0600H = 063AH\n  PA             = 1500H x 10H + 063AH   = 1563AH\nWraparound: BX = FFF8H, disp = 0010H -> EA = 10008H mod 10000H = 0008H\n  with DS = 3000H the byte read is at 30008H, not 40008H"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: backward JNZ (2-byte instruction, 8086)\n  loop start AGAIN at CS:0300H, JNZ AGAIN placed at CS:0310H\n  IP after fetching JNZ = 0310H + 2 = 0312H\n  d = 0300H - 0312H = -12H\n  -12H as an 8-bit two's complement = EEH\n  encoded: 75 EE   (75H = JNZ opcode)\nCheck: 0312H + FFEEH (EEH sign-extended) = 0300H (carry out discarded)"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; 8085 program at 2000H: mode, size, address of each instruction\n        LXI H, 2050H   ; immediate (16-bit)  3 bytes  2000H\n        MOV A, M       ; register indirect   1 byte   2003H\n        INX H          ; register            1 byte   2004H\n        ADD M          ; register indirect   1 byte   2005H\n        CMA            ; implied             1 byte   2006H\n        STA 2060H      ; direct              3 bytes  2007H\n        HLT            ; implied             1 byte   200AH\n; total = 11 bytes, occupying 2000H-200AH"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "mod field (ModR/M byte)",
+          "Meaning of the r/m operand",
+          "Extra bytes"
+        ],
+        [
+          "00",
+          "Memory, no displacement (r/m = 110 means direct address)",
+          "0 (2 for direct)"
+        ],
+        [
+          "01",
+          "Memory + 8-bit displacement, sign-extended",
+          "1"
+        ],
+        [
+          "10",
+          "Memory + 16-bit displacement",
+          "2"
+        ],
+        [
+          "11",
+          "Register operand, no memory access",
+          "0"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in address calculations:",
+      "items": [
+        "Adding the segment value without multiplying it by 16 (shifting one hex digit left).",
+        "Using DS for an operand that contains BP; any BP form defaults to SS.",
+        "Forgetting to scale an array index by the element size (2 for words) before adding it.",
+        "Letting the effective address carry into the segment instead of wrapping it modulo 10000H.",
+        "Measuring a jump displacement from the jump opcode instead of from the next instruction.",
+        "Reading a word as high byte first; the byte at the lower address is always the low byte."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any 8086 address question, write three lines: which registers form the EA, which segment is used (DS, or SS if BP appears, or the override), and PA = segment × 10H + EA. Most wrong options are the result of skipping one of these lines."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i44_m001",
+      "questionText": "In the 8085 instruction MVI B, 3AH, the value 3AH is specified using which addressing mode?",
+      "options": [
+        "Direct",
+        "Immediate",
+        "Register",
+        "Register indirect"
+      ],
+      "correctIndex": 1,
+      "explanation": "The data byte 3AH is part of the instruction itself (second byte of MVI), which is immediate addressing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m002",
+      "questionText": "The 8085 instruction LDAX D loads the accumulator using which addressing mode?",
+      "options": [
+        "Direct",
+        "Register",
+        "Register indirect",
+        "Immediate"
+      ],
+      "correctIndex": 2,
+      "explanation": "LDAX D reads the memory location whose address is held in the DE pair, so the register pair points to the operand: register indirect addressing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m003",
+      "questionText": "Which addressing mode is used by the 8085 instruction STA 3000H?",
+      "options": [
+        "Immediate",
+        "Direct",
+        "Register indirect",
+        "Implied"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 16-bit memory address 3000H is written in the instruction, so the operand location is given directly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m004",
+      "questionText": "The 8085 instruction CMA (complement accumulator) uses which addressing mode?",
+      "options": [
+        "Register indirect",
+        "Implied (implicit)",
+        "Immediate",
+        "Direct"
+      ],
+      "correctIndex": 1,
+      "explanation": "CMA has no operand field; the opcode itself says the accumulator is complemented, which is implied addressing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m005",
+      "questionText": "According to the standard classification, how many addressing modes does the 8085 support?",
+      "options": [
+        "3",
+        "7",
+        "5",
+        "11"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8085 has five modes: immediate, register, direct, register indirect and implied. The 8086 has a larger set of modes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m006",
+      "questionText": "Which 8086 addressing mode does MOV AX, [SI+08H] use for its source operand?",
+      "options": [
+        "Based",
+        "Based-indexed",
+        "Indexed",
+        "Implied"
+      ],
+      "correctIndex": 2,
+      "explanation": "An index register (SI or DI) plus a displacement is indexed addressing (also called register relative); based addressing uses BX or BP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m007",
+      "questionText": "Which 8086 addressing mode is used by the source operand of MOV AX, [BX+SI+05H]?",
+      "options": [
+        "Based",
+        "Indexed",
+        "Register indirect",
+        "Based-indexed with displacement"
+      ],
+      "correctIndex": 3,
+      "explanation": "The address combines a base register (BX), an index register (SI) and a displacement (05H), which is based-indexed with displacement.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m008",
+      "questionText": "In the 8086 instruction MOV AL, [2000H], the source operand is accessed using:",
+      "options": [
+        "Direct addressing",
+        "Immediate addressing",
+        "Register indirect addressing",
+        "Indexed addressing"
+      ],
+      "correctIndex": 0,
+      "explanation": "The brackets around a constant mean the constant is a memory offset (EA = 2000H in DS), which is direct addressing; without brackets 2000H would be immediate data.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m009",
+      "questionText": "Which of the following is NOT a valid 8086 memory operand?",
+      "options": [
+        "[BX+SI]",
+        "[BP+DI+04H]",
+        "[DI]",
+        "[AX]"
+      ],
+      "correctIndex": 3,
+      "explanation": "In 16-bit 8086 addressing only BX and BP (base) and SI and DI (index) may appear inside brackets; AX cannot be used as a pointer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m010",
+      "questionText": "For the 8086 string instruction MOVSB, the source and destination bytes are located at:",
+      "options": [
+        "Source ES:DI, destination DS:SI",
+        "Source DS:SI, destination ES:DI",
+        "Source DS:SI, destination DS:DI",
+        "Source SS:SI, destination ES:DI"
+      ],
+      "correctIndex": 1,
+      "explanation": "String instructions read the source through DS:SI and write the destination through ES:DI, then adjust SI and DI according to DF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m011",
+      "questionText": "The 8086 instruction JNZ NEXT locates its target address using which addressing mode?",
+      "options": [
+        "Direct memory addressing through DS",
+        "Register indirect through BX",
+        "Relative (IP plus a signed displacement)",
+        "Immediate addressing of a 20-bit address"
+      ],
+      "correctIndex": 2,
+      "explanation": "Conditional jumps carry only a signed 8-bit displacement that is added to IP of the next instruction, so they use relative addressing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m012",
+      "questionText": "Which addressing mode gives the fastest operand access because the operand is already inside the CPU and no memory bus cycle is required for it?",
+      "options": [
+        "Direct addressing",
+        "Register addressing",
+        "Register indirect addressing",
+        "Based-indexed with displacement addressing"
+      ],
+      "correctIndex": 1,
+      "explanation": "In register mode both operands are in CPU registers, so no memory read or address calculation is needed; all memory modes need at least one bus cycle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m013",
+      "questionText": "The 8086 instruction IN AL, DX addresses the input port using:",
+      "options": [
+        "Variable (indirect) port addressing with the port number in DX, allowing ports 0000H–FFFFH",
+        "Fixed port addressing with ports 00H–FFH only",
+        "Direct memory addressing at DS:DX",
+        "Immediate addressing with a 16-bit port number in the instruction"
+      ],
+      "correctIndex": 0,
+      "explanation": "When the port number is in DX the instruction can reach any of 65,536 ports; the fixed form IN AL, 80H carries an 8-bit port number and reaches only 00H–FFH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m014",
+      "questionText": "The 8085 instruction LXI B, 4523H is stored in memory starting at address 2000H. What is the byte at address 2001H?",
+      "options": [
+        "45H",
+        "01H",
+        "20H",
+        "23H"
+      ],
+      "correctIndex": 3,
+      "explanation": "LXI B is 3 bytes: opcode 01H at 2000H, then the 16-bit data low byte first, so 2001H holds 23H and 2002H holds 45H.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i44_m015",
+      "questionText": "In an 8086 system DS = 3000H and BX = 0500H. What physical address is read by MOV AL, [BX+25H]?",
+      "options": [
+        "3525H",
+        "30500H",
+        "30525H",
+        "35250H"
+      ],
+      "correctIndex": 2,
+      "explanation": "EA = BX + 25H = 0525H; PA = DS × 10H + EA = 30000H + 0525H = 30525H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m016",
+      "questionText": "In an 8086 system DS = 2000H, SS = 4000H and BP = 0200H. What physical address is read by MOV AX, [BP+10H]?",
+      "options": [
+        "20210H",
+        "40200H",
+        "4210H",
+        "40210H"
+      ],
+      "correctIndex": 3,
+      "explanation": "EA = BP + 10H = 0210H. Because BP is used, the default segment is SS: PA = 40000H + 0210H = 40210H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m017",
+      "questionText": "In an 8086 system DS = 1200H and SI = 0034H. What physical address is read by MOV CL, [SI+0100H]?",
+      "options": [
+        "12034H",
+        "1334H",
+        "13340H",
+        "12134H"
+      ],
+      "correctIndex": 3,
+      "explanation": "EA = SI + 0100H = 0134H; PA = 1200H × 10H + 0134H = 12000H + 0134H = 12134H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m018",
+      "questionText": "In an 8086 system DS = 2100H, BX = 0150H and DI = 0020H. At which physical address does MOV [BX+DI], AL store AL?",
+      "options": [
+        "21170H",
+        "21150H",
+        "2270H",
+        "21700H"
+      ],
+      "correctIndex": 0,
+      "explanation": "EA = BX + DI = 0150H + 0020H = 0170H; PA = 21000H + 0170H = 21170H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m019",
+      "questionText": "In an 8086 system DS = 2000H, SS = 5000H, BP = 0300H and SI = 0040H. From which physical address does MOV DX, [BP+SI+06H] read its low byte?",
+      "options": [
+        "20346H",
+        "50340H",
+        "50346H",
+        "50306H"
+      ],
+      "correctIndex": 2,
+      "explanation": "EA = 0300H + 0040H + 06H = 0346H. The operand contains BP, so SS is the default segment: PA = 50000H + 0346H = 50346H (DL comes from here, DH from 50347H).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m020",
+      "questionText": "In an 8086 system DS = 1000H, ES = 6000H and BX = 0010H. Which physical address is read by MOV AX, ES:[BX+02H]?",
+      "options": [
+        "60012H",
+        "10012H",
+        "60010H",
+        "6012H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The ES: override replaces the default DS. EA = 0010H + 02H = 0012H; PA = 60000H + 0012H = 60012H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m021",
+      "questionText": "In an 8086 system DS = 1000H, memory location 10300H contains 34H and 10301H contains 12H. What is AX after MOV AX, [0300H]?",
+      "options": [
+        "3412H",
+        "0034H",
+        "0300H",
+        "1234H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Direct addressing: EA = 0300H, PA = 10300H. A word is stored low byte first, so AL = 34H (from 10300H), AH = 12H (from 10301H) and AX = 1234H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m022",
+      "questionText": "In an 8086 system DS = 2000H, BX = FFF0H and SI = 0020H. Which physical address is read by MOV AL, [BX+SI]?",
+      "options": [
+        "30010H",
+        "2FFF0H",
+        "20020H",
+        "20010H"
+      ],
+      "correctIndex": 3,
+      "explanation": "EA = FFF0H + 0020H = 10010H, but the EA is only 16 bits, so it wraps to 0010H. PA = 20000H + 0010H = 20010H; the carry does not spill into the next segment.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m023",
+      "questionText": "On the 8086, CS = 1000H, DS = 2000H and BX = 0300H. Memory locations 20300H and 20301H hold 50H and 04H. The near jump JMP WORD PTR [BX] is executed. From which physical address is the next instruction fetched?",
+      "options": [
+        "20300H",
+        "10450H",
+        "15004H",
+        "20450H"
+      ],
+      "correctIndex": 1,
+      "explanation": "This is memory-indirect program addressing: the pointer is read from DS:BX = 20000H + 0300H = 20300H, and the little-endian word there, 0450H, is loaded into IP. CS is unchanged, so the next fetch is at 1000H × 10H + 0450H = 10450H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m024",
+      "questionText": "In an 8086 system DS = 2500H. What value must BX hold so that MOV AL, [BX] reads physical address 26A40H?",
+      "options": [
+        "01A4H",
+        "0A40H",
+        "2A40H",
+        "1A40H"
+      ],
+      "correctIndex": 3,
+      "explanation": "EA = PA − DS × 10H = 26A40H − 25000H = 1A40H, so BX = 1A40H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m025",
+      "questionText": "An 8086 instruction MOV AX, [BX+SI+00C0H] reads physical address 3A2F4H with BX = 1200H and SI = 0034H. What is the value in DS?",
+      "options": [
+        "3900H",
+        "39000H",
+        "3A2FH",
+        "390CH"
+      ],
+      "correctIndex": 0,
+      "explanation": "EA = 1200H + 0034H + 00C0H = 12F4H. DS × 10H = 3A2F4H − 12F4H = 39000H, so DS = 3900H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m026",
+      "questionText": "On the 8086, DF = 0, DS = 1000H, ES = 2000H, SI = 0100H and DI = 0200H. After one MOVSB, which physical address was written and what are SI and DI?",
+      "options": [
+        "20200H; SI = 0101H, DI = 0201H",
+        "10200H; SI = 0101H, DI = 0201H",
+        "20200H; SI = 00FFH, DI = 01FFH",
+        "20200H; SI = 0102H, DI = 0202H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The destination is ES:DI = 20000H + 0200H = 20200H. With DF = 0 a byte transfer increments SI and DI by 1, giving 0101H and 0201H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m027",
+      "questionText": "On the 8086, DF = 1, SI = 0300H and DI = 0500H. What are SI and DI after one MOVSW?",
+      "options": [
+        "SI = 0302H, DI = 0502H",
+        "SI = 02FEH, DI = 04FEH",
+        "SI = 02FFH, DI = 04FFH",
+        "SI = 0301H, DI = 0501H"
+      ],
+      "correctIndex": 1,
+      "explanation": "DF = 1 means auto-decrement, and a word transfer moves the pointers by 2: SI = 0300H − 2 = 02FEH, DI = 0500H − 2 = 04FEH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m028",
+      "questionText": "On the 8086, DF = 0, CX = 0005H, SI = 0200H and DI = 0400H. What are CX, SI and DI after REP MOVSB finishes?",
+      "options": [
+        "CX = 0000H, SI = 0204H, DI = 0404H",
+        "CX = 0001H, SI = 0204H, DI = 0404H",
+        "CX = 0000H, SI = 0205H, DI = 0405H",
+        "CX = 0000H, SI = 020AH, DI = 040AH"
+      ],
+      "correctIndex": 2,
+      "explanation": "REP repeats MOVSB while CX ≠ 0: five bytes are moved, each move adds 1 to SI and DI and subtracts 1 from CX, so CX = 0, SI = 0205H, DI = 0405H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m029",
+      "questionText": "On the 8086, SS = 3000H, BP = 1000H and SI = 0200H. What does BX contain after LEA BX, [BP+SI+20H]?",
+      "options": [
+        "1220H",
+        "31220H",
+        "The word stored at 31220H",
+        "1200H"
+      ],
+      "correctIndex": 0,
+      "explanation": "LEA loads the effective address itself, not the memory contents and not the physical address: BX = 1000H + 0200H + 20H = 1220H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m030",
+      "questionText": "On the 8086, DS = 1000H, BX = 0300H and AL = 05H. From which physical address does XLAT read the byte that replaces AL?",
+      "options": [
+        "10305H",
+        "10300H",
+        "1305H",
+        "10350H"
+      ],
+      "correctIndex": 0,
+      "explanation": "XLAT uses EA = BX + AL = 0300H + 05H = 0305H in DS: PA = 10000H + 0305H = 10305H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m031",
+      "questionText": "A 2-byte 8086 instruction JMP SHORT L1 is located at CS:0100H and its displacement byte is 10H. What is the offset of L1?",
+      "options": [
+        "0110H",
+        "0102H",
+        "0122H",
+        "0112H"
+      ],
+      "correctIndex": 3,
+      "explanation": "IP already points to the next instruction, 0100H + 2 = 0102H. Target = 0102H + 10H = 0112H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m032",
+      "questionText": "A 2-byte 8086 instruction JNZ BACK is located at CS:0200H with displacement byte F6H, and ZF = 0. What is IP after it executes?",
+      "options": [
+        "01F6H",
+        "02F8H",
+        "020CH",
+        "01F8H"
+      ],
+      "correctIndex": 3,
+      "explanation": "F6H as a signed byte is −10 (−0AH). IP of the next instruction = 0202H, so the target is 0202H − 000AH = 01F8H. The jump is taken because ZF = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m033",
+      "questionText": "An 8086 JMP SHORT instruction (2 bytes) is placed at offset 0150H and must jump back to offset 0130H. What displacement byte is encoded?",
+      "options": [
+        "E0H",
+        "DEH",
+        "22H",
+        "20H"
+      ],
+      "correctIndex": 1,
+      "explanation": "d = target − (address + length) = 0130H − 0152H = −22H. In 8-bit two's complement −22H = 100H − 22H = DEH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m034",
+      "questionText": "In an 8085 system memory location 2500H holds 34H and 2501H holds 12H. What are H and L after LHLD 2500H?",
+      "options": [
+        "H = 34H, L = 12H",
+        "H = 25H, L = 00H",
+        "H = 12H, L = 34H",
+        "H = 00H, L = 34H"
+      ],
+      "correctIndex": 2,
+      "explanation": "LHLD uses direct addressing: L is loaded from 2500H (34H) and H from the next address 2501H (12H), so HL = 1234H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m035",
+      "questionText": "An 8085 has B = 20H and C = 30H. Memory location 2030H holds 7FH and 3020H holds 11H. What is in the accumulator after LDAX B?",
+      "options": [
+        "11H",
+        "7FH",
+        "30H",
+        "20H"
+      ],
+      "correctIndex": 1,
+      "explanation": "LDAX B uses BC as a pointer with B as the high byte: address = 2030H, so A = 7FH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m036",
+      "questionText": "How many bytes of memory does this 8085 program occupy? LXI H, 2050H / MVI M, 0AH / LDA 2051H / ADD M / OUT 01H / HLT",
+      "options": [
+        "12",
+        "10",
+        "9",
+        "14"
+      ],
+      "correctIndex": 0,
+      "explanation": "LXI (3) + MVI M (2) + LDA (3) + ADD M (1) + OUT (2) + HLT (1) = 12 bytes. Immediate 8-bit data and port numbers add one byte, 16-bit addresses or data add two.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m037",
+      "questionText": "On the 8086, SS = 3000H and SP = 0200H. When PUSH BX executes, at which physical address is the byte BH stored?",
+      "options": [
+        "301FEH",
+        "30201H",
+        "301FFH",
+        "30200H"
+      ],
+      "correctIndex": 2,
+      "explanation": "PUSH makes SP = 0200H − 2 = 01FEH and stores the word at SS:SP low byte first: BL at 301FEH and BH at 301FFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m038",
+      "questionText": "Which of the following 8086 memory operands is illegal?",
+      "options": [
+        "[BX+BP]",
+        "[BX+DI]",
+        "[BP+SI+10H]",
+        "[SI+20H]"
+      ],
+      "correctIndex": 0,
+      "explanation": "An 8086 address may contain at most one base register (BX or BP) and one index register (SI or DI); BX and BP are both base registers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m039",
+      "questionText": "Which statement about 8086 segment override prefixes is correct?",
+      "options": [
+        "An override prefix stays in effect for all following instructions until another prefix appears",
+        "Operands that use BP can never be taken from any segment other than SS",
+        "The ES:DI destination of a string instruction cannot be overridden",
+        "The segment used by PUSH and POP can be changed with an ES: prefix"
+      ],
+      "correctIndex": 2,
+      "explanation": "A prefix affects only the one instruction it precedes; BP operands can be overridden (for example DS:[BP]); stack operations always use SS, and the string destination is always ES:DI.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m040",
+      "questionText": "The 8086 assembler rejects the instruction MOV [BX], 25H. Why?",
+      "options": [
+        "Immediate data cannot be moved into memory",
+        "BX cannot be used as a memory pointer",
+        "Memory-to-memory transfers are not allowed",
+        "The operand size is unknown; BYTE PTR or WORD PTR must be given"
+      ],
+      "correctIndex": 3,
+      "explanation": "Neither [BX] nor 25H fixes whether a byte or a word is meant, so the programmer must write MOV BYTE PTR [BX], 25H or MOV WORD PTR [BX], 25H. Immediate-to-memory moves are legal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m041",
+      "questionText": "Which addressing mode is NOT available on the 8085?",
+      "options": [
+        "Register indirect addressing",
+        "Indexed addressing",
+        "Implied addressing",
+        "Immediate addressing"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8085 has no index registers and cannot add a displacement to a pointer; its five modes are immediate, register, direct, register indirect and implied.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m042",
+      "questionText": "In an 8086 system DS = 1000H, SS = 2000H, BX = 0100H, BP = 0100H and SI = 0010H. Which instruction reads physical address 20110H?",
+      "options": [
+        "MOV AX, [BX+SI]",
+        "MOV AX, DS:[BP+SI]",
+        "MOV AX, [BP+SI]",
+        "MOV AX, [SI+0100H]"
+      ],
+      "correctIndex": 2,
+      "explanation": "All four have EA = 0110H. Only [BP+SI] without an override uses SS (20000H + 0110H = 20110H); the others use DS and read 10110H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m043",
+      "questionText": "In an 8086 system DS = 4000H and BX = 0100H. Which physical address is read by MOV AL, [BX-02H]?",
+      "options": [
+        "400FEH",
+        "40102H",
+        "401FEH",
+        "40FEH"
+      ],
+      "correctIndex": 0,
+      "explanation": "The displacement −2 is stored as FEH and sign-extended to FFFEH. EA = 0100H − 2 = 00FEH; PA = 40000H + 00FEH = 400FEH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m044",
+      "questionText": "On the 8086, a word array MAT starts at offset 0400H with 10 words per row (row-major, zero-based) and DS = 2000H. MAT[2][3] is read by MOV AX, [BX+SI+0400H] with BX = row × bytes per row and SI = column × 2. What physical address is read?",
+      "options": [
+        "20417H",
+        "2042EH",
+        "20440H",
+        "2002EH"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bytes per row = 10 × 2 = 20 = 14H; BX = 2 × 14H = 28H; SI = 3 × 2 = 6. EA = 0400H + 28H + 06H = 042EH; PA = 20000H + 042EH = 2042EH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i44_m045",
+      "questionText": "On the 8086, a word array ARR starts at offset 0200H. To read element number 5 (zero-based) with MOV AX, [SI+0200H], what value must SI hold?",
+      "options": [
+        "000AH",
+        "0005H",
+        "000CH",
+        "020AH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each word occupies 2 bytes, so the byte offset of element 5 is 5 × 2 = 10 = 000AH; the base 0200H is already in the displacement.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i44_m046",
+      "questionText": "In the 8086 instruction MOV AL, [BX+disp8], how is the 8-bit displacement used when forming the effective address?",
+      "options": [
+        "It is zero-extended to 16 bits and added to BX",
+        "It is sign-extended to 16 bits and added to BX",
+        "It is added to the segment register before the shift",
+        "It is multiplied by 16 and added to the physical address"
+      ],
+      "correctIndex": 1,
+      "explanation": "An 8-bit displacement (mod = 01) is treated as a signed value from −128 to +127 and sign-extended before the 16-bit addition, which is why [BX-2] can be encoded in one displacement byte.",
+      "difficulty": "medium"
+    }
+  ]
+}

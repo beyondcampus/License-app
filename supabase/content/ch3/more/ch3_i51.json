@@ -1,0 +1,706 @@
+{
+  "topicId": "ch3_i51",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: How Streams Format and Read"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each insertion with << reads the stream's current state: the flags, the width, the precision and the fill character. The value is first converted to text using the flags and precision, then padded with the fill character to the width, and finally the width is reset to 0, while every other setting stays until it is changed. In general notation (neither fixed nor scientific) the precision P is the number of significant digits, and the library chooses between plain and exponent form from the decimal exponent X of the rounded value, exactly like printf with %g. Trailing zeros are then removed unless showpoint is set."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{general: fixed style if } -4 \\le X < P,\\ \\text{else scientific}",
+      "plainText": "General notation with precision P (0 counts as 1): if the decimal exponent X of the rounded value satisfies -4 <= X < P, print in fixed style with P - 1 - X decimals, otherwise in scientific style with P - 1 decimals"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\n#include <iomanip>\nusing namespace std;\nint main() {\n    cout << fixed << setprecision(2) << setfill('.');\n    cout << left << setw(8) << \"Rice\" << right << setw(8) << 95.5 << '\\n';\n    cout << left << setw(8) << \"Lentils\" << right << setw(8) << 160.0 << '\\n';\n    cout << setfill(' ') << hex << showbase << 255 << ' ' << dec << 255 << '\\n';\n    cout << scientific << setprecision(3) << 0.000123456 << '\\n';\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nRice.......95.50\nLentils...160.00\n0xff 255\n1.235e-04\n\nRice      left in 8 columns, fill '.': Rice....\n95.5      fixed 2 -> 95.50, right in 8:     ...95.50\nLentils   7 chars + 1 dot; 160.00 needs 2 dots\n255       hex + showbase -> 0xff; dec restores 255\n0.000123456  scientific 3 -> 1.235e-04 (1.23456 rounds up)"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    int roll; char grade; string name; char city[6];\n    cin >> roll;              // line 1 of input: 42\n    cin.get(grade);           // reads the '\\n' left behind by >>\n    cin >> grade;             // skips whitespace, reads A\n    cin.ignore(100, '\\n');    // discards the rest of line 2\n    getline(cin, name);       // line 3: Sita Rai\n    cin.getline(city, 6);     // line 4: Biratnagar, only 5 chars fit\n    cout << roll << '|' << grade << '|' << name << '|' << city << '|' << cin.fail();\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Input (4 lines):\n42\nA\nSita Rai\nBiratnagar\n\nOutput:\n42|A|Sita Rai|Birat|1\n\ncin.get(grade) first receives '\\n', so the second read is needed\ngetline(cin, name) keeps the space in Sita Rai\ngetline(city, 6) fills 5 chars, stops before the newline, sets failbit"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Input call",
+          "Skips leading whitespace?",
+          "What happens at the newline"
+        ],
+        [
+          "cin >> x",
+          "Yes",
+          "Stops before it; the newline stays in the stream"
+        ],
+        [
+          "cin >> ws",
+          "Yes, that is its only job",
+          "Discards it along with spaces and tabs"
+        ],
+        [
+          "cin.get(ch)",
+          "No",
+          "Reads it as an ordinary character"
+        ],
+        [
+          "cin.get(buf, n)",
+          "No",
+          "Stops before it; an immediate newline gives an empty string and failbit"
+        ],
+        [
+          "cin.getline(buf, n)",
+          "No",
+          "Extracts and discards it; sets failbit if the array fills before the newline"
+        ],
+        [
+          "getline(cin, str)",
+          "No",
+          "Extracts and discards it; std::string has no length limit"
+        ],
+        [
+          "cin.ignore(n, '\\n')",
+          "No",
+          "Discards characters up to and including it, at most n in total"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Rules that decide many output questions:",
+      "items": [
+        "setf(flag) only adds a bit: setf(ios::hex) with dec still on prints decimal; use setf(ios::hex, ios::basefield) or the hex manipulator.",
+        "unsetf(ios::floatfield) returns to general notation, and unsetf(ios::basefield) leaves no base bit set, which also prints decimal.",
+        "precision(n), width(n) and fill(c) return the old value, and flags() returns the whole flag word, so settings can be saved and restored.",
+        "internal padding applies only to numbers: it goes after a sign or a 0x prefix; strings are padded as if right-justified.",
+        "uppercase affects the e of scientific notation, the x of 0x and the hex digits a to f, but never ordinary letters in strings."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A manipulator without arguments is simply a function with the signature ostream &name(ostream &). ostream has an operator<< overload that accepts a pointer to such a function and calls it with the stream; endl works this way, and hex or fixed use a sibling overload for functions taking ios_base &. Whatever settings the function changes stay in force afterwards. A manipulator with an argument needs a small helper: for example a struct stars holding a count, plus an operator<< for stars that writes that many asterisks, so that cout << stars{3} reads just like setw(3)."
+    },
+    {
+      "type": "warning",
+      "text": "Mixing cin >> with getline is the most common input bug: the newline left by >> makes the next getline return an empty string. Add cin.ignore(100, '\\n') or cin >> ws before getline. Also remember that setw on input limits a char array read to n - 1 characters, while setw on output never truncates."
+    },
+    {
+      "type": "examTip",
+      "text": "For a formatting question, trace the state left to right: note the flags, precision and fill that are in force, apply setw only to the very next item, and check which notation is active before rounding. Write the result inside brackets while working so that padding spaces are counted exactly."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i51_m001",
+      "questionText": "In the C++ stream class hierarchy, which classes does iostream inherit from directly?",
+      "options": [
+        "fstream and ios",
+        "ifstream and ofstream",
+        "streambuf only",
+        "istream and ostream"
+      ],
+      "correctIndex": 3,
+      "explanation": "iostream is derived from both istream and ostream by multiple inheritance, so it supports both >> and <<. ios is the common base further up, while ifstream, ofstream and fstream are file classes derived further down.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m002",
+      "questionText": "Why is ios declared as a virtual base class of both istream and ostream?",
+      "options": [
+        "So that ios itself can never be instantiated",
+        "So that the ios member functions can be overridden and dispatched at run time",
+        "So that iostream, which inherits from both, holds only one copy of the ios state such as flags, width and error bits",
+        "So that cin and cout are forced to share one buffer"
+      ],
+      "correctIndex": 2,
+      "explanation": "iostream inherits from istream and ostream, and both of them derive from ios. Making ios a virtual base gives an iostream object a single shared ios subobject, so there is one set of formatting flags and one stream state instead of two conflicting copies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m003",
+      "questionText": "In the C++ stream library, what is the job of the streambuf class?",
+      "options": [
+        "It manages the buffer and the actual transfer of characters to and from the device",
+        "It stores formatting flags such as hex and left",
+        "It provides the >> operator for the built-in types",
+        "It converts numbers into text for the << operator"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every stream object holds a pointer to a streambuf, which keeps the buffered characters and reads or writes them to the console, a file or a string. Formatting state and the >> and << operators belong to ios, istream and ostream.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m004",
+      "questionText": "Which statement about the standard stream object clog is correct?",
+      "options": [
+        "It writes to the standard output device and is unbuffered",
+        "It writes to the standard error device and is buffered",
+        "It reads diagnostic input from the keyboard",
+        "It is simply another name for cerr"
+      ],
+      "correctIndex": 1,
+      "explanation": "clog and cerr are both ostream objects attached to standard error: cerr is unbuffered so each message appears at once, while clog is buffered, which suits logging. cout writes to standard output and cin reads standard input.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m005",
+      "questionText": "A program executes cout << \"Enter n: \"; cin >> n; with no endl or flush after the prompt. Why is the prompt guaranteed to appear before the program waits for input?",
+      "options": [
+        "cin is tied to cout, so cout is flushed before each input operation on cin",
+        "cout is unbuffered, just like cerr",
+        "The >> operator always prints a newline before it reads",
+        "A string literal inserted into cout is sent to cerr instead"
+      ],
+      "correctIndex": 0,
+      "explanation": "By default cin.tie() returns &cout, and a tied output stream is flushed before every input operation on the stream it is tied to. That is what makes prompts appear even without endl.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m006",
+      "questionText": "Which of the following is an unformatted input operation?",
+      "options": [
+        "cin >> hex >> n with int n",
+        "cin >> ch with char ch",
+        "cin >> n with int n",
+        "cin.get(ch) with char ch"
+      ],
+      "correctIndex": 3,
+      "explanation": "get() transfers the next character exactly as it is, including spaces and newlines, without any conversion. The >> operator is formatted input: it skips leading whitespace and converts text to the target type, and hex only changes that conversion.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m007",
+      "questionText": "The user types Hari Prasad and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar name[20];\ncin >> name;\ncout << \"[\" << name << \"]\";",
+      "options": [
+        "[Hari Prasad]",
+        "[Hari]",
+        "[H]",
+        "[Prasad]"
+      ],
+      "correctIndex": 1,
+      "explanation": ">> skips leading whitespace and then reads characters only up to the next whitespace, so name receives Hari. The rest of the line, starting with the space, stays in the input buffer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m008",
+      "questionText": "The user types x y z and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar a, b, c;\ncin >> a >> b;\ncin.get(c);\ncout << a << b << '[' << c << ']';",
+      "options": [
+        "x [y]",
+        "xy[z]",
+        "xy[ ]",
+        "x y[z]"
+      ],
+      "correctIndex": 2,
+      "explanation": ">> skips whitespace, so a = 'x' and b = 'y'. get(c) does not skip whitespace, so it reads the space that follows y.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m009",
+      "questionText": "The user types Ram, presses Enter, types Shyam and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar a[10], b[10];\ncin.get(a, 10);\ncin.get(b, 10);\ncout << \"[\" << a << \"][\" << b << \"]\";",
+      "options": [
+        "[Ram][Shyam]",
+        "[Ram][]",
+        "[][Ram]",
+        "[Ram][S]"
+      ],
+      "correctIndex": 1,
+      "explanation": "get(a, 10) stops at the newline and leaves it in the stream, so the second get(b, 10) meets that newline at once, stores an empty string and sets failbit. Using getline for the first read, or calling cin.ignore() between the two calls, would let b receive Shyam.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m010",
+      "questionText": "The user types Kathmandu,Nepal and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included, using namespace std; is in effect and characters use the ASCII codes.\n\nchar city[20];\ncin.getline(city, 20, ',');\nint next = cin.get();\ncout << city << \"|\" << next;",
+      "options": [
+        "Kathmandu|44",
+        "Kathmandu|N",
+        "Kathmandu|78",
+        "Kathmandu,Nepal|10"
+      ],
+      "correctIndex": 2,
+      "explanation": "getline stops at the delimiter ',' and extracts and discards it, so city holds Kathmandu. cin.get() with no argument returns the next character as an int, here 'N', whose ASCII code is 78.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m011",
+      "questionText": "The user types Pokhara and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar s[6];\ncin.getline(s, 6);\ncout << s << \" \" << cin.fail();",
+      "options": [
+        "Pokhara 0",
+        "Pokhar 0",
+        "Pokha 0",
+        "Pokha 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "getline(s, 6) stores at most 5 characters plus the terminating '\\0', so s holds Pokha. Because it stopped with the array full before reaching the newline, it also sets failbit, and cin.fail() prints 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m012",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included, using namespace std; is in effect and characters use the ASCII codes.\n\nchar ch = 'x';\ncout.put(65).put('B' + 1);\ncout.put(ch - 32);",
+      "options": [
+        "ACX",
+        "656788",
+        "ABX",
+        "AC88"
+      ],
+      "correctIndex": 0,
+      "explanation": "put() writes one character, so each int argument is converted to char: in ASCII 65 is 'A', 'B' + 1 is 67 = 'C' and 'x' - 32 is 88 = 'X'. put() returns the stream, which is why the first two calls can be chained.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m013",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nconst char *s = \"Programming\";\ncout.write(s, 7).put('|');\ncout.write(s + 3, 4);",
+      "options": [
+        "Programming|gram",
+        "Program|gram",
+        "Progra|ramm",
+        "Program|gramming"
+      ],
+      "correctIndex": 1,
+      "explanation": "write(s, 7) sends exactly the first 7 characters, Program, and returns the stream so put('|') can follow. s + 3 points to the fourth character, so write(s + 3, 4) sends gram.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m014",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.fill('#');\ncout.width(5);\ncout << 12 << '|';\ncout.width(4);\ncout << 7 << '|' << 8;",
+      "options": [
+        "###12|###7|###8",
+        "###12|7|8",
+        "###12|###7|8",
+        "12###|7###|8"
+      ],
+      "correctIndex": 2,
+      "explanation": "fill('#') stays in force, but each width() call affects only the next insertion. 12 is padded to 5 columns and 7 to 4 columns on the left (right alignment is the default), while '|' and 8 are printed with width 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m015",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << 3.14159265 << \" \";\ncout << 2.50 << \" \";\ncout << 100.0 / 3;",
+      "options": [
+        "3.14159 2.50 33.3333",
+        "3.141593 2.500000 33.333333",
+        "3.14 2.50 33.33",
+        "3.14159 2.5 33.3333"
+      ],
+      "correctIndex": 3,
+      "explanation": "The default precision is 6 significant digits in general notation, with trailing zeros dropped: 3.14159, 2.5 and 33.3333. Six digits after the point would require fixed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m016",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << fixed << setprecision(2);\ncout << 2.346 << \" \" << 10.0 << \" \";\ncout << 7.0 / 3;",
+      "options": [
+        "2.35 10.00 2.33",
+        "2.3 10 2.3",
+        "2.35 10 2.33",
+        "2.346 10.00 2.333"
+      ],
+      "correctIndex": 0,
+      "explanation": "With fixed, the precision is the number of digits after the decimal point and trailing zeros are kept. 2.346 rounds to 2.35, 10.0 prints as 10.00 and 7/3 = 2.333... prints as 2.33.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m017",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << scientific;\ncout << setprecision(2);\ncout << 12345.678 << \" \" << 0.000456;",
+      "options": [
+        "1.2e+04 4.6e-04",
+        "1.23e+04 4.56e-04",
+        "12345.68 0.00",
+        "1.235e+04 4.560e-04"
+      ],
+      "correctIndex": 1,
+      "explanation": "In scientific notation the precision is the number of digits after the decimal point of the mantissa. 12345.678 = 1.2345678 x 10^4 prints as 1.23e+04 and 0.000456 = 4.56 x 10^-4 prints as 4.56e-04.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m018",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setprecision(4) << 3.14159 << \" \";\ncout << fixed << 3.14159 << \" \";\ncout.unsetf(ios::fixed);\ncout << 31.4159;",
+      "options": [
+        "3.142 3.142 31.42",
+        "3.1416 3.1416 31.4159",
+        "3.142 3.1416 31.4159",
+        "3.142 3.1416 31.42"
+      ],
+      "correctIndex": 3,
+      "explanation": "Precision 4 stays in force throughout. In general notation it means 4 significant digits (3.142), with fixed it means 4 decimals (3.1416), and after unsetf(ios::fixed) the notation is general again, so 31.4159 becomes 31.42.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m019",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showpoint;\ncout << 2.0 << \" \";\ncout << setprecision(3) << 7.0;",
+      "options": [
+        "2.00000 7.00",
+        "2 7",
+        "2.0 7.0",
+        "2.000000 7.000"
+      ],
+      "correctIndex": 0,
+      "explanation": "showpoint forces the decimal point and trailing zeros in general notation, so the number of digits shown equals the precision in significant digits. With the default precision 6, 2.0 prints as 2.00000; with precision 3, 7.0 prints as 7.00.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m020",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << hex << 255 << \" \";\ncout << oct << 64 << \" \";\ncout << dec << 0x1F;",
+      "options": [
+        "ff 100 1f",
+        "FF 64 1F",
+        "ff 100 31",
+        "255 64 31"
+      ],
+      "correctIndex": 2,
+      "explanation": "hex prints 255 as ff (lower case by default), and oct prints 64 as 100 because 64 = 1 x 8^2. dec prints the literal 0x1F, whose value is 31, in decimal.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m021",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint n = 26;\ncout << hex << n << \" \";\ncout << n + 1 << \" \";\ncout << dec << n;",
+      "options": [
+        "1a 1b 26",
+        "1a 27 26",
+        "1a 1b 1a",
+        "26 27 26"
+      ],
+      "correctIndex": 0,
+      "explanation": "The base manipulators are sticky: after hex every integer is printed in hexadecimal until another base is chosen. 26 is 1a and 27 is 1b, and dec switches back so the last value prints as 26.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m022",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showbase << uppercase;\ncout << hex << 254 << \" \";\ncout << oct << 8;",
+      "options": [
+        "0xfe 010",
+        "0XFE 010",
+        "FE 10",
+        "0XFE 0X10"
+      ],
+      "correctIndex": 1,
+      "explanation": "showbase adds the base prefix and uppercase turns both the x and the hex digits into capitals, so 254 prints as 0XFE. In octal the prefix is a single 0, and 8 is 10 in octal, giving 010.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m023",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << showpos;\ncout << 5 << \" \" << -5 << \" \";\ncout << 0 << \" \" << 2.5;",
+      "options": [
+        "5 -5 0 2.5",
+        "+5 -5 0 +2.5",
+        "+5 -5 +0 +2.5",
+        "+5 +-5 +0 +2.5"
+      ],
+      "correctIndex": 2,
+      "explanation": "showpos prints a + sign in front of every non-negative number, including zero and floating-point values. Negative numbers keep their usual - sign.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m024",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << '[' << setw(6) << left << -42 << ']';\ncout << '[' << setw(6) << right << -42 << ']';\ncout << '[' << setw(6) << internal << -42 << ']';",
+      "options": [
+        "[   -42][-42   ][-   42]",
+        "[-42   ][   -42][   -42]",
+        "[-42][-42][-42]",
+        "[-42   ][   -42][-   42]"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a 6-column field, left pads after the value, right pads before it, and internal puts the padding between the sign and the digits. setw(6) is repeated for each value because the width resets after every insertion.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m025",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setfill('0') << internal;\ncout << showbase << hex;\ncout << setw(8) << 255;",
+      "options": [
+        "00000xff",
+        "0x0000ff",
+        "0x000000ff",
+        "0xff0000"
+      ],
+      "correctIndex": 1,
+      "explanation": "0xff is 4 characters, so 8 - 4 = 4 fill characters are needed. internal places them after the base prefix 0x and before the digits, giving 0x0000ff; with right alignment the result would be 00000xff.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m026",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << left << setfill('.');\ncout << setw(8) << \"Ram\" << \"|\";\ncout << setw(3) << 12345 << \"|\";",
+      "options": [
+        "Ram.....|123|",
+        ".....Ram|12345|",
+        "Ram.....|12345|",
+        "Ram.....|12345...|"
+      ],
+      "correctIndex": 2,
+      "explanation": "left pads Ram with five dots to fill 8 columns. setw(3) is smaller than the 5 digits of 12345, and a field width never truncates, so the number is printed in full with no padding.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m027",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.setf(ios::hex, ios::basefield);\ncout << 100 << \" \";\ncout.setf(ios::oct, ios::basefield);\ncout << 100 << \" \";\ncout.unsetf(ios::basefield);\ncout << 100;",
+      "options": [
+        "64 64 100",
+        "100 100 100",
+        "64 144 144",
+        "64 144 100"
+      ],
+      "correctIndex": 3,
+      "explanation": "The two-argument setf clears the whole basefield group before setting the new flag, so 100 prints as 64 in hex and 144 in octal. After unsetf(ios::basefield) no base flag is set, and integers are then printed in decimal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m028",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout.setf(ios::hex);\ncout << 255 << \" \";\ncout.setf(ios::hex, ios::basefield);\ncout << 255;",
+      "options": [
+        "255 ff",
+        "ff ff",
+        "255 255",
+        "ff 255"
+      ],
+      "correctIndex": 0,
+      "explanation": "The one-argument setf(ios::hex) only adds the hex bit, so dec (on by default) is still set; with two base bits set the base is not purely hex and the value prints in decimal. The two-argument form first clears dec from basefield, so 255 then prints as ff.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m029",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nios::fmtflags old = cout.flags();\ncout << hex << showbase << 16 << \" \";\ncout.flags(old);\ncout << 16;",
+      "options": [
+        "16 16",
+        "0x10 0x10",
+        "10 16",
+        "0x10 16"
+      ],
+      "correctIndex": 3,
+      "explanation": "flags() returns the whole flag word, which is saved in old before hex and showbase are switched on. flags(old) restores it, so the second 16 is printed in plain decimal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m030",
+      "questionText": "Which of these manipulators is available when only <iostream> is included, without <iomanip>?",
+      "options": [
+        "hex",
+        "setw(5)",
+        "setfill('*')",
+        "setprecision(2)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Manipulators without arguments, such as hex, fixed, left and endl, come with <iostream>. The parameterised ones, setw, setfill, setprecision, setiosflags, resetiosflags and setbase, are declared in <iomanip>.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m031",
+      "questionText": "What does the manipulator endl do that inserting '\\n' does not?",
+      "options": [
+        "It resets the field width to 0",
+        "It writes a carriage return and a line feed on every system",
+        "It also flushes the output buffer",
+        "It clears all the formatting flags"
+      ],
+      "correctIndex": 2,
+      "explanation": "endl inserts a newline and then calls flush(), so the buffered output reaches the device at once. Inserting '\\n' only adds the newline character and leaves flushing to the buffer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m032",
+      "questionText": "Which formatting setting applies only to the next output item and is then reset automatically?",
+      "options": [
+        "The fill character set by fill() or setfill()",
+        "The field width set by width() or setw()",
+        "The precision set by precision() or setprecision()",
+        "The number base set by hex, oct or dec"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every formatted insertion resets the width to 0 after using it, so setw() must be repeated for each item. The fill character, the precision and the base flags stay in force until they are changed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m033",
+      "questionText": "After cout << fixed; has been executed, what does setprecision(3) control?",
+      "options": [
+        "The minimum field width",
+        "The total number of significant digits",
+        "The number of digits printed after the decimal point",
+        "The number of digits printed before the decimal point"
+      ],
+      "correctIndex": 2,
+      "explanation": "In fixed (and scientific) notation the precision counts the digits after the decimal point, so 2.5 prints as 2.500. Only in the default general notation does it count significant digits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m034",
+      "questionText": "Of which class is the standard object cout an instance?",
+      "options": [
+        "ofstream",
+        "istream",
+        "iostream",
+        "ostream"
+      ],
+      "correctIndex": 3,
+      "explanation": "cout, cerr and clog are ostream objects (ostream is basic_ostream<char>), and cin is an istream. iostream is the class for streams that work in both directions and ofstream is the output-file class.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m035",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nostream &rs(ostream &os) {\n    os.setf(ios::fixed, ios::floatfield);\n    os.precision(2);\n    return os << \"Rs. \";\n}\nint main() {\n    cout << rs << 250.5 << \" \" << 3.0;\n}",
+      "options": [
+        "Rs. 250.5 3",
+        "Rs. 250.50 3.00",
+        "Rs. 250.50 3",
+        "Rs. 250.500000 3.000000"
+      ],
+      "correctIndex": 1,
+      "explanation": "rs has the manipulator signature ostream &(ostream &), so cout << rs simply calls rs(cout). It switches on fixed with precision 2 and prints the prefix, and those settings stay in force, so both 250.5 and 3.0 are printed with two decimals.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m036",
+      "questionText": "Which definition allows cout << tab; to work as a user-defined manipulator that inserts a tab character?",
+      "options": [
+        "ostream &tab(ostream &os) { return os << '\\t'; }",
+        "void tab() { cout << '\\t'; }",
+        "ostream &tab() { return cout << '\\t'; }",
+        "char tab(ostream &os) { return '\\t'; }"
+      ],
+      "correctIndex": 0,
+      "explanation": "ostream has an operator<< that takes a pointer to a function of type ostream &(ostream &) and calls it with the stream, which is exactly how endl works. With any other signature cout << tab does not call the function; the function pointer is converted to bool and 1 is printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m037",
+      "questionText": "The user types 25 and presses Enter, then types Kathmandu preceded by three spaces and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint n;\nstring s;\ncin >> n >> ws;\ngetline(cin, s);\ncout << n << \"[\" << s << \"]\";",
+      "options": [
+        "25[]",
+        "25[Kathmandu]",
+        "25[   Kathmandu]",
+        "25[25]"
+      ],
+      "correctIndex": 1,
+      "explanation": "cin >> n leaves the newline after 25 in the buffer, so without ws the getline call would read an empty line. The ws manipulator discards all leading whitespace (the newline and the three spaces), so getline reads Kathmandu.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m038",
+      "questionText": "The user types ABCDEF and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar c;\ncin.ignore(3);\nc = cin.peek();\ncout << c;\ncin.get(c);\ncout << c;\ncin.get(c);\ncout << c;",
+      "options": [
+        "ADE",
+        "DEF",
+        "DDE",
+        "CDE"
+      ],
+      "correctIndex": 2,
+      "explanation": "ignore(3) discards A, B and C. peek() returns D without removing it, so the following get(c) reads the same D, and the next get(c) reads E.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m039",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << setprecision(2);\ncout << 0.00012345 << \" \" << 0.000012345 << \" \";\ncout << 99.9;",
+      "options": [
+        "0.00012 0.000012 1e+02",
+        "0.00 0.00 99.90",
+        "1.2e-04 1.2e-05 99",
+        "0.00012 1.2e-05 1e+02"
+      ],
+      "correctIndex": 3,
+      "explanation": "In general notation precision 2 means 2 significant digits, and scientific form is used when the decimal exponent X is below -4 or at least the precision. 0.00012345 has X = -4 and stays fixed as 0.00012, 0.000012345 has X = -5 and becomes 1.2e-05, and 99.9 rounds up to 1.0 x 10^2, so X = 2 and it prints as 1e+02.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m040",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << boolalpha << (3 > 2) << \" \";\ncout << noboolalpha;\ncout << (2 > 3);",
+      "options": [
+        "true 0",
+        "1 0",
+        "true false",
+        "1 false"
+      ],
+      "correctIndex": 0,
+      "explanation": "boolalpha makes bool values print as true or false, and noboolalpha switches back to the default numeric form. So the first comparison prints true and the second prints 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i51_m041",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\ncout << fixed << setprecision(1) << setfill('*');\ncout << '|' << left << setw(6) << \"Tea\" << '|';\ncout << right << setw(7) << 45.37 << '|';",
+      "options": [
+        "|***Tea|45.4***|",
+        "|Tea***|***45.4|",
+        "|Tea***|**45.37|",
+        "|Tea***|45.4|"
+      ],
+      "correctIndex": 1,
+      "explanation": "Tea is left-justified in 6 columns with the sticky fill character *, giving Tea***. With fixed and precision 1, 45.37 becomes 45.4 (4 characters), which is right-justified in 7 columns as ***45.4; the '|' characters are printed with width 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m042",
+      "questionText": "The user types Biratnagar and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nchar buf[5];\ncin >> setw(5) >> buf;\ncout << buf << \"|\";\ncin >> setw(5) >> buf;\ncout << buf;",
+      "options": [
+        "Bira|nagar",
+        "Birat|nagar",
+        "Biratnagar|",
+        "Bira|tnag"
+      ],
+      "correctIndex": 3,
+      "explanation": "For a char array, setw(5) on input limits extraction to 5 - 1 = 4 characters so that the terminating '\\0' fits, so the first read gets Bira. The second read continues with the rest of the word and again takes 4 characters, tnag.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i51_m043",
+      "questionText": "The user types abc and presses Enter. What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect. Use the C++11 (or later) rules.\n\nint n = 7;\ncin >> n;\ncout << n << \" \" << cin.fail();",
+      "options": [
+        "0 1",
+        "7 1",
+        "7 0",
+        "0 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "abc cannot be converted to an int, so the extraction fails and sets failbit, and since C++11 the target is then set to 0. cin.fail() therefore returns true, which is printed as 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m044",
+      "questionText": "Which statement prints 3.14159 as 3.14, right-justified in a field of 8 columns? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.",
+      "options": [
+        "cout << setw(2) << setprecision(8) << 3.14159;",
+        "cout << setprecision(2) << setw(8) << 3.14159;",
+        "cout << fixed << setprecision(2) << setw(8) << 3.14159;",
+        "cout << fixed << setw(8) << 3.14159 << setprecision(2);"
+      ],
+      "correctIndex": 2,
+      "explanation": "fixed makes precision 2 mean two decimal places, giving 3.14, and setw(8) pads it on the left to 8 columns. Without fixed, precision 2 means two significant digits and prints 3.1, and a precision set after the value has no effect on it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m045",
+      "questionText": "A program writes results to cout and error messages to cerr, and it is run from the command line as prog > out.txt. Where do the cerr messages appear?",
+      "options": [
+        "In out.txt, after all of the cout output",
+        "On the screen, because cerr writes to standard error, which was not redirected",
+        "Nowhere, because cerr output is discarded when output is redirected",
+        "In out.txt, at the points where they were written"
+      ],
+      "correctIndex": 1,
+      "explanation": "The > operator redirects only standard output, which is what cout uses. cerr and clog write to standard error, which still goes to the console unless it is redirected separately, for example with 2> err.txt.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i51_m046",
+      "questionText": "What does this fragment print? Assume <iostream>, <iomanip> and <string> are included and using namespace std; is in effect.\n\nint old = cout.precision(3);\ncout << old << \" \";\ncout << 2.0 / 3;",
+      "options": [
+        "3 0.67",
+        "3 0.667",
+        "6 0.666667",
+        "6 0.667"
+      ],
+      "correctIndex": 3,
+      "explanation": "precision(n) sets the new precision and returns the previous one, which is the default 6. With 3 significant digits, 2/3 = 0.6666... prints as 0.667.",
+      "difficulty": "medium"
+    }
+  ]
+}

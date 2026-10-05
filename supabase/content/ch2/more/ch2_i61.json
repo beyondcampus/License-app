@@ -1,0 +1,738 @@
+{
+  "topicId": "ch2_i61",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: IVT Arithmetic and Programming the 8259"
+    },
+    {
+      "type": "paragraph",
+      "text": "Multiplying the type by 4 is the same as shifting it left two places, so the 8086 can form the IVT address with no arithmetic unit at all: type 60H (0110 0000) becomes 01 1000 0000 = 180H. Going backwards, the low two bits of any IVT entry address are always 00, so an address like 00086H is not the start of an entry but the third byte (address 4n + 2, the low byte of CS) of the type 21H entry. Remember that each entry is itself a far pointer, so after reading it the CPU still has to form CS × 16 + IP to reach the routine."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{ISR address} = 16 \\times M[4n+2] + M[4n]",
+      "plainText": "ISR physical address = 16 × (word at 4n + 2) + (word at 4n)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: INT 60H executed at CS:IP = 1200H:0343H\nSS = 4000H, SP = 0100H; IVT bytes at 00180H: 80 00 00 24\n\nReturn IP = 0343H + 2 (INT n is 2 bytes) = 0345H\npush FLAGS -> SS:00FEH = 400FEH   (then IF = 0, TF = 0)\npush CS    -> SS:00FCH = 400FCH   (1200H)\npush IP    -> SS:00FAH = 400FAH   (0345H), SP = 00FAH\nEntry = 4 x 60H = 00180H\nIP = 0080H, CS = 2400H -> ISR at 24000H + 0080H = 24080H\nIRET later pops IP = 0345H, CS = 1200H, FLAGS; SP = 0100H"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "        CLI                      ; no interrupt while the vector is half written\n        XOR  AX, AX\n        MOV  ES, AX              ; ES = 0000H, the IVT segment\n        MOV  WORD PTR ES:[0180H], OFFSET MY_ISR  ; 4 x 60H = 180H: IP\n        MOV  WORD PTR ES:[0182H], SEG MY_ISR     ; 182H: CS\n        STI\n        INT  60H                 ; test call: pushes FLAGS, CS, IP\n        ; ...\nMY_ISR: PUSH AX                  ; save what the ISR uses\n        ; service the request\n        POP  AX\n        IRET                     ; pops IP, CS, FLAGS"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Bit",
+          "ICW1 (A0 = 0)",
+          "ICW4 (A0 = 1)"
+        ],
+        [
+          "D7-D5",
+          "A7-A5 of vector (8085 mode only)",
+          "Always 0"
+        ],
+        [
+          "D4",
+          "Always 1 (marks ICW1)",
+          "SFNM: special fully nested mode"
+        ],
+        [
+          "D3",
+          "LTIM: 1 = level, 0 = edge",
+          "BUF: buffered mode"
+        ],
+        [
+          "D2",
+          "ADI: call interval 4/8 (8085 only)",
+          "M/S: 1 = master (when BUF = 1)"
+        ],
+        [
+          "D1",
+          "SNGL: 1 = single, 0 = cascade",
+          "AEOI: automatic end of interrupt"
+        ],
+        [
+          "D0",
+          "IC4: 1 = ICW4 will follow",
+          "µPM: 1 = 8086/8088, 0 = 8085"
+        ]
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "R SL EOI",
+          "OCW2 command",
+          "Example byte"
+        ],
+        [
+          "0 0 1",
+          "Non-specific EOI",
+          "20H"
+        ],
+        [
+          "0 1 1",
+          "Specific EOI for level L",
+          "63H (IR3)"
+        ],
+        [
+          "1 0 1",
+          "Rotate on non-specific EOI",
+          "A0H"
+        ],
+        [
+          "1 1 1",
+          "Rotate on specific EOI (L becomes lowest)",
+          "E4H (IR4)"
+        ],
+        [
+          "1 0 0 / 0 0 0",
+          "Set / clear rotate in AEOI mode",
+          "80H / 00H"
+        ],
+        [
+          "1 1 0",
+          "Set priority (L becomes lowest)",
+          "C2H (IR3 highest)"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: master at 20H/21H, one slave on master IR2\nSlave at A0H/A1H, 8086 mode, edge-triggered\n\n            Master                Slave\nICW1 (A0=0) 0001 0001 = 11H       11H  (cascade, ICW4 needed)\nICW2 (A0=1) 08H -> types 08H-0FH  70H -> types 70H-77H\nICW3 (A0=1) 0000 0100 = 04H       02H  (slave ID = 2)\nICW4 (A0=1) 0001 0001 = 11H       01H  (SFNM only on master)\n\nInputs available = 7 (master) + 8 (slave) = 15\nSlave IR3 -> type 70H + 3 = 73H -> IVT entry 4 x 73H = 001CCH"
+    },
+    {
+      "type": "formula",
+      "latex": "N_{IR} = (8 - s) + 8s = 8 + 7s,\\quad 0 \\le s \\le 8",
+      "plainText": "Inputs with s slaves = (8 − s) + 8s = 8 + 7s, so 8 slaves give 64"
+    },
+    {
+      "type": "paragraph",
+      "text": "Rotation keeps a busy device from starving the others. In automatic rotation, the level that has just been served becomes the lowest, so after IR3 the order is IR4, IR5, IR6, IR7, IR0, IR1, IR2, IR3. The set-priority command does the same job on demand: it names the level that must become lowest, and the one after it becomes highest. Both are OCW2 commands and can be issued at any time after initialisation."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in IVT and 8259 questions:",
+      "items": [
+        "Writing 4 × type in decimal and reading the result as hex: 4 × 08H is 32 = 20H, not 32H.",
+        "Swapping the halves of an IVT entry: the offset (IP) is at 4n, the segment (CS) at 4n + 2.",
+        "Using the bit-mask form for a slave ICW3: the master gets one bit per slave, a slave gets its 3-bit ID.",
+        "Reading 1 in the IMR as enabled: a 1 in OCW1 masks that input.",
+        "Counting 8 inputs per chip in a cascade: each slave uses up one master input, so the total is 8 + 7s.",
+        "Forgetting D4 = 1 in ICW1 or D3 = 1 in OCW3, which turns the byte into a different command."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "ICW2 is not an address. It gives the upper five bits of the type number; the 8086 then multiplies the type by 4 to find the IVT entry. With ICW2 = 08H, IR1 is type 09H and its vector is at 00024H, not at 00009H or 00008H."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i61_m001",
+      "questionText": "In the 8086, the Interrupt Vector Table occupies the physical address range:",
+      "options": [
+        "00000H-000FFH",
+        "00000H-003FFH",
+        "00000H-007FFH",
+        "FFC00H-FFFFFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "256 types × 4 bytes = 1024 bytes = 1 KB at the bottom of memory: 00000H to 003FFH. 000FFH would allow only 1 byte per type.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m002",
+      "questionText": "How many different interrupt types can the 8086 vector table hold?",
+      "options": [
+        "64",
+        "128",
+        "1024",
+        "256"
+      ],
+      "correctIndex": 3,
+      "explanation": "The type number is 8 bits, so there are 2^8 = 256 types (0 to 255), each with a 4-byte entry. 1024 is the size of the table in bytes, not the number of types.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m003",
+      "questionText": "The 8086 NMI input is always serviced as interrupt type:",
+      "options": [
+        "0",
+        "2",
+        "1",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "NMI has the fixed type 2, so its vector is at 4 × 2 = 00008H. Type 0 is divide error, type 1 single step and type 4 overflow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m004",
+      "questionText": "The 8086 automatically generates a type 1 (single-step) interrupt:",
+      "options": [
+        "After every instruction while IF = 1",
+        "Whenever DF = 1 during a string instruction",
+        "After every instruction while TF = 1",
+        "Whenever a DIV instruction overflows"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Trap Flag TF puts the 8086 in single-step mode, used by debuggers to run one instruction at a time. IF controls INTR, DF is the string direction and DIV overflow gives type 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m005",
+      "questionText": "What makes the 8086 INT 3 instruction special?",
+      "options": [
+        "It is the only non-maskable software interrupt",
+        "It is the instruction that turns on single-step mode",
+        "It is the only interrupt that does not push the flags",
+        "It has a one-byte opcode (CCH), convenient for inserting breakpoints"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every other INT n is two bytes (CDH, n). A one-byte INT 3 can replace the first byte of any instruction, which is how debuggers plant breakpoints. All interrupts push FLAGS.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m006",
+      "questionText": "The 8086 INTO instruction causes:",
+      "options": [
+        "A type 4 interrupt every time it executes",
+        "A type 0 interrupt if OF = 1",
+        "A type 4 interrupt, but only if OF = 1",
+        "A type 4 interrupt if CF = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "INTO (interrupt on overflow, opcode CEH) tests the Overflow flag; if OF = 1 it calls type 4 through vector 00010H, otherwise it does nothing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m007",
+      "questionText": "The 8086 IRET instruction pops the stack in which order?",
+      "options": [
+        "IP, then CS, then FLAGS",
+        "FLAGS, then CS, then IP",
+        "CS, then IP, then FLAGS",
+        "IP, then CS only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The interrupt pushed FLAGS, CS and IP in that order, so IRET pops them in the reverse order: IP, CS, FLAGS. Restoring FLAGS also restores IF and TF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m008",
+      "questionText": "Which 8259 register is written with OCW1 to disable individual IR inputs?",
+      "options": [
+        "Interrupt Mask Register (IMR)",
+        "Interrupt Request Register (IRR)",
+        "In-Service Register (ISR)",
+        "Priority Resolver"
+      ],
+      "correctIndex": 0,
+      "explanation": "OCW1 is loaded into the IMR; a 1 bit masks the matching IR input. IRR holds waiting requests and ISR holds the levels being serviced.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m009",
+      "questionText": "In the 8259, which register holds the interrupt requests that are waiting to be serviced?",
+      "options": [
+        "In-Service Register (ISR)",
+        "Interrupt Mask Register (IMR)",
+        "Interrupt Request Register (IRR)",
+        "Cascade buffer"
+      ],
+      "correctIndex": 2,
+      "explanation": "An IR input sets its IRR bit. When the request wins priority and is acknowledged, its IRR bit is cleared and the ISR bit is set.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m010",
+      "questionText": "How many interrupt request inputs does a single 8259A provide?",
+      "options": [
+        "4",
+        "16",
+        "64",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "IR0 to IR7. Cascading one master with eight slaves raises the total to 64, but each chip still has 8 inputs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m011",
+      "questionText": "The OCW2 byte for a non-specific End of Interrupt command to the 8259 is:",
+      "options": [
+        "60H",
+        "A0H",
+        "20H",
+        "0AH"
+      ],
+      "correctIndex": 2,
+      "explanation": "OCW2 = R SL EOI 0 0 L2 L1 L0. Non-specific EOI is R = 0, SL = 0, EOI = 1: 0010 0000 = 20H. 60H is a specific EOI for IR0, A0H rotates on non-specific EOI, 0AH is an OCW3 command.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m012",
+      "questionText": "In the 8259 default fully nested mode, the priorities of the IR inputs are:",
+      "options": [
+        "IR7 highest and IR0 lowest",
+        "All equal, served in arrival order",
+        "IR0 highest and IR7 lowest",
+        "Rotated automatically after every interrupt"
+      ],
+      "correctIndex": 2,
+      "explanation": "After initialisation the 8259 is in fully nested mode with fixed priority IR0 > IR1 > ... > IR7. Rotation has to be selected explicitly with OCW2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m013",
+      "questionText": "Which 8086 interrupt types are reserved by Intel for future use?",
+      "options": [
+        "0 to 4",
+        "32 to 255",
+        "5 to 15 only",
+        "5 to 31 (05H-1FH)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Types 0-4 are dedicated (divide error, single step, NMI, breakpoint, overflow), 5-31 are reserved by Intel, and 32-255 are available to users.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m014",
+      "questionText": "In an 8086 IVT entry, the first two bytes (at the lower address) hold:",
+      "options": [
+        "The segment (CS) of the ISR, low byte first",
+        "The saved FLAGS",
+        "The interrupt type number",
+        "The offset (IP) of the ISR, low byte first"
+      ],
+      "correctIndex": 3,
+      "explanation": "An IVT entry is a far pointer: bytes 4n and 4n + 1 hold IP, bytes 4n + 2 and 4n + 3 hold CS, each word stored little-endian.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i61_m015",
+      "questionText": "In an 8086 system, the vector for INT 08H starts at physical address:",
+      "options": [
+        "00008H",
+        "00020H",
+        "00032H",
+        "00080H"
+      ],
+      "correctIndex": 1,
+      "explanation": "Vector address = 4 × type = 4 × 08H = 20H = 00020H. 00032H comes from writing the decimal result 32 as if it were hex, and 00080H from multiplying by 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m016",
+      "questionText": "An 8086 IVT entry begins at physical address 000A0H. Which interrupt type does it belong to?",
+      "options": [
+        "A0H",
+        "50H",
+        "0AH",
+        "28H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Type = address / 4 = A0H / 4 = 160 / 4 = 40 = 28H. Dividing by 2 gives 50H and dividing by 16 gives 0AH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m017",
+      "questionText": "After pushing FLAGS during interrupt entry, which flags does the 8086 clear before starting the ISR?",
+      "options": [
+        "IF and TF",
+        "IF only",
+        "IF, TF and DF",
+        "CF and OF"
+      ],
+      "correctIndex": 0,
+      "explanation": "Clearing IF blocks further INTR requests, and clearing TF stops single-stepping inside the ISR. IRET restores both from the saved FLAGS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m018",
+      "questionText": "When several interrupts are pending at the same time, which of these has the lowest priority in the 8086?",
+      "options": [
+        "NMI (type 2)",
+        "Single step (type 1)",
+        "INTR",
+        "Divide error (type 0)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8086 priority is: divide error, INT n and INTO highest, then NMI, then INTR, and single step lowest. Single step is therefore the last one the CPU recognises when several requests are pending together.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m019",
+      "questionText": "The 8086 has no instruction that sets TF directly. A program uses PUSHF, POP AX, OR AX,x, PUSH AX, POPF. What is x?",
+      "options": [
+        "0100H",
+        "0200H",
+        "0080H",
+        "0400H"
+      ],
+      "correctIndex": 0,
+      "explanation": "TF is bit 8 of the FLAGS register, so x = 2^8 = 0100H. 0200H would set IF (bit 9), 0080H SF (bit 7) and 0400H DF (bit 10).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m020",
+      "questionText": "When the 8086 acknowledges an INTR request from an 8259, the type number is placed on the data bus during:",
+      "options": [
+        "The second INTA bus cycle",
+        "The first INTA bus cycle",
+        "Both INTA cycles, one nibble each",
+        "The memory read of the IVT entry"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first INTA cycle tells the 8259 to freeze and resolve the request; during the second INTA cycle the 8259 drives the 8-bit type onto D0-D7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m021",
+      "questionText": "An 8259 in an 8086 system is used alone (no cascading), with edge-triggered inputs, and ICW4 will be sent. The ICW1 byte is:",
+      "options": [
+        "1BH",
+        "11H",
+        "13H",
+        "03H"
+      ],
+      "correctIndex": 2,
+      "explanation": "ICW1 = A7 A6 A5 1 LTIM ADI SNGL IC4 = 0001 0011 = 13H (D4 = 1 identifies ICW1, LTIM = 0 edge, SNGL = 1, IC4 = 1). 1BH selects level triggering, 11H cascade mode and 03H omits D4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m022",
+      "questionText": "An 8259 in 8086 mode has been given ICW2 = 70H. Which interrupt type is generated for a request on IR5?",
+      "options": [
+        "70H",
+        "1D4H",
+        "35H",
+        "75H"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8259 supplies T7-T3 from ICW2 and the IR number in the low three bits: 70H + 5 = 75H. 1D4H is the vector address of that type (75H × 4), not the type.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m023",
+      "questionText": "A master 8259 has slave 8259s connected to its IR1 and IR6 inputs. The ICW3 byte sent to the master is:",
+      "options": [
+        "42H",
+        "16H",
+        "61H",
+        "BDH"
+      ],
+      "correctIndex": 0,
+      "explanation": "In the master ICW3 each bit marks an IR input that has a slave: D6 = 1 and D1 = 1 gives 0100 0010 = 42H. BDH is the complement, and 16H/61H just write the IR numbers as digits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m024",
+      "questionText": "A slave 8259 is connected to the IR6 input of the master. The ICW3 byte sent to this slave is:",
+      "options": [
+        "06H",
+        "40H",
+        "60H",
+        "07H"
+      ],
+      "correctIndex": 0,
+      "explanation": "A slave ICW3 holds its ID in D2-D0, equal to the master IR input it is wired to: 6 = 0000 0110 = 06H. 40H is the bit-mask form, which is used only for the master.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m025",
+      "questionText": "The ICW4 byte for an 8259 in an 8086 system with normal EOI, non-buffered operation and no special fully nested mode is:",
+      "options": [
+        "00H",
+        "03H",
+        "01H",
+        "11H"
+      ],
+      "correctIndex": 2,
+      "explanation": "ICW4 = 0 0 0 SFNM BUF M/S AEOI µPM. Only µPM = 1 (8086/8088 mode) is set: 0000 0001 = 01H. 00H selects 8085 mode, 03H adds automatic EOI and 11H adds special fully nested mode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m026",
+      "questionText": "Using OCW1, an 8259 must accept requests only on IR0, IR1 and IR4. The byte written to the mask register is:",
+      "options": [
+        "13H",
+        "ECH",
+        "CEH",
+        "E3H"
+      ],
+      "correctIndex": 1,
+      "explanation": "A 1 in the IMR masks an input, so every bit except D0, D1 and D4 must be 1: 1110 1100 = ECH. 13H is the inverse (it would enable all the others).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m027",
+      "questionText": "The OCW2 byte for a specific End of Interrupt for IR5 is:",
+      "options": [
+        "65H",
+        "20H",
+        "25H",
+        "E5H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Specific EOI: R = 0, SL = 1, EOI = 1 and L2-L0 = 101: 0110 0101 = 65H. 25H lacks SL (so it is treated as non-specific), and E5H also rotates priority.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m028",
+      "questionText": "Which byte, written to the 8259 with A0 = 0, makes the next read return the In-Service Register?",
+      "options": [
+        "0AH",
+        "0BH",
+        "0CH",
+        "03H"
+      ],
+      "correctIndex": 1,
+      "explanation": "OCW3 = 0 ESMM SMM 0 1 P RR RIS; RR = 1, RIS = 1 selects the ISR: 0000 1011 = 0BH. 0AH selects IRR, 0CH is a poll command and 03H has D3 = 0, so it would be taken as an OCW2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m029",
+      "questionText": "ICW1, OCW2 and OCW3 are all written to the 8259 with A0 = 0. How does the 8259 tell them apart?",
+      "options": [
+        "By the order of writing only: the first A0 = 0 byte is always ICW1, later ones alternate OCW2 and OCW3",
+        "D7 = 1 means ICW1; D7 = 0 means an OCW",
+        "D4 = 1 means ICW1; with D4 = 0, D3 = 0 means OCW2 and D3 = 1 means OCW3",
+        "D0 = 1 means ICW1; D0 = 0 means OCW2 or OCW3"
+      ],
+      "correctIndex": 2,
+      "explanation": "ICW1 always has D4 = 1 and starts the initialisation sequence. OCW2 and OCW3 both have D4 = 0 and are distinguished by D3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m030",
+      "questionText": "An 8259 is in automatic rotation mode. IR3 has just been serviced and received its EOI. Which input now has the highest priority?",
+      "options": [
+        "IR0",
+        "IR4",
+        "IR3",
+        "IR2"
+      ],
+      "correctIndex": 1,
+      "explanation": "With rotation, the level just served becomes the lowest, so the order becomes IR4, IR5, IR6, IR7, IR0, IR1, IR2, IR3 and IR4 is highest.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m031",
+      "questionText": "A master 8259 has slave 8259s on three of its IR inputs and nothing else is cascaded. What is the maximum number of interrupt request inputs available?",
+      "options": [
+        "32",
+        "29",
+        "24",
+        "27"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each slave takes over one master input: (8 − 3) master inputs + 3 × 8 slave inputs = 5 + 24 = 29. Counting 8 per chip gives 32, which double-counts the three master inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m032",
+      "questionText": "In a cascaded 8259 system, the CAS0-CAS2 lines are used to:",
+      "options": [
+        "Carry the 8-bit interrupt type from the slave to the CPU",
+        "Connect the INT outputs of the slaves to the INTR pin of the CPU",
+        "Let the master send the 3-bit ID of the slave that must place its type number on the bus",
+        "Select between ICW and OCW writes"
+      ],
+      "correctIndex": 2,
+      "explanation": "CAS0-CAS2 are outputs on the master and inputs on the slaves. During INTA the master puts the ID of the interrupting slave on them (3 bits, so up to 8 slaves), and only that slave responds.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m033",
+      "questionText": "What is the effect of programming the 8259 in automatic EOI (AEOI) mode?",
+      "options": [
+        "The ISR bit is cleared when the CPU executes IRET",
+        "The IRR bit is never cleared, so the request repeats until masked",
+        "The ISR bit is cleared automatically at the end of the last INTA pulse, so the service routine sends no EOI command",
+        "All requests are masked until the CPU sends an EOI"
+      ],
+      "correctIndex": 2,
+      "explanation": "In AEOI mode the 8259 performs a non-specific EOI itself on the trailing edge of the last INTA pulse. The 8259 cannot see IRET, and the price is that it no longer protects a running ISR from lower-priority requests.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m034",
+      "questionText": "Why is the master 8259 in a cascaded system programmed in special fully nested mode (SFNM)?",
+      "options": [
+        "So that a higher-priority request from a slave that is already in service can still reach the CPU",
+        "So that the master can use CAS0-CAS2 as extra IR inputs",
+        "So that priorities rotate automatically among the slaves",
+        "So that the slaves do not need an EOI command"
+      ],
+      "correctIndex": 0,
+      "explanation": "In normal nested mode the master blocks every new request on an IR line whose ISR bit is set. With SFNM the master still passes a higher-priority request arriving from the same slave, keeping true priority inside that slave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m035",
+      "questionText": "When an 8259 is used in 8085 mode, how many INTA pulses does it need to deliver the interrupt response?",
+      "options": [
+        "2",
+        "3",
+        "1",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "In 8085 mode the 8259 supplies a CALL opcode (CDH) on the first INTA and the two address bytes on the next two INTA pulses. In 8086 mode it needs only two INTA pulses and supplies a type number.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m036",
+      "questionText": "An 8259 in fully nested mode (normal EOI) services IR2, but the ISR returns with IRET without sending any EOI. What happens afterwards?",
+      "options": [
+        "All eight inputs are blocked until the next reset",
+        "Requests on IR2 to IR7 are no longer passed to the CPU, but IR0 and IR1 still are",
+        "Nothing, because IRET clears the ISR bit automatically",
+        "Only IR2 is blocked; IR3 to IR7 still work normally"
+      ],
+      "correctIndex": 1,
+      "explanation": "The IR2 bit stays set in the In-Service Register, so the priority resolver holds off every request of equal or lower priority (IR2-IR7). Higher-priority IR0 and IR1 can still interrupt.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m037",
+      "questionText": "Which of the following is serviced by the 8086 without any INTA bus cycles, because its type number is fixed?",
+      "options": [
+        "A rising edge on the NMI pin",
+        "An INTR request from a single 8259",
+        "An INTR request from a slave 8259 in cascade",
+        "An INTR request from a device that supplies type 40H"
+      ],
+      "correctIndex": 0,
+      "explanation": "NMI is always type 2, so the CPU goes straight to vector 00008H. Every INTR request, whatever its source, needs the two INTA cycles to read the type number.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i61_m038",
+      "questionText": "Memory locations 00020H-00023H of an 8086 system contain 23H, 45H, 00H, C8H (in increasing address order). At what physical address does the ISR for INT 08H begin?",
+      "options": [
+        "CC523H",
+        "51A30H",
+        "02FC5H",
+        "10D23H"
+      ],
+      "correctIndex": 0,
+      "explanation": "IP = word at 00020H = 4523H, CS = word at 00022H = C800H. Physical address = C800H × 16 + 4523H = C8000H + 4523H = CC523H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m039",
+      "questionText": "An 8086 has SS = 3000H and SP = 0200H when it accepts an interrupt. At which physical address is the low byte of the saved IP stored?",
+      "options": [
+        "301FEH",
+        "301FCH",
+        "031FAH",
+        "301FAH"
+      ],
+      "correctIndex": 3,
+      "explanation": "FLAGS go to SS:01FEH, CS to SS:01FCH and IP to SS:01FAH (SP ends at 01FAH). Physical = 3000H × 16 + 01FAH = 301FAH. 031FAH forgets to multiply SS by 16.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m040",
+      "questionText": "An 8086 executes MOV AX,0400H; MOV BL,02H; DIV BL. What happens?",
+      "options": [
+        "AL = 00H and AH = 02H, with no interrupt",
+        "A type 4 (overflow) interrupt occurs",
+        "AX = 0200H, with no interrupt",
+        "A type 0 (divide error) interrupt occurs, because the quotient does not fit in AL"
+      ],
+      "correctIndex": 3,
+      "explanation": "DIV BL divides AX by BL and must put the quotient in AL. 0400H / 02H = 0200H, which exceeds FFH, so the 8086 raises a type 0 interrupt through vector 00000H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m041",
+      "questionText": "An 8086 executes MOV AL,7FH; ADD AL,01H; INTO. What happens at INTO?",
+      "options": [
+        "A type 4 interrupt, using the vector at 00010H",
+        "Nothing, because CF = 0 after the addition",
+        "A type 4 interrupt, using the vector at 00004H",
+        "A type 0 interrupt, using the vector at 00000H"
+      ],
+      "correctIndex": 0,
+      "explanation": "7FH + 01H = 80H: two positive signed bytes give a negative result, so OF = 1 (CF = 0). INTO therefore calls type 4, whose vector is at 4 × 4 = 00010H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m042",
+      "questionText": "An 8259 in 8086 mode is initialised with ICW2 = 40H. When IR3 is requested, the 8086 reads the ISR address from the IVT entry starting at:",
+      "options": [
+        "00043H",
+        "00430H",
+        "0004CH",
+        "0010CH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Type = 40H + 3 = 43H. Vector address = 4 × 43H = 0010CH. 00043H forgets the × 4, 00430H multiplies by 16, and 0004CH adds 3 × 4 to 40H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m043",
+      "questionText": "The 8259 receives the command C5H with A0 = 0. Which IR input now has the highest priority?",
+      "options": [
+        "IR5",
+        "IR6",
+        "IR0",
+        "IR4"
+      ],
+      "correctIndex": 1,
+      "explanation": "C5H = 1100 0101: D4 = 0 and D3 = 0, so it is OCW2; R = 1, SL = 1, EOI = 0 is the set-priority command with L = 5 as the lowest. The order becomes IR6, IR7, IR0, ..., IR5, so IR6 is highest.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m044",
+      "questionText": "An 8086 system needs 16 separate hardware interrupt inputs using 8259A controllers. What is the minimum number of 8259A chips?",
+      "options": [
+        "2",
+        "4",
+        "3",
+        "9"
+      ],
+      "correctIndex": 2,
+      "explanation": "One master + 1 slave gives only 7 + 8 = 15 inputs, because the slave occupies one master input. With 2 slaves: 6 + 16 = 22 ≥ 16, so 3 chips are needed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m045",
+      "questionText": "A program installs the ISR for INT 60H at 2000H:0100H by writing the IVT directly. Which address and bytes (in increasing address order) are correct?",
+      "options": [
+        "00180H: 01 00 20 00",
+        "00180H: 00 01 00 20",
+        "00060H: 00 01 00 20",
+        "00180H: 00 20 00 01"
+      ],
+      "correctIndex": 1,
+      "explanation": "Entry = 4 × 60H = 180H = 00180H. IP = 0100H is stored low byte first (00 01), then CS = 2000H (00 20), giving 00 01 00 20.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i61_m046",
+      "questionText": "An 8086 writes 0CH to its 8259 with A0 = 0 and then reads the 8259, obtaining 85H. What does this tell the program?",
+      "options": [
+        "IR0 and IR2 are requesting service",
+        "IR7 is the highest-priority request",
+        "No interrupt is pending, because bit D3 is 0",
+        "An interrupt is pending and IR5 is the highest-priority request"
+      ],
+      "correctIndex": 3,
+      "explanation": "0CH = 0000 1100 is OCW3 with P = 1, a poll command. The poll word read back has D7 = I (1 = request pending) and D2-D0 = the highest-priority level: 85H = 1000 0101, so IR5.",
+      "difficulty": "hard"
+    }
+  ]
+}

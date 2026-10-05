@@ -1,0 +1,695 @@
+{
+  "topicId": "ch1_i64",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Setting and Holding the Quiescent Current"
+    },
+    {
+      "type": "paragraph",
+      "text": "The V_BE multiplier result follows from two facts. The multiplier transistor adjusts its own collector current until the voltage across R2 (base to emitter) equals its V_BE, so the current in R2 is V_BE/R2. If the base current is small, the same current flows through R1, so the total voltage is V_BE/R2 × (R1 + R2) = V_BE(1 + R1/R2). Whatever part of the incoming bias current is not needed by the resistor chain simply flows through the transistor. Because the whole voltage is a multiple of one V_BE, its temperature coefficient is multiplied by the same factor: a network set to 2V_BE falls by about 4 mV/°C, exactly matching the two output junctions it must track."
+    },
+    {
+      "type": "formula",
+      "latex": "\\frac{dV_{bias}}{dT} = \\left(1 + \\frac{R_1}{R_2}\\right)\\frac{dV_{BE}}{dT}",
+      "plainText": "dV_bias/dT = (1 + R1/R2) × dV_BE/dT  (≈ −2 mV/°C per V_BE)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why is fixed bias so dangerous? Collector current depends exponentially on V_BE, I_C = I_S e^(V_BE/V_T), so an extra 18 mV of base-emitter voltage doubles the current and about 60 mV multiplies it by ten (V_T = 26 mV). At a fixed bias voltage, a temperature rise of only 9 °C lowers the required V_BE by 18 mV, which is the same as applying 18 mV more drive, and the current doubles. Emitter resistors change the law: the quiescent current becomes (V_bias − 2V_BE)/(2R_E), which responds only linearly and gently to a change in V_BE, and good thermal tracking of V_bias removes most of the remaining drift."
+    },
+    {
+      "type": "formula",
+      "latex": "\\frac{I_{C2}}{I_{C1}} = e^{\\Delta V_{BE}/V_T}, \\quad V_T \\ln 2 \\approx 18 \\text{ mV}",
+      "plainText": "I_C2/I_C1 = e^(ΔV_BE/V_T); doubling needs ΔV_BE = V_T ln 2 ≈ 18 mV (V_T = 26 mV)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: design a V_BE multiplier for I_Q = 80 mA\nGiven: R_E = 0.33 ohm each, V_BE(Q) = 0.62 V (outputs and multiplier)\nV_bias = 2 V_BE(Q) + 2 I_Q R_E = 1.24 + 2(0.08)(0.33) = 1.293 V\nR1/R2 = V_bias/V_BE - 1 = 1.293/0.62 - 1 = 1.085\nChoose R2 = 680 ohm -> chain current = 0.62/680 = 0.91 mA\nR1 = 1.085 x 680 = 738 ohm -> 680 ohm fixed + 100 ohm trimmer\nIf the driver supplies 6 mA, the multiplier transistor takes\n  6 - 0.91 = 5.1 mA (base currents neglected)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: thermal drift, R_E = 0.33 ohm each\nCold: V_bias = 1.30 V, V_BE(Q) = 0.62 V\n  I_Q = (1.30 - 1.24)/0.66 = 91 mA\nOutputs warm by 15 C: each V_BE falls 2 x 15 = 30 mV to 0.59 V\nFixed resistor bias (no tracking):\n  I_Q = (1.30 - 1.18)/0.66 = 182 mA  (doubled)\nMultiplier on the heat sink (-4 mV/C): V_bias = 1.30 - 0.06 = 1.24 V\n  I_Q = (1.24 - 1.18)/0.66 = 91 mA  (unchanged)\nNo R_E and fixed bias: current x e^(30/26) = 3.2 times"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Condition",
+          "Effect on bias voltage",
+          "Result"
+        ],
+        [
+          "R1 (collector to base) open",
+          "Multiplier transistor turns off; voltage rises until the output bases absorb the bias current",
+          "Very large I_Q, overheating, likely failure"
+        ],
+        [
+          "R2 (base to emitter) open",
+          "Collapses to about one V_BE",
+          "Output pair cut off at idle; crossover distortion returns"
+        ],
+        [
+          "Bias set below 2V_BE(on)",
+          "Too low",
+          "Residual notch at the zero crossing, worst at low level"
+        ],
+        [
+          "Bias set too high",
+          "Too high",
+          "Hot at idle, lower efficiency, risk of runaway"
+        ],
+        [
+          "Multiplier not on the heat sink",
+          "Does not fall as outputs warm",
+          "I_Q creeps up with temperature"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Emitter resistors are a compromise. Larger R_E stabilises I_Q better and forces paralleled transistors to share current, but every ampere of load current drops I × R_E across them, which wastes power and reduces the available output swing, so values of 0.1 Ω to 0.5 Ω are usual. With Darlington or compound output devices the bias network must supply four junction drops instead of two, about 2.6 V, which is easy with a multiplier and needs four diodes otherwise. In integrated circuits the bias diodes are diode-connected transistors that form current mirrors with the output devices, so I_Q equals the bias current multiplied by the ratio of emitter areas."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in class AB bias calculations:",
+      "items": [
+        "Writing V_bias = V_BE × R1/R2 and forgetting the 1 in (1 + R1/R2).",
+        "Using one R_E instead of 2R_E: the quiescent current flows through both emitter resistors in series between the two emitters.",
+        "Counting the standby power from one rail only; with ±V_CC supplies it is 2V_CC I_Q.",
+        "Treating the bias diodes as if they carried the load current; they carry only the bias current, which must exceed the peak base current of the output transistors.",
+        "Mounting the bias element on the circuit board; without thermal coupling there is no tracking."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "When adjusting a trimmer in a V_BE multiplier, start from the low-bias end and increase slowly while watching I_Q. Arrange the trimmer so that a worn or open wiper lowers the bias rather than raising it, because an open R1 drives the quiescent current to destructive levels."
+    },
+    {
+      "type": "examTip",
+      "text": "Two numbers carry most bias questions: −2 mV/°C for every junction and 18 mV (at V_T = 26 mV) to double the current. Together they show that a 9 °C rise with untracked, undegenerated bias doubles I_Q."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i64_m001",
+      "questionText": "An unbiased complementary emitter-follower (class B) stage with silicon transistors (V_BE = 0.7 V) is driven by a 2 V peak sine wave. The peak output voltage is about:",
+      "options": [
+        "2.0 V",
+        "1.3 V",
+        "0.6 V",
+        "2.7 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each transistor conducts only after its base-emitter drop is overcome, so the output peak is 2.0 − 0.7 = 1.3 V. Subtracting the full 1.4 V dead band (0.6 V) is the usual slip.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m002",
+      "questionText": "A complementary emitter-follower stage with silicon transistors, correctly biased into class AB, is driven by a 2 V peak sine wave into its load. The peak output voltage is about:",
+      "options": [
+        "1.3 V, because V_BE is still lost on each half-cycle",
+        "2 V, because the biased emitter followers have a gain close to 1 and no dead zone",
+        "0.6 V, because both transistors conduct at once",
+        "4 V, because the bias adds voltage gain"
+      ],
+      "correctIndex": 1,
+      "explanation": "The bias network supplies the base-emitter drops, so the output follows the input with the gain of an emitter follower, slightly less than 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m003",
+      "questionText": "An unbiased complementary class B stage (V_BE = 0.7 V for each transistor) is driven by a 1 V peak sine wave. For roughly what fraction of each cycle is neither transistor conducting?",
+      "options": [
+        "About 70 %",
+        "About 25 %",
+        "About 12 %",
+        "About 49 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "Neither conducts while |sin ωt| < 0.7, i.e. within 44.4° of each zero crossing. That is 4 × 44.4° = 177.7° of 360°, about 49 % of the cycle.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m004",
+      "questionText": "With no emitter resistors, the voltage needed between the bases of a complementary silicon output pair to bring both transistors just into conduction is about:",
+      "options": [
+        "0.7 V",
+        "1.4 V",
+        "0.3 V",
+        "2.8 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each base-emitter junction needs about 0.7 V, and the two junctions are in series between the bases, so about 2V_BE = 1.4 V is required.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m005",
+      "questionText": "At constant current, the forward voltage of a silicon diode changes with temperature by approximately:",
+      "options": [
+        "−2 mV/°C",
+        "+2 mV/°C",
+        "−20 mV/°C",
+        "−0.2 mV/°C"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both a diode's forward drop and a transistor's V_BE fall by about 2 mV for every °C rise, which is why diodes can track the output transistors.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m006",
+      "questionText": "A class AB stage uses a Darlington pair on each side of the output (four base-emitter junctions between the two input bases). If simple diode bias is used, the number of diodes required is:",
+      "options": [
+        "2",
+        "4",
+        "1",
+        "8"
+      ],
+      "correctIndex": 1,
+      "explanation": "One diode is needed for each base-emitter junction in the path between the two driving bases: 2 per Darlington, 4 in total, about 2.6 V to 2.8 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m007",
+      "questionText": "The bias transistor of a V_BE multiplier has V_BE = 0.6 V, with 2.2 kΩ between its collector and base and 1 kΩ between its base and emitter. The multiplier holds the two output bases apart by:",
+      "options": [
+        "1.32 V",
+        "0.87 V",
+        "1.92 V",
+        "0.27 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_bias = V_BE(1 + R1/R2) = 0.6 × (1 + 2.2) = 1.92 V. Forgetting the 1 gives 1.32 V; inverting the ratio gives 0.87 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m008",
+      "questionText": "A V_BE multiplier must produce 1.8 V using a transistor with V_BE = 0.6 V and R2 = 1.2 kΩ (base to emitter). The required R1 (collector to base) is:",
+      "options": [
+        "3.6 kΩ",
+        "1.2 kΩ",
+        "0.6 kΩ",
+        "2.4 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "1 + R1/R2 = 1.8/0.6 = 3, so R1/R2 = 2 and R1 = 2 × 1.2 = 2.4 kΩ. Taking R1/R2 = 3 gives the wrong 3.6 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m009",
+      "questionText": "A V_BE multiplier uses R1 = 2 kΩ and R2 = 1 kΩ, and its transistor's V_BE changes by −2 mV/°C. The temperature coefficient of the bias voltage is:",
+      "options": [
+        "−2 mV/°C",
+        "−4 mV/°C",
+        "−6 mV/°C",
+        "−0.67 mV/°C"
+      ],
+      "correctIndex": 2,
+      "explanation": "The whole voltage is V_BE(1 + R1/R2) = 3V_BE, so its coefficient is 3 × (−2) = −6 mV/°C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m010",
+      "questionText": "A class AB pair with 0.47 Ω emitter resistors must idle at I_Q = 50 mA with V_BE(Q) = 0.6 V for each output transistor. The bias comes from a V_BE multiplier with V_BE = 0.6 V and R2 = 1 kΩ. The required R1 is about:",
+      "options": [
+        "1.08 kΩ",
+        "2.08 kΩ",
+        "1.00 kΩ",
+        "0.48 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_bias = 2(0.6) + 2(0.05)(0.47) = 1.247 V; R1/R2 = 1.247/0.6 − 1 = 1.078, so R1 = 1.08 kΩ. Ignoring the emitter-resistor drop gives 1.00 kΩ.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m011",
+      "questionText": "A class AB stage has V_bias = 1.4 V between the bases, V_BE(Q) = 0.62 V for each output transistor and 0.47 Ω emitter resistors. The quiescent current is about:",
+      "options": [
+        "340 mA",
+        "170 mA",
+        "1.49 A",
+        "85 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_Q = (V_bias − 2V_BE(Q))/(2R_E) = (1.4 − 1.24)/(0.94) = 0.170 A. Using a single R_E gives 340 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m012",
+      "questionText": "A class AB stage has fixed resistor-divider bias V_bias = 1.4 V (no thermal tracking), R_E = 0.5 Ω in each emitter and V_BE(Q) = 0.65 V at 25 °C. If the output transistors warm by 20 °C and each V_BE(Q) falls at 2 mV/°C, the quiescent current changes from 100 mA to about:",
+      "options": [
+        "140 mA",
+        "100 mA",
+        "180 mA",
+        "220 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "New V_BE(Q) = 0.65 − 0.04 = 0.61 V; I_Q = (1.4 − 1.22)/(2 × 0.5) = 0.18 A. Changing only one transistor's V_BE gives 140 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m013",
+      "questionText": "An output transistor with no emitter resistor is held at a fixed base-emitter voltage while it warms by 25 °C. Taking dV_BE/dT = −2 mV/°C and V_T = 26 mV, its collector current increases by a factor of about:",
+      "options": [
+        "1.9",
+        "25",
+        "50",
+        "6.8"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 50 mV reduction in the required V_BE acts like 50 mV extra drive: I_C2/I_C1 = e^(50/26) = e^1.92 = 6.8. The linear ratio 50/26 = 1.9 is a common slip.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m014",
+      "questionText": "Taking V_T = 26 mV, by how much must a transistor's base-emitter voltage increase to double its collector current?",
+      "options": [
+        "18 mV",
+        "26 mV",
+        "60 mV",
+        "52 mV"
+      ],
+      "correctIndex": 0,
+      "explanation": "I_C ∝ e^(V_BE/V_T), so doubling needs ΔV_BE = V_T ln 2 = 26 × 0.693 = 18 mV. About 60 mV gives a tenfold increase.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m015",
+      "questionText": "A class AB stage running from ±25 V supplies has a quiescent current of 40 mA. Its total standby dissipation is:",
+      "options": [
+        "2 W",
+        "1 W",
+        "4 W",
+        "0.5 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "P_standby = 2V_CC I_Q = 2 × 25 × 0.04 = 2 W, shared equally (1 W per transistor). Using one rail only gives 1 W.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m016",
+      "questionText": "A complementary stage on ±20 V drives an 8 Ω load with a full 20 V peak swing (ideal). Pure class B would then have 78.5 % efficiency. If it is biased into class AB with I_Q = 100 mA and the supply is assumed to draw the class B current plus I_Q, the efficiency becomes about:",
+      "options": [
+        "78.5 %",
+        "69.8 %",
+        "73.9 %",
+        "62.8 %"
+      ],
+      "correctIndex": 1,
+      "explanation": "P_L = 20²/(2 × 8) = 25 W; class B P_dc = 2 × 20 × 2.5/π = 31.8 W; standby adds 2 × 20 × 0.1 = 4 W; η = 25/35.8 = 69.8 %. Counting only one rail's 2 W gives 73.9 %.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m017",
+      "questionText": "Two bias diodes (0.7 V each) and two 2.2 kΩ resistors are connected in series from +15 V to −15 V, with the diodes between the output bases. Neglecting base currents, the diode current is about:",
+      "options": [
+        "3.3 mA",
+        "13.0 mA",
+        "0.32 mA",
+        "6.5 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "I = (30 − 1.4)/(2 × 2.2 kΩ) = 28.6/4.4 kΩ = 6.5 mA. Taking only half the 28.6 V drop gives about 3.3 mA; using one resistor gives 13 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m018",
+      "questionText": "In a diode-biased class AB stage the peak load current is 2 A and the output transistors have β = 50. The current supplied to the bias chain must be at least about:",
+      "options": [
+        "2 A",
+        "4 mA",
+        "40 mA",
+        "80 mA"
+      ],
+      "correctIndex": 2,
+      "explanation": "At the signal peak the conducting output transistor needs I_B = 2/50 = 40 mA from the bias chain; if the chain current were smaller, the peak would be clipped.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m019",
+      "questionText": "In an IC output stage the bias diodes are diode-connected transistors matched to the output transistors, which have four times their emitter area. With 2 mA through the diodes and no emitter resistors, the quiescent current is:",
+      "options": [
+        "2 mA",
+        "8 mA",
+        "0.5 mA",
+        "16 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "Matched junctions at the same V_BE form a current mirror; current scales with emitter area, so I_Q = 4 × 2 mA = 8 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m020",
+      "questionText": "A single-supply complementary class AB stage runs from V_CC = 24 V, with the loudspeaker connected through a coupling capacitor. With no signal, the DC voltage at the joined emitters should be:",
+      "options": [
+        "24 V",
+        "0 V",
+        "12 V",
+        "1.4 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "With one supply the output node rests at V_CC/2 = 12 V so that it can swing equally up and down; the coupling capacitor blocks this DC from the load.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m021",
+      "questionText": "A class AB emitter-follower output stage has R_E = 0.5 Ω in series with each emitter and drives an 8 Ω load. Neglecting the transistors' internal emitter resistance, its voltage gain is about:",
+      "options": [
+        "1.06",
+        "0.941",
+        "0.059",
+        "0.5"
+      ],
+      "correctIndex": 1,
+      "explanation": "The conducting half is a follower whose output divides between R_E and R_L: A_v = R_L/(R_L + R_E) = 8/8.5 = 0.941.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m022",
+      "questionText": "A class AB stage delivers a sine wave of 3 A peak to its load; each emitter resistor is 0.33 Ω and carries the current of its own half-cycle only. Neglecting I_Q, the average power dissipated in EACH emitter resistor is about:",
+      "options": [
+        "0.74 W",
+        "1.49 W",
+        "2.97 W",
+        "0.37 W"
+      ],
+      "correctIndex": 0,
+      "explanation": "A half-wave sine current of peak I_p has mean-square value I_p²/4, so P = 9 × 0.33/4 = 0.74 W. Assuming a full sine wave (I_p²/2) gives 1.49 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m023",
+      "questionText": "A class AB stage delivers 3 A peak to its load and has R_E = 0.33 Ω in each emitter. The peak voltage lost across the conducting emitter resistor, which reduces the available output swing, is about:",
+      "options": [
+        "1.98 V",
+        "0.11 V",
+        "0.99 V",
+        "9.1 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V = I_p × R_E = 3 × 0.33 = 0.99 V; only one emitter resistor carries the load current at a time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m024",
+      "questionText": "A class AB pair is biased by two diodes giving V_bias = 1.3 V, and each output transistor has V_BE(Q) = 0.6 V. To obtain I_Q = 50 mA, each emitter resistor must be:",
+      "options": [
+        "2 Ω",
+        "1 Ω",
+        "0.5 Ω",
+        "14 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "2R_E = (V_bias − 2V_BE(Q))/I_Q = (1.3 − 1.2)/0.05 = 2 Ω, so R_E = 1 Ω each. Stopping at 2 Ω forgets that there are two resistors in series.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m025",
+      "questionText": "A V_BE multiplier with R2 = 600 Ω (base to emitter) and V_BE = 0.6 V is fed with a total bias current of 5 mA. Neglecting base current, the collector current of the multiplier transistor is:",
+      "options": [
+        "5 mA",
+        "1 mA",
+        "6 mA",
+        "4 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "The resistor chain takes V_BE/R2 = 0.6/600 = 1 mA; the transistor carries the rest, 5 − 1 = 4 mA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m026",
+      "questionText": "A V_BE multiplier has R2 = 600 Ω from base to emitter, V_BE = 0.6 V, and R1 is a 0 to 2 kΩ trimmer from collector to base. Over the trimmer's full range, the bias voltage can be set anywhere between:",
+      "options": [
+        "0.6 V and 2.6 V",
+        "0 V and 2.0 V",
+        "0.6 V and 2.0 V",
+        "1.2 V and 2.6 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "With R1 = 0 the network is just one V_BE, 0.6 V; with R1 = 2 kΩ it is 0.6 × (1 + 2000/600) = 0.6 × 4.33 = 2.6 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m027",
+      "questionText": "Which sequence correctly describes thermal runaway in a class AB output stage with fixed bias?",
+      "options": [
+        "Temperature rises, the required V_BE falls, collector current rises at the fixed bias, dissipation rises, temperature rises further",
+        "Temperature rises, V_BE rises, collector current falls, the transistor cools",
+        "Collector current rises, V_BE rises, the bias voltage increases, the transistor cools",
+        "Temperature rises, the load resistance falls, the supply voltage collapses"
+      ],
+      "correctIndex": 0,
+      "explanation": "Because V_BE falls by about 2 mV/°C, a fixed bias voltage drives more current into a warmer transistor, which heats it further: a positive feedback loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m028",
+      "questionText": "In a V_BE multiplier bias circuit, R1 (collector to base) goes open-circuit. What happens?",
+      "options": [
+        "The bias falls to one V_BE and crossover distortion appears",
+        "Nothing changes because R2 still sets the voltage",
+        "The multiplier transistor turns off, the bias voltage rises, and the quiescent current becomes dangerously large",
+        "The output transistors are cut off and the amplifier goes silent"
+      ],
+      "correctIndex": 2,
+      "explanation": "With R1 open the multiplier gets no base drive and stops conducting, so the whole bias current is forced into the output bases and I_Q soars.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m029",
+      "questionText": "In a V_BE multiplier bias circuit, R2 (base to emitter) goes open-circuit. The most likely result is:",
+      "options": [
+        "The bias voltage rises and I_Q becomes very large",
+        "The output voltage rests at +V_CC",
+        "The multiplier produces exactly 2V_BE",
+        "The bias voltage falls to about one V_BE, so the output pair is cut off at idle and crossover distortion returns"
+      ],
+      "correctIndex": 3,
+      "explanation": "With R2 open, R1 feeds the base directly from the collector, so the transistor conducts heavily with V_CE only slightly above V_BE, about 0.7 V, which is less than the 2V_BE needed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m030",
+      "questionText": "To increase the quiescent current of a class AB stage biased by a V_BE multiplier, the adjustment should be to:",
+      "options": [
+        "Increase R1 (collector to base)",
+        "Increase R2 (base to emitter)",
+        "Scale R1 and R2 up by the same factor",
+        "Short-circuit R1"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_bias = V_BE(1 + R1/R2) rises when R1/R2 rises. Increasing R2 or shorting R1 lowers the bias; scaling both keeps the ratio and the voltage unchanged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m031",
+      "questionText": "In discrete audio amplifiers a V_BE multiplier is usually preferred to a string of bias diodes because:",
+      "options": [
+        "It needs no thermal contact with the output transistors",
+        "It carries the full load current",
+        "It removes the need for a driver stage",
+        "Its voltage can be trimmed to any multiple of V_BE, and a single transistor on the heat sink gives the thermal tracking"
+      ],
+      "correctIndex": 3,
+      "explanation": "A trimmer in R1 or R2 sets I_Q precisely, whereas diodes give only whole multiples of one diode drop; the multiplier transistor must still be mounted on the heat sink.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m032",
+      "questionText": "A V_BE multiplier is mounted on the circuit board far from the output heat sink. As the amplifier warms up during use:",
+      "options": [
+        "The quiescent current falls to zero",
+        "The quiescent current stays constant because the multiplier is adjustable",
+        "The quiescent current creeps up, because the bias voltage does not fall with the output transistors' V_BE",
+        "The voltage gain of the stage doubles"
+      ],
+      "correctIndex": 2,
+      "explanation": "Without thermal coupling the bias stays at its cold value while the output V_BE falls, so the effective drive and I_Q increase, with a risk of thermal runaway.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m033",
+      "questionText": "Emitter resistors in a class AB power stage are kept to a fraction of an ohm because larger values would:",
+      "options": [
+        "Cause thermal runaway",
+        "Increase crossover distortion to zero",
+        "Raise the voltage gain above unity",
+        "Waste output power and reduce the voltage swing available to the load"
+      ],
+      "correctIndex": 3,
+      "explanation": "The full load current flows through the emitter resistor of the conducting device, so a large R_E drops a significant voltage and dissipates power; larger values actually improve thermal stability.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m034",
+      "questionText": "Which statement about the quiescent current of a class AB stage is NOT correct?",
+      "options": [
+        "Increasing I_Q reduces crossover distortion at small signals",
+        "A very large I_Q makes the stage operate in class A",
+        "Increasing I_Q raises the standby dissipation",
+        "Increasing I_Q always increases the efficiency"
+      ],
+      "correctIndex": 3,
+      "explanation": "More quiescent current adds 2V_CC I_Q of standby power, lowering efficiency; the other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m035",
+      "questionText": "When a complementary stage is correctly biased into class AB, each output transistor conducts for:",
+      "options": [
+        "Exactly 180°",
+        "Slightly more than 180° of each cycle",
+        "The full 360°",
+        "Less than 180°"
+      ],
+      "correctIndex": 1,
+      "explanation": "The small quiescent current keeps both devices on around the zero crossing, so each conducts a little longer than a half-cycle.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m036",
+      "questionText": "The main drawback of biasing a class AB pair with a simple resistor between the bases is that:",
+      "options": [
+        "The bias voltage does not fall with temperature, so the quiescent current rises as the transistors warm",
+        "It cannot provide 1.4 V",
+        "It rectifies the signal",
+        "It makes the stage a class C amplifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "A resistor's drop is fixed by the chain current and has no thermal tracking, so it is used only with emitter resistors and at modest power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m037",
+      "questionText": "The distortion produced by the dead zone of an unbiased class B stage consists mainly of:",
+      "options": [
+        "Even harmonics",
+        "A DC offset only",
+        "Odd harmonics",
+        "Subharmonics"
+      ],
+      "correctIndex": 2,
+      "explanation": "The notch affects the positive and negative halves identically, giving a half-wave-symmetric waveform whose distortion products are odd harmonics.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m038",
+      "questionText": "An op-amp with an open-loop gain of 100 000 drives an unbiased complementary pair enclosed in its negative-feedback loop. The input dead zone of about 0.7 V on each side is reduced to about:",
+      "options": [
+        "7 µV",
+        "7 mV",
+        "70 mV",
+        "0.7 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "The op-amp output jumps across the dead zone when its input changes by only 0.7 V/A_OL = 0.7/100 000 = 7 µV, so the crossover error is reduced by the open-loop gain.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m039",
+      "questionText": "A quasi-complementary output stage is one in which:",
+      "options": [
+        "Both output transistors are pnp and no driver is used",
+        "Both output power transistors are npn, driven by a complementary pair of smaller transistors",
+        "An output transformer replaces the pnp transistor",
+        "The output transistors are biased in class C"
+      ],
+      "correctIndex": 1,
+      "explanation": "Before good pnp power devices were common, two npn power transistors were used, with the lower one driven by a pnp driver so that the pair behaves like a complementary stage.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m040",
+      "questionText": "The bias diodes of a class AB stage are connected:",
+      "options": [
+        "Reverse biased across the load",
+        "In series with the loudspeaker",
+        "In series between the two output bases, forward biased by the bias current",
+        "In parallel with the emitter resistors"
+      ],
+      "correctIndex": 2,
+      "explanation": "Forward-biased diodes between the bases hold them about 2V_BE apart; they carry the bias current, not the load current.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m041",
+      "questionText": "When several output transistors are paralleled to share a large load current, each must have its own emitter resistor because:",
+      "options": [
+        "A shared resistor would raise the voltage gain",
+        "Without individual ballast, the device with the lowest V_BE takes most of the current, heats up and takes even more",
+        "Individual resistors eliminate crossover distortion completely",
+        "Separate resistors increase the output impedance to match the loudspeaker"
+      ],
+      "correctIndex": 1,
+      "explanation": "Parallel junctions share one V_BE, so a hotter device with a lower V_BE hogs current. An individual R_E adds a drop proportional to each device's own current, which forces current sharing.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m042",
+      "questionText": "In an integrated-circuit op-amp, the class AB bias of the output pair is usually produced by:",
+      "options": [
+        "A trimmer potentiometer adjusted during manufacture",
+        "A large emitter resistor of several kilohms",
+        "Diode-connected transistors carrying a reference current, forming current mirrors with the output transistors",
+        "An output transformer"
+      ],
+      "correctIndex": 2,
+      "explanation": "Matched transistors on the same chip track each other in temperature, so diode-connected devices set I_Q through the current-mirror principle without adjustment.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m043",
+      "questionText": "A technician finds an amplifier's output heat sink hot with no signal and measures I_Q = 500 mA where 50 mA was intended. The most likely cause is:",
+      "options": [
+        "The bias voltage is set too low",
+        "The emitter resistors are too large",
+        "The load is disconnected",
+        "The bias voltage is set too high, for example R1 of the V_BE multiplier too large"
+      ],
+      "correctIndex": 3,
+      "explanation": "A small excess of bias above 2V_BE(Q) drives a large rise in I_Q. Too low a bias would give crossover distortion, and larger emitter resistors would reduce I_Q.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i64_m044",
+      "questionText": "To check the quiescent current, a technician measures 22 mV across the two 0.22 Ω emitter resistors in series (emitter to emitter). The quiescent current is:",
+      "options": [
+        "50 mA",
+        "100 mA",
+        "25 mA",
+        "5 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two resistors total 0.44 Ω, so I_Q = 22 mV/0.44 Ω = 50 mA. Dividing by one 0.22 Ω resistor gives 100 mA.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i64_m045",
+      "questionText": "A class AB stage has R_E = 0.5 Ω in each emitter. The V_BE multiplier stays at room temperature while the output transistors warm by 30 °C, each V_BE falling by 2 mV/°C. The quiescent current increases by about:",
+      "options": [
+        "60 mA",
+        "240 mA",
+        "0 mA",
+        "120 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "The two output V_BE values fall by 2 × 30 × 2 mV = 120 mV while V_bias is unchanged; ΔI_Q = 0.12 V/(2 × 0.5 Ω) = 120 mA. Counting only one junction gives 60 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i64_m046",
+      "questionText": "In a typical discrete audio power amplifier, the V_BE multiplier is connected:",
+      "options": [
+        "Between the bases of the output pair, in the collector circuit of the class A driver (voltage-amplifier) transistor",
+        "In series with the loudspeaker",
+        "Between the output node and ground",
+        "Across the positive supply rail only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The driver's collector current flows through the multiplier, which then holds the two output bases a fixed, temperature-tracking voltage apart.",
+      "difficulty": "medium"
+    }
+  ]
+}

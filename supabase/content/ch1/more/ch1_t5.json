@@ -1,0 +1,732 @@
+{
+  "topicId": "ch1_t5",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Function Generators, Synthesis and Specifications"
+    },
+    {
+      "type": "paragraph",
+      "text": "A laboratory function generator is built around a loop of two blocks: an integrator and a comparator with hysteresis (Schmitt trigger). The comparator output is a square wave; integrating it gives a triangle whose peaks switch the comparator back, so both waveforms come out together. A diode break-point shaping network then rounds the triangle into a sine wave with a few tenths of a percent to about 1 % distortion. The charging current of the integrator is set by a control voltage, so the same instrument can be swept in frequency (a voltage-controlled generator), and the output stage adds amplitude control, a DC offset, a step attenuator and a 50 Ω output resistance."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common kinds of signal generator and what distinguishes them:",
+      "items": [
+        "Audio-frequency (AF) sine generator: low-distortion sine, typically a Wien-bridge oscillator, about 10 Hz to 100 kHz.",
+        "RF signal generator: an LC or synthesized oscillator with AM/FM modulation and a calibrated output attenuator reaching microvolt levels, for testing receivers.",
+        "Function generator: square, triangle and sine (plus ramp and pulse) from one integrator-comparator loop, with a sweep input.",
+        "Pulse generator: independent control of repetition rate, pulse width, delay, amplitude and rise/fall times, for digital and switching tests.",
+        "Sweep generator: frequency moves automatically between two limits, so a filter or amplifier response can be displayed directly on an oscilloscope.",
+        "Arbitrary waveform generator (AWG) and DDS synthesizer: samples stored in memory are played out through a DAC, giving any shape with crystal-referenced frequency."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Waveform",
+          "Harmonic content",
+          "Typical test use"
+        ],
+        [
+          "Sine",
+          "Fundamental only (ideally)",
+          "Gain, frequency response, distortion (THD)"
+        ],
+        [
+          "Square (50 % duty)",
+          "Odd harmonics, amplitude ∝ 1/n",
+          "Transient response, slew rate, tilt and ringing"
+        ],
+        [
+          "Triangle",
+          "Odd harmonics, amplitude ∝ 1/n²",
+          "Linearity checks, sweep and PWM reference"
+        ],
+        [
+          "Sawtooth (ramp)",
+          "All harmonics, amplitude ∝ 1/n",
+          "Oscilloscope time base, sweep circuits"
+        ],
+        [
+          "Pulse (duty D)",
+          "Harmonics with nD = integer are missing",
+          "Digital clocks, triggering, switching tests"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "v = \\frac{4A}{\\pi}(\\sin\\omega t + \\frac{\\sin 3\\omega t}{3} + \\frac{\\sin 5\\omega t}{5} + \\cdots)",
+      "plainText": "square wave of peak A: v = (4A/π)(sin ωt + (1/3) sin 3ωt + (1/5) sin 5ωt + ...)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Modern generators obtain their frequency by synthesis rather than from a free-running oscillator. In a phase-locked loop (PLL) synthesizer a voltage-controlled oscillator is divided by a programmable number N and its phase is compared with a crystal reference of frequency f_ref; the loop filter adjusts the VCO until the divided output equals f_ref, so f_out = N f_ref and the step size (channel spacing) is f_ref. In direct digital synthesis (DDS) an n-bit phase accumulator adds a tuning word M on every clock pulse; the accumulator value addresses a sine look-up table whose samples go to a DAC and a low-pass reconstruction filter. Both inherit the fractional (ppm) accuracy of their crystal reference."
+    },
+    {
+      "type": "formula",
+      "latex": "f_{out} = \\frac{M f_{clk}}{2^{n}}, \\qquad \\Delta f = \\frac{f_{clk}}{2^{n}}",
+      "plainText": "DDS with an n-bit accumulator: f_out = M·f_clk / 2^n; resolution Δf = f_clk / 2^n (PLL: f_out = N·f_xtal / R)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1 - PLL synthesizer\nCrystal 12.8 MHz, reference divider R = 512\n  f_ref = 12.8 MHz / 512 = 25 kHz  (= channel spacing)\nWanted output 90 MHz: N = 90 MHz / 25 kHz = 3600\nCrystal tolerance ±2.5 ppm is carried to the output:\n  error = 90 MHz × 2.5 × 10^-6 = ±225 Hz\nNext channel (N = 3601) = 90.025 MHz"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2 - DDS tuning word\nClock f_clk = 125 MHz, accumulator n = 28 bits\n  Resolution = 125 MHz / 2^28 = 125e6 / 268 435 456 = 0.466 Hz\nWanted f_out = 10 kHz:\n  M = f_out × 2^n / f_clk = 10e3 × 268 435 456 / 125e6 = 21 474.8 -> 21 475\n  Actual f_out = 21 475 × 125e6 / 2^28 = 10 000.08 Hz\nHighest usable output < f_clk / 2 = 62.5 MHz (Nyquist); about 40 % of f_clk in practice"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Specification",
+          "Meaning",
+          "Typical function-generator value"
+        ],
+        [
+          "Frequency range and accuracy",
+          "Span of output frequency and its error",
+          "1 µHz to 20 MHz; ±20 ppm with a crystal reference"
+        ],
+        [
+          "Total harmonic distortion",
+          "RMS of harmonics / fundamental",
+          "Below 0.1 % (DDS sine) to about 1 % (diode-shaped sine)"
+        ],
+        [
+          "Rise/fall time",
+          "10 % to 90 % transition of a square or pulse",
+          "A few ns to tens of ns; t_r ≈ 0.35 / bandwidth"
+        ],
+        [
+          "Output impedance",
+          "Internal source resistance",
+          "50 Ω"
+        ],
+        [
+          "Amplitude and offset",
+          "Output level range and DC shift",
+          "Up to 10 V p-p into 50 Ω, ±5 V offset"
+        ],
+        [
+          "Duty cycle / symmetry",
+          "Fraction of the period spent high",
+          "Adjustable, about 1 % to 99 %"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "A generator with a 50 Ω output behaves as an EMF in series with 50 Ω. Into a matched 50 Ω load the voltage is half the open-circuit value; into a high-impedance load such as an oscilloscope input it is almost the full EMF. Many instruments display the amplitude assuming a 50 Ω load, so a setting of 1 V p-p reads about 2 V p-p on a high-impedance scope. Also remember that dBm is a power level referred to 1 mW, so converting it to volts needs the load resistance."
+    },
+    {
+      "type": "examTip",
+      "text": "For synthesizer questions write the relation first: PLL step = f_ref and f_out = N f_ref; DDS step = f_clk / 2^n (n = accumulator bits) and f_out = M × step. For waveform questions remember odd harmonics at 1/n for a square wave, 1/n² for a triangle, and all harmonics for a sawtooth."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_t5_m001",
+      "questionText": "In a conventional analogue function generator, the sine-wave output is usually obtained by:",
+      "options": [
+        "Integrating the triangle wave twice",
+        "Differentiating the square wave",
+        "Shaping the triangle wave with a diode break-point network",
+        "Passing the square wave through a crystal"
+      ],
+      "correctIndex": 2,
+      "explanation": "The integrator-comparator loop produces square and triangle waves; a non-linear diode network rounds the triangle peaks into an approximate sine wave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m002",
+      "questionText": "In a function generator, the block that converts the square wave from the comparator into a triangle wave is:",
+      "options": [
+        "A differentiator",
+        "A clipper",
+        "A rectifier",
+        "An integrator"
+      ],
+      "correctIndex": 3,
+      "explanation": "Integrating a constant positive or negative voltage produces a linear ramp, so a square wave becomes a triangle wave.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m003",
+      "questionText": "The VCG (voltage-controlled generator) or sweep input of a function generator allows the operator to:",
+      "options": [
+        "Change the output impedance from 50 Ω to 600 Ω",
+        "Add a DC offset to the output",
+        "Vary the output frequency with an external control voltage",
+        "Change the waveform from sine to square"
+      ],
+      "correctIndex": 2,
+      "explanation": "The control voltage sets the integrator charging current and hence the frequency, so an external ramp can sweep the frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m004",
+      "questionText": "A ±10 V square wave at 1 kHz drives an ideal integrator with RC = 1 ms. The peak-to-peak amplitude of the resulting triangle wave is:",
+      "options": [
+        "10 V",
+        "2.5 V",
+        "50 V",
+        "5 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "During each half period (0.5 ms) the output ramps at V/RC = 10 V/1 ms = 10 V/ms, so it changes by 10 × 0.5 = 5 V peak-to-peak.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m005",
+      "questionText": "A pulse generator gives pulses 20 µs wide with a period of 100 µs. The duty cycle is:",
+      "options": [
+        "80 %",
+        "25 %",
+        "20 %",
+        "5 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Duty cycle = t_on/T = 20/100 = 20 %.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m006",
+      "questionText": "A pulse generator is set to 50 kHz with a 25 % duty cycle. The pulse width is:",
+      "options": [
+        "5 µs",
+        "20 µs",
+        "15 µs",
+        "12.5 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "T = 1/50 kHz = 20 µs; pulse width = 0.25 × 20 µs = 5 µs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m007",
+      "questionText": "A rectangular pulse train switches between 0 V and 5 V with a duty cycle of 40 %. Its average (DC) value is:",
+      "options": [
+        "3 V",
+        "2.5 V",
+        "3.16 V",
+        "2 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_avg = D × V_high = 0.4 × 5 = 2 V (3.16 V would be the RMS value, 5√0.4).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m008",
+      "questionText": "The rise time of a pulse from a pulse generator is conventionally measured between:",
+      "options": [
+        "10 % and 90 % of the pulse amplitude",
+        "0 % and 100 % of the pulse amplitude",
+        "50 % of the rising edge and 50 % of the falling edge",
+        "The start of the pulse and its peak overshoot"
+      ],
+      "correctIndex": 0,
+      "explanation": "Rise time is the time for the edge to go from 10 % to 90 % of its final amplitude; the 50 %-to-50 % interval is the pulse width.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m009",
+      "questionText": "A square wave passes through an amplifier whose bandwidth is 100 MHz. Using t_r ≈ 0.35/BW, the rise time of the output is about:",
+      "options": [
+        "35 ns",
+        "10 ns",
+        "0.35 ns",
+        "3.5 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "t_r = 0.35/BW = 0.35/(100 × 10^6) = 3.5 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m010",
+      "questionText": "Which statement about the frequency spectrum of an ideal symmetrical (50 % duty) square wave is correct?",
+      "options": [
+        "It contains only even harmonics",
+        "It contains all harmonics with equal amplitude",
+        "It contains only odd harmonics, the nth harmonic having 1/n of the fundamental amplitude",
+        "It contains only the fundamental"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Fourier series is (4A/π)(sin ωt + (1/3) sin 3ωt + (1/5) sin 5ωt + ...): odd harmonics only, falling as 1/n.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m011",
+      "questionText": "For an ideal symmetrical triangle wave, the amplitude of the third harmonic relative to the fundamental is about:",
+      "options": [
+        "33.3 %",
+        "3.7 %",
+        "11.1 %",
+        "0 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Triangle-wave harmonics fall as 1/n²: 1/3² = 1/9 = 11.1 %. (33.3 % is the 1/n law of a square wave.)",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m012",
+      "questionText": "Compared with a square wave and a triangle wave, a sawtooth (ramp) waveform is distinguished by containing:",
+      "options": [
+        "Both even and odd harmonics",
+        "Only odd harmonics",
+        "No harmonics at all",
+        "Only even harmonics"
+      ],
+      "correctIndex": 0,
+      "explanation": "A sawtooth lacks half-wave symmetry, so its Fourier series contains every integer harmonic with amplitude proportional to 1/n.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m013",
+      "questionText": "A symmetrical square wave alternates between +5 V and −5 V. The RMS value of its fundamental (sinusoidal) component is about:",
+      "options": [
+        "6.37 V",
+        "5.00 V",
+        "3.54 V",
+        "4.50 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "Fundamental peak = 4A/π = 4 × 5/π = 6.37 V; RMS = 6.37/√2 = 4.50 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m014",
+      "questionText": "A generator's sine output contains a 10 V (RMS) fundamental, a 0.6 V second harmonic and a 0.8 V third harmonic. Its total harmonic distortion is:",
+      "options": [
+        "10 %",
+        "14 %",
+        "1 %",
+        "7 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "THD = √(0.6² + 0.8²)/10 = 1.0/10 = 10 %. Adding the harmonics directly would wrongly give 14 %.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m015",
+      "questionText": "The strongest harmonic of a signal generator's sine output is specified as −40 dBc (relative to the carrier/fundamental). As a fraction of the fundamental voltage this harmonic is:",
+      "options": [
+        "1 %",
+        "0.01 %",
+        "10 %",
+        "40 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "Voltage ratio = 10^(−40/20) = 0.01 = 1 % of the fundamental.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m016",
+      "questionText": "A function generator with a 50 Ω output resistance produces 4 V p-p on open circuit. When it is connected to a 50 Ω load, the voltage across the load is:",
+      "options": [
+        "4 V p-p",
+        "2 V p-p",
+        "1 V p-p",
+        "3.8 V p-p"
+      ],
+      "correctIndex": 1,
+      "explanation": "Voltage divider: V_L = 4 × 50/(50 + 50) = 2 V p-p.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m017",
+      "questionText": "A generator has an open-circuit output of 10 V and an internal resistance of 50 Ω. The voltage it delivers to a 1 kΩ load is about:",
+      "options": [
+        "10 V",
+        "5 V",
+        "0.476 V",
+        "9.52 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "V_L = 10 × 1000/(1000 + 50) = 9.52 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m018",
+      "questionText": "A signal generator with a 50 Ω output resistance has an open-circuit (EMF) output of 2 V RMS and is connected to a matched 50 Ω load. The power delivered to the load, in dBm, is about:",
+      "options": [
+        "+13 dBm",
+        "+19 dBm",
+        "+16 dBm",
+        "+10 dBm"
+      ],
+      "correctIndex": 0,
+      "explanation": "Load voltage = 1 V RMS; P = 1²/50 = 20 mW; 10 log(20 mW/1 mW) = 13.0 dBm.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m019",
+      "questionText": "A sweep generator is set to sweep logarithmically from 20 Hz to 20 kHz. The number of octaves covered is about:",
+      "options": [
+        "10",
+        "3",
+        "100",
+        "20"
+      ],
+      "correctIndex": 0,
+      "explanation": "Octaves = log2(20 000/20) = log2(1000) = 9.97, about 10 (the same span is 3 decades).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m020",
+      "questionText": "A PLL frequency synthesizer has a reference (comparison) frequency of 100 kHz and a programmable divider N = 455. Its output frequency is:",
+      "options": [
+        "4.55 MHz",
+        "45.5 MHz",
+        "455 MHz",
+        "220 Hz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_out = N × f_ref = 455 × 100 kHz = 45.5 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m021",
+      "questionText": "A PLL synthesizer divides a 10 MHz crystal by R = 100 to obtain its reference and uses a feedback divider N = 1234. The output frequency is:",
+      "options": [
+        "12.34 GHz",
+        "123.4 MHz",
+        "1.234 MHz",
+        "12.34 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_ref = 10 MHz/100 = 100 kHz; f_out = N f_ref = 1234 × 100 kHz = 123.4 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m022",
+      "questionText": "An integer-N PLL synthesizer must produce output frequencies in steps of 25 kHz. Its comparison (reference) frequency must be:",
+      "options": [
+        "25 kHz",
+        "12.5 kHz",
+        "50 kHz",
+        "250 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "With f_out = N f_ref, changing N by one moves the output by f_ref, so f_ref equals the step size, 25 kHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m023",
+      "questionText": "A DDS generator has a 100 MHz clock and a 32-bit phase accumulator. Its frequency resolution is about:",
+      "options": [
+        "0.023 Hz",
+        "3.125 MHz",
+        "1.53 kHz",
+        "0.047 Hz"
+      ],
+      "correctIndex": 0,
+      "explanation": "Δf = f_clk/2^32 = 100 × 10^6/4 294 967 296 = 0.0233 Hz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m024",
+      "questionText": "A DDS generator uses a 100 MHz clock and a 32-bit phase accumulator. The tuning word M needed for an output of 1 MHz is about:",
+      "options": [
+        "4 294 967",
+        "429 496 730",
+        "42 949 673",
+        "10 000"
+      ],
+      "correctIndex": 2,
+      "explanation": "M = f_out × 2^32/f_clk = 10^6 × 4 294 967 296/10^8 = 42 949 673 (rounded).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m025",
+      "questionText": "According to the sampling theorem, the highest output frequency a DDS generator clocked at 100 MHz can theoretically produce is:",
+      "options": [
+        "100 MHz",
+        "50 MHz",
+        "25 MHz",
+        "200 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each output cycle needs at least two samples, so f_out(max) = f_clk/2 = 50 MHz; practical designs stay near 40 % of f_clk.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m026",
+      "questionText": "Which of the following is NOT a building block of a direct digital synthesis (DDS) generator?",
+      "options": [
+        "A phase accumulator",
+        "A sine look-up table (ROM)",
+        "An LC tank circuit that sets the output frequency",
+        "A DAC followed by a low-pass filter"
+      ],
+      "correctIndex": 2,
+      "explanation": "DDS is digital: the accumulator, look-up table, DAC and reconstruction filter set the frequency from the clock; no tuned LC tank determines it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m027",
+      "questionText": "A main advantage of a DDS signal generator over a PLL synthesizer is:",
+      "options": [
+        "Complete absence of spurious signals",
+        "Very fine frequency resolution with fast, phase-continuous frequency changes",
+        "No need for a clock or reference oscillator",
+        "Output frequencies above the clock frequency"
+      ],
+      "correctIndex": 1,
+      "explanation": "Changing the tuning word changes frequency on the next clock with no loop settling and in sub-hertz steps; DDS still needs a clock, has spurs, and is limited below f_clk/2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m028",
+      "questionText": "The feedback loop of a PLL frequency synthesizer contains a phase detector, a loop filter, a programmable frequency divider and a:",
+      "options": [
+        "Quartz crystal in the feedback path",
+        "Voltage-controlled oscillator (VCO)",
+        "Schmitt trigger",
+        "Full-wave rectifier"
+      ],
+      "correctIndex": 1,
+      "explanation": "The phase detector error, filtered by the loop filter, tunes a VCO whose divided output is compared with the reference.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m029",
+      "questionText": "A 100 MHz output is synthesized by a PLL from a 10 MHz crystal reference whose accuracy is ±5 ppm. The maximum frequency error of the output is:",
+      "options": [
+        "±50 Hz",
+        "±5 Hz",
+        "±5 kHz",
+        "±500 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "A PLL multiplies the reference, so the fractional error is unchanged: 100 MHz × 5 × 10^-6 = ±500 Hz (±50 Hz is the error of the 10 MHz reference itself).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m030",
+      "questionText": "Compared with a basic function generator, an RF signal generator used for receiver testing is characterised by:",
+      "options": [
+        "Square and triangle outputs only",
+        "Built-in AM/FM modulation and a calibrated attenuator giving very low output levels",
+        "An output frequency limited to the audio range",
+        "A high output impedance of about 1 MΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "Receiver tests need a modulated RF carrier whose level can be set accurately down to microvolts, hence modulation facilities and a calibrated attenuator with a 50 Ω output.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m031",
+      "questionText": "A signal generator output of 1 V is passed through its step attenuator set to 60 dB. The output voltage is:",
+      "options": [
+        "16.7 mV",
+        "10 mV",
+        "1 µV",
+        "1 mV"
+      ],
+      "correctIndex": 3,
+      "explanation": "Voltage ratio = 10^(60/20) = 1000, so the output is 1 V/1000 = 1 mV.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m032",
+      "questionText": "A sweep generator is most commonly used to:",
+      "options": [
+        "Measure the DC resistance of a resistor",
+        "Generate a precise DC reference voltage",
+        "Measure the power factor of a load",
+        "Display the frequency response of an amplifier or filter"
+      ],
+      "correctIndex": 3,
+      "explanation": "Its frequency moves continuously between two limits, so plotting the device output against the sweep gives the frequency response directly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m033",
+      "questionText": "Which of the following is NOT a specification of a pulse generator?",
+      "options": [
+        "Pulse width",
+        "Q factor",
+        "Rise time",
+        "Repetition rate"
+      ],
+      "correctIndex": 1,
+      "explanation": "Pulse generators are specified by repetition rate, width, delay, amplitude and rise/fall time; Q factor describes resonant circuits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m034",
+      "questionText": "An arbitrary waveform generator (AWG) produces its output by:",
+      "options": [
+        "Adjusting the Q of an LC tank circuit",
+        "Clipping a sine wave with Zener diodes",
+        "Reading stored sample values from memory and converting them with a DAC",
+        "Mixing two RF oscillators"
+      ],
+      "correctIndex": 2,
+      "explanation": "An AWG holds the waveform as a table of samples in memory and plays them out through a DAC at the sample clock rate, so any shape can be defined.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m035",
+      "questionText": "An arbitrary waveform generator runs at 1 GS/s (10^9 samples per second) and a waveform uses 1000 samples per cycle. The output frequency is:",
+      "options": [
+        "1 GHz",
+        "1 MHz",
+        "1 kHz",
+        "500 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = sample rate/points per cycle = 10^9/1000 = 1 MHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m036",
+      "questionText": "An AWG has a 14-bit DAC spanning 2 V peak-to-peak full scale. When it generates a 0.5 V peak-to-peak sine wave, the number of DAC levels actually used is about:",
+      "options": [
+        "4096",
+        "16 384",
+        "1024",
+        "8192"
+      ],
+      "correctIndex": 0,
+      "explanation": "LSB = 2 V/2^14 = 122 µV; levels used = 0.5 V/122 µV = 4096, i.e. only about 12 bits of resolution.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m037",
+      "questionText": "The sawtooth waveform of a signal generator is the natural choice for:",
+      "options": [
+        "The carrier of an AM broadcast transmitter",
+        "Measuring the harmonic distortion of an amplifier",
+        "The horizontal time-base sweep of a cathode-ray oscilloscope",
+        "A mains-frequency power supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "A linear ramp moves the CRO beam at constant speed across the screen, and the fast retrace returns it for the next sweep.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m038",
+      "questionText": "A low-frequency square wave is applied to an amplifier and the flat tops of the output show a noticeable tilt (sag). This indicates:",
+      "options": [
+        "A limited high-frequency response",
+        "Excessive slew rate",
+        "Perfect flat response",
+        "A limited low-frequency response (high lower cut-off frequency)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sag on the flat parts comes from coupling capacitors discharging, i.e. poor low-frequency response; slow or rounded edges would instead show poor high-frequency response.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m039",
+      "questionText": "The period of a signal from a generator is measured as 2.5 µs. Its frequency is:",
+      "options": [
+        "40 kHz",
+        "4 MHz",
+        "400 kHz",
+        "2.5 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f = 1/T = 1/(2.5 × 10^-6 s) = 400 kHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m040",
+      "questionText": "A signal generator is set to give a sine wave of 1 V RMS. Its peak-to-peak value is about:",
+      "options": [
+        "1.41 V",
+        "2 V",
+        "2.83 V",
+        "0.707 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_pp = 2√2 × V_rms = 2 × 1.414 × 1 = 2.83 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m041",
+      "questionText": "A function generator produces a ±2 V square wave and a +1 V DC offset is then added. The output now swings between:",
+      "options": [
+        "−1 V and +3 V",
+        "−2 V and +2 V",
+        "−3 V and +1 V",
+        "0 V and +4 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "The offset shifts the whole waveform up by 1 V: −2 + 1 = −1 V and +2 + 1 = +3 V; the average becomes 1 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m042",
+      "questionText": "A rectangular pulse train has a duty cycle of 25 %. Which harmonics are completely absent from its spectrum?",
+      "options": [
+        "All even harmonics",
+        "All odd harmonics",
+        "The 3rd, 6th, 9th and other multiples of 3",
+        "The 4th, 8th, 12th and other multiples of 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "The nth harmonic amplitude is proportional to sin(nπD)/n; with D = 0.25 it is zero when n/4 is an integer, so the 4th, 8th, ... vanish, while the 2nd and 6th remain.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t5_m043",
+      "questionText": "Which statement about an electronic signal generator (oscillator) is correct?",
+      "options": [
+        "It needs an AC input signal of the same frequency to produce an output",
+        "It produces a periodic output without any input signal, converting DC supply power into AC signal power",
+        "It uses negative feedback to sustain its output",
+        "It creates energy, so it needs no power supply"
+      ],
+      "correctIndex": 1,
+      "explanation": "An oscillator sustains its output through positive feedback and draws the energy for the AC output from its DC supply; no input signal is needed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m044",
+      "questionText": "To measure the slew rate of an op-amp, the signal generator should apply:",
+      "options": [
+        "A small-amplitude sine wave at very low frequency",
+        "A large-amplitude square wave, observing the slope of the output edges",
+        "A pure DC voltage",
+        "A triangle wave of a few millivolts"
+      ],
+      "correctIndex": 1,
+      "explanation": "Slew rate is the maximum rate of change of the output, seen when a large step forces the output to ramp; its value is ΔV/Δt of the output edge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t5_m045",
+      "questionText": "A sawtooth generator's ramp rises for 4 ms and the flyback (retrace) takes 1 ms. The frequency of the sawtooth is:",
+      "options": [
+        "250 Hz",
+        "200 Hz",
+        "1000 Hz",
+        "20 Hz"
+      ],
+      "correctIndex": 1,
+      "explanation": "T = sweep + flyback = 4 + 1 = 5 ms; f = 1/5 ms = 200 Hz (ignoring the flyback would give 250 Hz).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t5_m046",
+      "questionText": "A generator is set to deliver +10 dBm into a 50 Ω load with a sine wave. The peak-to-peak voltage across the load is about:",
+      "options": [
+        "2.0 V",
+        "0.71 V",
+        "1.41 V",
+        "4.0 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "P = 10 mW; V_rms = √(P R) = √(0.01 × 50) = 0.707 V; V_pp = 2√2 × 0.707 = 2.0 V.",
+      "difficulty": "hard"
+    }
+  ]
+}

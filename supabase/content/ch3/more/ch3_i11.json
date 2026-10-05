@@ -1,0 +1,721 @@
+{
+  "topicId": "ch3_i11",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Evaluating Expressions Step by Step"
+    },
+    {
+      "type": "paragraph",
+      "text": "Precedence and associativity decide only how an expression is grouped, not the order in which its operands are computed. In a + b * c the multiplication is grouped first, but the compiler may fetch a, b and c in any order. Only four operators promise to finish their left operand first: &&, ||, ?: and the comma operator. Everywhere else, if a side effect (++, -- or an embedded assignment) changes a variable that another part of the same expression also reads or changes, as in i++ + i, the behaviour is undefined. A plain i = i + 1 is fine, because the store happens only after the right side has been computed."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Operator",
+          "Evaluated first",
+          "Second part is evaluated",
+          "Value"
+        ],
+        [
+          "a && b",
+          "a",
+          "only if a is non-zero",
+          "1 if both are non-zero, else 0"
+        ],
+        [
+          "a || b",
+          "a",
+          "only if a is zero",
+          "1 if either is non-zero, else 0"
+        ],
+        [
+          "c ? x : y",
+          "c",
+          "x if c is non-zero, otherwise y (never both)",
+          "the chosen operand"
+        ],
+        [
+          "a , b",
+          "a (its value is discarded)",
+          "always",
+          "b"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "q = \\operatorname{trunc}(a/b),\\ a \\% b = a - qb:\\quad -9/4 = -2,\\ -9 \\% 4 = -1",
+      "plainText": "q = a / b truncated toward zero (C99 onward), a % b = a - q*b; e.g. -9 / 4 = -2 and -9 % 4 = -9 - (-8) = -1"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int a = 0, b = 2, c = 3, r;\n    r = a++ && b++;            /* a++ yields 0, so b++ is skipped */\n    printf(\"%d %d %d\\n\", a, b, r);\n    r = a++ || ++c;            /* a++ yields 1, so ++c is skipped */\n    printf(\"%d %d %d\\n\", a, c, r);\n    r = (b > c) ? b-- : c--;   /* only the chosen branch runs */\n    printf(\"%d %d %d\\n\", b, c, r);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n1 2 0\n2 3 1\n2 2 3\n\nTrace:\na++ gives 0 (a = 1): && is false at once, b stays 2, r = 0\na++ gives 1 (a = 2): || is true at once, c stays 3, r = 1\nb > c is 2 > 3, false: only c-- runs, r = 3 and c = 2"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    int x = 11;                    /* binary 1011 */\n    int p = x & 4 != 0;            /* parsed as x & (4 != 0) */\n    int q = x >> 1 + 1;            /* parsed as x >> (1 + 1) */\n    unsigned u = 1;\n    int big = -2 > u;              /* -2 is converted to unsigned */\n    double d = x / 2 + x % 2 * 0.5;\n    printf(\"%d %d %d %.1f\\n\", p, q, big, d);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n1 2 1 5.5\n\nTrace:\np: x & (4 != 0) = 1011 & 0001 = 1   [(x & 4) != 0 would be 0]\nq: x >> (1 + 1) = 11 >> 2 = 2       [(x >> 1) + 1 would be 6]\nbig: -2 becomes 4294967294u (32-bit unsigned), which is > 1u, so 1\nd: 11 / 2 = 5 in int, 11 % 2 * 0.5 = 0.5, total 5.5"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Expression",
+          "How it is evaluated",
+          "Result"
+        ],
+        [
+          "'A' + 1",
+          "char promoted to int ('A' is 65 in ASCII)",
+          "66"
+        ],
+        [
+          "7 / 2 * 1.0",
+          "int 7 / 2 = 3 first, then 3 * 1.0",
+          "3.0"
+        ],
+        [
+          "1.0 * 7 / 2",
+          "double from the start: 7.0 / 2",
+          "3.5"
+        ],
+        [
+          "-1 < 0u",
+          "-1 converted to unsigned (UINT_MAX)",
+          "0 (false)"
+        ],
+        [
+          "(int)-2.9",
+          "fraction discarded, toward zero",
+          "-2"
+        ],
+        [
+          "5 / 2 + 5.0 / 2",
+          "int 2 plus double 2.5",
+          "4.5"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "x \\mid (1 \\ll k),\\quad x \\,\\&\\, \\sim(1 \\ll k),\\quad x \\oplus (1 \\ll k)",
+      "plainText": "set bit k: x | (1 << k); clear bit k: x & ~(1 << k); toggle bit k: x ^ (1 << k); test bit k: (x >> k) & 1"
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that produce wrong answers in output questions:",
+      "items": [
+        "^ is exclusive OR, not a power: 2 ^ 3 is 1; two to the power 3 needs pow(2, 3) or 1 << 3.",
+        "a < b < c means (a < b) < c, which compares 0 or 1 with c (recent Clang versions even refuse to compile it); write a < b && b < c.",
+        "x & 4 != 0 and 1 << n + 1 group the wrong way; bracket every bitwise and shift sub-expression.",
+        "An assignment inside a condition, if (x = 0), stores 0 and is always false; if (x = 5) is always true.",
+        "(double)(a / b) casts too late: the integer division has already thrown the fraction away.",
+        "Shifting by a negative count or by at least the width of the type (1 << 32 for a 32-bit int) is undefined, and so is left-shifting a negative value."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "These have no defined output: i = i++;  a[i] = i++;  i++ + ++i;  printf(\"%d %d\", i, i++);  INT_MAX + 1;  and integer division or % by zero. If one of them appears in an output question, the only correct choice is undefined behaviour (compiler dependent)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i11_m001",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d\\n\", 17 / 5, 17 % 5);\n    return 0;\n}",
+      "options": [
+        "3.4 2",
+        "3 2",
+        "3 3",
+        "2 3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both operands are int, so 17 / 5 = 3.4 is truncated to 3. The remainder is 17 % 5 = 17 - 3 × 5 = 2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m002",
+      "questionText": "Assume standard C (C99 or later). What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d %d\\n\", -17 / 5, -17 % 5, 17 % -5);\n    return 0;\n}",
+      "options": [
+        "-3 -2 2",
+        "-4 3 -3",
+        "-3 2 -2",
+        "-4 -2 2"
+      ],
+      "correctIndex": 0,
+      "explanation": "C99 and C11 truncate the quotient toward zero (C89 left this implementation-defined), so -17 / 5 = -3.4 -> -3 (not -4). The remainder follows a % b = a - (a / b) × b: -17 - (-3 × 5) = -2 and 17 - (-3 × -5) = 2, so it takes the sign of the dividend.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m003",
+      "questionText": "Which of the following expressions causes a compile error in C?",
+      "options": [
+        "7 % 2",
+        "7.5 % 2",
+        "-7 % 2",
+        "7 / 2.0"
+      ],
+      "correctIndex": 1,
+      "explanation": "The % operator requires integer operands; a floating-point remainder needs fmod() from <math.h>. The other three are legal and give 1, -1 and 3.5.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m004",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 9, b = 4;\ndouble r = a / b * b + (double)a / b;\nprintf(\"%.2f\\n\", r);",
+      "options": [
+        "11.25",
+        "10.00",
+        "10.25",
+        "2.25"
+      ],
+      "correctIndex": 2,
+      "explanation": "a / b * b groups left to right in int arithmetic: 9 / 4 = 2, then 2 × 4 = 8. The cast binds tighter than /, so (double)a / b = 9.0 / 4 = 2.25. r = 8 + 2.25 = 10.25.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m005",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint n = 4729;\nint s = n % 10 + n / 10 % 10 + n / 100 % 10;\nprintf(\"%d\\n\", s);",
+      "options": [
+        "22",
+        "18",
+        "58",
+        "11"
+      ],
+      "correctIndex": 1,
+      "explanation": "* / % share one precedence level and group left to right: n % 10 = 9, n / 10 % 10 = 472 % 10 = 2 and n / 100 % 10 = 47 % 10 = 7. s = 9 + 2 + 7 = 18.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m006",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d %d\\n\", 5 > 3, 5 == 3, !(5 < 3));\n    return 0;\n}",
+      "options": [
+        "1 0 1",
+        "true false true",
+        "5 0 1",
+        "1 0 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "Relational, equality and logical operators produce an int: 1 for true and 0 for false. 5 > 3 is 1, 5 == 3 is 0 and !(5 < 3) is !0 = 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m007",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    int a = 5, b = 5, c = 5;\n    printf(\"%d %d\\n\", a == b == c, a == b == 1);\n    return 0;\n}",
+      "options": [
+        "1 1",
+        "1 0",
+        "0 0",
+        "0 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "== groups left to right and yields 0 or 1: a == b == c is (a == b) == c = 1 == 5 = 0, while a == b == 1 is (5 == 5) == 1 = 1 == 1 = 1. C never reads a chain of comparisons the mathematical way.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m008",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint i = 0, j = 5;\nint r = (i++ > 0) || (++j > 5);\nprintf(\"%d %d %d\\n\", i, j, r);",
+      "options": [
+        "1 5 1",
+        "1 6 1",
+        "0 6 1",
+        "1 6 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "i++ > 0 compares the old value 0, so it is false, and i becomes 1. Because the left side of || is false, the right side must be evaluated: j becomes 6 and 6 > 5 is true, so r = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m009",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 1, b = 0, c = 5;\nint r = a-- && b++ || ++c;\nprintf(\"%d %d %d %d\\n\", a, b, c, r);",
+      "options": [
+        "0 1 5 1",
+        "0 0 5 0",
+        "0 1 6 0",
+        "0 1 6 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "&& binds tighter than ||, so r = (a-- && b++) || ++c. a-- yields 1 (a becomes 0), so b++ is evaluated: it yields 0 (b becomes 1) and the && is false. The || therefore evaluates ++c, giving c = 6 (true), so r = 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m010",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 4, y = 0, z;\nz = x || ++y && ++y;\nprintf(\"%d %d\\n\", y, z);",
+      "options": [
+        "0 1",
+        "2 1",
+        "1 1",
+        "0 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "&& has higher precedence, so the expression is x || (++y && ++y). x = 4 is true, so || stops at once: neither ++y runs, y stays 0, and z = 1 because logical operators produce 1, not the value 4.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m011",
+      "questionText": "In C, what does a relational or logical expression such as a < b or a && b evaluate to?",
+      "options": [
+        "A bool whose value is true or false",
+        "An int that may be any non-zero value when true",
+        "A char, either 'T' or 'F'",
+        "An int whose value is 1 (true) or 0 (false)"
+      ],
+      "correctIndex": 3,
+      "explanation": "C operators such as <, ==, && and ! give an int that is exactly 1 or 0. Any non-zero value counts as true when it is tested, but these operators always produce 1 for true.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m012",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d %d\\n\", 12 & 10, 12 | 10, 12 ^ 10);\n    return 0;\n}",
+      "options": [
+        "1 1 0",
+        "14 8 6",
+        "8 6 14",
+        "8 14 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "12 = 1100 and 10 = 1010 in binary. AND keeps the common 1s: 1000 = 8; OR keeps every 1: 1110 = 14; XOR keeps the bits that differ: 0110 = 6.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m013",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d\\n\", 3 << 4, 100 >> 3);\n    return 0;\n}",
+      "options": [
+        "12 33",
+        "48 13",
+        "48 12",
+        "7 97"
+      ],
+      "correctIndex": 2,
+      "explanation": "x << n multiplies by 2^n: 3 × 2^4 = 48. x >> n divides a non-negative value by 2^n and drops the remainder: 100 / 8 = 12.5 -> 12.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m014",
+      "questionText": "Assume int is 32 bits and uses two's complement. What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d\\n\", ~12, ~-12);\n    return 0;\n}",
+      "options": [
+        "-12 12",
+        "3 11",
+        "-13 11",
+        "-13 13"
+      ],
+      "correctIndex": 2,
+      "explanation": "In two's complement ~x = -x - 1, so ~12 = -12 - 1 = -13 and ~(-12) = 12 - 1 = 11. Flipping only the four bits of 1100 to get 0011 = 3 forgets that an int has 32 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m015",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 6;\nif (x & 2 == 2)\n    printf(\"yes\\n\");\nelse\n    printf(\"no\\n\");",
+      "options": [
+        "no",
+        "yes",
+        "Compile error: & needs parentheses here",
+        "Nothing is printed"
+      ],
+      "correctIndex": 0,
+      "explanation": "== has higher precedence than &, so the condition is x & (2 == 2) = 6 & 1 = 110 & 001 = 0, which is false. Writing (x & 2) == 2 would print yes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m016",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d\\n\", 1 << 2 + 3);\n    return 0;\n}",
+      "options": [
+        "7",
+        "16",
+        "32",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "Additive operators bind tighter than shifts, so the expression is 1 << (2 + 3) = 1 << 5 = 32, not (1 << 2) + 3 = 7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m017",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nunsigned int f = 0x5A;\nf |= 1u << 0;\nf &= ~(1u << 4);\nf ^= 1u << 7;\nprintf(\"%X\\n\", f);",
+      "options": [
+        "CB",
+        "4B",
+        "DB",
+        "5B"
+      ],
+      "correctIndex": 0,
+      "explanation": "0x5A = 0101 1010. f |= 1 sets bit 0: 0101 1011 (0x5B). f &= ~(1u << 4) clears bit 4: 0100 1011 (0x4B). f ^= 1u << 7 flips bit 7 from 0 to 1: 1100 1011 = 0xCB, printed by %X as CB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m018",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 10;\nx += 5;\nx *= 2;\nx -= 4;\nx /= 3;\nprintf(\"%d\\n\", x);",
+      "options": [
+        "8.67",
+        "9",
+        "8",
+        "26"
+      ],
+      "correctIndex": 2,
+      "explanation": "Step by step: 10 + 5 = 15, 15 × 2 = 30, 30 - 4 = 26, and 26 / 3 = 8 because both operands are int.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m019",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 4;\na *= 2 + 3;\nprintf(\"%d\\n\", a);",
+      "options": [
+        "20",
+        "11",
+        "9",
+        "5"
+      ],
+      "correctIndex": 0,
+      "explanation": "A compound assignment evaluates its whole right side first: a *= 2 + 3 means a = a * (2 + 3) = 4 × 5 = 20, not a * 2 + 3 = 11.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m020",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 0;\nif (x = 5)\n    printf(\"A %d\\n\", x);\nelse\n    printf(\"B %d\\n\", x);",
+      "options": [
+        "B 0",
+        "B 5",
+        "A 5",
+        "A 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "x = 5 is an assignment, not a comparison: it stores 5 in x and the value of the expression, 5, is non-zero (true), so the if branch prints A 5.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m021",
+      "questionText": "Given int x = 1, y = 2; which of the following statements causes a compile error?",
+      "options": [
+        "x = y = 5;",
+        "x + 1 = y;",
+        "x += y -= 2;",
+        "x = (y, 5);"
+      ],
+      "correctIndex": 1,
+      "explanation": "The left operand of an assignment must be a modifiable lvalue such as a variable. x + 1 is a computed value with no storage, so it cannot be assigned to. The others are a chained assignment, a chained compound assignment and a comma expression.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m022",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 2, b = 3, c = 4;\na += b *= c -= 1;\nprintf(\"%d %d %d\\n\", a, b, c);",
+      "options": [
+        "14 12 3",
+        "11 12 3",
+        "5 15 3",
+        "11 9 3"
+      ],
+      "correctIndex": 3,
+      "explanation": "Assignment operators group right to left: a += (b *= (c -= 1)). First c = 4 - 1 = 3, then b = 3 × 3 = 9, then a = 2 + 9 = 11.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m023",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint m = 8;\nint n = m-- - 3;\nprintf(\"%d %d\\n\", m, n);",
+      "options": [
+        "7 4",
+        "7 5",
+        "8 5",
+        "8 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "Post-decrement hands the old value 8 to the expression, so n = 8 - 3 = 5; afterwards m is 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m024",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint i = 3, j = 3, k;\nk = ++i * j--;\nprintf(\"%d %d %d\\n\", i, j, k);",
+      "options": [
+        "4 2 8",
+        "4 3 12",
+        "3 2 9",
+        "4 2 12"
+      ],
+      "correctIndex": 3,
+      "explanation": "++i increments first and yields 4; j-- yields the old value 3 and then j becomes 2. k = 4 × 3 = 12.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m025",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint i = 0, s = 0;\nwhile (i++ < 4)\n    s += i;\nprintf(\"%d %d\\n\", s, i);",
+      "options": [
+        "10 5",
+        "6 4",
+        "10 4",
+        "15 5"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each test uses the old i and then increments it. The tests 0, 1, 2 and 3 < 4 succeed and add the new values 1 + 2 + 3 + 4 = 10. The failing test 4 < 4 still increments i, so i ends at 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m026",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 5, y = 2;\nint z = x+++y;\nprintf(\"%d %d %d\\n\", x, y, z);",
+      "options": [
+        "5 3 8",
+        "6 3 8",
+        "Compile error",
+        "6 2 7"
+      ],
+      "correctIndex": 3,
+      "explanation": "The compiler always takes the longest possible token (maximal munch), so x+++y is read as (x++) + y: z = 5 + 2 = 7, x then becomes 6 and y is unchanged.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m027",
+      "questionText": "When i++; and ++i; are each used as a complete statement on its own, how do they differ?",
+      "options": [
+        "They have the same effect: each adds 1 to i",
+        "i++; leaves i unchanged and only ++i; increments it",
+        "++i; is not allowed as a stand-alone statement",
+        "They differ only when i is a float"
+      ],
+      "correctIndex": 0,
+      "explanation": "The difference between pre- and post-increment is only in the value the expression yields. When that value is not used, both simply add 1 to i.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m028",
+      "questionText": "What does the C standard say about the output of this fragment (inside main, with <stdio.h> included)?\n\nint i = 5;\ni = ++i + i++;\nprintf(\"%d\\n\", i);",
+      "options": [
+        "The behaviour is undefined, because i is modified more than once without sequencing",
+        "It prints 12",
+        "It prints 13",
+        "It is a compile error"
+      ],
+      "correctIndex": 0,
+      "explanation": "++i, i++ and the assignment all modify i with no sequence point between them, so the behaviour is undefined and different compilers may print different values. Only output questions that modify each variable once per expression have a defined answer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m029",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%s\\n\", 7 % 2 ? \"odd\" : \"even\");\n    return 0;\n}",
+      "options": [
+        "even",
+        "1",
+        "odd",
+        "Compile error"
+      ],
+      "correctIndex": 2,
+      "explanation": "7 % 2 is 1, which is non-zero (true), so the conditional operator selects its second operand, the string \"odd\".",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m030",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    int m = 65;\n    char g = m >= 80 ? 'A' : m >= 60 ? 'B' : m >= 40 ? 'C' : 'F';\n    printf(\"%c\\n\", g);\n    return 0;\n}",
+      "options": [
+        "A",
+        "B",
+        "C",
+        "F"
+      ],
+      "correctIndex": 1,
+      "explanation": "?: groups right to left, so the chain works like an else-if ladder: 65 >= 80 is false, 65 >= 60 is true, so g = 'B' and the remaining tests are never evaluated.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m031",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 3, b = 7;\nint c = (a > b) ? a++ : b--;\nprintf(\"%d %d %d\\n\", a, b, c);",
+      "options": [
+        "4 6 7",
+        "3 6 6",
+        "3 6 7",
+        "4 6 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "3 > 7 is false, so only the third operand b-- is evaluated: c receives the old value 7 and b becomes 6. The a++ in the unchosen branch never runs, so a stays 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m032",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint x = 5;\nint y = x > 3 ? 10 : 20 + 1;\nint z = (x > 3 ? 10 : 20) + 1;\nprintf(\"%d %d\\n\", y, z);",
+      "options": [
+        "10 11",
+        "11 11",
+        "10 10",
+        "21 11"
+      ],
+      "correctIndex": 0,
+      "explanation": "?: has lower precedence than +, so y = x > 3 ? 10 : (20 + 1) = 10. In z the parentheses finish the conditional first, giving 10 + 1 = 11.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m033",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 2, b;\nb = (a += 3, a * 2, a - 1);\nprintf(\"%d %d\\n\", a, b);",
+      "options": [
+        "5 10",
+        "5 4",
+        "10 9",
+        "2 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "The comma operator evaluates left to right and yields its last operand: a += 3 makes a = 5, a * 2 is computed and thrown away, and a - 1 = 4 is stored in b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m034",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = 2, b = 5, x, y;\nx = a++, b + a;\ny = (a++, b + a);\nprintf(\"%d %d %d\\n\", x, y, a);",
+      "options": [
+        "8 9 4",
+        "2 8 4",
+        "3 9 4",
+        "2 9 4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Assignment binds more tightly than the comma operator, so x = a++, b + a; means (x = a++), (b + a): x gets 2, a becomes 3 and the value of b + a is thrown away. In y = (a++, b + a) the parentheses make the whole comma expression the value assigned; a becomes 4 before b + a is evaluated, so y = 5 + 4 = 9.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m035",
+      "questionText": "Assume int is 4 bytes. What does this fragment print (inside main, with <stdio.h> included)?\n\nchar c = 'A';\nsize_t s1 = sizeof(c + 1);\nsize_t s2 = sizeof(c = 'B');\nprintf(\"%zu %zu %c\\n\", s1, s2, c);",
+      "options": [
+        "1 1 B",
+        "4 4 B",
+        "4 1 A",
+        "2 1 A"
+      ],
+      "correctIndex": 2,
+      "explanation": "In c + 1 the char is promoted to int, so the size is 4. c = 'B' has the type of c (char, size 1), but sizeof never evaluates its operand, so the assignment never happens and c is still 'A'.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m036",
+      "questionText": "Which statement about sizeof in C is correct?",
+      "options": [
+        "It is a library function declared in <stdlib.h>",
+        "It is a preprocessor directive like #define",
+        "It returns the number of elements of any array passed to a function",
+        "It is a unary operator, normally worked out at compile time, that gives a size in bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "sizeof is a keyword operator that the compiler evaluates from the type of its operand (only variable-length arrays need run time), and its result has type size_t. Parentheses are required only around a type name, as in sizeof(int).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m037",
+      "questionText": "Assume int is 32 bits. What does this fragment print (inside main, with <stdio.h> included)?\n\nint a = -5;\nunsigned int b = 3;\nif (a < b)\n    printf(\"less\\n\");\nelse\n    printf(\"not less\\n\");",
+      "options": [
+        "less",
+        "Compile error: signed and unsigned cannot be compared",
+        "Nothing is printed",
+        "not less"
+      ],
+      "correctIndex": 3,
+      "explanation": "When an int meets an unsigned int, the int is converted to unsigned: -5 becomes 2^32 - 5 = 4,294,967,291, which is not less than 3, so the else branch runs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m038",
+      "questionText": "What does this fragment print (inside main, with <stdio.h> included)?\n\nchar a = 100, b = 100;\nint s = a + b;\nprintf(\"%d\\n\", s);",
+      "options": [
+        "-56",
+        "200",
+        "100",
+        "Compile error"
+      ],
+      "correctIndex": 1,
+      "explanation": "Integer promotion converts both char operands to int before the addition, so 100 + 100 = 200 is computed in int and stored in the int s without any overflow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m039",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %d\\n\", (int)-3.7, (int)3.7 + (int)-0.5);\n    return 0;\n}",
+      "options": [
+        "-4 3",
+        "-4 2",
+        "-3 3",
+        "-3 4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Converting a floating value to int discards the fraction (truncation toward zero, not rounding down): (int)-3.7 = -3, (int)3.7 = 3 and (int)-0.5 = 0, so the second value is 3 + 0 = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m040",
+      "questionText": "Assume int and unsigned int are 32 bits. What does this fragment print (inside main, with <stdio.h> included)?\n\nunsigned int u = 2;\nint i = -3;\nprintf(\"%u %d\\n\", u + i, u + i > 5);",
+      "options": [
+        "-1 0",
+        "4294967295 0",
+        "4294967295 1",
+        "-1 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "In u + i the int -3 is converted to unsigned, and the sum is taken modulo 2^32: 2 - 3 = -1 -> 4,294,967,295. That unsigned value is greater than 5, so the comparison gives 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m041",
+      "questionText": "Given the declarations int i; float f; double d;, what is the type of the expression i * f + d?",
+      "options": [
+        "float",
+        "double",
+        "int",
+        "long double"
+      ],
+      "correctIndex": 1,
+      "explanation": "By the usual arithmetic conversions, i * f is computed as float, and float + double is computed as double, so the whole expression has type double.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i11_m042",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    int r = 2 + 3 * 4 % 5 - 6 / 4;\n    printf(\"%d\\n\", r);\n    return 0;\n}",
+      "options": [
+        "3",
+        "13",
+        "2.5",
+        "-1"
+      ],
+      "correctIndex": 0,
+      "explanation": "* / % have equal precedence and group left to right: 3 * 4 = 12, 12 % 5 = 2 and 6 / 4 = 1 in integer division. Then 2 + 2 - 1 = 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m043",
+      "questionText": "What is the output of the following C program?\n\n#include <stdio.h>\nint main(void) {\n    int r = 8 | 1 + 2 << 1 & 7;\n    printf(\"%d\\n\", r);\n    return 0;\n}",
+      "options": [
+        "6",
+        "22",
+        "9",
+        "14"
+      ],
+      "correctIndex": 3,
+      "explanation": "From high to low the levels used are +, <<, &, |. So 1 + 2 = 3, 3 << 1 = 6, 6 & 7 = 6, and finally 8 | 6 = 1000 | 0110 = 1110 = 14. Reading strictly left to right would give 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i11_m044",
+      "questionText": "Which group of C operators associates from right to left?",
+      "options": [
+        "Unary operators, the conditional operator ?: and the assignment operators",
+        "Arithmetic, relational and equality operators",
+        "The logical operators && and || and the comma operator",
+        "Postfix operators such as (), [] and ->"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unary operators (such as !, ~, prefix ++ and casts), ?: and every assignment operator group right to left, so a = b = c assigns c to b first. Almost all binary operators, including the comma, group left to right.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i11_m045",
+      "questionText": "Which of the following operators has the LOWEST precedence in C?",
+      "options": [
+        "= (assignment)",
+        ", (comma)",
+        "|| (logical OR)",
+        "?: (conditional)"
+      ],
+      "correctIndex": 1,
+      "explanation": "The comma operator is at the very bottom of the precedence table, below the assignment operators, which are below ?:, which in turn is below ||.",
+      "difficulty": "easy"
+    }
+  ]
+}

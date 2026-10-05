@@ -1,0 +1,3231 @@
+{
+  "parent": {
+    "id": "ch5_p4",
+    "title": "Transport Layer"
+  },
+  "subtopics": [
+    {
+      "id": "ch5_t4",
+      "title": "Transport Service, TCP & UDP",
+      "subtitle": "Process-to-process delivery, TCP and UDP headers, their differences and SCTP",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "The Transport Service"
+          },
+          {
+            "type": "paragraph",
+            "text": "The transport layer (layer 4 of OSI, and of the five-layer TCP/IP model) provides process-to-process delivery: it carries a message from a process (running program) on one host to the correct process on another host. The network layer (IP) only delivers packets host to host, so the transport layer adds port numbers to tell processes apart. It is the first truly end-to-end layer: transport entities exist only in the two end hosts, never in routers. The unit of data is called a segment in TCP and a user datagram in UDP."
+          },
+          {
+            "type": "bulletList",
+            "text": "Services a transport layer can offer to applications:",
+            "items": [
+              "Connection-oriented service: a connection is set up, data is transferred and the connection is released (TCP, SCTP).",
+              "Connectionless service: each message is sent independently with no setup (UDP).",
+              "Reliable delivery: lost or corrupted data is detected and retransmitted using sequence numbers, acknowledgements and timers.",
+              "In-order delivery: data is handed to the application in the order it was sent, even if segments arrive out of order.",
+              "Flow control (do not overrun the receiver) and congestion control (do not overrun the network).",
+              "Multiplexing and demultiplexing of many application processes over one IP address using port numbers."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Network layer (IP)",
+                "Transport layer (TCP/UDP)"
+              ],
+              [
+                "Delivery",
+                "Host to host",
+                "Process to process"
+              ],
+              [
+                "Address used",
+                "IP address",
+                "Port number (plus IP)"
+              ],
+              [
+                "Where it runs",
+                "Hosts and every router",
+                "End hosts only"
+              ],
+              [
+                "Reliability of IP/UDP vs TCP",
+                "Best effort, unreliable",
+                "TCP reliable; UDP best effort"
+              ],
+              [
+                "Data unit",
+                "Packet / datagram",
+                "Segment (TCP) / user datagram (UDP)"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "TCP: Transmission Control Protocol"
+          },
+          {
+            "type": "paragraph",
+            "text": "TCP (RFC 793) is a connection-oriented, reliable, byte-stream protocol. It treats application data as a continuous stream of bytes, numbers every byte with a 32-bit sequence number, and uses cumulative acknowledgements, retransmission timers, a sliding window for flow control, and congestion control. Connections are full duplex and point to point, set up with a three-way handshake (SYN, SYN-ACK, ACK) and released with a four-way FIN/ACK exchange. HTTP (80), HTTPS (443), FTP (20/21), SSH (22), Telnet (23) and SMTP (25) run over TCP."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "TCP header field",
+                "Size",
+                "Purpose"
+              ],
+              [
+                "Source port, destination port",
+                "16 bits each",
+                "Identify the sending and receiving processes"
+              ],
+              [
+                "Sequence number",
+                "32 bits",
+                "Number of the first data byte in this segment (ISN during SYN)"
+              ],
+              [
+                "Acknowledgement number",
+                "32 bits",
+                "Next byte expected from the other side (valid when ACK = 1)"
+              ],
+              [
+                "Header length (HLEN), reserved, flags",
+                "4 + 6 + 6 bits",
+                "HLEN counts 4-byte words (5 to 15); six control flags"
+              ],
+              [
+                "Window size",
+                "16 bits",
+                "Receive window (rwnd) in bytes, used for flow control"
+              ],
+              [
+                "Checksum, urgent pointer",
+                "16 bits each",
+                "Error check over pseudo-header + segment; end of urgent data"
+              ],
+              [
+                "Options + padding",
+                "0 to 40 bytes",
+                "MSS, window scale, SACK, timestamps"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "The six classic TCP control flags:",
+            "items": [
+              "URG: the urgent pointer field is valid.",
+              "ACK: the acknowledgement number field is valid (set on every segment after the first SYN).",
+              "PSH: push the data to the application immediately instead of buffering it.",
+              "RST: reset (abort) the connection immediately.",
+              "SYN: synchronise sequence numbers to open a connection.",
+              "FIN: the sender has finished sending data (starts connection release)."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{TCP header} = \\text{HLEN} \\times 4 \\text{ bytes},\\ 20 \\le \\text{header} \\le 60",
+            "plainText": "TCP header length = HLEN x 4 bytes, between 20 and 60 bytes"
+          },
+          {
+            "type": "heading",
+            "text": "UDP: User Datagram Protocol"
+          },
+          {
+            "type": "paragraph",
+            "text": "UDP (RFC 768) is a connectionless, unreliable, message-oriented protocol that adds almost nothing to IP except port numbers and an optional checksum. Its header is a fixed 8 bytes: source port, destination port, length (header + data) and checksum, each 16 bits. There is no handshake, no acknowledgement, no retransmission, no ordering, no flow control and no congestion control, so it has low overhead and low delay. It suits short request-reply exchanges (DNS 53, DHCP 67/68, SNMP 161/162, TFTP 69), real-time media (VoIP, video streaming, online games) and multicast or broadcast traffic."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "TCP",
+                "UDP"
+              ],
+              [
+                "Connection",
+                "Connection-oriented (handshake)",
+                "Connectionless"
+              ],
+              [
+                "Reliability and ordering",
+                "Reliable, in order, retransmits",
+                "No guarantee, no retransmission"
+              ],
+              [
+                "Data model",
+                "Byte stream",
+                "Message (datagram) boundaries kept"
+              ],
+              [
+                "Header size",
+                "20 to 60 bytes",
+                "8 bytes fixed"
+              ],
+              [
+                "Flow and congestion control",
+                "Yes (sliding window, cwnd)",
+                "None"
+              ],
+              [
+                "Speed and overhead",
+                "Slower, higher overhead",
+                "Faster, minimal overhead"
+              ],
+              [
+                "Broadcast / multicast",
+                "Not supported",
+                "Supported"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Uses TCP",
+                "Uses UDP",
+                "Reason"
+              ],
+              [
+                "HTTP 80, HTTPS 443",
+                "DNS 53 (queries)",
+                "Web pages must arrive complete; DNS query is one short exchange"
+              ],
+              [
+                "FTP 20/21, SSH 22, Telnet 23",
+                "DHCP 67/68, TFTP 69",
+                "Files and sessions need reliability; bootstrapping needs simplicity"
+              ],
+              [
+                "SMTP 25, POP3 110, IMAP 143",
+                "SNMP 161/162, RIP 520",
+                "Mail must not be lost; management polls are small and periodic"
+              ],
+              [
+                "BGP 179",
+                "VoIP, streaming, games (RTP)",
+                "A late retransmitted voice packet is useless, so loss is tolerated"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "SCTP (Stream Control Transmission Protocol, RFC 4960) is a third transport protocol that combines features of both. It is message-oriented like UDP but reliable and connection-oriented like TCP. It supports multi-streaming (several independent streams in one association, avoiding head-of-line blocking) and multi-homing (an endpoint can have several IP addresses for failover). It uses a four-way handshake with a cookie to resist SYN-flood style attacks and is used for telephony signalling (SIGTRAN)."
+          },
+          {
+            "type": "paragraph",
+            "text": "Both TCP and UDP compute their checksum over a 12-byte pseudo-header plus the segment. The pseudo-header contains the source IP address, destination IP address, a zero byte, the protocol number (6 for TCP, 17 for UDP) and the TCP/UDP length. It is not transmitted; it is only used in the calculation so that a segment delivered to the wrong host or protocol is detected. The checksum is mandatory in TCP, optional in UDP over IPv4 (all zeros means not computed) and mandatory for UDP over IPv6."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: TCP and UDP in Detail"
+          },
+          {
+            "type": "paragraph",
+            "text": "A handy way to picture the two protocols: TCP is like registered mail, where every item is tracked and the sender learns that it arrived, while UDP is like dropping an ordinary letter in a post box and hoping it gets there. TCP is connection-oriented, reliable and ordered, and it controls both its sending rate and the load it puts on the network, so it is slower to start and carries more overhead. UDP skips all of this, which makes it fast and light but leaves loss, duplication and reordering for the application to handle. Choose TCP when every byte must arrive correctly (web pages, e-mail, file transfer, remote login) and UDP when a late packet is worse than a lost one or when the exchange is one short query (voice and video calls, online games, live broadcasts, DNS lookups)."
+          },
+          {
+            "type": "bulletList",
+            "text": "Corrections and updates to common study-note claims:",
+            "items": [
+              "TCP 'error correction' does not mean that TCP repairs bits. A segment that fails the checksum is discarded silently; the sender notices the missing acknowledgement and retransmits, so recovery is by retransmission (ARQ), not by an error-correcting code.",
+              "UDP does detect errors: its 16-bit checksum over the pseudo-header, header and data lets the receiver throw away a damaged datagram. What UDP never does is retransmit it.",
+              "On-demand streaming such as Netflix and YouTube is mostly delivered over HTTP, that is over TCP or over QUIC, because the player buffers several seconds ahead and hides retransmissions. UDP with RTP is the usual choice for interactive, real-time media: VoIP, video calls and fast online games.",
+              "TCP is now specified by RFC 9293 (2022), which replaced RFC 793, and SCTP (IP protocol number 132) by RFC 9260, which replaced RFC 4960; the header layouts and behaviour taught in textbooks are unchanged.",
+              "QUIC (RFC 9000), the transport under HTTP/3, runs on top of UDP but adds its own reliability, congestion control and TLS 1.3 encryption, so 'runs over UDP' does not always mean 'unreliable'."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "How TCP builds a reliable, ordered byte stream on top of best-effort IP:",
+            "items": [
+              "Sequence numbers: every byte has a 32-bit number, so the receiver can put segments back in order and discard duplicates. The initial sequence number (ISN) is chosen randomly for each connection (RFC 6528).",
+              "Cumulative acknowledgements: the acknowledgement number names the next byte expected, which confirms everything before it in one value.",
+              "Checksum: it covers the pseudo-header, header and data, so damaged or misdelivered segments are dropped.",
+              "Retransmission: a retransmission timer (RTO) resends data that stays unacknowledged, and fast retransmit resends a segment as soon as three duplicate ACKs show it is missing.",
+              "Receive buffer and window: out-of-order data is held until the gap is filled, and the advertised window stops the sender from overrunning that buffer.",
+              "Connection state: the handshake agrees on both ISNs before data flows, and the FIN exchange makes sure all data has been delivered before the connection is closed."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 1: 2,500 bytes, MSS = 1,000, client ISN = 5,000\nThe SYN uses sequence number 5,000, so the first data byte is 5,001\nSegment 1: seq 5,001   1,000 bytes = bytes 5,001..6,000  -> ACK 6,001\nSegment 2: seq 6,001   1,000 bytes = bytes 6,001..7,000  -> ACK 7,001\nSegment 3: seq 7,001     500 bytes = bytes 7,001..7,500  -> ACK 7,501\nIf segment 2 is lost and the receiver buffers out-of-order data:\n  segment 3 arrives        -> duplicate ACK 6,001 (still waiting for byte 6,001)\n  retransmitted segment 2  -> ACK 7,501 (the gap is filled)\nThe client's FIN would then carry sequence number 7,501"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 2: UDP checksum, 192.168.0.1:8080 -> 192.168.0.2:53, data \"OK\"\nPseudo-header : C0A8 0001 C0A8 0002 0011 000A  (zero + protocol 17, UDP length 10)\nUDP header    : 1F90 0035 000A 0000            (ports 8080 and 53, length 10, checksum 0)\nData          : 4F4B                           (\"O\" = 4F, \"K\" = 4B)\nAdd all 11 words      : 1F088 (17 bits)\nFold the carry        : F088 + 1 = F089\nChecksum              : ones' complement of F089 = 0F76\nReceiver adds all 11 words with 0F76 in place: F089 + 0F76 = FFFF -> accepted"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Option",
+                "Kind and length",
+                "Purpose"
+              ],
+              [
+                "End of option list / No-operation",
+                "Kinds 0 and 1, 1 byte each",
+                "Mark the end of the options / pad so the next option starts on a 4-byte boundary"
+              ],
+              [
+                "Maximum segment size (MSS)",
+                "Kind 2, 4 bytes",
+                "Largest data block the sender of the option can receive in one segment; SYN only"
+              ],
+              [
+                "Window scale",
+                "Kind 3, 3 bytes",
+                "Shift count S (0 to 14) applied to the 16-bit window field; SYN only"
+              ],
+              [
+                "SACK permitted",
+                "Kind 4, 2 bytes",
+                "Offers selective acknowledgement; SYN only"
+              ],
+              [
+                "SACK",
+                "Kind 5, 10 to 34 bytes",
+                "Reports up to 4 blocks of data received beyond a gap (3 when timestamps are also used)"
+              ],
+              [
+                "Timestamps",
+                "Kind 8, 10 bytes",
+                "RTT measurement and PAWS protection against wrapped sequence numbers"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The 16-bit window field lets a sender have at most 65,535 bytes unacknowledged, so its throughput can never exceed 65,535 bytes per RTT. On a 100 Mbps path with an 80 ms RTT that is only about 6.6 Mbps, because keeping the pipe full needs a window equal to the bandwidth-delay product, 10^8 × 0.08 / 8 = 1,000,000 bytes. The window scale option (RFC 7323) solves this: both SYNs carry a shift count S, and every later window value is multiplied by 2^S, so S = 4 gives 65,535 × 16 = 1,048,560 bytes here, and the maximum S = 14 allows about 1 GiB. The MSS option solves a different problem: it keeps each segment small enough to fit in one IP packet on the path, so that no fragmentation is needed."
+          },
+          {
+            "type": "formula",
+            "latex": "W_{\\text{eff}} = W \\times 2^{S} \\ge B \\times \\text{RTT}, \\quad 0 \\le S \\le 14",
+            "plainText": "Effective window = window field W x 2^S, which must be at least bandwidth B x RTT (converted to bytes) to keep the pipe full; S = 0 to 14"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "TCP",
+                "UDP",
+                "SCTP"
+              ],
+              [
+                "Service",
+                "Reliable, ordered byte stream",
+                "Unreliable datagrams",
+                "Reliable messages in one or more streams"
+              ],
+              [
+                "Setup",
+                "Three-way handshake",
+                "None",
+                "Four-way handshake with a state cookie"
+              ],
+              [
+                "Header",
+                "20 to 60 bytes",
+                "8 bytes",
+                "12-byte common header plus chunks"
+              ],
+              [
+                "Checksum",
+                "16-bit ones' complement, mandatory",
+                "16-bit ones' complement, optional over IPv4",
+                "32-bit CRC32c, mandatory"
+              ],
+              [
+                "Numbering",
+                "Every byte (32-bit)",
+                "None",
+                "Every data chunk (TSN) plus a per-stream number"
+              ],
+              [
+                "Multi-streaming / multi-homing",
+                "No / no",
+                "No / no",
+                "Yes / yes"
+              ],
+              [
+                "Closing",
+                "FIN exchange; half-close allowed",
+                "Nothing to close",
+                "Three-way SHUTDOWN; no half-close"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Common mistakes and special cases:",
+            "items": [
+              "The ACK number is the next byte expected, not the last byte received: after bytes 1 to 1,000 the ACK is 1,001.",
+              "SYN and FIN each use up one sequence number although they carry no data; a pure ACK uses none, so ACKs are never themselves acknowledged.",
+              "HLEN (data offset) counts 4-byte words, but the UDP length field counts bytes and includes the 8-byte header.",
+              "The MSS excludes both headers: MSS = MTU − 40 for IPv4 without options, which is 1,460 bytes on Ethernet. A host that receives no MSS option must assume 536 bytes (IPv4) or 1,220 bytes (IPv6).",
+              "TCP does not keep message boundaries: three 100-byte writes may be read as one 300-byte block, so applications must frame their own messages, while UDP delivers each datagram whole or not at all.",
+              "The pseudo-header is used only to compute the checksum and is never sent; because it contains the IP addresses, a NAT router that rewrites an address must also fix the TCP or UDP checksum.",
+              "Since RFC 3168 the TCP header has 4 reserved bits and 8 flags: CWR and ECE (for Explicit Congestion Notification) were added to URG, ACK, PSH, RST, SYN and FIN."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "For any sequence-number question, write each segment as first byte..last byte: the next segment starts at last + 1, and that same value is the ACK for it. Add one extra number for a SYN or a FIN and none for a pure ACK, and remember that header-length fields are in 4-byte words while length fields are in bytes."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{TCP header} = \\text{HLEN} \\times 4 \\text{ bytes}",
+            "plainText": "TCP header length = HLEN x 4 bytes (HLEN 5 to 15 gives 20 to 60 bytes)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{UDP length} = 8 + \\text{data bytes},\\ \\text{max data} = 65535 - 8 - 20 = 65507",
+            "plainText": "UDP length = 8 + data; maximum UDP payload over IPv4 = 65535 - 8 - 20 = 65507 bytes"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Sequence space} = 2^{32} \\text{ byte numbers}",
+            "plainText": "TCP sequence numbers are 32 bits, so 2^32 byte numbers before wrap-around"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Remember the sizes: TCP header 20 bytes minimum and 60 bytes maximum (HLEN field is in 4-byte words), UDP header always 8 bytes. Protocol numbers in the IP header: TCP = 6, UDP = 17, ICMP = 1."
+          },
+          {
+            "type": "note",
+            "text": "DNS normally uses UDP port 53 for queries but switches to TCP port 53 for zone transfers and for responses too large for a single UDP message."
+          },
+          {
+            "type": "warning",
+            "text": "TCP numbers bytes, not segments. A segment with sequence number 1000 carrying 500 bytes holds bytes 1000 to 1499, and the receiver acknowledges it with ACK = 1500."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch5_t4_01",
+          "title": "TCP header length",
+          "latex": "\\text{TCP header} = \\text{HLEN} \\times 4 \\text{ bytes}",
+          "plainText": "TCP header = HLEN x 4 bytes",
+          "description": "The 4-bit HLEN field counts 32-bit words, so values 5 to 15 give a header of 20 to 60 bytes."
+        },
+        {
+          "id": "f_ch5_t4_02",
+          "title": "UDP length",
+          "latex": "\\text{UDP length} = 8 + \\text{data bytes}",
+          "plainText": "UDP length = 8 + data bytes",
+          "description": "The UDP length field covers the fixed 8-byte header plus the payload."
+        },
+        {
+          "id": "f_ch5_t4_03",
+          "title": "Acknowledgement number",
+          "latex": "\\text{ACK} = \\text{seq} + \\text{data length}",
+          "plainText": "ACK = sequence number + number of data bytes received",
+          "description": "TCP acknowledges cumulatively by naming the next byte it expects to receive."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch5_t4_01",
+          "front": "What is the difference between host-to-host and process-to-process delivery?",
+          "back": "The network layer (IP) delivers packets between hosts using IP addresses; the transport layer delivers data to the correct process on that host using port numbers.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_t4_02",
+          "front": "What are the four fields of the UDP header?",
+          "back": "Source port, destination port, length and checksum, each 16 bits, giving a fixed 8-byte header.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_t4_03",
+          "front": "What is the TCP/UDP pseudo-header?",
+          "back": "A 12-byte structure (source IP, destination IP, zero, protocol, length) included only in the checksum calculation to detect misdelivered segments; it is never transmitted.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch5_t4_04",
+          "front": "Name two features of SCTP that TCP lacks.",
+          "back": "Multi-streaming (several independent streams in one association) and multi-homing (multiple IP addresses per endpoint); it is also message-oriented.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch5_t4_n01",
+          "questionText": "The header length (HLEN) field of a TCP segment contains the value 8. What is the size of the TCP header?",
+          "options": [
+            "8 bytes",
+            "16 bytes",
+            "32 bytes",
+            "64 bytes"
+          ],
+          "correctIndex": 2,
+          "explanation": "HLEN counts 4-byte words, so 8 x 4 = 32 bytes: the 20-byte fixed header plus 12 bytes of options.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_n02",
+          "questionText": "What is the size of the UDP header?",
+          "options": [
+            "4 bytes",
+            "8 bytes",
+            "20 bytes",
+            "40 bytes"
+          ],
+          "correctIndex": 1,
+          "explanation": "The UDP header is a fixed 8 bytes: source port, destination port, length and checksum, 16 bits each.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m001",
+          "questionText": "UDP (User Datagram Protocol) is best described as:",
+          "options": [
+            "Reliable and connection-oriented",
+            "Unreliable and connectionless",
+            "Reliable and connectionless",
+            "Unreliable and connection-oriented"
+          ],
+          "correctIndex": 1,
+          "explanation": "UDP sends each datagram on its own without setting up a connection, and it has no acknowledgements or retransmission, so delivery is not guaranteed. 'Unreliable' means no delivery guarantee; UDP still has a checksum to detect damaged datagrams.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m002",
+          "questionText": "Which field in the TCP header lets the receiver put arriving data back into the correct order?",
+          "options": [
+            "Acknowledgement number",
+            "Window size",
+            "Sequence number",
+            "Source port"
+          ],
+          "correctIndex": 2,
+          "explanation": "Each segment's sequence number is the number of its first data byte, so the receiver can place segments that arrive out of order and discard duplicates. The acknowledgement number reports the next byte expected, and the window is used for flow control.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m003",
+          "questionText": "Why is UDP called a connectionless protocol?",
+          "options": [
+            "It encrypts every datagram at the transport layer",
+            "It communicates only with broadcast packets",
+            "It uses a different IP address for each datagram",
+            "It sends data without first setting up a connection, and handles every datagram independently"
+          ],
+          "correctIndex": 3,
+          "explanation": "UDP has no handshake and keeps no connection state: an application can send a datagram at once, and each datagram is handled on its own. It does not encrypt data, and it works with unicast as well as broadcast and multicast.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m004",
+          "questionText": "Real-time applications such as VoIP normally carry their voice packets over UDP rather than TCP. What is the main reason?",
+          "options": [
+            "A retransmitted voice packet would arrive too late to be played, so TCP's retransmission and in-order waiting only add delay",
+            "UDP retransmits lost voice packets faster than TCP does",
+            "TCP cannot send in both directions at once, which a phone call needs",
+            "UDP's header is larger, so it can carry the timing information that voice needs"
+          ],
+          "correctIndex": 0,
+          "explanation": "In a live conversation a packet that arrives late is useless, and TCP would also hold back later packets until the lost one is resent (head-of-line blocking). UDP, usually with RTP on top, never retransmits and accepts a little loss in exchange for low, steady delay; TCP is full duplex, and UDP's 8-byte header is smaller than TCP's.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m005",
+          "questionText": "Which pair of protocols are both connection-oriented transport protocols?",
+          "options": [
+            "TCP and UDP",
+            "UDP and SCTP",
+            "TCP and SCTP",
+            "UDP and ICMP"
+          ],
+          "correctIndex": 2,
+          "explanation": "TCP sets up a connection with a three-way handshake, and SCTP sets up an association with a four-way handshake, before any data flows. UDP is connectionless, and ICMP is a network-layer helper protocol, not a transport protocol.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m006",
+          "questionText": "Which set of mechanisms does TCP use to give reliable delivery over IP's best-effort service?",
+          "options": [
+            "Forward error-correcting codes added to every segment",
+            "Sequence numbers, acknowledgements, checksums and retransmission of lost or damaged segments",
+            "TLS encryption of every segment",
+            "Sending every segment twice over different routes"
+          ],
+          "correctIndex": 1,
+          "explanation": "TCP numbers every byte, acknowledges what arrives, detects damage with a checksum and retransmits anything not acknowledged in time, which is error recovery by retransmission (ARQ). It does not add error-correcting codes, and encryption is the job of TLS, not TCP.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m007",
+          "questionText": "The network layer delivers an IP datagram to the correct host. What additional delivery does the transport layer provide?",
+          "options": [
+            "Hop-to-hop delivery between neighbouring routers",
+            "Node-to-node delivery across a single link using MAC addresses",
+            "Conversion of domain names into IP addresses",
+            "Process-to-process delivery, using port numbers to reach the right application"
+          ],
+          "correctIndex": 3,
+          "explanation": "IP gets the datagram to the host; the transport layer then uses the destination port to hand the data to the correct process, such as a web server on port 80. Link-by-link delivery with MAC addresses is the data link layer's job, and name resolution is done by DNS.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m008",
+          "questionText": "Which statement about where transport-layer protocols such as TCP and UDP run is correct?",
+          "options": [
+            "They run only in the end hosts; routers normally process packets only up to the network layer",
+            "They run in every router along the path",
+            "They run only in layer-2 switches",
+            "They run only in the destination host, not in the source host"
+          ],
+          "correctIndex": 0,
+          "explanation": "Transport protocols are end-to-end: the TCP or UDP entities live in the two end systems, while routers forward packets using the IP header. Middleboxes such as NAT routers and firewalls may read port numbers, but they do not run the transport protocol on the hosts' behalf.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m009",
+          "questionText": "A client calls send() three times on a TCP socket, with 100 bytes each time. Which statement about what the receiving application sees is correct?",
+          "options": [
+            "It always reads exactly three separate 100-byte messages",
+            "It may read the three messages in a different order",
+            "It reads the 300 bytes in order, but in any grouping (for example one 300-byte read), because TCP does not preserve message boundaries",
+            "It can read the bytes only after the connection has been closed"
+          ],
+          "correctIndex": 2,
+          "explanation": "TCP delivers a reliable, ordered byte stream, so the bytes come out in the order they were sent, but how they are grouped into reads depends on segmenting and buffering. Applications over TCP must mark their own message boundaries; UDP, by contrast, delivers each datagram as a whole.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m010",
+          "questionText": "Which of the following fields is NOT part of the UDP header?",
+          "options": [
+            "Sequence number",
+            "Source port",
+            "Length",
+            "Checksum"
+          ],
+          "correctIndex": 0,
+          "explanation": "The 8-byte UDP header has only four 16-bit fields: source port, destination port, length and checksum. UDP has no sequence numbers because it neither orders nor retransmits data.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m011",
+          "questionText": "A UDP datagram carries 1,000 bytes of application data. What value does its UDP length field contain?",
+          "options": [
+            "1,000",
+            "1,020",
+            "1,028",
+            "1,008"
+          ],
+          "correctIndex": 3,
+          "explanation": "The UDP length covers the 8-byte header plus the data: 8 + 1,000 = 1,008 bytes. 1,028 would also add the 20-byte IPv4 header, which belongs in the IP total length, not in the UDP length.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m012",
+          "questionText": "What is the largest amount of application data that a single UDP datagram can carry over IPv4, assuming a 20-byte IP header with no options?",
+          "options": [
+            "65,507 bytes",
+            "65,515 bytes",
+            "65,527 bytes",
+            "65,535 bytes"
+          ],
+          "correctIndex": 0,
+          "explanation": "The 16-bit IPv4 total length allows at most 65,535 bytes, from which the 20-byte IP header and the 8-byte UDP header are taken: 65,535 − 20 − 8 = 65,507 bytes. 65,527 forgets the IP header and 65,515 forgets the UDP header.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m013",
+          "questionText": "Which statement about the UDP checksum is correct?",
+          "options": [
+            "It is mandatory over IPv4 but not used over IPv6",
+            "It can detect and correct single-bit errors",
+            "It covers only the 8-byte UDP header",
+            "It is optional over IPv4, where a value of 0 means that no checksum was computed, but it is required by default over IPv6"
+          ],
+          "correctIndex": 3,
+          "explanation": "Over IPv4 a sender may leave the checksum field as 0 (a computed result of 0 is sent as FFFF instead); IPv6 has no header checksum, so RFC 8200 makes the UDP checksum required by default. It covers the pseudo-header, the header and the data, and it only detects errors.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m014",
+          "questionText": "Which of the following is NOT part of the IPv4 pseudo-header used in the TCP and UDP checksum?",
+          "options": [
+            "Time to live (TTL)",
+            "Source IP address",
+            "Destination IP address",
+            "Protocol number"
+          ],
+          "correctIndex": 0,
+          "explanation": "The pseudo-header holds the source and destination IP addresses, a zero byte, the protocol number (6 for TCP, 17 for UDP) and the TCP/UDP length. TTL is left out because routers change it at every hop, which would make the end-to-end checksum fail.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m015",
+          "questionText": "Which TCP flag asks the receiving TCP to pass the data to the application immediately instead of waiting for its buffer to fill?",
+          "options": [
+            "URG",
+            "RST",
+            "PSH",
+            "FIN"
+          ],
+          "correctIndex": 2,
+          "explanation": "PSH (push) tells the receiver to deliver the data without further buffering. URG marks urgent data, RST aborts the connection and FIN starts closing it.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m016",
+          "questionText": "Compute the UDP checksum of a datagram sent from 10.0.0.1, port 1234 (04D2 hex), to 10.0.0.5, port 69 (0045 hex), carrying the 2 data bytes \"Hi\" (4869 hex). Include the IPv4 pseudo-header (protocol 17 = 0011 hex) and treat the checksum field as 0000 during the calculation.",
+          "options": [
+            "61AB",
+            "9E54",
+            "B275",
+            "E6BD"
+          ],
+          "correctIndex": 1,
+          "explanation": "The UDP length is 8 + 2 = 10 (000A). Adding 0A00 + 0001 + 0A00 + 0005 + 0011 + 000A (pseudo-header) + 04D2 + 0045 + 000A + 0000 (header) + 4869 (data) gives 61AB with no carry, and its ones' complement is 9E54. 61AB is the uncomplemented sum, B275 leaves out the pseudo-header and E6BD leaves out the data.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_t4_m017",
+          "questionText": "An IPv4 datagram has a total length of 1,500 bytes and an IHL field of 6. It carries a TCP segment whose header length (data offset) field is 8. How many bytes of application data does the segment carry?",
+          "options": [
+            "1,460",
+            "1,448",
+            "1,476",
+            "1,444"
+          ],
+          "correctIndex": 3,
+          "explanation": "IP header = IHL × 4 = 6 × 4 = 24 bytes and TCP header = 8 × 4 = 32 bytes, so the data is 1,500 − 24 − 32 = 1,444 bytes. 1,460 assumes 20-byte headers with no options, and 1,448 ignores the 4 bytes of IP options.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_t4_m018",
+          "questionText": "A TCP receiver has just received a segment holding bytes 5,001 to 6,000, and all earlier bytes have already arrived. Which acknowledgement number does it send?",
+          "options": [
+            "5,001",
+            "6,000",
+            "6,001",
+            "7,001"
+          ],
+          "correctIndex": 2,
+          "explanation": "TCP acknowledges cumulatively with the number of the next byte it expects: after byte 6,000 that is 6,001. ACK 6,000 would say that byte 6,000 itself has not arrived yet.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_t4_m019",
+          "questionText": "A TCP sender transmits three segments: sequence number 1,000 (400 bytes), 1,400 (600 bytes) and 2,000 (500 bytes). The second segment is lost, and the receiver buffers out-of-order data. Which ACK does the receiver send when the third segment arrives, and which ACK does it send when the retransmitted second segment arrives?",
+          "options": [
+            "2,500 and 2,500",
+            "1,400 and 2,500",
+            "1,400 and 2,000",
+            "2,000 and 2,500"
+          ],
+          "correctIndex": 1,
+          "explanation": "Segment 1 covers bytes 1,000 to 1,399, so the receiver expects 1,400; segment 3 (bytes 2,000 to 2,499) is buffered and the receiver repeats ACK 1,400 as a duplicate ACK. When the retransmitted bytes 1,400 to 1,999 fill the gap, everything up to byte 2,499 is present and the ACK jumps to 2,500.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_t4_m020",
+          "questionText": "A client's SYN carries the initial sequence number 7,000. After the handshake the client sends three data segments of 500 bytes each. What is the sequence number of the third data segment?",
+          "options": [
+            "8,000",
+            "7,003",
+            "8,501",
+            "8,001"
+          ],
+          "correctIndex": 3,
+          "explanation": "The SYN uses sequence number 7,000, so the first data byte is 7,001, and the third segment starts at 7,001 + 2 × 500 = 8,001. 8,000 forgets that the SYN consumes one number, and 7,003 wrongly numbers segments instead of bytes.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m021",
+          "questionText": "A TCP sender transmits continuously at 10 Gbps (10^10 bit/s). About how long does its 32-bit sequence number space take to wrap around, and what follows, given a maximum segment lifetime (MSL) of 2 minutes?",
+          "options": [
+            "About 0.43 s, so the timestamps option (PAWS) is needed",
+            "About 3.4 s, so an old duplicate segment could still be in the network after the numbers wrap, and the timestamps option (PAWS) is needed",
+            "About 34 s, so wrap-around is not a concern",
+            "About 3.4 s, but wrap-around is harmless because every segment has a checksum"
+          ],
+          "correctIndex": 1,
+          "explanation": "2^32 bytes × 8 = 3.44 × 10^10 bits, and 3.44 × 10^10 / 10^10 bit/s ≈ 3.4 s, far less than the 120 s MSL, so a delayed old segment could carry a sequence number that is valid again. PAWS (RFC 7323) uses TCP timestamps to reject such segments; 0.43 s forgets that sequence numbers count bytes, not bits.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_t4_m022",
+          "questionText": "An Ethernet link has an MTU of 1,500 bytes. With 20-byte IPv4 and 20-byte TCP headers (no options), what MSS should a host announce?",
+          "options": [
+            "1,480 bytes",
+            "1,460 bytes",
+            "1,472 bytes",
+            "1,500 bytes"
+          ],
+          "correctIndex": 1,
+          "explanation": "The MSS counts only TCP data: MSS = MTU − IP header − TCP header = 1,500 − 20 − 20 = 1,460 bytes. 1,480 subtracts only the IP header, and 1,472 is the largest UDP payload (1,500 − 20 − 8).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m023",
+          "questionText": "Which statement about the TCP maximum segment size (MSS) option is correct?",
+          "options": [
+            "It is sent only in SYN segments and announces the largest amount of data, excluding the TCP and IP headers, that its sender is willing to receive in one segment",
+            "It is sent in every segment and gives the current receive window",
+            "It limits the total number of segments in the connection",
+            "It includes the IP and TCP headers, so it always equals the link MTU"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each side may state its MSS once, in its SYN, and the other side must not send segments with more data than that; if no MSS option arrives, an IPv4 host assumes 536 bytes. The receive window is a separate header field that changes throughout the connection.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m024",
+          "questionText": "During the handshake a host announced a window scale shift count of 7, and both sides used the option. A later segment from that host has 65,535 in its 16-bit window field. What receive window does it advertise?",
+          "options": [
+            "65,535 bytes",
+            "458,745 bytes",
+            "8,388,480 bytes",
+            "16,776,960 bytes"
+          ],
+          "correctIndex": 2,
+          "explanation": "The true window is the field value shifted left by S bits: 65,535 × 2^7 = 65,535 × 128 = 8,388,480 bytes (about 8 MB). 458,745 multiplies by 7 instead of 2^7, and 16,776,960 uses 2^8.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m025",
+          "questionText": "A path has a bandwidth of 1 Gbps (10^9 bit/s) and an RTT of 100 ms. The 16-bit window field holds at most 65,535. What is the smallest window scale shift count S the receiver must announce so that its advertised window can cover the bandwidth-delay product and keep the pipe full?",
+          "options": [
+            "7",
+            "8",
+            "11",
+            "14"
+          ],
+          "correctIndex": 1,
+          "explanation": "BDP = 10^9 bit/s × 0.1 s = 10^8 bits = 12,500,000 bytes, and 12,500,000 / 65,535 ≈ 190.7, so 2^S must be at least 190.7, giving S = 8 (2^7 = 128 is too small). S = 11 comes from forgetting to convert bits to bytes, and 14 is only the largest shift allowed.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_t4_m026",
+          "questionText": "Which SCTP feature avoids TCP's head-of-line blocking, in which one lost segment delays the delivery of all later data?",
+          "options": [
+            "Multi-homing",
+            "The four-way handshake with a state cookie",
+            "Multi-streaming",
+            "The CRC32c checksum"
+          ],
+          "correctIndex": 2,
+          "explanation": "SCTP can carry several independent streams in one association, each with its own ordering, so a loss on one stream does not hold back messages on the others. Multi-homing gives failover between IP addresses, and the cookie handshake protects against SYN-flood style attacks.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m027",
+          "questionText": "Which statement comparing TCP and UDP is NOT correct?",
+          "options": [
+            "UDP can be used for broadcast and multicast, while TCP cannot",
+            "The minimum TCP header is 20 bytes, while the UDP header is always 8 bytes",
+            "TCP provides congestion control, while UDP leaves it to the application",
+            "UDP provides flow control through a window field in its header"
+          ],
+          "correctIndex": 3,
+          "explanation": "The UDP header has only ports, length and checksum, with no window field, so UDP has no flow control. The other three statements are true: TCP is point-to-point only, its header is 20 to 60 bytes, and it runs congestion control.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m028",
+          "questionText": "On-demand video services such as Netflix commonly stream over HTTP on TCP, whereas video calls use RTP over UDP. Why is TCP acceptable for on-demand streaming?",
+          "options": [
+            "A UDP datagram cannot carry more than 512 bytes, which is too small for video",
+            "TCP never needs to retransmit video data",
+            "The player buffers several seconds of video ahead, so occasional retransmission delays are hidden, and HTTP over TCP passes easily through firewalls, NAT and web caches",
+            "TCP always has lower delay than UDP"
+          ],
+          "correctIndex": 2,
+          "explanation": "Because playback runs seconds behind the download, a retransmitted segment still arrives before it is needed, so reliability costs nothing visible, and ordinary HTTP delivery works well with CDNs and middleboxes. A live call has no such buffer, which is why it uses UDP.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m029",
+          "questionText": "A TCP receiver finds that an arriving segment fails its checksum. What happens?",
+          "options": [
+            "The receiver discards the segment; because it is not acknowledged, the sender retransmits it after a timeout or duplicate ACKs",
+            "The receiver corrects the damaged bits using the checksum",
+            "The receiver passes the data to the application with an error flag",
+            "The receiver immediately resets the connection with RST"
+          ],
+          "correctIndex": 0,
+          "explanation": "The Internet checksum can only detect errors, so the damaged segment is silently dropped. The missing acknowledgement makes the sender resend the data, which is how TCP recovers from errors: by retransmission.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_t4_m030",
+          "questionText": "An application writes 4,000 bytes to a TCP connection whose next data byte is numbered 10,001. The MSS is 1,460 bytes and the sender uses full-sized segments. What are the sequence numbers of the segments, and which ACK number acknowledges all of the data?",
+          "options": [
+            "10,001, 11,461 and 12,921; ACK 14,001",
+            "10,001, 11,461 and 12,921; ACK 14,000",
+            "10,000, 11,460 and 12,920; ACK 14,000",
+            "10,001, 10,002 and 10,003; ACK 10,004"
+          ],
+          "correctIndex": 0,
+          "explanation": "The segments carry 1,460, 1,460 and 1,080 bytes (bytes 10,001 to 11,460, 11,461 to 12,920 and 12,921 to 14,000), so they start at 10,001, 11,461 and 12,921, and the final ACK is the next byte expected, 14,001. Numbering the segments 10,001, 10,002 and 10,003 is the classic mistake: TCP numbers bytes.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch5_i41",
+      "title": "Ports, Sockets, Multiplexing & Demultiplexing",
+      "subtitle": "Port ranges, well-known ports, sockets, the 4-tuple, mux/demux and NAT port translation",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Port Numbers"
+          },
+          {
+            "type": "paragraph",
+            "text": "A port number is a 16-bit identifier that the transport layer uses to name a process (or service) on a host. Because it is 16 bits, there are 2^16 = 65,536 ports, numbered 0 to 65535, and TCP and UDP each have their own independent set. IANA divides the range into three parts. Servers normally listen on fixed, well-known ports, while clients use temporary ports chosen by the operating system."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Range",
+                "Name",
+                "Use"
+              ],
+              [
+                "0 to 1023",
+                "Well-known (system) ports",
+                "Assigned by IANA to standard services; binding usually needs admin/root rights"
+              ],
+              [
+                "1024 to 49151",
+                "Registered ports",
+                "Registered with IANA for specific applications (e.g. 3306 MySQL, 3389 RDP, 8080 HTTP alternate)"
+              ],
+              [
+                "49152 to 65535",
+                "Dynamic / private (ephemeral) ports",
+                "Not assigned; picked temporarily by client operating systems"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Port",
+                "Service",
+                "Transport"
+              ],
+              [
+                "20 / 21",
+                "FTP data / FTP control",
+                "TCP"
+              ],
+              [
+                "22",
+                "SSH, SFTP, SCP",
+                "TCP"
+              ],
+              [
+                "23",
+                "Telnet",
+                "TCP"
+              ],
+              [
+                "25",
+                "SMTP (send mail)",
+                "TCP"
+              ],
+              [
+                "53",
+                "DNS",
+                "UDP (TCP for zone transfer)"
+              ],
+              [
+                "67 / 68",
+                "DHCP server / client",
+                "UDP"
+              ],
+              [
+                "80 / 443",
+                "HTTP / HTTPS",
+                "TCP"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "More well-known ports worth memorising:",
+            "items": [
+              "69 TFTP (UDP), 110 POP3 (TCP), 143 IMAP (TCP), 123 NTP (UDP).",
+              "161 SNMP agent and 162 SNMP trap (UDP), 179 BGP (TCP), 520 RIP (UDP).",
+              "993 IMAPS and 995 POP3S (TCP, mail over TLS), 587 SMTP submission."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Sockets and the Connection 4-Tuple"
+          },
+          {
+            "type": "paragraph",
+            "text": "A socket address is the combination of an IP address and a port number, for example 192.168.1.10:51234; it uniquely identifies one endpoint of communication. In programming, a socket is also the operating-system object (created by socket()) through which an application sends and receives data. A TCP connection is identified by a pair of sockets, that is, the 4-tuple (source IP, source port, destination IP, destination port); together with the protocol number this is often called the 5-tuple."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Connection} = (\\text{src IP}, \\text{src port}, \\text{dst IP}, \\text{dst port}, \\text{protocol})",
+            "plainText": "Connection = (source IP, source port, destination IP, destination port, protocol)"
+          },
+          {
+            "type": "heading",
+            "text": "Multiplexing and Demultiplexing"
+          },
+          {
+            "type": "paragraph",
+            "text": "Multiplexing happens at the sender: the transport layer gathers data from many application processes (through their sockets), adds a header with source and destination port numbers to each chunk, and passes the segments to the single IP layer. Demultiplexing happens at the receiver: the transport layer examines the header fields of each arriving segment and delivers the data to the correct socket. This many-to-one then one-to-many arrangement lets a browser, an e-mail client and a video call share one IP address at the same time."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "UDP (connectionless) demux",
+                "TCP (connection-oriented) demux"
+              ],
+              [
+                "Socket identified by",
+                "2-tuple: destination IP, destination port",
+                "4-tuple: source IP, source port, destination IP, destination port"
+              ],
+              [
+                "Segments from different clients to same port",
+                "Go to the same socket",
+                "Go to different sockets (one per connection)"
+              ],
+              [
+                "Server behaviour",
+                "One socket serves all clients",
+                "Listening socket plus a new socket per accepted connection"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Example: a web server at 203.0.113.5 listens on TCP port 80. Client A (10.0.0.2) opens two browser tabs using ephemeral ports 50001 and 50002, and client B (10.0.0.3) also happens to use port 50001. The three connections are (10.0.0.2, 50001, 203.0.113.5, 80), (10.0.0.2, 50002, 203.0.113.5, 80) and (10.0.0.3, 50001, 203.0.113.5, 80). All share destination port 80, but each 4-tuple is different, so the server demultiplexes them to three separate connection sockets."
+          },
+          {
+            "type": "bulletList",
+            "text": "Ephemeral ports and port translation:",
+            "items": [
+              "An ephemeral port is a short-lived client port assigned automatically by the OS when a client connects; IANA suggests 49152 to 65535, although Linux uses 32768 to 60999 by default.",
+              "NAT (Network Address Translation) rewrites private source IP addresses to a public address at the router.",
+              "PAT / NAPT (port address translation, NAT overload) also rewrites the source port, so thousands of private hosts share one public IP; the router keeps a table mapping (private IP, private port) to (public IP, public port).",
+              "Port forwarding is the reverse: a fixed public port on the router is mapped to an internal server's IP and port."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "c",
+            "text": "$ netstat -an\nProto Local Address        Foreign Address      State\nTCP   0.0.0.0:80           0.0.0.0:0            LISTENING\nTCP   192.168.1.10:51234   142.250.1.100:443    ESTABLISHED\nUDP   0.0.0.0:53           *:*"
+          },
+          {
+            "type": "paragraph",
+            "text": "The netstat (or ss on Linux) command lists each socket with its local address:port, foreign address:port and TCP state, which is a direct view of the 4-tuples the transport layer uses for demultiplexing."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: Ports, Sockets and Demultiplexing"
+          },
+          {
+            "type": "paragraph",
+            "text": "If an IP address is the street address of an apartment building, a port number is the flat number inside it: the network layer brings the packet to the right building (host), and the transport layer hands it to the right flat (process). The transport layer also works like a mail sorting office: outgoing letters from many residents are collected, labelled and sent out together (multiplexing), and incoming letters are sorted and delivered to the right door (demultiplexing). A socket address such as 192.168.1.5:80 names both at once: the computer at 192.168.1.5 and the web-server process on port 80 there."
+          },
+          {
+            "type": "bulletList",
+            "text": "Notes on the common port list:",
+            "items": [
+              "DNS uses port 53 over both UDP and TCP: UDP for ordinary queries, TCP for zone transfers and for answers too large for one UDP message. DNS over TLS uses TCP port 853.",
+              "FTP uses two connections: port 21 for control and, in active mode, port 20 for data; in passive mode the server picks a high data port.",
+              "SMTP on port 25 relays mail between servers, while mail clients submit new mail on port 587 (with STARTTLS) or 465 (implicit TLS); POP3 (110) and IMAP (143) are for reading mail.",
+              "Services with implicit TLS have their own ports: HTTPS 443, IMAPS 993, POP3S 995 and LDAPS 636. Telnet (23) normally sends everything, passwords included, in clear text, which is why SSH (22) has replaced it.",
+              "A port is a number in software that names an application endpoint; it has nothing to do with the physical sockets (jacks) on a computer or switch."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Port",
+                "Service",
+                "Transport"
+              ],
+              [
+                "853",
+                "DNS over TLS",
+                "TCP"
+              ],
+              [
+                "1433",
+                "Microsoft SQL Server",
+                "TCP"
+              ],
+              [
+                "3306",
+                "MySQL",
+                "TCP"
+              ],
+              [
+                "3389",
+                "Remote Desktop Protocol (RDP)",
+                "TCP (also UDP)"
+              ],
+              [
+                "5060 / 5061",
+                "SIP VoIP signalling / SIP over TLS",
+                "UDP or TCP / TCP"
+              ],
+              [
+                "5432",
+                "PostgreSQL",
+                "TCP"
+              ],
+              [
+                "8080",
+                "HTTP alternate, proxies and test servers",
+                "TCP"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "python",
+            "text": "import socket\n# Server program: socket -> bind -> listen -> accept -> recv/send -> close\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.bind((\"0.0.0.0\", 8080))        # claim local port 8080 on every address\nsrv.listen(5)                      # passive socket, backlog of 5\nconn, addr = srv.accept()          # blocks; returns a new socket per client\nconn.sendall(conn.recv(1024))      # echo one message back\nconn.close()\n# Client program (run separately): socket -> connect -> send/recv -> close\ncli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ncli.connect((\"192.0.2.10\", 8080))  # OS picks an ephemeral port, sends SYN\ncli.sendall(b\"hello\")\nprint(cli.recv(1024))\ncli.close()"
+          },
+          {
+            "type": "paragraph",
+            "text": "bind() attaches a socket to a local IP address and port; a server must call it to claim its well-known port, while a client normally skips it and lets connect() pick an ephemeral port. listen() turns the socket into a passive listening socket with a queue (backlog) of connections whose handshake has completed, and accept() takes the next one from that queue and returns a brand-new socket for it. The new socket has the same local port as the listening socket but its own remote IP address and port, so every client has its own 4-tuple. A UDP server needs only socket() and bind(), and then uses recvfrom() and sendto() on that single socket for every client."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 1: demultiplexing at server 10.0.0.1\nSockets: S1 = UDP 10.0.0.1:53        S2 = TCP listening on 10.0.0.1:80\n         S3 = TCP (10.0.0.1:80, 10.0.0.7:40000), established\nArriving packet                           Delivered to\nUDP 10.0.0.7:40000 -> 10.0.0.1:53         S1 (UDP matches destination IP and port)\nUDP 10.0.0.8:61000 -> 10.0.0.1:53         S1 (same socket, whatever the source)\nTCP 10.0.0.7:40000 -> 10.0.0.1:80, data   S3 (the full 4-tuple matches)\nTCP 10.0.0.8:40000 -> 10.0.0.1:80, SYN    S2 (no connection matches; accept() makes S4)\nTCP 10.0.0.9:5555  -> 10.0.0.1:25, SYN    no socket: TCP replies with RST\nUDP 10.0.0.9:5555  -> 10.0.0.1:9999       no socket: ICMP port unreachable (type 3, code 3)"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 2: PAT on a router whose public address is 198.51.100.1\nOut 192.168.0.10:50000 -> 93.184.216.34:443   sent as 198.51.100.1:40001 -> 93.184.216.34:443\nOut 192.168.0.11:50000 -> 93.184.216.34:443   sent as 198.51.100.1:40002 -> 93.184.216.34:443\nTable: 40001 <-> 192.168.0.10:50000    40002 <-> 192.168.0.11:50000\nIn  93.184.216.34:443 -> 198.51.100.1:40002    delivered to 192.168.0.11:50000\nIn  203.0.113.9:5000 -> 198.51.100.1:40005     no table entry -> dropped\nPort forwarding 198.51.100.1:2222 -> 192.168.0.20:22 lets outsiders reach an inside SSH server"
+          },
+          {
+            "type": "formula",
+            "latex": "N_{\\max} = P \\times n_{\\text{src}} \\times n_{\\text{dst}}, \\quad P = p_{hi} - p_{lo} + 1",
+            "plainText": "Maximum simultaneous connections when only 4-tuple uniqueness limits them = P x n_src x n_dst, where n_src = number of client IP addresses, n_dst = number of server sockets (IP, port) and P = highest - lowest port + 1 in the client's port range"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Term",
+                "What it identifies",
+                "Example"
+              ],
+              [
+                "Port",
+                "One application endpoint on a host, separately for TCP and for UDP",
+                "TCP 443"
+              ],
+              [
+                "Socket address",
+                "One endpoint: IP address plus port",
+                "203.0.113.5:443"
+              ],
+              [
+                "TCP connection",
+                "A pair of socket addresses (the 4-tuple)",
+                "(198.51.100.7:51000, 203.0.113.5:443)"
+              ],
+              [
+                "5-tuple",
+                "A flow, as tracked by firewalls and NAT",
+                "The 4-tuple plus the protocol (6 = TCP, 17 = UDP)"
+              ],
+              [
+                "Socket (API object)",
+                "The handle an application reads and writes",
+                "The descriptor returned by socket() or accept()"
+              ]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Special cases and common mistakes:",
+            "items": [
+              "Binding to 0.0.0.0 (INADDR_ANY) means 'every local address'; binding to 127.0.0.1 accepts only connections made from the same machine.",
+              "Normally only one socket at a time may bind a given IP address, port and protocol; a second bind() fails with 'Address already in use' (EADDRINUSE) unless options such as SO_REUSEADDR or SO_REUSEPORT change the rules.",
+              "Binding to port 0 asks the OS for any free port, and getsockname() reveals which one was chosen.",
+              "On Linux, by default only root or a process with the CAP_NET_BIND_SERVICE capability may bind a port below 1024.",
+              "Ephemeral ranges differ: IANA and Windows use 49152 to 65535 (16,384 ports), while Linux defaults to 32768 to 60999 (28,232 ports). An actively closed connection keeps its port in TIME_WAIT for a while, so a client that opens connections very quickly to one server socket can run out of ports.",
+              "The listening socket and all of its accepted sockets share one local port; they differ only in the remote IP address and port."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "In a demultiplexing question, check the protocol first, because TCP and UDP ports are separate. For UDP match only the destination IP address and port; for TCP match the full 4-tuple first, and only a SYN that matches no existing connection goes to the listening socket."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{Number of ports} = 2^{16} = 65536\\ (0 \\text{ to } 65535)",
+            "plainText": "Number of ports = 2^16 = 65536, numbered 0 to 65535"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Dynamic ports} = 65535 - 49152 + 1 = 16384",
+            "plainText": "Dynamic/ephemeral range 49152 to 65535 contains 16384 ports"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Socket} = \\text{IP address} : \\text{port}",
+            "plainText": "Socket address = IP address : port number"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "UDP demultiplexes on destination IP and port only; TCP uses the full 4-tuple. That is why one TCP server port (80) can carry thousands of simultaneous connections."
+          },
+          {
+            "type": "note",
+            "text": "TCP port 53 and UDP port 53 are different ports: the protocol number is part of the identity, so a host can run separate TCP and UDP services on the same number."
+          },
+          {
+            "type": "warning",
+            "text": "Do not mix up the ranges: registered ports end at 49151 and dynamic ports start at 49152. Port 1023 is the last well-known port."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch5_i41_01",
+          "title": "Port space",
+          "latex": "2^{16} = 65536",
+          "plainText": "2^16 = 65536 ports (0 to 65535)",
+          "description": "Port numbers are 16-bit fields, giving 65,536 ports per transport protocol."
+        },
+        {
+          "id": "f_ch5_i41_02",
+          "title": "Ephemeral range size",
+          "latex": "65535 - 49152 + 1 = 16384",
+          "plainText": "65535 - 49152 + 1 = 16384",
+          "description": "The IANA dynamic/private range 49152 to 65535 holds 16,384 ports."
+        },
+        {
+          "id": "f_ch5_i41_03",
+          "title": "TCP connection identifier",
+          "latex": "(\\text{src IP}, \\text{src port}, \\text{dst IP}, \\text{dst port})",
+          "plainText": "(source IP, source port, destination IP, destination port)",
+          "description": "A TCP connection is uniquely identified by this 4-tuple (a pair of sockets)."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch5_i41_01",
+          "front": "What is demultiplexing at the transport layer?",
+          "back": "At the receiver, the transport layer reads the port numbers (and for TCP the full 4-tuple) in each segment and delivers the data to the correct application socket.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_i41_02",
+          "front": "What is the registered port range?",
+          "back": "1024 to 49151; these ports are registered with IANA for specific applications such as 3306 (MySQL) and 3389 (RDP).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_i41_03",
+          "front": "What is an ephemeral port?",
+          "back": "A temporary client-side port chosen automatically by the operating system for the duration of a connection, typically from 49152 to 65535.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch5_i41_04",
+          "front": "How does PAT let many hosts share one public IP address?",
+          "back": "The router rewrites each outgoing packet's source IP and source port to its public IP and a unique port, and keeps a translation table to map replies back.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch5_i41_n01",
+          "questionText": "A web server on TCP port 80 has many clients connected at the same time. Which fields does TCP use to deliver each incoming segment to the correct connection socket?",
+          "options": [
+            "Destination port only",
+            "Destination IP address and destination port only",
+            "Source IP, source port, destination IP and destination port",
+            "Sequence number and acknowledgement number"
+          ],
+          "correctIndex": 2,
+          "explanation": "A TCP connection socket is identified by the 4-tuple, so segments from different clients to the same port 80 go to different sockets. UDP uses only the destination IP and port.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_n02",
+          "questionText": "How many port numbers are in the IANA dynamic/private (ephemeral) range?",
+          "options": [
+            "1024",
+            "16384",
+            "48128",
+            "65536"
+          ],
+          "correctIndex": 1,
+          "explanation": "The dynamic range is 49152 to 65535, which is 65535 - 49152 + 1 = 16384 ports.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m001",
+          "questionText": "Which port does FTP use for its control connection?",
+          "options": [
+            "20",
+            "21",
+            "22",
+            "23"
+          ],
+          "correctIndex": 1,
+          "explanation": "FTP keeps its control connection, which carries commands and replies, on TCP port 21, and moves files over a separate data connection (port 20 in active mode, a server-chosen high port in passive mode). Port 22 is SSH and 23 is Telnet.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m002",
+          "questionText": "In the socket address 192.168.1.5:80, what do the two parts identify?",
+          "options": [
+            "The network address and the subnet mask of the host",
+            "The MAC address and the IP address of the host",
+            "The host's IP address, and the port of the process on that host (here a web server)",
+            "The IP address of the default router and the number of hops to the host"
+          ],
+          "correctIndex": 2,
+          "explanation": "A socket address is an IP address plus a port number: 192.168.1.5 selects the computer, and port 80 selects the application on it, normally a web server (HTTP). MAC addresses and subnet masks are not part of a socket address.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m003",
+          "questionText": "What is the function of multiplexing at the transport layer?",
+          "options": [
+            "To combine several subnets into one LAN",
+            "To send the same data to every host on the network",
+            "To encrypt the data of several applications with one key",
+            "To let many application processes on a host send data through the one network layer at the same time, with each chunk labelled by port numbers"
+          ],
+          "correctIndex": 3,
+          "explanation": "At the sender, the transport layer collects data from many sockets, adds a header with source and destination ports to each chunk and passes all the segments to IP. The port numbers are what later let the receiver separate the streams again (demultiplexing).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m004",
+          "questionText": "Which of these well-known ports belongs to a service that is encrypted with TLS from the very first byte (implicit TLS), as HTTPS on port 443 is?",
+          "options": [
+            "993",
+            "143",
+            "110",
+            "23"
+          ],
+          "correctIndex": 0,
+          "explanation": "993 is IMAPS, that is IMAP over TLS, just as 443 is HTTP over TLS. IMAP on 143 and POP3 on 110 start in clear text (they can upgrade with STARTTLS), and Telnet on 23 normally sends everything, passwords included, in clear text.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m005",
+          "questionText": "What is the difference between multiplexing and demultiplexing at the transport layer?",
+          "options": [
+            "Multiplexing, at the sender, gathers data from many sockets into segments for the network layer; demultiplexing, at the receiver, uses the header fields to deliver each segment to the correct socket",
+            "Multiplexing encrypts data, while demultiplexing decrypts it",
+            "Multiplexing is done only by TCP, while demultiplexing is done only by UDP",
+            "Multiplexing works only with IPv6, while demultiplexing works only with IPv4"
+          ],
+          "correctIndex": 0,
+          "explanation": "Both happen in TCP and in UDP, over IPv4 or IPv6: the sender merges many application streams into one flow of segments (many to one), and the receiver splits them again by port numbers (one to many). It is like a mail sorting office that collects outgoing letters and distributes incoming ones.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m006",
+          "questionText": "Port numbers are carried in 16-bit fields of the TCP and UDP headers. How many different values can such a field hold, and what is the highest port number?",
+          "options": [
+            "1,024 values; highest port 1,023",
+            "32,768 values; highest port 32,767",
+            "65,535 values; highest port 65,535",
+            "65,536 values; highest port 65,535"
+          ],
+          "correctIndex": 3,
+          "explanation": "A 16-bit field holds 2^16 = 65,536 values, numbered 0 to 65,535 (port 0 itself is reserved). 1,024 is only the size of the well-known range, 0 to 1,023.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m007",
+          "questionText": "MySQL listens on TCP port 3306 and Remote Desktop (RDP) on TCP port 3389. In which IANA port range do these ports lie?",
+          "options": [
+            "Well-known (system) ports",
+            "Registered (user) ports",
+            "Dynamic (private or ephemeral) ports",
+            "Multicast ports"
+          ],
+          "correctIndex": 1,
+          "explanation": "3306 and 3389 lie between 1024 and 49151, the registered range, in which IANA records ports for specific applications. The well-known range ends at 1023 and the dynamic range starts at 49152.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m008",
+          "questionText": "In the study analogy in which an IP address is like the street address of an apartment building, what does the port number correspond to?",
+          "options": [
+            "The city in which the building stands",
+            "The postman who carries the letter",
+            "The flat (apartment) number of the resident inside the building",
+            "The stamp on the envelope"
+          ],
+          "correctIndex": 2,
+          "explanation": "The IP address gets the data to the right building (host), and the port number picks the right flat inside it, that is, the right application process on the host.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m009",
+          "questionText": "At the transport layer, what is a port number?",
+          "options": [
+            "A physical connector (jack) on the network interface card",
+            "The hardware address burned into the network card",
+            "A 16-bit logical number that identifies an application endpoint, such as a process or service, on a host",
+            "The number of the router interface that a packet leaves from"
+          ],
+          "correctIndex": 2,
+          "explanation": "A transport-layer port is a logical number in software (0 to 65,535) that tells TCP or UDP which process should receive the data; it has nothing to do with the physical sockets on a card or switch. The hardware address is the MAC address, used at the data link layer.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m010",
+          "questionText": "A browser using source port 51500 sends a request to an HTTPS server. Which source and destination ports does the server's reply segment carry?",
+          "options": [
+            "Source 443, destination 51500",
+            "Source 51500, destination 443",
+            "Source 443, destination 443",
+            "Source 80, destination 51500"
+          ],
+          "correctIndex": 0,
+          "explanation": "The reply swaps the two ports: it comes from the server's port 443 and goes to the client's ephemeral port 51500, which the client's transport layer uses to find the browser's socket.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m011",
+          "questionText": "Which socket call makes a TCP client send the SYN segment that starts the three-way handshake?",
+          "options": [
+            "bind()",
+            "listen()",
+            "send()",
+            "connect()"
+          ],
+          "correctIndex": 3,
+          "explanation": "connect() performs the active open: the client's TCP sends a SYN, and the call returns once the handshake completes or fails. bind() only assigns a local address, listen() makes a server socket passive, and send() needs an existing connection.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i41_m012",
+          "questionText": "An e-mail client submits outgoing mail to its provider's server and protects the session with STARTTLS. Which TCP port does this mail submission normally use?",
+          "options": [
+            "25",
+            "110",
+            "587",
+            "993"
+          ],
+          "correctIndex": 2,
+          "explanation": "Port 587 is the mail submission port (RFC 6409), used by clients with STARTTLS; port 465 is the implicit-TLS alternative. Port 25 is for relaying between servers, 110 is POP3 and 993 is IMAPS, both for reading mail.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m013",
+          "questionText": "Which list gives the well-known ports of SMTP, DNS, SNMP (agent queries) and NTP, in that order?",
+          "options": [
+            "25, 53, 161, 123",
+            "25, 53, 162, 119",
+            "110, 53, 161, 123",
+            "25, 69, 161, 123"
+          ],
+          "correctIndex": 0,
+          "explanation": "SMTP uses TCP 25, DNS uses 53, SNMP agents receive queries on UDP 161 and NTP uses UDP 123. 162 is the SNMP trap port, 119 is NNTP, 110 is POP3 and 69 is TFTP.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m014",
+          "questionText": "DNS normally answers queries over UDP port 53. When does DNS use TCP port 53 instead?",
+          "options": [
+            "Only when the client is behind a NAT router",
+            "For zone transfers between servers and for responses too large for a single UDP message",
+            "For every query sent to a root server",
+            "Never; DNS is defined only over UDP"
+          ],
+          "correctIndex": 1,
+          "explanation": "Zone transfers (AXFR/IXFR) and truncated answers (TC bit set) are carried over TCP 53, and RFC 7766 requires DNS software to support TCP. Short queries stay on UDP because a single request and reply need no connection setup.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m015",
+          "questionText": "A client program calls connect() on a TCP socket without calling bind() first. Which statement about its source port is correct?",
+          "options": [
+            "The operating system automatically assigns an unused ephemeral port",
+            "The source port is set equal to the destination port",
+            "The source port stays 0 for the whole connection",
+            "connect() fails, because bind() is mandatory for clients"
+          ],
+          "correctIndex": 0,
+          "explanation": "If the socket is unbound, connect() makes the OS bind it implicitly to a free ephemeral port (for example from 49152 to 65535, or 32768 to 60999 on Linux). Clients rarely call bind() because they do not need a fixed port.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m016",
+          "questionText": "A UDP server has one unconnected socket bound to port 5000. Clients at 10.0.0.2:40000 and 10.0.0.3:40000 each send it a datagram. How does UDP demultiplex them?",
+          "options": [
+            "Each datagram goes to a new socket created for its sender, as with TCP's accept()",
+            "The second datagram is dropped because both clients use source port 40000",
+            "The two datagrams are merged into a single message before delivery",
+            "Both go to the same socket, because UDP matches only the destination IP address and port; the application learns each sender from recvfrom()"
+          ],
+          "correctIndex": 3,
+          "explanation": "A UDP socket is identified by its destination IP address and port only, so every datagram for port 5000 reaches the same socket, whatever its source. recvfrom() returns each sender's address so that the server can reply with sendto().",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m017",
+          "questionText": "Host 10.0.0.1 has three sockets: S1 is a UDP socket bound to port 53, S2 is a TCP socket listening on port 80, and S3 is a TCP connection between 10.0.0.1:80 and 10.0.0.5:45000. Three packets arrive: (i) a TCP data segment from 10.0.0.5:45000 to port 80, (ii) a TCP SYN from 10.0.0.6:45000 to port 80, and (iii) a UDP datagram from 10.0.0.5:45000 to port 53. Which sockets receive (i), (ii) and (iii)?",
+          "options": [
+            "S2, S2 and S1",
+            "S3, S2 and S1",
+            "S3, S3 and S1",
+            "S3, S2 and S3"
+          ],
+          "correctIndex": 1,
+          "explanation": "Segment (i) matches S3's full 4-tuple; the SYN in (ii) matches no connection because its source IP differs, so it goes to the listening socket S2, which will create a new connection socket; and (iii) is UDP, so only the destination port 53 matters and it goes to S1. Matching on the source port alone, or ignoring the protocol, gives the wrong answers.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i41_m018",
+          "questionText": "In what order does a typical TCP server call the socket API functions before it can exchange data with a client?",
+          "options": [
+            "socket(), bind(), listen(), accept()",
+            "socket(), listen(), bind(), accept()",
+            "socket(), connect(), listen(), accept()",
+            "bind(), socket(), accept(), listen()"
+          ],
+          "correctIndex": 0,
+          "explanation": "The server creates the socket, binds it to its well-known address and port, marks it passive with listen() and then calls accept(), which waits for a client and returns a new connected socket. connect() is the client's call.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m019",
+          "questionText": "On a Linux server with default settings, a program running as an ordinary (non-root) user calls bind() on TCP port 80. What happens?",
+          "options": [
+            "bind() succeeds, because any user may use any port",
+            "bind() succeeds, but the port is silently changed to 8080",
+            "bind() fails, because port 80 is reserved for UDP",
+            "bind() fails with a permission error, because ports below 1024 need root or the CAP_NET_BIND_SERVICE capability"
+          ],
+          "correctIndex": 3,
+          "explanation": "By default Linux treats the well-known ports 0 to 1023 as privileged, so only root or a process with CAP_NET_BIND_SERVICE may bind them, and bind() returns EACCES otherwise. This is why development servers often use a registered port such as 8080 instead.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m020",
+          "questionText": "Can a host run a TCP service and a separate UDP service on port 5000 at the same time?",
+          "options": [
+            "Yes; TCP and UDP have independent port spaces, and the IP protocol field tells the host which one a packet is for",
+            "No; a port number can be bound only once per host, whatever the protocol",
+            "Only if both services run in the same process",
+            "Only if the port number is above 49151"
+          ],
+          "correctIndex": 0,
+          "explanation": "A port is always a TCP port or a UDP port: the host first looks at the IP Protocol field (6 or 17) and only then at the port number. DNS relies on exactly this, serving UDP 53 and TCP 53 side by side.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m021",
+          "questionText": "Server 10.0.0.1 runs a TCP web server on port 80 and a DNS server that uses one unconnected UDP socket on port 53. Client A (10.0.0.2) has two browser connections open to port 80 and sends DNS queries from UDP port 51000; client B (10.0.0.3) has one browser connection open and also sends DNS queries from UDP port 51000. How many sockets are in use on the server?",
+          "options": [
+            "3",
+            "4",
+            "5",
+            "6"
+          ],
+          "correctIndex": 2,
+          "explanation": "TCP needs the listening socket plus one connected socket per connection, 1 + 3 = 4, while UDP needs only the one socket on port 53 for all clients, so the total is 4 + 1 = 5. 3 counts only the connections, and 6 wrongly gives each UDP client its own socket.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i41_m022",
+          "questionText": "netstat on a PC shows these two lines:\n\nTCP  0.0.0.0:3389      0.0.0.0:0           LISTENING\nTCP  10.1.1.25:59876   93.184.216.34:443   ESTABLISHED\n\nWhich statement is correct?",
+          "options": [
+            "The PC is running an HTTPS server on port 59876",
+            "Port 3389 is the ephemeral port chosen for the HTTPS connection",
+            "The PC accepts Remote Desktop connections on all of its addresses, and it is also a client of an HTTPS server, using ephemeral port 59876",
+            "The PC accepts Remote Desktop connections only from the host 0.0.0.0"
+          ],
+          "correctIndex": 2,
+          "explanation": "0.0.0.0:3389 LISTENING is an RDP server socket bound to every local address; the ESTABLISHED line pairs the local ephemeral port 59876 with the remote port 443, so the PC is the HTTPS client. 0.0.0.0 in the local address column means 'any local address', not a remote host.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m023",
+          "questionText": "A developer's test server binds its TCP socket to 127.0.0.1:8000. A colleague's computer on the LAN then tries to connect to the server machine's LAN address on port 8000 (no firewall is involved). What happens?",
+          "options": [
+            "The connection succeeds, because the port number matches",
+            "The connection is refused (the host answers with RST), because the socket accepts only connections addressed to the loopback address",
+            "The router automatically forwards the connection to 127.0.0.1",
+            "The connection succeeds, but only for UDP traffic"
+          ],
+          "correctIndex": 1,
+          "explanation": "Binding to 127.0.0.1 limits the socket to packets addressed to the loopback interface, so a SYN addressed to the LAN IP finds no matching socket and TCP replies with RST ('connection refused'). Binding to 0.0.0.0 or to the LAN address would accept it.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m024",
+          "questionText": "What does this Python program print?\n\nimport socket\na = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\na.bind((\"127.0.0.1\", 0))\nport = a.getsockname()[1]\na.listen()\nb = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ntry:\n    b.bind((\"127.0.0.1\", port))\n    print(\"bound\")\nexcept OSError:\n    print(\"in use\")",
+          "options": [
+            "in use",
+            "bound",
+            "0",
+            "Nothing: the program blocks at listen()"
+          ],
+          "correctIndex": 0,
+          "explanation": "Binding to port 0 lets the OS choose a free port, which getsockname() reveals; a second socket cannot bind the same address and port while the first holds it, so bind() raises OSError (EADDRINUSE, 'Address already in use'). listen() does not block; only accept() waits.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m025",
+          "questionText": "What does this Python program print?\n\nimport socket\nsrv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\nsrv.bind((\"127.0.0.1\", 0))\nsrv.listen()\nport = srv.getsockname()[1]\nc1 = socket.create_connection((\"127.0.0.1\", port))\nc2 = socket.create_connection((\"127.0.0.1\", port))\ns1, _ = srv.accept()\ns2, _ = srv.accept()\nprint(s1.getsockname()[1] == port,\n      s2.getsockname()[1] == port,\n      s1.getpeername()[1] == s2.getpeername()[1])",
+          "options": [
+            "True True True",
+            "True True False",
+            "False False False",
+            "False False True"
+          ],
+          "correctIndex": 1,
+          "explanation": "Sockets returned by accept() keep the server's local port, so the first two tests are True, but the two clients were given different ephemeral source ports, so the last test is False. The two 4-tuples therefore differ, which is how TCP demultiplexes both connections on one server port.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i41_m026",
+          "questionText": "A home router with public address 198.51.100.9 has a port-forwarding rule: TCP 8443 to 192.168.1.20:443. An outside client at 203.0.113.50:52000 connects to 198.51.100.9:8443. When the router passes the SYN onto the LAN, what are its destination and source socket addresses? (The router translates only the destination.)",
+          "options": [
+            "Destination 192.168.1.20:8443, source 203.0.113.50:52000",
+            "Destination 192.168.1.20:443, source 198.51.100.9:8443",
+            "Destination 198.51.100.9:443, source 203.0.113.50:52000",
+            "Destination 192.168.1.20:443, source 203.0.113.50:52000"
+          ],
+          "correctIndex": 3,
+          "explanation": "Port forwarding (destination NAT) rewrites the destination socket from 198.51.100.9:8443 to 192.168.1.20:443 and leaves the client's source socket unchanged, so the server sees the real client address. The router records the mapping and reverses it on the server's replies.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m027",
+          "questionText": "Inside hosts 192.168.1.10 and 192.168.1.11 both open TCP connections from source port 50000 to 93.184.216.34:443 through a PAT router whose public address is 203.0.113.5. The router maps the first connection to public port 62000 and the second to 62001. A reply arrives from 93.184.216.34:443 addressed to 203.0.113.5:62001. After translation, what are the reply's source and destination socket addresses?",
+          "options": [
+            "Source 203.0.113.5:62001, destination 192.168.1.11:50000",
+            "Source 93.184.216.34:443, destination 192.168.1.10:50000",
+            "Source 93.184.216.34:443, destination 192.168.1.11:50000",
+            "Source 93.184.216.34:443, destination 192.168.1.11:62001"
+          ],
+          "correctIndex": 2,
+          "explanation": "Public port 62001 belongs to the second mapping, so the router rewrites the destination back to 192.168.1.11:50000 and leaves the server's source socket untouched. The different public ports are what let PAT tell apart two inside hosts that happened to pick the same private port.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i41_m028",
+          "questionText": "Which statement about sockets and TCP connections is NOT correct?",
+          "options": [
+            "A TCP connection is identified by the pair of socket addresses at its two ends",
+            "A server's listening socket and the sockets returned by accept() all use the same local port",
+            "A client may hold several connections to the same server port at once, each from a different source port",
+            "Two simultaneous TCP connections on one host may have the same 4-tuple if they belong to different processes"
+          ],
+          "correctIndex": 3,
+          "explanation": "The 4-tuple is what identifies a connection, so two live connections can never share one, whichever processes own them. The other statements are true: accepted sockets share the server port, and a browser can open many connections to port 443 from different ephemeral ports.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i41_m029",
+          "questionText": "A load-testing client has 2 IP addresses and uses the ephemeral port range 32768 to 60999. It opens TCP connections to one server IP address on ports 80 and 443. If the only limit is that every connection's 4-tuple must be unique, what is the maximum number of simultaneous connections?",
+          "options": [
+            "28,232",
+            "56,464",
+            "112,928",
+            "262,144"
+          ],
+          "correctIndex": 2,
+          "explanation": "The range holds 60,999 − 32,768 + 1 = 28,232 ports, and every (client IP, server port) pair can use all of them: 28,232 × 2 × 2 = 112,928 connections. 56,464 applies only one of the two factors of 2, and 262,144 wrongly uses all 65,536 ports.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i41_m030",
+          "questionText": "A client with one IP address uses the ephemeral range 32768 to 60999 and keeps opening short TCP connections to the same server socket, closing each one itself (active close). Each closed connection keeps its port in TIME_WAIT for 60 s, and a port is not reused until TIME_WAIT ends. What is the highest connection rate the client can sustain?",
+          "options": [
+            "About 1,092 per second",
+            "About 470 per second",
+            "About 273 per second",
+            "About 235 per second"
+          ],
+          "correctIndex": 1,
+          "explanation": "Each connection ties up one of the 60,999 − 32,768 + 1 = 28,232 ports for about 60 s, so at most 28,232 / 60 ≈ 470.5, about 470 new connections per second, can be sustained. 1,092 uses all 65,536 ports, 273 uses the 16,384-port IANA range, and 235 assumes that TIME_WAIT lasts 120 s.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch5_i42",
+      "title": "Connection Establishment & Release",
+      "subtitle": "Three-way handshake, ISN, SYN flood, FIN release, TIME_WAIT and the TCP state machine",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Three-Way Handshake"
+          },
+          {
+            "type": "paragraph",
+            "text": "TCP opens a connection with a three-way handshake so that both sides agree to communicate and learn each other's initial sequence number (ISN). The server first does a passive open (it listens on a port); the client performs an active open by sending a SYN. The SYN and SYN-ACK segments carry no data, but each consumes one sequence number. Options such as maximum segment size (MSS), window scale and SACK permission are negotiated in these segments."
+          },
+          {
+            "type": "bulletList",
+            "text": "Handshake steps (client ISN = x, server ISN = y):",
+            "items": [
+              "Step 1, client to server: SYN = 1, seq = x. Client moves to SYN_SENT.",
+              "Step 2, server to client: SYN = 1, ACK = 1, seq = y, ack = x + 1. Server moves to SYN_RCVD.",
+              "Step 3, client to server: ACK = 1, seq = x + 1, ack = y + 1. Both sides are now ESTABLISHED and data may flow (this ACK may already carry data)."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{SYN: seq}=x \\to \\text{SYN-ACK: seq}=y,\\ \\text{ack}=x+1 \\to \\text{ACK: ack}=y+1",
+            "plainText": "SYN seq = x; SYN-ACK seq = y, ack = x + 1; ACK ack = y + 1"
+          },
+          {
+            "type": "paragraph",
+            "text": "The ISN is not zero; it is chosen pseudo-randomly (historically from a clock ticking every 4 microseconds, now combined with a hash of the 4-tuple and a secret, RFC 6528). Random ISNs prevent delayed segments from an old connection with the same 4-tuple being accepted as new data, and make it hard for an attacker to guess sequence numbers and hijack or spoof a connection."
+          },
+          {
+            "type": "bulletList",
+            "text": "SYN flood attack and SYN cookies:",
+            "items": [
+              "In a SYN flood (a denial-of-service attack) the attacker sends many SYNs, often with spoofed source addresses, and never sends the final ACK.",
+              "Each half-open connection occupies an entry in the server's backlog (SYN_RCVD queue) until it times out, so legitimate clients are refused.",
+              "SYN cookies defend by storing no state: the server encodes the connection details (a hash of the 4-tuple, a timestamp and the MSS) into its ISN y.",
+              "Only when a valid ACK arrives with ack = y + 1 does the server rebuild the state from the cookie and create the connection."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Connection Release"
+          },
+          {
+            "type": "paragraph",
+            "text": "A TCP connection is full duplex, so each direction is closed separately, usually in four segments. The side that closes first (active close) sends FIN; the other side ACKs it and enters CLOSE_WAIT, where it may still send data. When that application also closes, it sends its own FIN, and the active closer ACKs it. The second and third segments can be combined into one FIN+ACK, giving a three-segment release. Like SYN, each FIN consumes one sequence number."
+          },
+          {
+            "type": "bulletList",
+            "text": "Special closing cases:",
+            "items": [
+              "Half-close: one side stops sending (sends FIN) but continues to receive, for example a client that has sent all its input and waits for the result (shutdown() in sockets).",
+              "Simultaneous close: both sides send FIN at the same time; each goes FIN_WAIT_1 to CLOSING to TIME_WAIT.",
+              "Abort with RST: a segment with RST = 1 ends the connection at once, discarding buffered data; it is also sent in reply to a SYN for a port where nothing is listening."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "After sending the final ACK, the active closer stays in TIME_WAIT for 2 MSL (twice the maximum segment lifetime, commonly 2 x 30 s to 2 x 2 min). This serves two purposes: if the last ACK is lost, the peer retransmits its FIN and the endpoint is still there to re-send the ACK; and it lets any delayed duplicate segments of this connection die out before the same 4-tuple can be reused by a new connection."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "State",
+                "Meaning"
+              ],
+              [
+                "LISTEN",
+                "Server has done a passive open and waits for a SYN"
+              ],
+              [
+                "SYN_SENT",
+                "Client has sent SYN and waits for SYN-ACK"
+              ],
+              [
+                "SYN_RCVD",
+                "Server has received SYN, sent SYN-ACK, waits for ACK"
+              ],
+              [
+                "ESTABLISHED",
+                "Connection open; data transfer in both directions"
+              ],
+              [
+                "FIN_WAIT_1 / FIN_WAIT_2",
+                "Active closer has sent FIN; waiting for its ACK (1), then for the peer's FIN (2)"
+              ],
+              [
+                "CLOSE_WAIT / LAST_ACK",
+                "Passive closer received FIN and waits for its app to close; then sent FIN and waits for final ACK"
+              ],
+              [
+                "TIME_WAIT / CLOSED",
+                "Active closer waits 2 MSL after final ACK; then no connection exists"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Side",
+                "Opening path",
+                "Closing path (active close)"
+              ],
+              [
+                "Client",
+                "CLOSED, SYN_SENT, ESTABLISHED",
+                "FIN_WAIT_1, FIN_WAIT_2, TIME_WAIT, CLOSED"
+              ],
+              [
+                "Server",
+                "CLOSED, LISTEN, SYN_RCVD, ESTABLISHED",
+                "Passive: CLOSE_WAIT, LAST_ACK, CLOSED"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The two-army problem shows why a perfectly reliable release is impossible over an unreliable channel. Two allied armies must attack together and can communicate only by messengers who may be captured. Whoever sends the last message can never be sure it arrived, so an extra acknowledgement is always needed, forever. TCP therefore does not try to solve it; it uses a practical scheme where each side closes its own direction independently and relies on timers (TIME_WAIT, retransmission limits) to finish."
+          },
+          {
+            "type": "examTip",
+            "text": "Sequence numbers: SYN and FIN each consume one sequence number even though they carry no data; a pure ACK consumes none. That is why the SYN-ACK acknowledges x + 1."
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: Opening and Closing a TCP Connection"
+          },
+          {
+            "type": "paragraph",
+            "text": "A TCP connection opens like a telephone call: you dial (SYN, \"Hi, I want to connect\"), the other person answers (SYN-ACK, \"OK, I am ready, are you?\"), and you confirm that you can hear them (ACK, \"Yes, let's go\"). Only after these three steps does data flow. Closing is often called the four-way handshake: a FIN from the side that has finished, an ACK from the other side, then that side's own FIN and a final ACK. Either side may start the close, not only the client, and the middle ACK and FIN are often sent together in one segment, so a release can also take three segments."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 1: client ISN 3000, server ISN 8000 (seq/ack count bytes)\n#  Dir   Flags     seq   ack   data  Notes\n1  C->S  SYN       3000  -     0     client SYN_SENT; the SYN uses 3000\n2  S->C  SYN,ACK   8000  3001  0     server SYN_RCVD; the SYN uses 8000\n3  C->S  ACK       3001  8001  0     both ESTABLISHED; a pure ACK uses no number\n4  C->S  ACK       3001  8001  300   request = bytes 3001-3300\n5  S->C  ACK       8001  3301  700   reply = bytes 8001-8700\n6  C->S  FIN,ACK   3301  8701  0     client FIN_WAIT_1; the FIN uses 3301\n7  S->C  FIN,ACK   8701  3302  0     server LAST_ACK; its FIN uses 8701\n8  C->S  ACK       3302  8702  0     client TIME_WAIT (skips FIN_WAIT_2); server CLOSED\nNumbers used by the client: 1 (SYN) + 300 (data) + 1 (FIN) = 302"
+          },
+          {
+            "type": "paragraph",
+            "text": "Timing follows from the same picture. The client receives the SYN-ACK one RTT after sending its SYN and may send data at once, even inside the third segment, while the server becomes ESTABLISHED only when that ACK arrives, 1.5 RTT after the SYN left. A request and its reply therefore cost 2 RTT before the first reply byte arrives, plus transmission times. TCP Fast Open (RFC 7413) lets a returning client put data into the SYN itself, saving one RTT."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{ack}_{\\text{FIN}} = \\text{ISN} + 1 + D + 1 = \\text{ISN} + D + 2",
+            "plainText": "ACK number that acknowledges a side's FIN = its ISN + 1 (SYN) + D data bytes + 1 (FIN) = ISN + D + 2; pure ACKs add nothing"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 2: how many spoofed SYNs does it take to fill a backlog?\nBacklog B = 256 half-open (SYN_RCVD) entries\nServer sends a SYN-ACK, then retries 3 times after waits of 3 s, 6 s and 12 s,\nand gives up 24 s after the last retry\nHold time per spoofed SYN  T = 3 + 6 + 12 + 24 = 45 s\nRate that keeps the queue full  R = B / T = 256 / 45 = 5.7 SYNs per second\nWith SYN cookies nothing is stored: the server's ISN y is the cookie,\nand only an ACK carrying ack = y + 1 with a valid cookie creates a connection"
+          },
+          {
+            "type": "bulletList",
+            "text": "SYN cookies and other defences against SYN flooding:",
+            "items": [
+              "In Bernstein's original design the 32-bit cookie is made of a 5-bit counter that steps once every 64 seconds, a 3-bit code for the client's MSS, and a 24-bit keyed hash of the two IP addresses, the two ports and that counter.",
+              "The cost is that options needing stored state, such as window scaling and SACK, are lost unless they are hidden elsewhere (Linux encodes them in the timestamp option), so Linux sends cookies only when the SYN queue overflows.",
+              "Other defences: a larger backlog, fewer SYN-ACK retries (a shorter hold time), a SYN proxy or firewall that completes the handshake on the server's behalf, and ingress filtering by ISPs (BCP 38) so that packets with spoofed source addresses are dropped.",
+              "A SYN flood exhausts the memory for half-open connections; TIME_WAIT, which concerns connections that are closing, plays no part in it."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Situation",
+                "Segments exchanged",
+                "States passed through"
+              ],
+              [
+                "Normal open",
+                "SYN, SYN+ACK, ACK (3)",
+                "Client SYN_SENT → ESTABLISHED; server LISTEN → SYN_RCVD → ESTABLISHED"
+              ],
+              [
+                "Simultaneous open",
+                "Two crossing SYNs, then two SYN+ACKs (4)",
+                "Each side SYN_SENT → SYN_RCVD → ESTABLISHED; one connection results"
+              ],
+              [
+                "Normal close",
+                "FIN, ACK, FIN, ACK (4)",
+                "Active FIN_WAIT_1 → FIN_WAIT_2 → TIME_WAIT; passive CLOSE_WAIT → LAST_ACK"
+              ],
+              [
+                "Close with combined FIN+ACK",
+                "FIN, FIN+ACK, ACK (3)",
+                "Active FIN_WAIT_1 → TIME_WAIT, skipping FIN_WAIT_2"
+              ],
+              [
+                "Simultaneous close",
+                "Two crossing FINs, then two ACKs (4)",
+                "Each side FIN_WAIT_1 → CLOSING → TIME_WAIT"
+              ],
+              [
+                "Abort",
+                "One RST, never acknowledged",
+                "Any synchronised state → CLOSED at once, with no TIME_WAIT"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Why exactly 2 MSL? The final ACK may take up to one MSL to reach the peer, and if it is lost the peer's retransmitted FIN may take up to another MSL to come back, so waiting 2 MSL keeps the active closer ready to answer it; the same wait lets every segment of the old connection still in the network expire. RFC 793 defined MSL as 2 minutes (a 4-minute TIME_WAIT), while Linux uses a fixed 60 s. Because TIME_WAIT stays with whichever side closes first, busy servers try to let their clients close first."
+          },
+          {
+            "type": "bulletList",
+            "text": "RST, half-close and release styles in practice:",
+            "items": [
+              "A host sends RST when a segment arrives for a connection that does not exist (a SYN to a port with no listener shows up at the client as 'connection refused') and when an application aborts, for example close() with SO_LINGER set to 0 or close() while received data is still unread.",
+              "An RST is accepted only if its sequence number lies in the receive window; RFC 5961 tightens this to an exact match with the next expected number and otherwise answers with a challenge ACK, which defeats blind reset attacks.",
+              "shutdown(SHUT_WR) sends a FIN but keeps the receive direction open: the peer's recv() returns 0 bytes (end of file), and the peer can still send its reply before closing.",
+              "Tanenbaum contrasts asymmetric release (one side hangs up and the whole connection is gone, so data still travelling towards it is lost) with symmetric release (each direction closed separately), which is what TCP's FINs provide."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Common mistakes:",
+            "items": [
+              "A pure ACK consumes no sequence number, so the first data segment carries the same seq as the third handshake segment.",
+              "TIME_WAIT belongs to the side that sends the first FIN, whether it is the client or the server, and it is kept per connection (4-tuple); a listening socket keeps accepting new clients meanwhile.",
+              "SYN_RCVD is the server's half-open state (the target of SYN floods); CLOSE_WAIT means the peer has closed but the local application has not called close() yet.",
+              "FIN_WAIT_2 can last as long as the peer keeps its side open; Linux limits it for orphaned sockets with tcp_fin_timeout (60 s by default).",
+              "RST is an abort, not a polite close: data not yet sent or read is thrown away."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "For a handshake or release trace, keep one counter per direction. Add 1 for each SYN or FIN, add the length of any data, add nothing for a pure ACK, and remember that the other side's ACK is always your counter's next value. Then decide the states from who sent the first FIN: that side goes through FIN_WAIT_1, FIN_WAIT_2 (unless the FIN and ACK come together) and TIME_WAIT."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{ack}_{\\text{SYN-ACK}} = x + 1,\\ \\ \\text{ack}_{\\text{final}} = y + 1",
+            "plainText": "SYN-ACK acknowledges x + 1; final ACK acknowledges y + 1"
+          },
+          {
+            "type": "formula",
+            "latex": "T_{\\text{TIME\\_WAIT}} = 2 \\times \\text{MSL}",
+            "plainText": "TIME_WAIT duration = 2 x MSL (maximum segment lifetime)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "The side that closes first (sends the first FIN) is the one that enters TIME_WAIT. The side that receives the first FIN goes through CLOSE_WAIT and LAST_ACK."
+          },
+          {
+            "type": "warning",
+            "text": "A two-way handshake is not enough for TCP: without the third ACK, a delayed duplicate SYN could make the server open a connection the client never wanted, and the server could not confirm the client received its ISN."
+          },
+          {
+            "type": "note",
+            "text": "Many servers in CLOSE_WAIT usually means the application is not calling close() on its sockets; many sockets in SYN_RCVD may indicate a SYN flood."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch5_i42_01",
+          "title": "Handshake acknowledgements",
+          "latex": "\\text{ack} = x + 1,\\ \\text{then ack} = y + 1",
+          "plainText": "SYN-ACK ack = x + 1; final ACK ack = y + 1",
+          "description": "Each SYN consumes one sequence number, so it is acknowledged with ISN + 1."
+        },
+        {
+          "id": "f_ch5_i42_02",
+          "title": "TIME_WAIT timer",
+          "latex": "T = 2 \\times \\text{MSL}",
+          "plainText": "TIME_WAIT = 2 x MSL",
+          "description": "The active closer waits twice the maximum segment lifetime before the connection is fully closed."
+        },
+        {
+          "id": "f_ch5_i42_03",
+          "title": "First data byte",
+          "latex": "\\text{first data seq} = \\text{ISN} + 1",
+          "plainText": "first data byte sequence number = ISN + 1",
+          "description": "Because the SYN uses the ISN, application data starts numbering at ISN + 1."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch5_i42_01",
+          "front": "What are the flag and number fields of the second handshake segment?",
+          "back": "SYN = 1 and ACK = 1, with seq = y (server ISN) and ack = x + 1 (client ISN plus one).",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_i42_02",
+          "front": "Why does TCP have a TIME_WAIT state?",
+          "back": "To re-send the final ACK if it is lost and to let old duplicate segments expire (2 MSL) before the same 4-tuple is reused.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch5_i42_03",
+          "front": "How do SYN cookies defeat a SYN flood?",
+          "back": "The server keeps no state for half-open connections; it encodes the connection details in its ISN and rebuilds the state only when a valid final ACK returns.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch5_i42_04",
+          "front": "What is a TCP half-close?",
+          "back": "One side sends FIN to stop sending but keeps receiving data from the other side until that side also closes.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch5_i42_n01",
+          "questionText": "A client starts a TCP connection with a SYN whose sequence number is 4000. The server's ISN is 9000. What acknowledgement number does the server's SYN-ACK carry?",
+          "options": [
+            "4000",
+            "4001",
+            "9000",
+            "9001"
+          ],
+          "correctIndex": 1,
+          "explanation": "The SYN consumes one sequence number, so the server acknowledges the client's ISN plus one: 4001. The server's own seq is 9000.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_n02",
+          "questionText": "In TCP connection release, which endpoint enters the TIME_WAIT state and for how long?",
+          "options": [
+            "The side that closes first (active close), for 2 MSL",
+            "The side that closes last (passive close), for 2 MSL",
+            "Both sides, for one RTT",
+            "The server only, until the RTO expires"
+          ],
+          "correctIndex": 0,
+          "explanation": "The active closer sends the final ACK and waits 2 x MSL so it can re-send that ACK and let old duplicates expire; the passive closer goes CLOSE_WAIT to LAST_ACK to CLOSED.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m001",
+          "questionText": "TCP establishes a connection using a _____ handshake.",
+          "options": [
+            "2-way",
+            "3-way",
+            "4-way",
+            "5-way"
+          ],
+          "correctIndex": 1,
+          "explanation": "The client sends SYN, the server answers SYN-ACK and the client confirms with ACK: three segments. The four-segment FIN/ACK exchange is used for releasing a connection, not for opening it.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m002",
+          "questionText": "A TCP segment arrives with the SYN flag set and the ACK flag clear. What is this segment?",
+          "options": [
+            "A request to close the sender's direction of the connection",
+            "The server's reply accepting a connection",
+            "The first segment of a new connection: a connection request carrying the sender's initial sequence number",
+            "An immediate abort of the connection"
+          ],
+          "correctIndex": 2,
+          "explanation": "SYN = 1 with ACK = 0 appears only in the opening SYN of a connection request (in a simultaneous open, both sides send one). The server's reply has both SYN and ACK set, a close uses FIN and an abort uses RST.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m003",
+          "questionText": "Assuming TCP Fast Open is not used, which of these messages can be sent only after a TCP three-way handshake has set up a connection?",
+          "options": [
+            "An HTTP/1.1 GET request to a web server",
+            "A DHCP DISCOVER message",
+            "A RIP routing update",
+            "A TFTP read request"
+          ],
+          "correctIndex": 0,
+          "explanation": "HTTP/1.1 runs over TCP (port 80), so the browser must first complete SYN, SYN-ACK, ACK. DHCP (ports 67/68), RIP (port 520) and TFTP (port 69) all run over connectionless UDP and need no handshake.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m004",
+          "questionText": "What happens during the normal connection-release phase of TCP?",
+          "options": [
+            "The connection is terminated abruptly without any acknowledgement",
+            "Only the side that opened the connection sends a FIN, and no acknowledgement is needed",
+            "The receiver immediately resets the connection with an RST segment",
+            "Each side sends a FIN to close its own direction, and the other side acknowledges each FIN with an ACK"
+          ],
+          "correctIndex": 3,
+          "explanation": "TCP is full duplex, so each direction is closed separately: FIN, ACK, then the other side's FIN and a final ACK (the middle two may be combined). RST is an abort used for errors, not the normal release.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m005",
+          "questionText": "A client with ISN 2,000 connects to a server whose ISN is 7,500. Which values does the third segment of the handshake carry?",
+          "options": [
+            "SYN = 1 and ACK = 1, seq = 2,001, ack = 7,501",
+            "Only ACK = 1, seq = 2,001, ack = 7,501",
+            "Only ACK = 1, seq = 2,000, ack = 7,500",
+            "Only ACK = 1, seq = 7,501, ack = 2,001"
+          ],
+          "correctIndex": 1,
+          "explanation": "SYN is set only in the first two segments, so the third is a pure ACK. Its seq is the client's next number, 2,000 + 1 = 2,001 (the SYN used 2,000), and it acknowledges the server's SYN with ack = 7,500 + 1 = 7,501.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m006",
+          "questionText": "A client (ISN 1,000) and a server (ISN 5,000) complete the three-way handshake. The client then sends one segment with 200 bytes of request data, and the server answers with one segment carrying 100 bytes of response data that also acknowledges the request. What are the sequence and acknowledgement numbers of the server's response segment?",
+          "options": [
+            "seq = 5,001, ack = 1,201",
+            "seq = 5,000, ack = 1,201",
+            "seq = 5,001, ack = 1,200",
+            "seq = 1,201, ack = 5,001"
+          ],
+          "correctIndex": 0,
+          "explanation": "The server's SYN used 5,000, so its first data byte is 5,001. The client's SYN used 1,000 and its data occupied bytes 1,001 to 1,200, so the server acknowledges the next byte it expects: 1,201.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m007",
+          "questionText": "A client's ISN is 10,000. During the connection it sends 1,500 bytes of data and then closes its side of the connection. What acknowledgement number does the server's ACK of the client's FIN carry?",
+          "options": [
+            "11,500",
+            "11,501",
+            "11,502",
+            "11,503"
+          ],
+          "correctIndex": 2,
+          "explanation": "The SYN uses 10,000, the data uses 10,001 to 11,500 and the FIN uses 11,501, so the server acknowledges the next number, 11,502 (= ISN + D + 2). The pure ACK of the handshake consumes no number, so 11,503 is wrong.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m008",
+          "questionText": "A TCP connection is opened with the normal three-way handshake, carries no data, and is then closed. The passive closer combines its ACK and its own FIN into a single segment. How many segments are exchanged in total, assuming no losses?",
+          "options": [
+            "5",
+            "6",
+            "7",
+            "8"
+          ],
+          "correctIndex": 1,
+          "explanation": "Opening takes SYN, SYN-ACK and ACK (3 segments). Closing takes FIN, FIN+ACK and ACK (3 segments) instead of four, so the total is 3 + 3 = 6; with a separate ACK and FIN it would be 7.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m009",
+          "questionText": "Which of the following is NOT a reason for the TIME_WAIT state in TCP?",
+          "options": [
+            "It lets the active closer re-send the final ACK if that ACK is lost and the peer retransmits its FIN",
+            "It lets delayed duplicate segments of the old connection expire before the same 4-tuple can be reused",
+            "Without it, a retransmitted FIN from the peer could be answered with an RST, so the peer would see an error instead of a clean close",
+            "It keeps the server's listening socket from accepting any new client until the old connection has fully closed"
+          ],
+          "correctIndex": 3,
+          "explanation": "TIME_WAIT applies to one connection (one 4-tuple); a listening socket keeps accepting new clients, which use other client ports, while it lasts. The other three statements describe its two real purposes: finishing the close reliably and letting old duplicates die out.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m010",
+          "questionText": "A client opens a TCP connection to a server with an RTT of 40 ms and puts its short HTTP request into the same segment as the handshake's final ACK. The server replies at once. Ignoring transmission and processing times, how long after sending its SYN does the client receive the first byte of the reply?",
+          "options": [
+            "40 ms",
+            "60 ms",
+            "80 ms",
+            "120 ms"
+          ],
+          "correctIndex": 2,
+          "explanation": "The SYN and the SYN-ACK take one RTT (40 ms); the request travels with the ACK and the reply comes back in a second RTT, so 2 x 40 = 80 ms. 60 ms is when the server receives the request, not when the reply reaches the client.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m011",
+          "questionText": "The one-way delay between a client and a server is 25 ms, and processing time is negligible. The client sends its SYN at t = 0. At what times do the client and the server enter the ESTABLISHED state?",
+          "options": [
+            "Both at 75 ms",
+            "Client at 50 ms, server at 75 ms",
+            "Client at 75 ms, server at 50 ms",
+            "Client at 25 ms, server at 50 ms"
+          ],
+          "correctIndex": 1,
+          "explanation": "The SYN reaches the server at 25 ms (SYN_RCVD) and the SYN-ACK reaches the client at 50 ms, which enters ESTABLISHED and sends its ACK. The server becomes ESTABLISHED when that ACK arrives, at 50 + 25 = 75 ms.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m012",
+          "questionText": "A server's backlog can hold 1,024 half-open (SYN_RCVD) connections. For each one it sends a SYN-ACK and then retransmits it 5 times, waiting 1, 2, 4, 8 and 16 s before the successive retransmissions, and it gives up 32 s after the last one. What is the lowest rate of spoofed, never-answered SYNs that keeps the backlog permanently full?",
+          "options": [
+            "About 16 SYNs per second",
+            "About 33 SYNs per second",
+            "About 205 SYNs per second",
+            "About 1,024 SYNs per second"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each half-open entry is held for 1 + 2 + 4 + 8 + 16 + 32 = 63 s, so 1,024 entries must be replaced every 63 s: 1,024 / 63 = 16.3 SYNs per second. Forgetting the final 32 s wait gives 1,024 / 31 = 33.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m013",
+          "questionText": "A server is using SYN cookies. How does it accept a legitimate client's final ACK when it kept no record of the client's SYN?",
+          "options": [
+            "It looks the client up in its queue of half-open connections",
+            "It checks that the acknowledgement number minus one is a valid cookie, recomputed from the addresses, ports, a time counter and a secret, and rebuilds the connection state from it",
+            "It asks the client to send its SYN again with the cookie in a TCP option",
+            "It accepts any ACK that arrives within one RTT of its SYN-ACK"
+          ],
+          "correctIndex": 1,
+          "explanation": "With SYN cookies the server's ISN is itself the cookie: a keyed hash of the connection's addresses, ports and a coarse time counter, plus an encoded MSS, so nothing is stored. A genuine client's ACK carries ack = cookie + 1, which the server verifies before creating the connection.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m014",
+          "questionText": "Two hosts, each knowing the other's port, send SYNs to each other at the same moment (a simultaneous open). Which statement is correct?",
+          "options": [
+            "One SYN is rejected with RST, and the other host's handshake continues normally",
+            "Two separate connections are created, one for each SYN",
+            "Four segments are exchanged (two SYNs, then two SYN-ACKs), and each side goes SYN_SENT, SYN_RCVD, ESTABLISHED, forming one connection",
+            "Two segments are enough: each SYN acts as the other's acknowledgement, so both go straight to ESTABLISHED"
+          ],
+          "correctIndex": 2,
+          "explanation": "Each side receives a SYN while in SYN_SENT, moves to SYN_RCVD and sends a SYN-ACK; receiving the other side's SYN-ACK takes it to ESTABLISHED. The result is a single connection built from four segments.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m015",
+          "questionText": "Which statement about a TCP segment with the RST flag set is correct?",
+          "options": [
+            "The receiver must acknowledge the RST before the connection is closed",
+            "It puts the host that sends it into TIME_WAIT for 2 MSL",
+            "It closes only one direction of the connection, like a FIN, so the peer may keep sending",
+            "It aborts the connection at once in both directions; queued data is discarded and the RST is not acknowledged"
+          ],
+          "correctIndex": 3,
+          "explanation": "An accepted RST moves the connection straight to CLOSED: buffers are flushed, the applications see 'connection reset', no TIME_WAIT follows and no segment is sent in reply. A FIN, by contrast, closes one direction gracefully and is acknowledged.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m016",
+          "questionText": "Under the original RFC 793 rule, a host accepts an RST whose sequence number lies anywhere inside its current receive window. An off-path attacker knows a connection's IP addresses and ports and knows that the receive window is 1,048,576 bytes (2^20, using window scaling), but not the current sequence number. What is the smallest number of spoofed RSTs, with evenly spaced sequence numbers, that is certain to include one that is accepted?",
+          "options": [
+            "512",
+            "4,096",
+            "1,048,576",
+            "4,294,967,296"
+          ],
+          "correctIndex": 1,
+          "explanation": "The 32-bit sequence space holds 2^32 values and each RST can hit a window of 2^20 of them, so 2^32 / 2^20 = 2^12 = 4,096 RSTs spaced one window apart cover it; 512 wrongly counts the window in bits. RFC 5961 now demands an exact match (otherwise a challenge ACK), which defeats this attack.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m017",
+          "questionText": "A server in ESTABLISHED receives the client's FIN. Its application reads the remaining data and then calls close(). Which states does the server pass through until the connection no longer exists?",
+          "options": [
+            "CLOSE_WAIT, LAST_ACK, CLOSED",
+            "FIN_WAIT_1, FIN_WAIT_2, TIME_WAIT, CLOSED",
+            "CLOSING, TIME_WAIT, CLOSED",
+            "CLOSE_WAIT, TIME_WAIT, CLOSED"
+          ],
+          "correctIndex": 0,
+          "explanation": "Receiving the first FIN makes the server the passive closer: it ACKs and waits in CLOSE_WAIT for its application, sends its own FIN on close() and waits in LAST_ACK, and is CLOSED when the final ACK arrives. The FIN_WAIT and TIME_WAIT states belong to the active closer.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m018",
+          "questionText": "A client has sent its FIN and received the server's ACK for it, but the server has not yet sent its own FIN. Which state is the client in?",
+          "options": [
+            "FIN_WAIT_1",
+            "FIN_WAIT_2",
+            "CLOSE_WAIT",
+            "TIME_WAIT"
+          ],
+          "correctIndex": 1,
+          "explanation": "FIN_WAIT_1 means the FIN is sent but not yet acknowledged; once the ACK arrives the client moves to FIN_WAIT_2 and waits for the server's FIN. It enters TIME_WAIT only after receiving and acknowledging that FIN.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m019",
+          "questionText": "A client in FIN_WAIT_1 receives one segment that carries the server's FIN and also acknowledges the client's FIN. After sending its ACK, which state does the client enter?",
+          "options": [
+            "FIN_WAIT_2",
+            "CLOSING",
+            "TIME_WAIT",
+            "CLOSED"
+          ],
+          "correctIndex": 2,
+          "explanation": "Its own FIN is acknowledged and the peer's FIN has arrived in the same segment, so the client skips FIN_WAIT_2 and goes straight to TIME_WAIT. This is the three-segment release (FIN, FIN+ACK, ACK).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m020",
+          "questionText": "Both ends of a connection call close() at the same moment, so their FINs cross in the network. Each end receives the other's FIN before its own FIN has been acknowledged. Which state does each end enter at that point, and which state follows once its own FIN is acknowledged?",
+          "options": [
+            "CLOSE_WAIT, then LAST_ACK",
+            "FIN_WAIT_2, then CLOSED",
+            "LAST_ACK, then CLOSED",
+            "CLOSING, then TIME_WAIT"
+          ],
+          "correctIndex": 3,
+          "explanation": "In a simultaneous close each side goes from FIN_WAIT_1 to CLOSING when the peer's FIN arrives (and ACKs it), then to TIME_WAIT when the ACK of its own FIN arrives. Both ends therefore spend time in TIME_WAIT.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m021",
+          "questionText": "What does this Python program print?\n\nimport socket, threading\nsrv = socket.create_server((\"127.0.0.1\", 0))\nport = srv.getsockname()[1]\ndef serve():\n    conn, _ = srv.accept()\n    data = b\"\"\n    while chunk := conn.recv(100):\n        data += chunk\n    conn.sendall(str(len(data)).encode())\n    conn.close()\nthreading.Thread(target=serve).start()\nc = socket.create_connection((\"127.0.0.1\", port))\nc.sendall(b\"x\" * 250)\nc.shutdown(socket.SHUT_WR)\nprint(c.recv(100))",
+          "options": [
+            "b''",
+            "b'100'",
+            "Nothing: it waits forever, because the server never sees the end of the data",
+            "b'250'"
+          ],
+          "correctIndex": 3,
+          "explanation": "shutdown(SHUT_WR) sends a FIN but keeps the client's receiving direction open (a half-close). The server's loop reads all 250 bytes, then recv() returns b'' at the FIN, so it sends back '250' and closes, and the client prints b'250'.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i42_m022",
+          "questionText": "What does the two-army problem show about releasing a connection?",
+          "options": [
+            "No protocol over an unreliable channel can guarantee that both sides know the other has agreed to close, so TCP lets each side close its own direction and relies on timers",
+            "A three-way handshake is always enough to release a connection safely",
+            "The side with the larger window must always close first",
+            "A connection can be released reliably only with RST segments"
+          ],
+          "correctIndex": 0,
+          "explanation": "Whoever sends the last message of any agreement protocol cannot know it arrived, so another acknowledgement is always needed. TCP accepts this and closes each direction separately, with TIME_WAIT and retransmission limits to finish.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m023",
+          "questionText": "Why can an abrupt (asymmetric) release, in which one side disconnects as soon as it has finished sending, lose data?",
+          "options": [
+            "The disconnecting side must retransmit every segment it has sent",
+            "The routers on the path delete the buffered segments of both sides",
+            "Data that the other side sent before it learned of the disconnect arrives after the connection is gone and is discarded",
+            "The receiving side's checksum no longer matches after the disconnect"
+          ],
+          "correctIndex": 2,
+          "explanation": "Asymmetric release works like hanging up a phone: the connection is gone for both directions at once, so data still on its way towards the side that hung up is lost. Symmetric release, which TCP's FINs give, closes each direction only when its sender has finished.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m024",
+          "questionText": "Why does TCP choose a hard-to-predict initial sequence number for each new connection instead of always starting at 0?",
+          "options": [
+            "Because sequence number 0 is reserved for SYN segments",
+            "So that the receiver can use the ISN as an encryption key",
+            "Because the ISN tells the receiver how large the sender's buffer is",
+            "So that delayed segments of an earlier connection with the same addresses and ports are not accepted as new data, and so that an attacker cannot easily guess sequence numbers to spoof or hijack a connection"
+          ],
+          "correctIndex": 3,
+          "explanation": "Starting every connection at 0 would let old duplicates from a previous connection with the same 4-tuple fall inside the new sequence range, and would let attackers predict valid numbers. RFC 6528 therefore builds the ISN from a clock plus a keyed hash of the 4-tuple.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m025",
+          "questionText": "The third segment of a handshake (the client's pure ACK) is lost, but the client, now ESTABLISHED, immediately sends a data segment, which arrives. What happens at the server?",
+          "options": [
+            "The data segment also has ACK = 1 with ack = server ISN + 1, so the server moves from SYN_RCVD to ESTABLISHED and accepts the data",
+            "The server discards the data and replies with an RST",
+            "The server stays in SYN_RCVD until the client retransmits the lost pure ACK on a timer",
+            "Both sides must repeat the whole handshake"
+          ],
+          "correctIndex": 0,
+          "explanation": "Every segment after the SYN carries ACK = 1 with the same acknowledgement number, so the data segment completes the handshake by itself. Pure ACKs are never retransmitted on a timer.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m026",
+          "questionText": "An old duplicate SYN from a connection that ended long ago reaches a server, which replies with a SYN-ACK. The client has no connection attempt in progress. What happens next?",
+          "options": [
+            "The client sends an ACK, and an unwanted connection is opened",
+            "The client ignores the SYN-ACK, and the server keeps the half-open connection forever",
+            "The client answers with an RST, so the server abandons the half-open connection",
+            "The client sends a FIN, which closes the connection normally"
+          ],
+          "correctIndex": 2,
+          "explanation": "The SYN-ACK acknowledges a SYN that the client is not waiting for, so the client rejects it with an RST and the server deletes the half-open entry. This is why TCP needs the third step: after a two-way handshake the server would already have opened the unwanted connection.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m027",
+          "questionText": "Which of the following does NOT help a server resist a SYN flood attack?",
+          "options": [
+            "Enabling SYN cookies",
+            "Enlarging the half-open backlog and retransmitting the SYN-ACK fewer times",
+            "Ingress filtering at ISPs so that packets with spoofed source addresses are dropped",
+            "Increasing the TIME_WAIT duration"
+          ],
+          "correctIndex": 3,
+          "explanation": "A SYN flood fills the queue of half-open (SYN_RCVD) connections; TIME_WAIT concerns connections that are closing and has no effect on it. Cookies, a bigger backlog with a shorter hold time, and anti-spoofing filters all reduce the damage.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i42_m028",
+          "questionText": "A server program creates a TCP socket, binds it to port 80 and calls listen(). In which TCP state is that socket, and what kind of open has it performed?",
+          "options": [
+            "SYN_SENT, an active open",
+            "LISTEN, a passive open",
+            "ESTABLISHED, a passive open",
+            "SYN_RCVD, an active open"
+          ],
+          "correctIndex": 1,
+          "explanation": "listen() performs a passive open: the socket waits in LISTEN for incoming SYNs. The client's connect() is the active open that sends the SYN and enters SYN_SENT.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m029",
+          "questionText": "Which TCP flag does a host set to show that it has no more data to send on a connection?",
+          "options": [
+            "FIN",
+            "SYN",
+            "RST",
+            "PSH"
+          ],
+          "correctIndex": 0,
+          "explanation": "FIN (finish) closes the sender's direction gracefully and uses one sequence number. SYN opens a connection, RST aborts it, and PSH asks the receiver to deliver data to the application promptly.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i42_m030",
+          "questionText": "A capture of a short TCP connection shows the segments below (C = client, S = server). The server sends no data, and its segment 7 both acknowledges the client's FIN and carries its own FIN. Exactly one segment has a wrong number. Which one?\n\n1  C->S  SYN        seq=100\n2  S->C  SYN, ACK   seq=300  ack=101\n3  C->S  ACK        seq=101  ack=301\n4  C->S  ACK, 50 B  seq=101  ack=301\n5  S->C  ACK        seq=301  ack=151\n6  C->S  FIN, ACK   seq=151  ack=301\n7  S->C  FIN, ACK   seq=301  ack=151\n8  C->S  ACK        seq=152  ack=302",
+          "options": [
+            "Segment 4: its seq should be 102, because the third segment used up 101",
+            "Segment 5: its ack should be 150",
+            "Segment 7: its ack should be 152, because the client's FIN used sequence number 151",
+            "Segment 8: its seq should be 151"
+          ],
+          "correctIndex": 2,
+          "explanation": "The pure ACK in segment 3 uses no number, so the 50 data bytes are 101 to 150 and segment 5 correctly acknowledges 151. The client's FIN in segment 6 takes 151, so segment 7 must carry ack = 152; segment 8 is then correct with seq 152 and ack 302.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch5_i43",
+      "title": "Flow Control, Buffering & Congestion Control",
+      "subtitle": "rwnd, silly window syndrome, RTO estimation, slow start, AIMD, Tahoe vs Reno, token bucket",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Flow Control and Buffering"
+          },
+          {
+            "type": "paragraph",
+            "text": "Flow control stops a fast sender from overflowing a slow receiver's buffer. TCP uses a sliding window: the receiver advertises in every segment's window field how many bytes of free buffer space it has (rwnd, the receive window). The sender may have at most that many unacknowledged bytes in flight; as ACKs arrive the window slides forward. If the receiver advertises rwnd = 0, the sender stops and periodically sends a small window-probe segment (persist timer) until space opens."
+          },
+          {
+            "type": "bulletList",
+            "text": "Buffering at each end:",
+            "items": [
+              "Sender buffer holds bytes that are sent but not yet acknowledged (kept for retransmission) plus bytes the application has written but TCP has not yet sent.",
+              "Receiver buffer holds bytes that arrived in order but have not been read by the application, plus out-of-order bytes waiting for a gap to be filled.",
+              "rwnd = receive buffer size - (last byte received - last byte read by the application).",
+              "The sender limits itself so that last byte sent - last byte acknowledged is at most min(rwnd, cwnd)."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Silly window syndrome (tiny segments that waste bandwidth) and its cures:",
+            "items": [
+              "Sender side: an application that writes one byte at a time (e.g. Telnet) would send 41-byte packets for 1 byte of data.",
+              "Nagle's algorithm: send the first small piece, then buffer further small data until the outstanding data is acknowledged or a full MSS accumulates.",
+              "Receiver side: an application reading one byte at a time would advertise 1-byte windows.",
+              "Clark's solution: the receiver advertises zero until it can offer a full MSS or half its buffer; delayed ACKs have a similar effect."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Retransmission Timer"
+          },
+          {
+            "type": "paragraph",
+            "text": "TCP retransmits a segment if its ACK does not arrive before the retransmission timeout (RTO). Because round-trip time varies, TCP measures sample RTTs and keeps an exponentially weighted moving average (EWMA) of the RTT and of its deviation (Jacobson's algorithm, RFC 6298). Karn's algorithm says: do not take RTT samples from retransmitted segments (the ACK is ambiguous), and double the RTO after each timeout (exponential backoff)."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{RTO} = \\text{EstRTT} + 4 \\cdot \\text{DevRTT}",
+            "plainText": "RTO = EstimatedRTT + 4 x DevRTT"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Flow control",
+                "Congestion control"
+              ],
+              [
+                "Protects",
+                "The receiver's buffer",
+                "The network (routers and links)"
+              ],
+              [
+                "Scope",
+                "End to end, between two hosts",
+                "Global, all flows sharing the path"
+              ],
+              [
+                "Signal",
+                "Advertised window rwnd in each ACK",
+                "Loss (timeout, 3 duplicate ACKs) or delay"
+              ],
+              [
+                "Window variable",
+                "rwnd, set by the receiver",
+                "cwnd, computed by the sender"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "TCP Congestion Control"
+          },
+          {
+            "type": "bulletList",
+            "text": "The sender keeps a congestion window (cwnd) and a slow-start threshold (ssthresh):",
+            "items": [
+              "Slow start: cwnd starts at 1 MSS and increases by 1 MSS for every ACK, so it doubles every RTT (exponential growth) until it reaches ssthresh.",
+              "Congestion avoidance: above ssthresh, cwnd grows by about 1 MSS per RTT (additive increase).",
+              "On timeout: ssthresh = cwnd / 2, cwnd = 1 MSS, and slow start begins again (multiplicative decrease, severe reaction).",
+              "Fast retransmit: 3 duplicate ACKs imply one segment was lost while later ones arrived, so it is resent at once without waiting for the RTO.",
+              "Fast recovery (Reno): after 3 duplicate ACKs, ssthresh = cwnd / 2 and cwnd = ssthresh (+3 MSS), then continue in congestion avoidance instead of slow start.",
+              "This combination is called AIMD: additive increase, multiplicative decrease."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Event",
+                "TCP Tahoe",
+                "TCP Reno"
+              ],
+              [
+                "Timeout",
+                "ssthresh = cwnd/2, cwnd = 1, slow start",
+                "ssthresh = cwnd/2, cwnd = 1, slow start"
+              ],
+              [
+                "3 duplicate ACKs",
+                "Fast retransmit, then cwnd = 1 and slow start",
+                "Fast retransmit + fast recovery: cwnd = ssthresh = cwnd/2"
+              ],
+              [
+                "Algorithms",
+                "Slow start, congestion avoidance, fast retransmit",
+                "All of Tahoe plus fast recovery"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "RTT",
+                "cwnd (MSS)",
+                "Phase / event"
+              ],
+              [
+                "1 to 4",
+                "1, 2, 4, 8",
+                "Slow start, ssthresh = 16"
+              ],
+              [
+                "5",
+                "16",
+                "Reached ssthresh, switch to congestion avoidance"
+              ],
+              [
+                "6 to 8",
+                "17, 18, 19",
+                "Additive increase (+1 per RTT)"
+              ],
+              [
+                "9",
+                "20",
+                "Timeout occurs at cwnd = 20"
+              ],
+              [
+                "10 to 13",
+                "1, 2, 4, 8",
+                "New ssthresh = 10; slow start again"
+              ],
+              [
+                "14 to 15",
+                "10, 11",
+                "Capped at ssthresh 10, then +1 per RTT"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Traffic Shaping: Leaky Bucket and Token Bucket"
+          },
+          {
+            "type": "paragraph",
+            "text": "Traffic shaping controls the rate at which a host sends into the network, as an open-loop congestion prevention method. The leaky bucket lets packets enter a bucket (queue) at any rate but drains them at a constant rate; if the bucket is full, packets are discarded, so bursty input becomes a smooth output. The token bucket adds tokens at rate r into a bucket of capacity b; a packet can be sent only by removing tokens, so idle hosts save up tokens and may later send a burst of up to b at once, while the long-term average rate is still r. Token bucket allows controlled bursts; leaky bucket does not."
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Throughput} \\approx \\frac{\\min(\\text{cwnd}, \\text{rwnd})}{\\text{RTT}}",
+            "plainText": "Throughput is approximately min(cwnd, rwnd) / RTT"
+          },
+          {
+            "type": "heading",
+            "text": "Going Deeper: Windows, Congestion Control and Traffic Shaping"
+          },
+          {
+            "type": "paragraph",
+            "text": "The study notes set the two problems side by side. Flow control solves 'the sender may be faster than the receiver can process': the receiver tells the sender how much buffer space it has left, the sender sends only that much, and the receiver's buffer never overflows (a sliding window). Congestion control solves 'too much traffic can overload the network' with four cooperating algorithms: slow start, congestion avoidance, fast retransmit and fast recovery. Both limits apply at the same time, so the sender always uses the smaller of the two windows."
+          },
+          {
+            "type": "bulletList",
+            "text": "The four algorithms stated precisely (correcting the usual shorthand):",
+            "items": [
+              "Slow start: cwnd starts small (1 MSS in textbook problems; RFC 5681 allows 2 to 4 segments depending on the MSS, and many stacks now use 10) and grows by 1 MSS for every ACK of new data. A full window of ACKs returns each RTT, so cwnd doubles once per RTT; it does not double on every ACK.",
+              "Congestion avoidance: once cwnd reaches ssthresh, each ACK adds about MSS x MSS / cwnd bytes, which sums to roughly 1 MSS per RTT (linear growth).",
+              "Fast retransmit: the third duplicate ACK (four identical ACKs in a row) makes the sender resend the missing segment at once instead of waiting for the RTO.",
+              "Fast recovery (Reno, RFC 5681): ssthresh = cwnd / 2 and cwnd = ssthresh + 3 MSS, plus 1 MSS for each further duplicate ACK; when an ACK for new data arrives, cwnd deflates to ssthresh and congestion avoidance continues. Round-by-round textbook traces simply write cwnd = ssthresh.",
+              "Timeout (Tahoe and Reno): ssthresh = cwnd / 2, cwnd = 1 MSS, slow start again, and the RTO is doubled. Precisely, RFC 5681 sets ssthresh = max(FlightSize / 2, 2 MSS), where FlightSize is the amount of data in flight."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "W = \\min(\\text{rwnd}, \\text{cwnd}) - (\\text{LastByteSent} - \\text{LastByteAcked})",
+            "plainText": "Usable window W = min(rwnd, cwnd) - (LastByteSent - LastByteAcked): new bytes the sender may transmit now"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 1: sender window in bytes (cwnd = 10,000 B, so rwnd decides)\nReceive buffer 6,000 B; the application has read everything up to byte 2,000\nACK 3,001 arrives: rwnd = 6,000 - (3,000 - 2,000) = 5,000\n  window = bytes 3,001..8,000; the sender has already sent up to 6,000\n  usable = min(5,000, 10,000) - (6,000 - 3,000) = 2,000 -> send 6,001..8,000\nBytes 3,001..6,000 arrive, the application reads nothing: ACK 6,001\n  rwnd = 6,000 - (6,000 - 2,000) = 2,000 -> window 6,001..8,000 (right edge unchanged)\nBytes 6,001..8,000 arrive: ACK 8,001, rwnd = 0 -> the sender starts its persist timer"
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 2: cwnd in MSS, ssthresh starts at 8, one column per RTT\nRound   1  2  3  4  5  6  7  8  9 10 11 12 | 13 14 15 16 17\nBoth    1  2  4  8  9 10 11 12 13 14 15 16 | 3 dup ACKs at cwnd 16 -> ssthresh 8\nTahoe                                      |  1  2  4  8  9\nReno                                       |  8  9 10 11 12\nA timeout in round 12 would give the Tahoe row in both versions\nReno model: cwnd = new ssthresh after fast recovery (ignoring the +3 MSS inflation)"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Phase or event",
+                "Rule per ACK or per event",
+                "Net effect per RTT"
+              ],
+              [
+                "Slow start (cwnd below ssthresh)",
+                "cwnd += 1 MSS for each ACK",
+                "cwnd doubles"
+              ],
+              [
+                "Congestion avoidance",
+                "cwnd += MSS x MSS / cwnd for each ACK",
+                "cwnd grows by about 1 MSS"
+              ],
+              [
+                "3 duplicate ACKs, Reno",
+                "Fast retransmit; ssthresh = cwnd/2; cwnd = ssthresh + 3 MSS, deflated to ssthresh on a new ACK",
+                "Window about halved; stays in congestion avoidance"
+              ],
+              [
+                "3 duplicate ACKs, Tahoe",
+                "Fast retransmit; ssthresh = cwnd/2; cwnd = 1 MSS",
+                "Back to slow start"
+              ],
+              [
+                "Timeout, Tahoe and Reno",
+                "ssthresh = cwnd/2; cwnd = 1 MSS; RTO doubled",
+                "Back to slow start"
+              ]
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 3: RTO with alpha = 1/8, beta = 1/4 (RFC 6298 order)\nBefore any sample: RTO = 1 s\nFirst sample R = 80 ms: SRTT = 80, RTTVAR = 80 / 2 = 40, RTO = 80 + 4 x 40 = 240 ms\nNext sample R = 120 ms (update RTTVAR first, using the old SRTT):\n  RTTVAR = 0.75 x 40 + 0.25 x |80 - 120| = 30 + 10 = 40 ms\n  SRTT   = 0.875 x 80 + 0.125 x 120 = 70 + 15 = 85 ms\n  RTO    = 85 + 4 x 40 = 245 ms\nRFC 6298 rounds an RTO below 1 s up to 1 s (Linux uses a 200 ms floor instead)\nKarn: an ACK for a retransmitted segment gives no sample; keep the doubled RTO"
+          },
+          {
+            "type": "paragraph",
+            "text": "Why AIMD? Adding 1 MSS per RTT probes gently for spare capacity, while halving on loss backs off fast enough to drain the router queues. When several flows share a bottleneck, additive increase keeps the gap between their windows constant and every halving cuts that gap in half, so the flows drift towards equal shares. A single long-lived Reno flow therefore traces a sawtooth between W/2 and W, averaging 0.75 W per RTT, which gives a throughput of about 0.75 x W x MSS / RTT."
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "Worked example 4: token bucket C = 250 KB, rho = 2 MB/s, line rate M = 25 MB/s (1 MB = 1,000 KB)\nBurst time      S = C / (M - rho) = 250 KB / 23 MB/s = 10.9 ms\nData in burst   M x S = 25 MB/s x 10.9 ms = 272 KB  (= C + rho x S)\nAfter the burst the host is held to rho = 2 MB/s while data keeps coming\nLargest amount sent in any interval t: min(M x t, C + rho x t)\nLeaky bucket with output rate 2 MB/s, same burst: output never exceeds 2 MB/s;\nthe queue grows at (input rate - 2 MB/s), and packets are dropped once it is full"
+          },
+          {
+            "type": "bulletList",
+            "text": "Common mistakes and special cases:",
+            "items": [
+              "Compare cwnd and rwnd in the same unit (convert MSS to bytes first), and convert bytes to bits before dividing by the RTT to get bit/s.",
+              "Slow start stops at ssthresh: if doubling would overshoot it, round-by-round traces cap cwnd at ssthresh and continue linearly from there.",
+              "rwnd = 0 does not close the connection. The sender sends small window probes each time its persist timer expires, because the update that reopens the window is a pure ACK that is never retransmitted; if it were lost, both sides would wait forever.",
+              "Silly window syndrome has two sides: Nagle's algorithm fixes a sender that writes tiny pieces (at most one small segment unacknowledged at a time; the TCP_NODELAY option turns it off), and Clark's rule fixes a receiver that frees tiny pieces (keep advertising 0 until min(MSS, buffer/2) is free).",
+              "Nagle's algorithm combined with delayed ACKs (RFC 1122 allows up to 0.5 s) can stall request-response traffic, which is why interactive and RPC programs often set TCP_NODELAY.",
+              "Most current operating systems, including Linux, default to CUBIC (RFC 9438), which on a loss reduces cwnd to 0.7 times its value rather than 0.5 times and regrows it along a cubic curve; exam traces assume Tahoe or Reno."
+            ]
+          },
+          {
+            "type": "examTip",
+            "text": "For a congestion-window trace, write one row per RTT: double below ssthresh and add 1 once ssthresh is reached. At each loss first set ssthresh = cwnd/2, then apply the event: a timeout sets cwnd = 1 in every version, while three duplicate ACKs set cwnd = 1 in Tahoe but cwnd = ssthresh in Reno. Check whether the question counts rounds from 0 or from 1."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{EstRTT} = (1-\\alpha)\\,\\text{EstRTT} + \\alpha\\,\\text{SampleRTT},\\ \\alpha = 0.125",
+            "plainText": "EstimatedRTT = (1 - a) x EstimatedRTT + a x SampleRTT, a = 0.125"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{DevRTT} = (1-\\beta)\\,\\text{DevRTT} + \\beta\\,|\\text{Sample} - \\text{EstRTT}|,\\ \\beta = 0.25",
+            "plainText": "DevRTT = (1 - b) x DevRTT + b x |SampleRTT - EstimatedRTT|, b = 0.25"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{RTO} = \\text{EstRTT} + 4 \\cdot \\text{DevRTT}",
+            "plainText": "RTO = EstimatedRTT + 4 x DevRTT"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Throughput} \\approx \\frac{W}{\\text{RTT}},\\ W = \\min(\\text{cwnd}, \\text{rwnd})",
+            "plainText": "Throughput is approximately W / RTT, where W = min(cwnd, rwnd)"
+          },
+          {
+            "type": "formula",
+            "latex": "S = \\frac{C}{M - \\rho}",
+            "plainText": "Token bucket maximum burst time S = C / (M - p): C capacity, M peak rate, p token rate"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "For cwnd questions: double each RTT while below ssthresh, add 1 MSS per RTT above it; on timeout set ssthresh to half the current cwnd and restart at 1 MSS. Check whether the question says Tahoe or Reno for the 3-duplicate-ACK case."
+          },
+          {
+            "type": "warning",
+            "text": "The window a sender actually uses is min(cwnd, rwnd): flow control (rwnd) and congestion control (cwnd) both limit it, and the smaller one wins."
+          },
+          {
+            "type": "note",
+            "text": "With a 16-bit window field the maximum rwnd is 65,535 bytes; the window scale option (up to a shift of 14) is needed for high bandwidth-delay paths."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch5_i43_01",
+          "title": "Retransmission timeout",
+          "latex": "\\text{RTO} = \\text{EstRTT} + 4 \\cdot \\text{DevRTT}",
+          "plainText": "RTO = EstimatedRTT + 4 x DevRTT",
+          "description": "Jacobson's formula sets the timeout from the smoothed RTT plus a safety margin of four deviations."
+        },
+        {
+          "id": "f_ch5_i43_02",
+          "title": "Smoothed RTT (EWMA)",
+          "latex": "\\text{EstRTT} = 0.875\\,\\text{EstRTT} + 0.125\\,\\text{SampleRTT}",
+          "plainText": "EstimatedRTT = 0.875 x EstimatedRTT + 0.125 x SampleRTT",
+          "description": "Each new RTT sample moves the estimate by one-eighth of the difference."
+        },
+        {
+          "id": "f_ch5_i43_03",
+          "title": "Window-limited throughput",
+          "latex": "\\text{Throughput} \\approx \\frac{\\min(\\text{cwnd}, \\text{rwnd})}{\\text{RTT}}",
+          "plainText": "Throughput = min(cwnd, rwnd) / RTT",
+          "description": "A TCP sender can deliver at most one window of data per round-trip time."
+        },
+        {
+          "id": "f_ch5_i43_04",
+          "title": "Multiplicative decrease",
+          "latex": "\\text{ssthresh} = \\frac{\\text{cwnd}}{2}",
+          "plainText": "ssthresh = cwnd / 2",
+          "description": "On loss, TCP halves the threshold (and cwnd, or resets cwnd to 1 on timeout)."
+        },
+        {
+          "id": "f_ch5_i43_05",
+          "title": "Token bucket burst",
+          "latex": "S = \\frac{C}{M - \\rho}",
+          "plainText": "S = C / (M - p)",
+          "description": "Maximum time a token bucket of capacity C with token rate p can send at peak rate M."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch5_i43_01",
+          "front": "What triggers TCP fast retransmit?",
+          "back": "Receiving three duplicate ACKs for the same byte, which indicates a single lost segment; it is resent immediately without waiting for the RTO.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch5_i43_02",
+          "front": "What does Karn's algorithm say?",
+          "back": "Ignore RTT samples from retransmitted segments because the ACK is ambiguous, and double the RTO after each timeout.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch5_i43_03",
+          "front": "Leaky bucket vs token bucket?",
+          "back": "Leaky bucket outputs at a strictly constant rate and drops overflow; token bucket allows bursts up to the saved tokens while keeping the average rate r.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch5_i43_04",
+          "front": "What is Nagle's algorithm for?",
+          "back": "It prevents sender-side silly window syndrome by holding small writes until earlier data is acknowledged or a full MSS is ready.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch5_i43_n01",
+          "questionText": "A TCP connection starts in slow start with cwnd = 1 MSS and ssthresh = 16 MSS. Assuming no losses, what is cwnd after 6 round-trip times?",
+          "options": [
+            "16 MSS",
+            "18 MSS",
+            "32 MSS",
+            "64 MSS"
+          ],
+          "correctIndex": 1,
+          "explanation": "cwnd goes 1, 2, 4, 8, 16 (after 4 RTTs, reaching ssthresh), then grows by 1 MSS per RTT in congestion avoidance: 17 after 5 RTTs and 18 after 6.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_n02",
+          "questionText": "A TCP sender has a window of 64 KB (65,536 bytes) and the round-trip time is 20 ms. What is the approximate maximum throughput?",
+          "options": [
+            "3.3 Mbps",
+            "13.1 Mbps",
+            "26.2 Mbps",
+            "52.4 Mbps"
+          ],
+          "correctIndex": 2,
+          "explanation": "Throughput = window / RTT = 65,536 x 8 bits / 0.02 s = 26.2 Mbps.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_n03",
+          "questionText": "In TCP Reno, what happens when the sender receives three duplicate ACKs?",
+          "options": [
+            "cwnd is reset to 1 MSS and slow start begins",
+            "The segment is retransmitted and ssthresh and cwnd are set to about half the previous cwnd",
+            "The connection is aborted with RST",
+            "cwnd is doubled to recover quickly"
+          ],
+          "correctIndex": 1,
+          "explanation": "Reno performs fast retransmit and fast recovery: ssthresh = cwnd/2 and cwnd restarts from that value in congestion avoidance. Resetting cwnd to 1 is Tahoe's reaction (and every version's reaction to a timeout).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m001",
+          "questionText": "What is the main function of flow control at the transport layer?",
+          "options": [
+            "To manage congestion inside the routers",
+            "To make sure data is sent no faster than the receiver can accept and process it",
+            "To determine the IP addresses of the two hosts",
+            "To detect bit errors in arriving segments"
+          ],
+          "correctIndex": 1,
+          "explanation": "Flow control protects the receiver's buffer by matching the sending rate to what the receiver can take. Protecting the routers is congestion control, and bit errors are caught by the checksum.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m002",
+          "questionText": "TCP flow control uses a sliding window. Who decides the size of this flow-control window, and how does the other side learn it?",
+          "options": [
+            "The sender, which measures the round-trip time and picks a window from it",
+            "The routers on the path, which write the window into the IP header",
+            "The receiver, which advertises its free buffer space in the window field of every segment it sends",
+            "The application, which fixes the window once when the socket is created"
+          ],
+          "correctIndex": 2,
+          "explanation": "The receive window (rwnd) is set by the receiver from its free buffer space and carried in the 16-bit window field of every segment it sends back. The sender's own limit from the network is the separate congestion window.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m003",
+          "questionText": "What does the congestion window (cwnd) represent in TCP?",
+          "options": [
+            "The free space in the receiver's buffer, advertised in each ACK",
+            "The total number of TCP connections open on the host",
+            "The time the sender waits before retransmitting a segment",
+            "A limit, kept by the sender, on how much unacknowledged data it may have in the network, based on its view of congestion"
+          ],
+          "correctIndex": 3,
+          "explanation": "cwnd is a sender-side variable adjusted by slow start, congestion avoidance and loss reactions; the sender may have at most min(cwnd, rwnd) bytes unacknowledged. The receiver's free buffer space is rwnd, and the retransmission wait is the RTO.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m004",
+          "questionText": "Which algorithms does TCP use for congestion control?",
+          "options": [
+            "Slow start and congestion avoidance",
+            "Token passing",
+            "Cyclic redundancy check",
+            "Distance-vector routing"
+          ],
+          "correctIndex": 0,
+          "explanation": "TCP controls congestion with slow start and congestion avoidance, together with fast retransmit and fast recovery. Token passing is a MAC method, CRC detects errors and distance vector is a routing algorithm.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m005",
+          "questionText": "What is the purpose of buffering at the transport layer?",
+          "options": [
+            "To encrypt sensitive data before it is sent",
+            "To hold data temporarily: at the receiver until the application reads it (and out-of-order segments until the gap is filled), and at the sender until it is acknowledged",
+            "To choose the route that each segment will take",
+            "To compress the data before transmission"
+          ],
+          "correctIndex": 1,
+          "explanation": "Transport buffers absorb the speed difference between the network and the applications and keep sent data for possible retransmission. The free space in the receive buffer is exactly what TCP advertises as its window.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m006",
+          "questionText": "A TCP sender's retransmission timer expires while cwnd = 30 MSS (assume the amount of data in flight equals cwnd). Following standard Tahoe/Reno behaviour, what are the new ssthresh and cwnd?",
+          "options": [
+            "ssthresh = 15 MSS, cwnd = 15 MSS",
+            "ssthresh = 30 MSS, cwnd = 1 MSS",
+            "ssthresh = 15 MSS, cwnd = 1 MSS",
+            "ssthresh = 1 MSS, cwnd = 15 MSS"
+          ],
+          "correctIndex": 2,
+          "explanation": "On a timeout ssthresh = 30 / 2 = 15 MSS and cwnd drops to 1 MSS, so slow start begins again. Setting cwnd = ssthresh = 15 is Reno's reaction to three duplicate ACKs, not to a timeout.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m007",
+          "questionText": "A TCP sender has cwnd = 12,000 bytes, and the receiver's latest advertised window is rwnd = 8,000 bytes. 5,000 bytes have been sent but not yet acknowledged. How many more bytes of new data may the sender transmit right now?",
+          "options": [
+            "3,000",
+            "7,000",
+            "8,000",
+            "12,000"
+          ],
+          "correctIndex": 0,
+          "explanation": "Usable window = min(rwnd, cwnd) - bytes in flight = min(8,000, 12,000) - 5,000 = 3,000 bytes. Using cwnd instead gives 7,000, and ignoring the unacknowledged bytes gives 8,000.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m008",
+          "questionText": "A receiver has a 65,536-byte receive buffer. All bytes up to number 40,000 have arrived in order (LastByteRcvd = 40,000), and the application has read up to byte 22,000 (LastByteRead = 22,000). What window does the receiver advertise?",
+          "options": [
+            "18,000 bytes",
+            "25,536 bytes",
+            "43,536 bytes",
+            "47,536 bytes"
+          ],
+          "correctIndex": 3,
+          "explanation": "rwnd = RcvBuffer - (LastByteRcvd - LastByteRead) = 65,536 - (40,000 - 22,000) = 65,536 - 18,000 = 47,536 bytes. 18,000 bytes is the unread data itself, not the free space.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m009",
+          "questionText": "A TCP sender has sent every byte up to byte 13,000. It then receives an ACK with acknowledgement number 12,001 and an advertised window of 3,000 bytes (the previous ACK was 10,001 with a window of 4,000). cwnd is large enough not to matter. Which bytes may the sender now transmit for the first time?",
+          "options": [
+            "Bytes 13,001 to 14,000",
+            "Bytes 13,001 to 15,000",
+            "Bytes 12,001 to 15,000",
+            "Bytes 13,001 to 16,000"
+          ],
+          "correctIndex": 1,
+          "explanation": "The window now starts at the acknowledged number and covers 3,000 bytes: 12,001 to 15,000. Bytes up to 13,000 are already in flight, so the new bytes are 13,001 to 15,000; 14,000 was the old right edge (10,001 + 4,000 - 1).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m010",
+          "questionText": "A TCP receiver advertises a window of 0 bytes. What does the sender do?",
+          "options": [
+            "It closes the connection because the receiver has failed",
+            "It keeps sending at half its previous rate",
+            "It retransmits all unacknowledged data each time the RTO expires",
+            "It stops sending new data and starts the persist timer; each time the timer expires it sends a small window probe until a non-zero window is advertised"
+          ],
+          "correctIndex": 3,
+          "explanation": "A zero window pauses the sender but keeps the connection open. The persist timer and its window probes guard against deadlock, because the ACK that reopens the window is never retransmitted and could be lost.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m011",
+          "questionText": "A Telnet user types steadily, one character every 50 ms, over a TCP connection with an RTT of 200 ms, and each character is written to the socket as soon as it is typed. With Nagle's algorithm enabled and the receiver acknowledging every segment at once, how many data segments per second does the sender transmit once typing is under way?",
+          "options": [
+            "20 per second",
+            "10 per second",
+            "5 per second",
+            "4 per second"
+          ],
+          "correctIndex": 2,
+          "explanation": "Nagle allows only one small segment to be unacknowledged, so a new segment leaves only when the previous one's ACK returns: one segment per RTT = 1 / 0.2 s = 5 per second, each carrying about 4 characters. Without Nagle every keystroke would be a segment: 20 per second.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m012",
+          "questionText": "A receiver has an 8,000-byte buffer and an MSS of 1,460 bytes. Its buffer is full, so it advertises a window of 0, and its application then starts reading 100 bytes at a time. Using Clark's solution to silly window syndrome, what is the least free space the receiver must have before it advertises a non-zero window?",
+          "options": [
+            "100 bytes",
+            "1,460 bytes",
+            "4,000 bytes",
+            "8,000 bytes"
+          ],
+          "correctIndex": 1,
+          "explanation": "Clark's rule: keep advertising 0 until the free space reaches the smaller of one MSS and half the buffer, min(1,460, 8,000 / 2 = 4,000) = 1,460 bytes. Reopening the window every time 100 bytes are read is exactly the silly window syndrome.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m013",
+          "questionText": "A TCP connection has cwnd = 40 MSS with an MSS of 1,000 bytes, the receiver advertises rwnd = 24,000 bytes, and the RTT is 60 ms. Ignoring headers, what is the maximum throughput (1 Mbps = 10^6 bit/s)?",
+          "options": [
+            "0.4 Mbps",
+            "1.6 Mbps",
+            "3.2 Mbps",
+            "5.3 Mbps"
+          ],
+          "correctIndex": 2,
+          "explanation": "Effective window = min(40 x 1,000, 24,000) = 24,000 bytes; throughput = 24,000 x 8 bits / 0.06 s = 3.2 Mbps. Using cwnd gives 5.3 Mbps, and 0.4 confuses 400,000 bytes/s with bits.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m014",
+          "questionText": "A long-lived TCP Reno flow stays in congestion avoidance: its cwnd grows by 1 segment per RTT from 20 to 40 segments, a single loss detected by three duplicate ACKs then halves it back to 20, and the cycle repeats. With 1,500-byte segments and an RTT of 100 ms, what is its average throughput (1 Mbps = 10^6 bit/s)?",
+          "options": [
+            "0.45 Mbps",
+            "2.4 Mbps",
+            "3.6 Mbps",
+            "4.8 Mbps"
+          ],
+          "correctIndex": 2,
+          "explanation": "The window saws between W/2 = 20 and W = 40 segments, averaging 0.75 x 40 = 30 segments per RTT: 30 x 1,500 x 8 / 0.1 s = 3.6 Mbps. The peak window alone would give 4.8 Mbps and the minimum 2.4 Mbps.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m015",
+          "questionText": "A sender in slow start begins with cwnd = 1 segment and doubles cwnd every RTT; it never reaches ssthresh or rwnd, and there are no losses. How many RTTs (rounds of transmission) does it need to send a 30-segment file?",
+          "options": [
+            "4",
+            "5",
+            "8",
+            "30"
+          ],
+          "correctIndex": 1,
+          "explanation": "Windows of 1, 2, 4, 8 and 16 segments give running totals of 1, 3, 7, 15 and 31, so the 30th segment goes out in round 5. Growing by only one segment per round would need 8 rounds, and stop-and-wait would need 30.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m016",
+          "questionText": "A TCP Tahoe sender and a TCP Reno sender both have cwnd = 24 MSS in congestion avoidance when three duplicate ACKs arrive. Tahoe sets ssthresh = cwnd/2 and restarts slow start at 1 MSS; model Reno as setting cwnd = ssthresh = cwnd/2 after fast recovery (ignore the temporary +3 MSS inflation). Counting the round in which the new cwnd is first used as round 1, what is each sender's cwnd in round 4?",
+          "options": [
+            "Tahoe 8 MSS, Reno 15 MSS",
+            "Tahoe 4 MSS, Reno 14 MSS",
+            "Tahoe 12 MSS, Reno 15 MSS",
+            "Tahoe 8 MSS, Reno 12 MSS"
+          ],
+          "correctIndex": 0,
+          "explanation": "Both set ssthresh = 12. Tahoe restarts at 1 and doubles below ssthresh: 1, 2, 4, 8 in rounds 1 to 4. Reno continues in congestion avoidance from 12: 12, 13, 14, 15.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m017",
+          "questionText": "A TCP Reno sender starts with cwnd = 1 MSS and ssthresh = 32 MSS. cwnd doubles each round in slow start and grows by 1 MSS per round in congestion avoidance. Three duplicate ACKs arrive in round 10, and a timeout occurs in round 13; each reaction takes effect in the next round. Model fast recovery as cwnd = ssthresh = half the cwnd at the loss. What are cwnd and ssthresh in round 17?",
+          "options": [
+            "cwnd = 4 MSS, ssthresh = 10 MSS",
+            "cwnd = 8 MSS, ssthresh = 18 MSS",
+            "cwnd = 24 MSS, ssthresh = 18 MSS",
+            "cwnd = 8 MSS, ssthresh = 10 MSS"
+          ],
+          "correctIndex": 3,
+          "explanation": "Rounds 1 to 6 give 1, 2, 4, 8, 16, 32, then 33 to 36 in rounds 7 to 10; the duplicate ACKs at 36 set ssthresh = cwnd = 18 (rounds 11 to 13: 18, 19, 20). The timeout at 20 sets ssthresh = 10 and cwnd = 1, so rounds 14 to 17 are 1, 2, 4, 8.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m018",
+          "questionText": "A sender transmits segments 1 to 8 back to back. Segment 3 is lost; all the others arrive, and for every segment it receives the receiver sends an ACK naming the next segment it expects. The sender performs fast retransmit on the third duplicate ACK. The ACK caused by the arrival of which segment triggers the retransmission of segment 3?",
+          "options": [
+            "Segment 4",
+            "Segment 5",
+            "Segment 6",
+            "Segment 7"
+          ],
+          "correctIndex": 2,
+          "explanation": "Segment 2's ACK is the first one asking for segment 3; segments 4, 5 and 6 each cause a duplicate of it, and the third duplicate (from segment 6) triggers fast retransmit. Counting segment 2's original ACK as one of the three gives segment 5.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m019",
+          "questionText": "A TCP sender has EstimatedRTT = 100 ms and DevRTT = 10 ms when a new SampleRTT of 140 ms is measured. With α = 1/8 and β = 1/4, updating DevRTT first using the old EstimatedRTT (the order RFC 6298 specifies), what is the new RTO = EstimatedRTT + 4 x DevRTT? Ignore any minimum RTO.",
+          "options": [
+            "145 ms",
+            "160 ms",
+            "175 ms",
+            "210 ms"
+          ],
+          "correctIndex": 2,
+          "explanation": "DevRTT = 0.75 x 10 + 0.25 x |140 - 100| = 17.5 ms; EstimatedRTT = 0.875 x 100 + 0.125 x 140 = 105 ms; RTO = 105 + 4 x 17.5 = 175 ms. Keeping the old DevRTT gives 145 ms, and the old rule RTO = 2 x EstimatedRTT gives 210 ms.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m020",
+          "questionText": "EstimatedRTT is 80 ms. Two new RTT samples are then measured, first 160 ms and then 120 ms. With α = 0.125, what is EstimatedRTT after both updates?",
+          "options": [
+            "90 ms",
+            "93.75 ms",
+            "123.75 ms",
+            "140 ms"
+          ],
+          "correctIndex": 1,
+          "explanation": "After 160 ms: 0.875 x 80 + 0.125 x 160 = 90 ms. After 120 ms: 0.875 x 90 + 0.125 x 120 = 78.75 + 15 = 93.75 ms; 140 ms is the plain average of the samples, and 123.75 ms swaps the two weights.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m021",
+          "questionText": "A segment is sent with RTO = 1 s. The timer expires, the segment is retransmitted, and an ACK covering it arrives 0.3 s after the retransmission. Following Karn's algorithm and exponential backoff, which statement is correct?",
+          "options": [
+            "The sender uses 1.3 s as the RTT sample and recomputes the RTO",
+            "The sender uses 0.3 s as the RTT sample and recomputes the RTO",
+            "No RTT sample is taken, and the RTO goes back to 1 s straight away",
+            "No RTT sample is taken from this segment, and the doubled RTO of 2 s is kept until a segment sent only once gives a valid sample"
+          ],
+          "correctIndex": 3,
+          "explanation": "The ACK could belong to either transmission, so the sample is ambiguous and Karn's rule discards it. The timeout doubled the RTO to 2 s, and that backed-off value stays until an ACK for a segment that was never retransmitted gives a fresh sample.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m022",
+          "questionText": "A host sends a burst at 20 Mbps for 100 ms into a leaky bucket that can hold at most 1 Mbit and drains at a constant 4 Mbps; the bucket is empty at the start. Treating the data as a continuous flow (1 Mbit = 10^6 bits), how much data is discarded?",
+          "options": [
+            "0.4 Mbit",
+            "0.6 Mbit",
+            "1.0 Mbit",
+            "1.6 Mbit"
+          ],
+          "correctIndex": 1,
+          "explanation": "Input = 20 x 0.1 = 2 Mbit and output during the burst = 4 x 0.1 = 0.4 Mbit; the bucket fills after 1 / (20 - 4) = 62.5 ms and then holds 1 Mbit. Discarded = 2 - 0.4 - 1 = 0.6 Mbit.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m023",
+          "questionText": "A token bucket has capacity C = 600 KB, tokens arrive at ρ = 10 MB/s, and the host's line can send at M = 40 MB/s (1 MB = 1,000 KB). The bucket is full when a long burst of data arrives. For how long can the host send at the full 40 MB/s, and how much data does it send in that time?",
+          "options": [
+            "20 ms, sending 800 KB",
+            "15 ms, sending 600 KB",
+            "20 ms, sending 600 KB",
+            "60 ms, sending 2,400 KB"
+          ],
+          "correctIndex": 0,
+          "explanation": "Tokens drain at M while ρ keeps refilling, so S = C / (M - ρ) = 600 KB / 30,000 KB/s = 20 ms. Data sent = M x S = 40,000 KB/s x 0.02 s = 800 KB, which equals C + ρS = 600 + 200 KB; C / M = 15 ms forgets the refill.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "q_ch5_i43_m024",
+          "questionText": "A flow is policed by a token bucket with bucket size b = 4,000 bytes and token rate r = 1,000 bytes/s, and the bucket is full at t = 0. The line is much faster than r. What is the largest amount of data the flow can send in the first 3 s while staying within the bucket's limit?",
+          "options": [
+            "3,000 bytes",
+            "4,000 bytes",
+            "7,000 bytes",
+            "12,000 bytes"
+          ],
+          "correctIndex": 2,
+          "explanation": "The flow may use the saved tokens at once plus every token that arrives: b + r x t = 4,000 + 1,000 x 3 = 7,000 bytes. 3,000 ignores the full bucket and 4,000 ignores the new tokens.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m025",
+          "questionText": "In a token bucket shaper, what happens when the bucket is already full of tokens and more tokens arrive?",
+          "options": [
+            "The extra tokens are discarded, so an idle host can never save up more than the bucket capacity",
+            "Packets waiting in the queue are discarded",
+            "The token rate is doubled for the next burst",
+            "The bucket grows so that the host can later send a longer burst"
+          ],
+          "correctIndex": 0,
+          "explanation": "In a token bucket it is tokens that overflow, not packets: a full bucket simply stops saving, which caps any burst at the bucket size. In a leaky bucket, by contrast, packets are dropped when the bucket (the queue) is full.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m026",
+          "questionText": "Which statement correctly contrasts the leaky bucket and the token bucket?",
+          "options": [
+            "The leaky bucket lets bursts through unchanged, while the token bucket always sends at a constant rate",
+            "Both allow unlimited bursts as long as the long-term average rate is met",
+            "The token bucket discards packets whenever tokens arrive faster than packets",
+            "The leaky bucket sends at a constant rate however bursty the input is, while the token bucket lets an idle host save tokens and later send a burst of up to the bucket size"
+          ],
+          "correctIndex": 3,
+          "explanation": "A leaky bucket smooths any input into a fixed output rate. A token bucket enforces the same long-term average rate but allows controlled bursts of up to its capacity after idle periods.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch5_i43_m027",
+          "questionText": "Which statement about TCP flow control and congestion control is NOT correct?",
+          "options": [
+            "Flow control protects the receiver's buffer, while congestion control protects the network",
+            "The congestion window is advertised by the receiver in the TCP header's window field",
+            "The sender may have at most min(cwnd, rwnd) bytes unacknowledged",
+            "Congestion control reacts to signs such as timeouts and duplicate ACKs"
+          ],
+          "correctIndex": 1,
+          "explanation": "The window field carries rwnd, the receiver's flow-control window; cwnd is computed privately by the sender and never sent. The other three statements are correct.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m028",
+          "questionText": "Why does TCP Reno halve cwnd after three duplicate ACKs but drop it to 1 MSS after a timeout?",
+          "options": [
+            "Duplicate ACKs show that later segments are still reaching the receiver, so congestion is mild; a timeout means nothing is getting through, which suggests heavy congestion",
+            "Duplicate ACKs are sent only by routers, while timeouts are caused by the receiver",
+            "A timeout can happen only during slow start",
+            "Three duplicate ACKs mean that the receiver's buffer is full"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each duplicate ACK is triggered by a segment that did arrive, so the path is still delivering data and a halved window is enough. A timeout means the ACK clock has stopped, so TCP restarts cautiously from 1 MSS.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m029",
+          "questionText": "A latency-sensitive client program contains this code. What does the setsockopt() call do?\n\nimport socket\ns = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\ns.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)",
+          "options": [
+            "It disables delayed ACKs at the receiver",
+            "It sets the advertised receive window to zero",
+            "It disables TCP's congestion control",
+            "It turns off Nagle's algorithm, so small writes are sent at once instead of waiting for outstanding data to be acknowledged"
+          ],
+          "correctIndex": 3,
+          "explanation": "TCP_NODELAY disables Nagle's algorithm on the sending side, so each small write can leave immediately. Delayed ACKs are a receiver behaviour and congestion control stays active.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch5_i43_m030",
+          "questionText": "An application enlarges its socket's receive buffer (SO_RCVBUF) before connecting. Which TCP quantity can this directly make larger?",
+          "options": [
+            "The advertised receive window, rwnd",
+            "The congestion window, cwnd",
+            "The maximum segment size, MSS",
+            "The retransmission timeout, RTO"
+          ],
+          "correctIndex": 0,
+          "explanation": "rwnd is the free space in the receive buffer, so a bigger buffer lets the receiver advertise a bigger window (window scaling is needed above 65,535 bytes, which is why the buffer is set before the handshake). cwnd comes from congestion control, MSS from the MTU and RTO from RTT measurements.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

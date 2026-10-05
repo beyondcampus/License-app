@@ -1,0 +1,530 @@
+{
+  "topicId": "ch5_i51",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: FTP, SSH, PuTTY and WinSCP"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on file transfer and remote access, cleaned up and corrected:",
+      "items": [
+        "FTP uses TCP port 21 for its control connection (commands and replies) and a separate data connection for each file or listing. Port 20 is the server's data port only in active mode; in passive mode the data connection goes to a high port chosen by the server.",
+        "FTP normally needs a user name and password, but public servers may allow anonymous FTP (user name 'anonymous'). Either way the whole session, password included, crosses the network in plain text.",
+        "Active FTP: the server opens the data connection back to the client. Passive FTP: the client opens both connections, which is why passive mode works through NAT and client-side firewalls.",
+        "SFTP and SCP run inside SSH on TCP port 22, so both the login and the file data are encrypted; they, and SSH itself, have replaced FTP and Telnet for administration work.",
+        "PuTTY is a terminal client for remote command-line sessions (SSH, Telnet, serial); WinSCP is a graphical file-transfer client (SFTP, SCP, FTP/FTPS). Both use PuTTY's .ppk private-key format."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "S: 220 ftp.example.com FTP server ready\nC: USER alice                 S: 331 Password required\nC: PASS ********              S: 230 User logged in\nC: TYPE I                     S: 200 Type set to I (binary)\nC: PASV                       S: 227 Entering Passive Mode (203,0,113,8,197,143)\n   client computes 197 x 256 + 143 = 50575 and connects to 203.0.113.8:50575\nC: RETR report.pdf            S: 150 Opening BINARY mode data connection\n   the file flows over the data connection, which then closes\n                              S: 226 Transfer complete\nC: QUIT                       S: 221 Goodbye"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "First digit",
+          "Meaning",
+          "Examples"
+        ],
+        [
+          "1yz",
+          "Positive preliminary: action started, another reply will follow",
+          "125, 150 data connection opening"
+        ],
+        [
+          "2yz",
+          "Positive completion: the action is done",
+          "200 OK, 220 ready, 226 transfer complete, 227 passive mode, 230 logged in"
+        ],
+        [
+          "3yz",
+          "Positive intermediate: send the next command",
+          "331 password needed, 350 pending further information"
+        ],
+        [
+          "4yz",
+          "Transient negative: may succeed if retried later",
+          "421 service not available, 425 cannot open data connection, 426 transfer aborted"
+        ],
+        [
+          "5yz",
+          "Permanent negative: do not repeat unchanged",
+          "500 syntax error, 530 not logged in, 550 file unavailable"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "p = 256\\,p_1 + p_2",
+      "plainText": "Data port p = 256 x p1 + p2, where p1 and p2 are the last two numbers of a PORT command or a 227 PASV reply"
+    },
+    {
+      "type": "paragraph",
+      "text": "TFTP (RFC 1350) has only five message types: read request (RRQ), write request (WRQ), DATA, ACK and ERROR. The client sends its request to UDP port 69, and the server answers from a new ephemeral port that is used for the rest of the transfer. Data moves in numbered 512-byte blocks with stop-and-wait: each block is acknowledged before the next is sent, and is retransmitted if the ACK does not arrive in time. A block shorter than 512 bytes ends the transfer, so a file whose size is an exact multiple of 512 needs a final zero-length block."
+    },
+    {
+      "type": "formula",
+      "latex": "B = \\left\\lfloor \\frac{F}{512} \\right\\rfloor + 1, \\qquad T \\approx B \\cdot RTT",
+      "plainText": "TFTP DATA blocks B = floor(F / 512) + 1 for an F-byte file; stop-and-wait transfer time T is about B x RTT"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: active mode, client sends PORT 172,16,4,20,39,16\nClient address = 172.16.4.20; port = 39 x 256 + 16 = 9984 + 16 = 10000\nServer opens the data connection from its port 20 to 172.16.4.20:10000\nWorked example 2: TFTP, 1800-byte file, RTT = 10 ms, 512-byte blocks\nBlocks = floor(1800 / 512) + 1 = 3 + 1 = 4 (512, 512, 512 and 264 bytes)\nTime = 4 x 10 ms = 40 ms; throughput = 1800 x 8 / 0.040 s = 360 kbit/s\nWorked example 3: one FTP session with 1 listing and 4 downloads\nTCP connections = 1 control + (1 + 4) data = 6"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Tool",
+          "Type",
+          "Main use"
+        ],
+        [
+          "PuTTY",
+          "Terminal client (GUI)",
+          "SSH, Telnet, rlogin, raw TCP and serial sessions"
+        ],
+        [
+          "PuTTYgen",
+          "Key generator",
+          "Creates key pairs; imports OpenSSH keys and saves them as .ppk"
+        ],
+        [
+          "Pageant",
+          "SSH agent",
+          "Holds decrypted private keys for PuTTY, WinSCP and Plink"
+        ],
+        [
+          "PSCP / PSFTP",
+          "Command-line file transfer",
+          "SCP / SFTP copies from scripts and batch files"
+        ],
+        [
+          "Plink",
+          "Command-line SSH",
+          "Runs remote commands non-interactively"
+        ],
+        [
+          "WinSCP",
+          "File manager (GUI)",
+          "SFTP, SCP, FTP/FTPS, WebDAV, S3; synchronisation and scripting"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "SSH features you use through PuTTY and WinSCP:",
+      "items": [
+        "Host-key check: on first contact the client shows the server's key fingerprint; once accepted, the key is cached, and a changed key triggers a warning that may mean a man-in-the-middle.",
+        "Public-key login: the server keeps the user's public key in ~/.ssh/authorized_keys, the private key stays on the client (in .ppk format for PuTTY), and the client proves it holds the key by signing a challenge.",
+        "Local port forwarding (PuTTY: Connection > SSH > Tunnels, or ssh -L 8080:10.0.0.5:80 gateway): connections to a local port are carried through the encrypted session, and the SSH server opens the onward connection.",
+        "scp syntax: scp [-P port] [-r] source destination, where a remote side is written user@host:path and the first argument is always the source.",
+        "WinSCP extras: Commander and Explorer interfaces, directory synchronisation ('Keep remote directory up to date'), a built-in editor, and scripting with winscp.com /script=file."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: port 20 is not used in passive mode; FTPS (FTP plus TLS, on port 21 with AUTH TLS or implicitly on 990) is not SFTP (an SSH subsystem on port 22); PuTTY's host-key cache holds server keys, while authorized_keys holds users' public keys; and a private key is never copied to the server."
+    },
+    {
+      "type": "examTip",
+      "text": "For PORT and PASV numbers, the first four values are the IP address and the port is 256 x fifth value + sixth value. For TFTP, divide the file size by 512, round down and add one to get the number of DATA blocks."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i51_m001",
+      "questionText": "What does FTP stand for?",
+      "options": [
+        "File Transmission Protocol",
+        "File Transfer Protocol",
+        "Fast Transfer Program",
+        "File Transfer Process"
+      ],
+      "correctIndex": 1,
+      "explanation": "FTP, the File Transfer Protocol (RFC 959), copies files between a client and a server over TCP, using port 21 for commands and a separate data connection for the files themselves.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m002",
+      "questionText": "What is PuTTY mainly used for?",
+      "options": [
+        "Logging in to a remote computer's command line over SSH (it also supports Telnet and serial connections)",
+        "Hosting and managing websites",
+        "Encrypting files stored on a local disk",
+        "Capturing and analysing network packets"
+      ],
+      "correctIndex": 0,
+      "explanation": "PuTTY is a free terminal client for Windows that opens remote shell sessions, mostly over SSH on port 22, and also Telnet, rlogin, raw TCP and serial lines. Packet capture is Wireshark's job.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m003",
+      "questionText": "Which Windows tool gives a graphical, drag-and-drop interface for copying files to and from a server securely over SSH (SFTP or SCP)?",
+      "options": [
+        "PuTTY",
+        "Cisco Packet Tracer",
+        "WinSCP",
+        "DNS Manager"
+      ],
+      "correctIndex": 2,
+      "explanation": "WinSCP is a graphical file-transfer client for SFTP and SCP (plus FTP/FTPS, WebDAV and S3). PuTTY is a terminal client for remote command-line sessions, Packet Tracer is a network simulator and DNS Manager administers DNS zones.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m004",
+      "questionText": "Which statement about FTP's two connections is correct?",
+      "options": [
+        "Commands and file data share a single TCP connection on port 21",
+        "One data connection stays open for the whole session, and a new control connection is opened for each command",
+        "Both connections use UDP so that files can move faster",
+        "The control connection to server port 21 stays open for the whole session, while each file transfer or directory listing uses its own data connection"
+      ],
+      "correctIndex": 3,
+      "explanation": "FTP sends its control information out of band: commands and replies travel on the long-lived control connection (port 21), and a separate data connection (from port 20 in active mode) is opened and closed for each file or listing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m005",
+      "questionText": "In active-mode FTP, which side opens the data connection?",
+      "options": [
+        "The client, from a random port to the server's port 20",
+        "The server, from its port 20 to the IP address and port that the client gave in its PORT command",
+        "The client, to a high port that the server announced in its PASV reply",
+        "The server, by reusing the control connection on port 21"
+      ],
+      "correctIndex": 1,
+      "explanation": "In active mode the client listens on a port and announces it with PORT, and the server connects out from port 20. The client connecting to a port announced by the server is passive mode (PASV).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m006",
+      "questionText": "An FTP server answers the PASV command with:\n227 Entering Passive Mode (192,168,10,5,195,80)\nTo which address and port does the client open the data connection?",
+      "options": [
+        "192.168.10.5, port 19580",
+        "192.168.10.5, port 275",
+        "192.168.10.5, port 50000",
+        "192.168.10.5, port 20"
+      ],
+      "correctIndex": 2,
+      "explanation": "The six numbers are four address bytes and two port bytes: port = 195 x 256 + 80 = 49,920 + 80 = 50,000. Writing the two bytes side by side (19580) or adding them (275) are common slips, and port 20 belongs to active mode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m007",
+      "questionText": "An FTP client at 10.0.0.7 (no NAT) sends the command PORT 10,0,0,7,19,137 and then RETR report.pdf. Which TCP connection carries the file?",
+      "options": [
+        "A connection opened by the server from its port 20 to 10.0.0.7 port 5001",
+        "A connection opened by the client from 10.0.0.7 port 5001 to the server's port 20",
+        "The existing control connection between the client and server port 21",
+        "A connection opened by the server from its port 20 to 10.0.0.7 port 19137"
+      ],
+      "correctIndex": 0,
+      "explanation": "PORT gives the client's listening address and port: 19 x 256 + 137 = 4864 + 137 = 5001. In active mode the server opens the data connection from port 20 to 10.0.0.7:5001 and sends the file over it.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m008",
+      "questionText": "Which FTP protocol command uploads (stores) a file from the client to the server?",
+      "options": [
+        "RETR",
+        "LIST",
+        "DELE",
+        "STOR"
+      ],
+      "correctIndex": 3,
+      "explanation": "STOR uploads a file and RETR downloads one; a command-line client's put and get are translated into STOR and RETR. LIST returns a directory listing and DELE deletes a remote file.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m009",
+      "questionText": "During an FTP login the server replies 331 User name okay, need password. What does the first digit 3 of an FTP reply code mean?",
+      "options": [
+        "Positive completion: the requested action has been fully carried out",
+        "Transient negative: the command failed but may succeed if repeated later",
+        "Positive intermediate: the command was accepted, but another command (here PASS) is needed to complete it",
+        "Permanent negative: the command failed and should not be repeated unchanged"
+      ],
+      "correctIndex": 2,
+      "explanation": "FTP reply codes start with 1 (positive preliminary), 2 (positive completion), 3 (positive intermediate), 4 (transient negative) or 5 (permanent negative). 331 therefore asks the client to continue with PASS, after which 230 confirms the login.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m010",
+      "questionText": "An FTP session shows these lines:\nC: USER alice\nS: 331 Password required for alice\nC: PASS summer26\nS: 230 User logged in\nC: PASV\nS: 227 Entering Passive Mode (198,51,100,20,78,32)\nC: RETR sales.csv\nS: 550 sales.csv: No such file or directory\nWhat happened?",
+      "options": [
+        "The login failed, because 331 is an error reply",
+        "Alice logged in, but the download failed permanently because the requested file does not exist",
+        "The data connection could not be opened, so the client should simply retry later",
+        "The file was transferred, and 550 confirms that the transfer is complete"
+      ],
+      "correctIndex": 1,
+      "explanation": "331 followed by 230 is a successful login, and 227 gives the passive data port. 550 is a permanent negative reply meaning the file is unavailable; a failed data connection would be 425, and a successful transfer ends with 226.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m011",
+      "questionText": "An FTP client sits behind a firewall that allows only outgoing connections. In one passive-mode session it lists the remote directory once and then downloads 3 files. How many TCP connections does the client open, and to which server ports?",
+      "options": [
+        "4: one to port 21 and three to port 20",
+        "2: one to port 21 and one to port 20 that carries all the data",
+        "5: one to port 21, plus four that the server opens from its port 20",
+        "5: one to port 21 and four to the high ports announced in the server's 227 replies"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every listing or file needs its own data connection, so there are 1 + (1 + 3) = 5 connections. In passive mode the client opens all of them, the data connections going to the ports given in the 227 replies, which an outbound-only firewall allows; the server connecting from port 20 would be active mode.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m012",
+      "questionText": "A 30 MB file is downloaded by FTP at an average throughput of 12 Mbps. Taking 1 MB = 10^6 bytes and 1 Mbps = 10^6 bit/s, and ignoring set-up delays, how long does the transfer take?",
+      "options": [
+        "20 s",
+        "2.5 s",
+        "0.3125 s",
+        "160 s"
+      ],
+      "correctIndex": 0,
+      "explanation": "T = 8F / R = (30 x 10^6 x 8 bit) / (12 x 10^6 bit/s) = 240 / 12 = 20 s. Forgetting the factor 8 gives 2.5 s.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m013",
+      "questionText": "A ZIP archive downloaded with a command-line FTP client from a Linux server to a Windows PC arrives corrupted, while text files transfer correctly. What is the most likely cause?",
+      "options": [
+        "Passive mode was used instead of active mode",
+        "The control connection on port 21 was closed during the transfer",
+        "The transfer used ASCII mode (TYPE A), which rewrote line-ending bytes; binary mode (TYPE I) must be used for such files",
+        "The file was larger than TFTP's 512-byte block size"
+      ],
+      "correctIndex": 2,
+      "explanation": "ASCII mode converts between LF and CR LF line endings, which corrupts any byte in a binary file that happens to look like a line ending. Binary (image) mode copies every byte unchanged; active or passive mode does not change the contents.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m014",
+      "questionText": "What is anonymous FTP?",
+      "options": [
+        "FTP that hides the client's IP address from the server",
+        "Access to a public FTP server by logging in with the user name 'anonymous' instead of a personal account",
+        "FTP in which the password is encrypted with SSH",
+        "A mode of FTP that needs no control connection"
+      ],
+      "correctIndex": 1,
+      "explanation": "Public download servers often accept the user name anonymous (or ftp), traditionally with an e-mail address as the password, so FTP does not always need a personal account. It gives no privacy or encryption: the session is still plain text.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m015",
+      "questionText": "Which statement about TFTP is correct?",
+      "options": [
+        "It has no login and no directory listing, and is used mainly to boot diskless hosts and to load router or switch images and configurations",
+        "It encrypts every block with the user's SSH key",
+        "It uses a TCP control connection on port 69 and a separate data connection",
+        "It can resume an interrupted transfer from any byte offset"
+      ],
+      "correctIndex": 0,
+      "explanation": "TFTP keeps only read and write requests, 512-byte DATA blocks, ACKs and error messages over UDP, which makes it small enough for boot ROMs (PXE) and network devices. It offers no authentication, encryption or resume.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m016",
+      "questionText": "A 2048-byte file is sent with TFTP using the default 512-byte blocks and no losses. How many DATA packets are sent, and how much data does the last one carry?",
+      "options": [
+        "4 packets; the last one carries 512 bytes",
+        "5 packets; the last one carries 512 bytes",
+        "4 packets; the last one carries 0 bytes",
+        "5 packets; the last one carries 0 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "A DATA packet with fewer than 512 data bytes marks the end of the file. 2048 = 4 x 512, so after 4 full blocks the sender adds a fifth DATA packet carrying 0 bytes to signal the end.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m017",
+      "questionText": "TFTP sends 512-byte blocks with stop-and-wait: each DATA block must be acknowledged before the next is sent. A 6000-byte configuration file is sent over a path with RTT = 25 ms. Ignoring transmission times, processing and the initial request, how long does the transfer take, from sending the first DATA block until the sender receives the ACK for the last one?",
+      "options": [
+        "275 ms",
+        "300 ms",
+        "150 ms",
+        "25 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Blocks = floor(6000 / 512) + 1 = 11 full blocks + one 368-byte block = 12, and each costs one RTT: 12 x 25 ms = 300 ms. Forgetting the last partial block gives 275 ms, and charging only the one-way delay gives 150 ms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m018",
+      "questionText": "Which statement about SFTP and FTPS is correct?",
+      "options": [
+        "SFTP is FTP over SSL on port 990, while FTPS runs over SSH on port 22",
+        "Both use port 21 and differ only in the cipher they choose",
+        "SFTP is an SSH subsystem that uses one connection on port 22, while FTPS is classic FTP protected by TLS, with separate control and data connections",
+        "SFTP is TFTP with encryption added, so it runs over UDP"
+      ],
+      "correctIndex": 2,
+      "explanation": "SFTP (SSH File Transfer Protocol) is not FTP at all: it runs inside an SSH connection. FTPS keeps FTP's commands and two connections and wraps them in TLS, explicitly on port 21 or implicitly on port 990.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m019",
+      "questionText": "Which pairing correctly describes the two ways of running FTPS?",
+      "options": [
+        "Explicit FTPS: connect to port 21 and send AUTH TLS before logging in; implicit FTPS: TLS starts at once on port 990",
+        "Explicit FTPS: TLS starts at once on port 990; implicit FTPS: connect to port 21 and send AUTH TLS",
+        "Explicit FTPS: connect to port 22 and start SSH; implicit FTPS: connect to port 21 and send STARTTLS",
+        "Explicit FTPS: the password is sent base64-encoded; implicit FTPS: the password is sent in plain text"
+      ],
+      "correctIndex": 0,
+      "explanation": "In explicit FTPS (RFC 4217) the client asks for protection on the normal control port with AUTH TLS; implicit FTPS expects a TLS handshake as soon as the client connects to port 990 (with data on 989). Base64 is only an encoding, not encryption.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m020",
+      "questionText": "Both SCP and SFTP run over SSH on port 22. What does the classic SCP protocol lack compared with SFTP?",
+      "options": [
+        "Encryption of the file contents",
+        "Authentication with SSH keys",
+        "The ability to copy whole directories recursively",
+        "Directory listing, resuming interrupted transfers and remote file management such as renaming and deleting"
+      ],
+      "correctIndex": 3,
+      "explanation": "SCP only copies files (recursively with -r) inside an encrypted SSH session, with the same password or key authentication. SFTP is a full file-access protocol that can also list, resume, rename and delete, which is why WinSCP and modern OpenSSH prefer it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m021",
+      "questionText": "What does the command scp -P 2222 backup.tar admin@203.0.113.9:/srv/ do?",
+      "options": [
+        "Downloads /srv/backup.tar from 203.0.113.9 into the local folder",
+        "Copies the local file backup.tar to the /srv/ folder on 203.0.113.9, logging in as admin over SSH on port 2222",
+        "Copies backup.tar to the server over plain FTP on port 2222",
+        "Copies backup.tar over SSH on port 22 and sets its permissions to 2222"
+      ],
+      "correctIndex": 1,
+      "explanation": "scp copies from its first argument to its second, and user@host:path names a remote location, so this is an upload. The -P option (capital P) selects the SSH port instead of the default 22.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m022",
+      "questionText": "A network engineer captures a Telnet session to a router with Wireshark. What can she read in the capture?",
+      "options": [
+        "Nothing, because Telnet encrypts the session with TLS",
+        "Only the port numbers, because Telnet encrypts its payload with DES",
+        "The user name, the password and every command, all in plain text",
+        "Only the router's host-key fingerprint"
+      ],
+      "correctIndex": 2,
+      "explanation": "Telnet sends every keystroke unencrypted, so following the TCP stream in Wireshark reveals the login and all the commands. SSH encrypts the same kind of session, which is why it has replaced Telnet for remote administration.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m023",
+      "questionText": "Telnet, the older unencrypted remote-login protocol, listens on which TCP port?",
+      "options": [
+        "21",
+        "22",
+        "25",
+        "23"
+      ],
+      "correctIndex": 3,
+      "explanation": "Telnet uses TCP port 23. Port 21 is FTP control, 22 is SSH (and SFTP/SCP) and 25 is SMTP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i51_m024",
+      "questionText": "SSH is built from three protocols. Which order is correct, from the one running directly over TCP up to the one that carries shell sessions and tunnels?",
+      "options": [
+        "Transport layer protocol, then user authentication protocol, then connection protocol",
+        "User authentication protocol, then transport layer protocol, then connection protocol",
+        "Connection protocol, then transport layer protocol, then user authentication protocol",
+        "Transport layer protocol, then connection protocol, then user authentication protocol"
+      ],
+      "correctIndex": 0,
+      "explanation": "The transport layer protocol (RFC 4253) authenticates the server, exchanges keys and encrypts; the user authentication protocol (RFC 4252) then checks the password or key; and the connection protocol (RFC 4254) multiplexes channels for shells, SFTP and port forwarding.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m025",
+      "questionText": "The first time PuTTY connects to a server, it shows a security alert saying the server's host key is not cached and displays the key's fingerprint. What is this check for?",
+      "options": [
+        "Checking the strength of the user's password",
+        "Creating the user's own public/private key pair",
+        "Letting the user confirm the server's identity, so that a man-in-the-middle cannot pose as the server",
+        "Checking that the server's TLS certificate was issued by a trusted CA"
+      ],
+      "correctIndex": 2,
+      "explanation": "SSH authenticates the server by its host key; the user should compare the fingerprint with one obtained from the administrator. PuTTY then caches the key and warns loudly if it ever changes, which may indicate an attack.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m026",
+      "questionText": "An administrator sets up key-based SSH login from PuTTY to a Linux server. Which arrangement is correct?",
+      "options": [
+        "Copy the private key into the server's authorized_keys file and keep the public key on the client",
+        "Generate the key pair in PuTTYgen, add the public key to ~/.ssh/authorized_keys on the server, and keep the passphrase-protected private key (.ppk) on the client",
+        "Send the private key to the server at each login so that the server can compare it with its stored copy",
+        "Put the public key in the server's known_hosts file and the private key in PuTTY's host-key cache"
+      ],
+      "correctIndex": 1,
+      "explanation": "The server stores only the public key; at login the client proves it holds the matching private key by signing a challenge, so the private key never leaves the client. known_hosts and PuTTY's host-key cache hold server host keys, not user keys.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m027",
+      "questionText": "What does Pageant, part of the PuTTY suite, do?",
+      "options": [
+        "Generates new RSA and Ed25519 key pairs",
+        "Copies files from the command line over SCP",
+        "Converts Telnet sessions into SSH sessions",
+        "Holds decrypted private keys in memory so that PuTTY and WinSCP can authenticate without asking for the passphrase every time"
+      ],
+      "correctIndex": 3,
+      "explanation": "Pageant is PuTTY's SSH authentication agent: the passphrase is typed once and later logins use the cached key. PuTTYgen generates keys, and PSCP and PSFTP are the command-line file-transfer tools.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m028",
+      "questionText": "A new switch has not yet been given an IP address. How can an administrator open its command-line interface with PuTTY?",
+      "options": [
+        "Select the Serial connection type and use the console cable's COM port at the device's speed, typically 9600 bit/s",
+        "Open an SSH session to the address 0.0.0.0",
+        "Open a Telnet session to the switch's MAC address",
+        "Open WinSCP in SCP mode and browse the switch's file system"
+      ],
+      "correctIndex": 0,
+      "explanation": "Without an IP address SSH and Telnet cannot reach the device, but PuTTY also drives serial lines for out-of-band console access. Cisco consoles typically use 9600 baud, 8 data bits, no parity and 1 stop bit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i51_m029",
+      "questionText": "In PuTTY, a user connects by SSH to gateway.example.com and adds a local port forward with source port 8080 and destination 10.0.0.5:80. What happens when the user's browser then opens http://localhost:8080?",
+      "options": [
+        "The browser connects straight to 10.0.0.5 port 80 without using SSH",
+        "gateway.example.com opens port 8080 to everyone on the Internet",
+        "PuTTY carries the connection inside the encrypted SSH session to gateway.example.com, which then connects to 10.0.0.5 port 80",
+        "PuTTY sends the request by Telnet to 10.0.0.5 on port 8080"
+      ],
+      "correctIndex": 2,
+      "explanation": "A local forward makes PuTTY listen on the client's port 8080; each connection to it is tunnelled through the SSH session, and the gateway opens the onward connection to 10.0.0.5:80. Only the hop from the gateway to 10.0.0.5 is outside the encrypted tunnel.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i51_m030",
+      "questionText": "Which list contains only protocols that WinSCP can use to transfer files?",
+      "options": [
+        "SMTP, POP3 and IMAP",
+        "SFTP, SCP, FTP/FTPS, WebDAV and Amazon S3",
+        "Telnet, rlogin and serial",
+        "DNS, DHCP and SNMP"
+      ],
+      "correctIndex": 1,
+      "explanation": "WinSCP is a file-transfer client: SFTP is its default protocol, and SCP, FTP (optionally with TLS), WebDAV and S3 are also supported. Interactive Telnet, rlogin and serial sessions are PuTTY's job.",
+      "difficulty": "easy"
+    }
+  ]
+}

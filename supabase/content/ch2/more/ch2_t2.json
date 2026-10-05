@@ -1,0 +1,698 @@
+{
+  "topicId": "ch2_t2",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Combinational Circuits"
+    },
+    {
+      "type": "paragraph",
+      "text": "Most design questions begin as a sentence, and the hard part is turning it into a truth table. Name every input and output and state what 1 means for each (door open = 1, belt fastened = 1), decide which input combinations can never occur so they become don't-cares, and write one output column per function. Words such as 'either ... or', 'both', 'at least two' and 'unless' map to OR, AND, a threshold function and an AND with a complemented input. Only after the table is complete should K-maps be drawn, one per output."
+    },
+    {
+      "type": "heading",
+      "text": "Worked Example: BCD to Excess-3 Converter"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Inputs ABCD = BCD digit (A = MSB); outputs wxyz = digit + 3\nDigit  ABCD  wxyz        Digit  ABCD  wxyz\n  0    0000  0011          5    0101  1000\n  4    0100  0111          9    1001  1100\nDon't-cares: 1010 to 1111 (never applied)\n\nK-map results (Xs used where they enlarge groups):\n  w = A + BC + BD\n  x = B'C + B'D + BC'D'\n  y = CD + C'D'      (C XNOR D)\n  z = D'\nGates: 1 inverter for z, 1 XNOR for y, AND-OR logic for w and x"
+    },
+    {
+      "type": "paragraph",
+      "text": "Analysis runs the other way. Label the output of every gate (T1, T2 ...), write each label as a function of the signals feeding it, working from the inputs toward the output, then substitute and simplify. Finally build the truth table and describe the behaviour in words. Two quick checks help: a NAND-NAND pair of levels is an AND-OR circuit, and a NOR-NOR pair is an OR-AND circuit, so many exam diagrams can be read at a glance."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Circuit",
+          "Inputs to outputs",
+          "Key equations"
+        ],
+        [
+          "Binary to Gray",
+          "n bits to n bits",
+          "G(n-1) = B(n-1); Gi = B(i+1) ⊕ Bi"
+        ],
+        [
+          "Gray to binary",
+          "n bits to n bits",
+          "B(n-1) = G(n-1); Bi = B(i+1) ⊕ Gi"
+        ],
+        [
+          "BCD to excess-3",
+          "4 bits to 4 bits",
+          "Add 0011; z = D', y = CD + C'D'"
+        ],
+        [
+          "Even parity generator",
+          "n data bits to 1",
+          "P = XOR of all data bits"
+        ],
+        [
+          "Parity checker",
+          "n + 1 bits to 1",
+          "Error = XOR of all received bits"
+        ],
+        [
+          "1-bit comparator",
+          "2 bits to 3 flags",
+          "G = AB', E = A ⊙ B, L = A'B"
+        ],
+        [
+          "BCD to 7-segment",
+          "4 bits to 7 segments",
+          "One K-map per segment, 6 don't-cares"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "xi = AiBi + Ai'Bi'   (1 when bit i is equal)\n(A=B) = x3 x2 x1 x0\n(A>B) = A3B3' + x3A2B2' + x3x2A1B1' + x3x2x1A0B0'\n(A<B) = A3'B3 + x3A2'B2 + x3x2A1'B1 + x3x2x1A0'B0\n\nTrace: A = 0110, B = 0101\n  bit 3: 0,0 -> x3 = 1     bit 2: 1,1 -> x2 = 1\n  bit 1: 1,0 -> x3x2A1B1' = 1  => (A>B) = 1\n  (A=B) = 0 because x1 = 0;  6 > 5 confirmed"
+    },
+    {
+      "type": "paragraph",
+      "text": "A parity generator adds one bit so that the total number of 1s is even (even parity) or odd (odd parity); the even-parity bit is simply the XOR of the data bits and the odd-parity bit is its complement. At the receiver a checker XORs all bits, including the parity bit, and a 1 flags an error. Parity detects any odd number of bit errors but misses every even number, and it cannot say which bit is wrong. The same XOR tree also builds Gray-code converters, which is why XOR gates dominate this family of circuits."
+    },
+    {
+      "type": "formula",
+      "latex": "t_{pd} = \\frac{t_{PHL} + t_{PLH}}{2}, \\quad t_{path} = \\sum_{\\text{gates on path}} t_{pd,i}",
+      "plainText": "tpd = (tPHL + tPLH)/2; path delay = sum of the delays of the gates on that path"
+    },
+    {
+      "type": "paragraph",
+      "text": "A combinational output is valid only after the slowest input-to-output path, the critical path, has settled. For a two-level SOP with input inverters that is inverter + AND + OR. Wide functions should be built as balanced trees rather than chains: combining 8 signals with 2-input gates takes 7 gates either way, but a tree has log₂8 = 3 levels while a chain has 7. Paths of unequal length also create short glitches, which is harmless in a combinational block that is sampled later but dangerous if the output drives a clock or asynchronous reset."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Segment c of a BCD-to-7-segment decoder (A = MSB)\nc is lit for 0, 1, 3, 4, 5, 6, 7, 8, 9 (dark only for 2 = 0010)\nc = Σm(0,1,3,4,5,6,7,8,9) + d(10-15)\nGroups: B (rows 01 and 11), C' (columns 00 and 01), D (columns 01 and 11)\nc = B + C' + D   -> 0 only when B = 0, C = 1, D = 0 (digits 2 and code 1010)"
+    },
+    {
+      "type": "warning",
+      "text": "Frequent mistakes: in Gray-to-binary conversion XOR each Gray bit with the previous BINARY bit, not the previous Gray bit; decide whether the display is common-anode (active-low drive) or common-cathode (active-high) before writing segment equations; state the 6 don't-cares of a BCD circuit or the minimal answer comes out larger; and count every gate level, including input inverters, when finding the worst-case delay."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_t2_m001",
+      "questionText": "The 4-bit binary number 1011₂ converted to Gray code is:",
+      "options": [
+        "1001",
+        "1110",
+        "0111",
+        "1101"
+      ],
+      "correctIndex": 1,
+      "explanation": "G3 = B3 = 1, G2 = B3 ⊕ B2 = 1 ⊕ 0 = 1, G1 = B2 ⊕ B1 = 0 ⊕ 1 = 1, G0 = B1 ⊕ B0 = 1 ⊕ 1 = 0, giving 1110.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m002",
+      "questionText": "A three-member committee votes on a motion. Member A has 2 votes and members B and C have 1 vote each; each input is 1 for a yes vote. The motion passes (F = 1) when it receives at least 3 votes. The minimal expression for F is:",
+      "options": [
+        "AB + BC + AC",
+        "A + BC",
+        "ABC",
+        "AB + AC"
+      ],
+      "correctIndex": 3,
+      "explanation": "A with B or with C gives 3 or 4 votes, while A alone or B and C together give only 2. So F = Σm(5, 6, 7) (A = MSB), which groups to AB + AC = A(B + C).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m003",
+      "questionText": "Two 16-bit numbers are to be compared using 7485 4-bit magnitude comparators connected in a serial cascade. How many 7485 ICs are needed?",
+      "options": [
+        "16",
+        "8",
+        "2",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each 7485 compares 4 bits, so 16 ÷ 4 = 4 ICs are chained. The A>B, A=B and A<B outputs of each IC drive the cascade inputs of the next more significant IC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m004",
+      "questionText": "The excess-3 code word 1001 represents which decimal digit?",
+      "options": [
+        "9",
+        "6",
+        "12",
+        "3"
+      ],
+      "correctIndex": 1,
+      "explanation": "Subtract 3 from the binary value: 1001₂ = 9, and 9 - 3 = 6.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m005",
+      "questionText": "In a 4-bit binary-to-Gray code converter with input B3 B2 B1 B0 (B3 = MSB), the output G1 is:",
+      "options": [
+        "B1 ⊕ B0",
+        "B3 ⊕ B2 ⊕ B1",
+        "B2 ⊙ B1",
+        "B2 ⊕ B1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each Gray bit is the XOR of the binary bit in the same position and the next more significant bit: G1 = B2 ⊕ B1 (G3 = B3).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m006",
+      "questionText": "In a 4-bit Gray-to-binary converter with input G3 G2 G1 G0 (G3 = MSB), the output B1 is:",
+      "options": [
+        "G3 ⊕ G2 ⊕ G1",
+        "G2 ⊕ G1",
+        "G1 ⊕ G0",
+        "G3 ⊕ G1"
+      ],
+      "correctIndex": 0,
+      "explanation": "Binary bits accumulate the XOR of all Gray bits from the MSB down: B3 = G3, B2 = G3 ⊕ G2, B1 = G3 ⊕ G2 ⊕ G1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m007",
+      "questionText": "A BCD-to-excess-3 converter has BCD input ABCD (A = MSB) and output wxyz. With the unused codes 1010 to 1111 as don't-cares, the least significant output z simplifies to:",
+      "options": [
+        "D'",
+        "D",
+        "C ⊕ D",
+        "C'D'"
+      ],
+      "correctIndex": 0,
+      "explanation": "Adding 3 (binary 0011) always inverts the LSB, since 1 + 1 gives 0 and 0 + 1 gives 1. So z = D'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m008",
+      "questionText": "For the same BCD-to-excess-3 converter (input ABCD, don't-cares 1010 to 1111), the most significant output w is:",
+      "options": [
+        "A + BC + BD'",
+        "AB + CD",
+        "A + BC + BD",
+        "A + BCD"
+      ],
+      "correctIndex": 2,
+      "explanation": "w = 1 for digits 5 to 9 (5 + 3 = 8 and above). On the K-map, the don't-cares let A cover 8 and 9, and the 1s at 5, 6, 7 are covered by BD and BC, so w = A + BC + BD.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m009",
+      "questionText": "How many 2-input XOR gates are needed for a 4-bit binary-to-Gray code converter?",
+      "options": [
+        "4",
+        "3",
+        "2",
+        "7"
+      ],
+      "correctIndex": 1,
+      "explanation": "G3 = B3 needs no gate; G2, G1 and G0 each need one 2-input XOR, giving n - 1 = 3 gates.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m010",
+      "questionText": "The 4-bit Gray code for decimal 7 is:",
+      "options": [
+        "0111",
+        "0101",
+        "0100",
+        "1000"
+      ],
+      "correctIndex": 2,
+      "explanation": "7 = 0111₂. G3 = 0, G2 = 0 ⊕ 1 = 1, G1 = 1 ⊕ 1 = 0, G0 = 1 ⊕ 1 = 0, so the Gray code is 0100.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m011",
+      "questionText": "A two-output circuit needs F1 = AB + AC and F2 = AB + BC, built as two-level AND-OR logic in which AND gates may be shared between outputs. How many AND gates are required?",
+      "options": [
+        "4",
+        "3",
+        "2",
+        "6"
+      ],
+      "correctIndex": 1,
+      "explanation": "The product AB appears in both outputs, so one AND gate serves both OR gates. The distinct products are AB, AC and BC, giving 3 AND gates (4 without sharing).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m012",
+      "questionText": "An odd-parity generator receives the data word 1011001. Which statement is correct?",
+      "options": [
+        "The parity bit is 1, because the data contains an even number of 1s",
+        "The parity bit is 0, because the data contains an even number of 1s",
+        "The parity bit is 1, because the data contains an odd number of 1s",
+        "The parity bit is 0, because the data contains an odd number of 1s"
+      ],
+      "correctIndex": 0,
+      "explanation": "1011001 has four 1s. For odd parity the total including the parity bit must be odd, so P = 1 (five 1s in all).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m013",
+      "questionText": "An even-parity checker receives the 5-bit word 10110 (4 data bits followed by the parity bit). The checker:",
+      "options": [
+        "Detects an error, because the word has an odd number of 1s",
+        "Detects no error, because the parity bit is 0",
+        "Detects no error, because the word has an odd number of 1s",
+        "Detects an error, because the word has an even number of 1s"
+      ],
+      "correctIndex": 0,
+      "explanation": "10110 contains three 1s. With even parity every correct word has an even count, so the checker output (the XOR of all five bits) is 1 and an error is flagged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m014",
+      "questionText": "While deriving the truth table of a combinational circuit, a row whose input combination can never occur should be entered as:",
+      "options": [
+        "A 0, because an input that never occurs must give a 0 output",
+        "A 1, so that the K-map groups become larger",
+        "Nothing; the row is deleted and the table has fewer than 2^n rows",
+        "A don't-care (X), which may be taken as 0 or 1 during simplification"
+      ],
+      "correctIndex": 3,
+      "explanation": "Impossible input combinations are marked X. The designer may then treat each X as 0 or 1, whichever gives the simpler expression; forcing them all to 0 or 1 usually gives a larger circuit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m015",
+      "questionText": "An even-parity generator for 8 data bits is built from 2-input XOR gates only. The minimum number of gates required is:",
+      "options": [
+        "7",
+        "8",
+        "4",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Combining n signals with 2-input gates needs n - 1 gates, so 8 - 1 = 7 XOR gates (arranged as a chain or as a tree).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m016",
+      "questionText": "An 8-bit parity generator uses 2-input XOR gates, each with a propagation delay of 15 ns, arranged as a balanced tree. What is the worst-case delay from any input to the parity output?",
+      "options": [
+        "45 ns",
+        "105 ns",
+        "120 ns",
+        "30 ns"
+      ],
+      "correctIndex": 0,
+      "explanation": "A balanced tree of 2-input gates for 8 inputs has log₂8 = 3 levels, so the delay is 3 × 15 = 45 ns. A chain of the same 7 gates would take 7 × 15 = 105 ns.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m017",
+      "questionText": "The parity bit P of a 3-bit odd-parity generator with inputs A, B, C is:",
+      "options": [
+        "A ⊕ B ⊕ C",
+        "AB + BC + AC",
+        "A ⊕ B + C",
+        "(A ⊕ B ⊕ C)'"
+      ],
+      "correctIndex": 3,
+      "explanation": "A ⊕ B ⊕ C is 1 when the data has an odd number of 1s; for odd parity P must then be 0, so P is the complement (XNOR form).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m018",
+      "questionText": "In a 1-bit magnitude comparator with inputs A and B, the output for A > B is:",
+      "options": [
+        "AB'",
+        "A'B",
+        "A ⊙ B",
+        "A + B'"
+      ],
+      "correctIndex": 0,
+      "explanation": "A > B only when A = 1 and B = 0, so the output is AB'. A'B is the A < B output and A ⊙ B the A = B output.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m019",
+      "questionText": "The A = B output of a 1-bit comparator is:",
+      "options": [
+        "A'B + AB'",
+        "A'B'",
+        "AB",
+        "A'B' + AB"
+      ],
+      "correctIndex": 3,
+      "explanation": "The bits are equal when both are 0 or both are 1: A'B' + AB, the XNOR function.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m020",
+      "questionText": "In a 4-bit magnitude comparator, x_i = A_iB_i + A_i'B_i' is 1 when bit i of A equals bit i of B. The (A > B) output is:",
+      "options": [
+        "A3B3' + A2B2' + A1B1' + A0B0'",
+        "x3x2x1x0",
+        "A3B3' + x3A2B2' + x3x2A1B1' + x3x2x1A0B0'",
+        "A3'B3 + x3A2'B2 + x3x2A1'B1 + x3x2x1A0'B0"
+      ],
+      "correctIndex": 2,
+      "explanation": "A is greater if it wins at the most significant bit where the numbers differ, so each lower bit counts only if all higher bits are equal. x3x2x1x0 is the A = B output and the last option is A < B.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m021",
+      "questionText": "A 4-bit comparator compares A = 1011₂ with B = 1001₂. What is the result, and at which bit position is it decided (bit 3 = MSB)?",
+      "options": [
+        "A < B, decided at bit position 1",
+        "A > B, decided at bit position 0",
+        "A > B, decided at bit position 1",
+        "A > B, decided at bit position 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bits 3 (1, 1) and 2 (0, 0) are equal, so x3 = x2 = 1. At bit 1, A1 = 1 and B1 = 0, so the term x3x2A1B1' = 1 and A > B (11 > 9).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m022",
+      "questionText": "Two 4-bit 7485 comparators are cascaded to compare 8-bit numbers. The cascade inputs of the lower-order IC should be connected as:",
+      "options": [
+        "(A>B)in = 0, (A=B)in = 1, (A<B)in = 0",
+        "(A>B)in = 1, (A=B)in = 1, (A<B)in = 1",
+        "(A>B)in = 0, (A=B)in = 0, (A<B)in = 0",
+        "(A>B)in = 1, (A=B)in = 0, (A<B)in = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "The lowest stage has no less significant bits below it, so it must be told 'equal so far'. Its outputs then feed the cascade inputs of the higher-order IC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m023",
+      "questionText": "A 2-bit magnitude comparator has inputs A1A0 and B1B0 (16 combinations). For how many combinations is the A > B output 1?",
+      "options": [
+        "8",
+        "6",
+        "4",
+        "10"
+      ],
+      "correctIndex": 1,
+      "explanation": "Of the 16 pairs, 4 have A = B and the remaining 12 split equally between A > B and A < B, giving 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m024",
+      "questionText": "For a 2-bit comparator with inputs A1A0 and B1B0, the minimal SOP of the (A > B) output is:",
+      "options": [
+        "A1B1' + A0B0'",
+        "A1'B1 + A0'B1B0 + A1'A0'B0",
+        "A1B1' + A1A0B0'",
+        "A1B1' + A0B1'B0' + A1A0B0'"
+      ],
+      "correctIndex": 3,
+      "explanation": "A > B if A1 = 1, B1 = 0, or if the high bits allow it and A0 = 1, B0 = 0. The K-map gives A1B1' (group of 4) plus the pairs A0B1'B0' and A1A0B0'. The second option is the A < B output, A1B1' + A1A0B0' misses A = 01, B = 00, and A1B1' + A0B0' wrongly gives 1 for A = 01, B = 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m025",
+      "questionText": "A staircase lamp is controlled by switch A at the bottom and switch B at the top. Changing either switch must change the state of the lamp, and the lamp is OFF when both switches are at 0. The lamp output L is:",
+      "options": [
+        "A ⊕ B",
+        "A ⊙ B",
+        "A + B",
+        "AB"
+      ],
+      "correctIndex": 0,
+      "explanation": "From 00 (lamp off), changing one switch gives 01 or 10 (lamp on), and changing the other switch as well gives 11 (lamp off again). L = 1 only when the switches differ, so L = A ⊕ B = A'B + AB'.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m026",
+      "questionText": "On a seven-segment display, the middle segment g is OFF for which of the decimal digits?",
+      "options": [
+        "1, 4 and 7",
+        "0, 7 and 8",
+        "0, 1 and 7",
+        "1 and 7 only"
+      ],
+      "correctIndex": 2,
+      "explanation": "Segment g is the middle bar. It is used by 2, 3, 4, 5, 6, 8 and 9, and is dark for 0, 1 and 7.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m027",
+      "questionText": "In a BCD-to-7-segment decoder (input ABCD, A = MSB, codes 1010 to 1111 as don't-cares), segment b is dark only for digits 5 and 6. The minimal SOP for b is:",
+      "options": [
+        "B' + C'D' + CD'",
+        "B' + CD",
+        "C'D' + CD",
+        "B' + C'D' + CD"
+      ],
+      "correctIndex": 3,
+      "explanation": "b = Σm(0,1,2,3,4,7,8,9) + d(10–15). B' covers the whole top and bottom rows (with Xs), C'D' covers m4 (column 00) and CD covers m7 (column 11). Dropping B' would leave m1, m2, m9 uncovered.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m028",
+      "questionText": "For a BCD-to-7-segment decoder (input ABCD, A = MSB, don't-cares 1010 to 1111), assume the digit 6 includes segment a and 9 includes segment d. The minimal SOP for segment a is:",
+      "options": [
+        "A + C + BD + B'D'",
+        "A + C + BD' + B'D",
+        "A + BD + B'D'",
+        "A + C + BD"
+      ],
+      "correctIndex": 0,
+      "explanation": "Segment a is off only for 1 and 4, so a = Σm(0,2,3,5,6,7,8,9) + d(10–15). Groups: A (rows with Xs), C (columns CD = 11 and 10), BD (m5, m7, m13, m15) and the corners B'D'.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m029",
+      "questionText": "How many of the 16 possible 4-bit input combinations are treated as don't-cares when designing a BCD-to-7-segment decoder?",
+      "options": [
+        "4",
+        "6",
+        "7",
+        "10"
+      ],
+      "correctIndex": 1,
+      "explanation": "Only 0000 to 1001 (10 codes) are valid BCD digits; the remaining 16 - 10 = 6 codes (1010 to 1111) never occur.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m030",
+      "questionText": "A code converter changes a 4-bit binary number into two BCD digits. For the input 1101₂, the 8-bit output is:",
+      "options": [
+        "0000 1101",
+        "0001 0011",
+        "0001 0010",
+        "0011 0001"
+      ],
+      "correctIndex": 1,
+      "explanation": "1101₂ = 13, and 13 in BCD is the digit 1 (0001) followed by the digit 3 (0011). 0000 1101 is the unconverted binary and 0011 0001 has the digits in the wrong order.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m031",
+      "questionText": "In a two-level AND-OR circuit with input inverters, an inverter has a delay of 5 ns, an AND gate 10 ns and an OR gate 12 ns. The worst-case propagation delay of the circuit is:",
+      "options": [
+        "22 ns",
+        "17 ns",
+        "12 ns",
+        "27 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "The longest path passes through an inverter, an AND gate and the OR gate: 5 + 10 + 12 = 27 ns. Omitting the inverter gives 22 ns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m032",
+      "questionText": "F = A(B + C(D + E)) is built exactly as written, using only 2-input AND and OR gates. How many gate levels lie on the longest input-to-output path?",
+      "options": [
+        "2",
+        "4",
+        "3",
+        "5"
+      ],
+      "correctIndex": 1,
+      "explanation": "D + E (OR, level 1) feeds C·(D + E) (AND, level 2), then B + C(D + E) (OR, level 3) and finally the AND with A (level 4). Multiplying out gives the two-level form AB + ACD + ACE, but that needs 3-input gates.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m033",
+      "questionText": "The maximum speed at which a combinational circuit can accept new inputs is set by its:",
+      "options": [
+        "Shortest input-to-output path",
+        "Number of outputs",
+        "Critical path, the input-to-output path with the largest total delay",
+        "Number of inputs with don't-care values"
+      ],
+      "correctIndex": 2,
+      "explanation": "Outputs are valid only after the slowest path has settled, so the longest (critical) path delay limits how often inputs can change.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m034",
+      "questionText": "A circuit is built as F = ((AB)'·(AC)')', i.e. two NAND gates feeding a third NAND gate. The output simplifies to:",
+      "options": [
+        "(A + B)(A + C)",
+        "ABC",
+        "AB + AC",
+        "A'B' + A'C'"
+      ],
+      "correctIndex": 2,
+      "explanation": "By De Morgan, ((AB)'(AC)')' = AB + AC = A(B + C). A NAND-NAND structure realises an AND-OR (SOP) function.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m035",
+      "questionText": "In a circuit, X = A ⊕ B and Y = X ⊕ C. For A = 1, B = 0, C = 1 the values of X and Y are:",
+      "options": [
+        "X = 1, Y = 1",
+        "X = 1, Y = 0",
+        "X = 0, Y = 1",
+        "X = 0, Y = 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "X = 1 ⊕ 0 = 1, then Y = 1 ⊕ 1 = 0. Y is the 3-bit odd function, 0 here because two inputs are 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m036",
+      "questionText": "A circuit computes T1 = A'B and T2 = AB', and its output is F = T1 + T2. The circuit behaves as:",
+      "options": [
+        "An XNOR gate",
+        "An OR gate",
+        "An XOR gate",
+        "A NAND gate"
+      ],
+      "correctIndex": 2,
+      "explanation": "F = A'B + AB' is 1 only when A and B differ, which is the exclusive-OR function.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m037",
+      "questionText": "A circuit has two XOR gates, X1 = A ⊕ B and X2 = B ⊕ C, feeding an AND gate whose output is F = X1·X2. In minterm form (A = MSB), F is:",
+      "options": [
+        "Σm(1,2,5,6)",
+        "Σm(0,7)",
+        "Σm(3,4)",
+        "Σm(2,5)"
+      ],
+      "correctIndex": 3,
+      "explanation": "F = 1 only when B differs from both A and C, i.e. A = C ≠ B: ABC = 010 (m2) or 101 (m5). Σm(1,2,5,6) is X2 alone and Σm(0,7) is the case where all three inputs are equal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m038",
+      "questionText": "Analyse the circuit F = NOR(NOR(A, B), C). The output expression is:",
+      "options": [
+        "(A + B)'C",
+        "(A + B)C'",
+        "A'B'C'",
+        "A + B + C'"
+      ],
+      "correctIndex": 1,
+      "explanation": "Let X = (A + B)'. Then F = (X + C)' = X'C' = (A + B)C'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m039",
+      "questionText": "A 3-bit input N = ABC (A = MSB) must give F = 1 when N is a prime number (2, 3, 5 or 7). The minimal SOP for F is:",
+      "options": [
+        "A'B + BC",
+        "B + AC",
+        "A'B + AC",
+        "A'B + AB'C"
+      ],
+      "correctIndex": 2,
+      "explanation": "F = Σm(2,3,5,7). m2, m3 pair to A'B and m5, m7 pair to AC. A'B + BC misses 5, B + AC wrongly includes 6, and A'B + AB'C misses 7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m040",
+      "questionText": "A circuit with inputs A, B, C, D must output 1 when at least three of its inputs are 1. The minimal SOP is:",
+      "options": [
+        "AB + CD",
+        "ABC + ABD + ACD + BCD",
+        "ABCD",
+        "ABC + ABD + ACD"
+      ],
+      "correctIndex": 1,
+      "explanation": "F = Σm(7,11,13,14,15). Each of m7, m11, m13, m14 pairs with m15, giving four 3-literal terms, all essential. Dropping BCD would miss 0111.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m041",
+      "questionText": "A car buzzer Z must sound when the ignition is on (I = 1) and either a door is open (D = 1) or the seat belt is not fastened (S = 0). The correct expression is:",
+      "options": [
+        "Z = I + DS'",
+        "Z = ID + S'",
+        "Z = I(D + S)",
+        "Z = I(D + S')"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both conditions require the ignition, so I is ANDed with the OR of 'door open' (D) and 'belt unfastened' (S').",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m042",
+      "questionText": "A combinational circuit outputs the square of a 2-bit number N = N1N0 as a binary word Y. How many output bits are needed, and which of them is always 0?",
+      "options": [
+        "4 outputs; Y0 is always 0",
+        "3 outputs; Y1 is always 0",
+        "4 outputs; Y1 is always 0",
+        "4 outputs; none is constant"
+      ],
+      "correctIndex": 2,
+      "explanation": "The squares are 0, 1, 4 and 9; 9 = 1001₂ needs 4 bits. In 0000, 0001, 0100 and 1001 the bit Y1 is 0 every time, so it is tied to ground (and Y0 = N0).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_t2_m043",
+      "questionText": "How many different Boolean functions (truth tables) are possible for a combinational circuit with 3 inputs and 1 output?",
+      "options": [
+        "8",
+        "64",
+        "256",
+        "512"
+      ],
+      "correctIndex": 2,
+      "explanation": "The truth table has 2^3 = 8 rows, and each row's output can be 0 or 1 independently, giving 2^8 = 256 functions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_t2_m044",
+      "questionText": "Which statement about combinational circuits is NOT correct?",
+      "options": [
+        "Each output can be described by a truth table of the present inputs",
+        "They need a clock signal to update their outputs",
+        "Unequal path delays can cause brief glitches at the output",
+        "A circuit with n inputs and m outputs is specified by m Boolean functions of n variables"
+      ],
+      "correctIndex": 1,
+      "explanation": "Combinational outputs follow the inputs after the propagation delay without any clock; clocks belong to sequential circuits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m045",
+      "questionText": "Which statement about binary-to-Gray and Gray-to-binary code converters is correct?",
+      "options": [
+        "Both use only XOR gates, but in Gray-to-binary each output depends on the Gray bit in its position and every more significant Gray bit",
+        "A binary-to-Gray converter needs a full adder for every bit",
+        "In Gray-to-binary each output Bi depends only on Gi and G(i+1)",
+        "Gray code is weighted, so the converter only rescales each bit"
+      ],
+      "correctIndex": 0,
+      "explanation": "Gi = B(i+1) ⊕ Bi uses only neighbouring bits, but Bi = G(n-1) ⊕ ... ⊕ Gi accumulates all higher Gray bits, so a Gray-to-binary converter is a chain of XOR gates. Gray code is unweighted.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_t2_m046",
+      "questionText": "In a BCD-to-excess-3 converter with input ABCD and output wxyz (don't-cares 1010 to 1111), the output y simplifies to:",
+      "options": [
+        "CD + C'D'",
+        "C ⊕ D",
+        "C' + D'",
+        "B'C + CD"
+      ],
+      "correctIndex": 0,
+      "explanation": "y is the second-lowest bit of digit + 3; it is 1 for digits 0, 3, 4, 7, 8, which is 1 exactly when C and D are equal: y = CD + C'D' (C XNOR D).",
+      "difficulty": "medium"
+    }
+  ]
+}

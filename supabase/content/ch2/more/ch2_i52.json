@@ -1,0 +1,708 @@
+{
+  "topicId": "ch2_i52",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Serial Timing, 8251A Programming and On-board Buses"
+    },
+    {
+      "type": "paragraph",
+      "text": "Why the 16x clock? The receiver's clock is not locked to the transmitter, so it must find the middle of every bit on its own. When it sees the 1-to-0 edge of the start bit it counts 8 clock pulses, checks that the line is still 0 (a short noise spike would have gone back to 1), and then samples every 16 pulses, which lands close to the centre of each following bit. The two clocks may differ slightly, and the error grows bit by bit until the next start bit resets it, so the last sample (the stop bit) must still fall inside its bit cell."
+    },
+    {
+      "type": "formula",
+      "latex": "\\Delta_{max} \\approx \\frac{0.5}{N_{frame} - 0.5} = \\frac{0.5}{9.5} \\approx 5.3\\%",
+      "plainText": "Maximum total clock mismatch = 0.5 bit / (frame bits - 0.5); for a 10-bit frame 0.5/9.5 = about 5.3 %, shared between both ends"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: send 'A' = 41H in 8E1 format\n41H = 0100 0001 -> number of 1s = 2 -> even parity bit P = 0\nData sent LSB first: D0..D7 = 1 0 0 0 0 0 1 0\nLine: idle 1 | start 0 | 1 0 0 0 0 0 1 0 | P 0 | stop 1 | idle 1\nFrame length = 1 + 8 + 1 + 1 = 11 bits\nAt 9600 baud: frame time = 11 / 9600 = 1.146 ms"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 8251A for 7 data bits, even parity, 2 stop bits, 64x clock\nD7 D6 = 11 (2 stop)   D5 = 1 (even)   D4 = 1 (parity on)\nD3 D2 = 10 (7 bits)   D1 D0 = 11 (64x)\nMode word = 1111 1011 = FBH   (write to C/D = 1 first)\nCommand   = 0011 0111 = 37H   (TxEN, DTR, RxE, ER, RTS)\nFor 1200 baud: TxC = RxC = 64 x 1200 = 76.8 kHz\nFrame = 1 + 7 + 1 + 2 = 11 bits -> 1200 / 11 = 109 characters/s\nText of 5000 characters: T = 5000 x 11 / 1200 = 45.8 s"
+    },
+    {
+      "type": "formula",
+      "latex": "T_{transfer} = \\frac{N_{chars} \\times N_{frame}}{\\text{baud}}",
+      "plainText": "Transfer time = number of characters x frame bits / baud rate (two-level signalling, no gaps)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "UART (RS-232)",
+          "SPI",
+          "I²C"
+        ],
+        [
+          "Clock",
+          "None; each end has its own",
+          "SCLK from the master",
+          "SCL from the master"
+        ],
+        [
+          "Wires (signals)",
+          "TxD, RxD (+ handshake)",
+          "SCLK, MOSI, MISO + one SS per slave",
+          "SDA, SCL for every device"
+        ],
+        [
+          "Duplex",
+          "Full",
+          "Full (bits shift both ways at once)",
+          "Half"
+        ],
+        [
+          "Slave selection",
+          "Point to point only",
+          "Separate SS line",
+          "7-bit address in the first byte"
+        ],
+        [
+          "Acknowledge",
+          "None in hardware",
+          "None",
+          "ACK bit after every byte"
+        ],
+        [
+          "Typical speed",
+          "Up to 115.2 kbps",
+          "Several to tens of MHz",
+          "100 kHz, 400 kHz, 1 MHz, 3.4 MHz"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "SPI is really two shift registers joined in a ring: on each SCLK edge the master shifts one bit out on MOSI while the slave shifts one bit out on MISO, so after eight clocks the two have swapped bytes. Clock polarity and phase (CPOL, CPHA) give four modes that master and slave must agree on. I²C instead shares two open-drain lines: the master sends START (SDA falls while SCL is high), an address byte made of the 7-bit address and a R/W bit (1 = read), and the addressed device pulls SDA low in the ninth clock as ACK. USB, by contrast, is host-polled: the host schedules every transfer, devices get a 7-bit address at enumeration, and data is NRZI coded with a 0 stuffed after six 1s."
+    },
+    {
+      "type": "bulletList",
+      "text": "Serial I/O on the 8085 through SID and SOD (no UART hardware):",
+      "items": [
+        "SIM: accumulator D7 = SOD data, D6 = SDE (must be 1 for D7 to reach the pin); keep D3 (MSE) = 0 to leave interrupt masks unchanged.",
+        "RIM: the level on the SID pin is copied into accumulator bit D7; RAL or ANI 80H then isolates it.",
+        "A = C0H then SIM drives SOD high; A = 40H then SIM drives it low.",
+        "Each bit is held for one bit time by a delay loop: at 3 MHz and 1200 baud that is 833.3 µs, or 2500 T-states including the loop overhead.",
+        "The software must send the start bit, 8 data bits LSB first and the stop bit itself, so the CPU is busy for the whole character."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; 8085: send the bit in CY on SOD (called once per bit)\nSENDBIT: MVI A,00H\n         RAR          ; CY -> A7, A = x000 0000\n         ORI 40H      ; set SDE (D6), MSE stays 0\n         SIM          ; A7 appears on the SOD pin\n         CALL BITDLY  ; wait one bit time (833 us at 1200 baud)\n         RET"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: counting a frame as 8 bits instead of start + data + parity + stop; sending or reading data MSB first; computing parity over the whole frame instead of the data bits only; forgetting the 16x or 64x factor when converting TxC to baud; treating baud and bit rate as equal for multi-level signals; and forgetting the R/W bit when forming an I²C address byte."
+    },
+    {
+      "type": "examTip",
+      "text": "For any serial timing question write the frame first (e.g. 8E1 = 11 bits), then use characters/s = baud / frame bits and time = characters x frame bits / baud. For the 8251A, build the mode word right to left: factor (D1D0), length (D3D2), parity enable (D4), even/odd (D5), stop bits (D7D6)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i52_m001",
+      "questionText": "In asynchronous serial transmission, what logic level does the line sit at while no character is being sent?",
+      "options": [
+        "Logic 1 (mark)",
+        "Logic 0 (space)",
+        "High impedance (floating)",
+        "Alternating 1 and 0 to keep the receiver clock locked"
+      ],
+      "correctIndex": 0,
+      "explanation": "The idle line is held at mark (logic 1), so the 1-to-0 edge of the start bit can be detected. Idling at 0 would make a start bit invisible.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m002",
+      "questionText": "In a standard UART frame, which bit is sent immediately after the start bit?",
+      "options": [
+        "The most significant data bit (D7)",
+        "The least significant data bit (D0)",
+        "The parity bit",
+        "The first stop bit"
+      ],
+      "correctIndex": 1,
+      "explanation": "UARTs such as the 8251A shift data out LSB first, so D0 follows the start bit; the parity bit (if any) comes after the last data bit and the stop bits close the frame.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m003",
+      "questionText": "Which of the following is NOT a feature of synchronous serial transmission?",
+      "options": [
+        "A clock shared by, or recovered at, the receiver",
+        "SYN characters or flag bytes marking the start of a block",
+        "Characters sent back to back with no idle gaps inside a block",
+        "A start bit and stop bit framing every character"
+      ],
+      "correctIndex": 3,
+      "explanation": "Start and stop bits around each character belong to asynchronous transmission. Synchronous links frame a whole block with SYN characters or flags and keep both ends in step with a common or recovered clock.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m004",
+      "questionText": "An asynchronous frame uses 8 data bits, odd parity and 1 stop bit. How many bits does one frame contain?",
+      "options": [
+        "10",
+        "9",
+        "11",
+        "12"
+      ],
+      "correctIndex": 2,
+      "explanation": "Frame = 1 start + 8 data + 1 parity + 1 stop = 11 bits. 10 forgets the parity bit and 9 forgets both the start bit and parity.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m005",
+      "questionText": "What is the transmission efficiency (useful data bits as a percentage of frame bits) of the asynchronous format 7O1 (7 data bits, odd parity, 1 stop bit)?",
+      "options": [
+        "70 %",
+        "87.5 %",
+        "80 %",
+        "63.6 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "Frame = 1 + 7 + 1 + 1 = 10 bits, so efficiency = 7 / 10 x 100 = 70 %. 87.5 % is 7/8 (ignores framing) and 63.6 % is 7/11 (miscounts the frame as 11 bits).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m006",
+      "questionText": "A 4800 baud asynchronous link uses 8 data bits, no parity and 2 stop bits (8N2). About how many characters per second can it carry?",
+      "options": [
+        "480",
+        "436",
+        "600",
+        "400"
+      ],
+      "correctIndex": 1,
+      "explanation": "Frame = 1 + 8 + 0 + 2 = 11 bits, so 4800 / 11 = 436.4, about 436 characters/s. 480 assumes a 10-bit frame and 600 divides by 8 with no framing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m007",
+      "questionText": "A file of 14 400 bytes is sent over a 9600 baud asynchronous link using 8 data bits, even parity and 1 stop bit, with no gaps between characters. How long does the transfer take?",
+      "options": [
+        "12 s",
+        "15 s",
+        "18 s",
+        "16.5 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each byte needs 1 + 8 + 1 + 1 = 11 bits, so T = 14 400 x 11 / 9600 = 16.5 s. 12 s counts only 8 bits per byte, 15 s uses a 10-bit frame and 18 s a 12-bit frame.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m008",
+      "questionText": "A modem transmits 2400 symbols per second, and each symbol can take one of 16 distinct signal states. What is its bit rate?",
+      "options": [
+        "38 400 bps",
+        "4800 bps",
+        "9600 bps",
+        "2400 bps"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bit rate = baud x log2(M) = 2400 x log2(16) = 2400 x 4 = 9600 bps. 38 400 multiplies by M instead of log2(M), and 2400 assumes one bit per symbol.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m009",
+      "questionText": "A channel is limited to 2400 baud, but the link must carry 9600 bps. What is the minimum number of distinct signal levels each symbol must have?",
+      "options": [
+        "16",
+        "4",
+        "8",
+        "32"
+      ],
+      "correctIndex": 0,
+      "explanation": "Bits per symbol = 9600 / 2400 = 4, and M = 2^4 = 16 levels. 4 is the number of bits per symbol, not the number of levels.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m010",
+      "questionText": "An 8251A is programmed for asynchronous operation with a 16x baud-rate factor. What receiver clock (RxC) frequency is needed for 9600 baud?",
+      "options": [
+        "9.6 kHz",
+        "614.4 kHz",
+        "153.6 kHz",
+        "600 Hz"
+      ],
+      "correctIndex": 2,
+      "explanation": "RxC = factor x baud = 16 x 9600 = 153.6 kHz. 614.4 kHz would suit the 64x factor, 9.6 kHz the 1x factor, and 600 Hz divides instead of multiplying.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m011",
+      "questionText": "A UART receiver uses a clock at 16 times the baud rate. After it detects the falling edge of a start bit, how many receiver clock pulses does it wait before sampling the line again to confirm a valid start bit?",
+      "options": [
+        "16",
+        "1",
+        "4",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "Waiting 8 of the 16 clocks places the sample at the middle of the start bit; if the line is still 0 the start bit is genuine, and every later bit is then sampled 16 clocks apart, at its centre.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m012",
+      "questionText": "What mode word must be written to an 8251A for asynchronous operation with 8 data bits, even parity, 2 stop bits and a 16x baud-rate factor?",
+      "options": [
+        "DEH",
+        "FEH",
+        "7EH",
+        "FFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "D7D6 = 11 (2 stop), D5 = 1 (even), D4 = 1 (parity enabled), D3D2 = 11 (8 bits), D1D0 = 10 (16x) gives 1111 1110 = FEH. DEH selects odd parity, 7EH one stop bit and FFH the 64x factor.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m013",
+      "questionText": "An 8251A is initialised with asynchronous mode word 7AH, and its transmit clock TxC is 76.8 kHz. How many characters per second can it send continuously?",
+      "options": [
+        "436",
+        "600",
+        "480",
+        "7680"
+      ],
+      "correctIndex": 2,
+      "explanation": "7AH = 01 1 1 10 10: 1 stop bit, even parity enabled, 7 data bits, 16x factor. Baud = 76 800 / 16 = 4800, frame = 1 + 7 + 1 + 1 = 10 bits, so 4800 / 10 = 480 characters/s. 7680 forgets the 16x factor and 600 ignores framing.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m014",
+      "questionText": "After the mode word, an 8251A receives the command word 15H. What does this command do?",
+      "options": [
+        "Enables the transmitter and receiver and asserts RTS",
+        "Enables the transmitter and receiver and resets the error flags",
+        "Performs an internal reset so the next control write is a mode word",
+        "Enables only the receiver and sends a break character"
+      ],
+      "correctIndex": 1,
+      "explanation": "15H = 0001 0101: D0 TxEN = 1, D2 RxE = 1, D4 ER (error reset) = 1; RTS (D5), IR (D6) and SBRK (D3) are all 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m015",
+      "questionText": "An 8251A has its C/D input connected to A0. When the CPU reads from the 8251A with C/D = 1, what does it obtain?",
+      "options": [
+        "The received data character",
+        "The mode word written earlier",
+        "The command word written earlier",
+        "The status word"
+      ],
+      "correctIndex": 3,
+      "explanation": "With C/D = 1 a write goes to the mode/command registers and a read returns the status word (TxRDY, RxRDY, TxEMPTY, PE, OE, FE, SYNDET, DSR). Received data is read with C/D = 0; mode and command words cannot be read back.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m016",
+      "questionText": "What is the correct order for initialising an 8251A for synchronous operation after a reset?",
+      "options": [
+        "Mode word, then the SYN character(s), then the command word",
+        "Command word, then mode word, then SYN character(s)",
+        "SYN character(s), then mode word, then command word",
+        "Mode word, then command word, then SYN character(s)"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first control write after reset is taken as the mode word; in synchronous mode the next one or two control writes are the SYN characters, and only after that are writes interpreted as command words.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m017",
+      "questionText": "Which 8251A status bit tells the CPU that a received character is waiting to be read?",
+      "options": [
+        "TxRDY",
+        "TxEMPTY",
+        "SYNDET",
+        "RxRDY"
+      ],
+      "correctIndex": 3,
+      "explanation": "RxRDY goes high when a complete character has been assembled in the receive buffer. TxRDY means the transmit buffer can accept a byte and TxEMPTY means the transmitter has nothing left to send.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m018",
+      "questionText": "A UART reports a framing error. What has it detected?",
+      "options": [
+        "A mismatch between the received parity bit and the computed parity",
+        "A new character arriving before the CPU read the previous one",
+        "A 0 on the line at the position where a stop bit (1) was expected",
+        "The loss of the external receive clock"
+      ],
+      "correctIndex": 2,
+      "explanation": "A framing error means the stop bit was not a 1, often caused by a wrong baud rate or a break. Parity mismatch is a parity error and an unread character being overwritten is an overrun error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m019",
+      "questionText": "What causes an overrun error in a UART receiver?",
+      "options": [
+        "The stop bit of a character is received as 0",
+        "The CPU fails to read a received character before the next one is fully assembled",
+        "The number of 1s in the character does not match the parity setting",
+        "The transmitter sends more stop bits than the receiver expects"
+      ],
+      "correctIndex": 1,
+      "explanation": "When a new character completes before the previous one has been read, the old one is overwritten and the overrun flag is set. The other options describe a framing error, a parity error, and a harmless condition (extra stop bits just lengthen the idle time).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m020",
+      "questionText": "The 7-bit ASCII code for 'C' is 43H (100 0011₂). It is sent as an 8-bit character with even parity placed in bit 7. What is the transmitted byte?",
+      "options": [
+        "C3H",
+        "43H",
+        "87H",
+        "86H"
+      ],
+      "correctIndex": 0,
+      "explanation": "43H has three 1s, so the even-parity bit must be 1 to make the count even; putting it in bit 7 gives 1100 0011 = C3H. 43H would be the odd-parity version, and 87H/86H put the parity in bit 0 after a shift.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m021",
+      "questionText": "The byte 35H is sent in 8N1 format. Which sequence appears on the line, in order of transmission, from the start bit to the stop bit?",
+      "options": [
+        "0 00110101 1",
+        "1 10101100 0",
+        "0 10101100 0",
+        "0 10101100 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "35H = 0011 0101; sent LSB first the data bits are 1,0,1,0,1,1,0,0, framed by a 0 start bit and a 1 stop bit: 0 10101100 1. 00110101 is the MSB-first order, and the start bit is always 0 and the stop bit 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m022",
+      "questionText": "A receiver set for 8N1 sees the following bits after the idle line, in time order: 0 1 1 0 1 0 0 1 0 1. What byte was received?",
+      "options": [
+        "4BH",
+        "D2H",
+        "B4H",
+        "2DH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Drop the start bit (0) and the stop bit (1); the data bits 1,1,0,1,0,0,1,0 arrived LSB first, so reading them from D7 down gives 0100 1011 = 4BH ('K'). D2H reads them MSB first and B4H inverts them.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m023",
+      "questionText": "What is the duration of one bit on a 115 200 bps serial line?",
+      "options": [
+        "86.8 µs",
+        "8.68 µs",
+        "69.4 µs",
+        "104.2 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "T_bit = 1 / 115 200 = 8.68 µs. 69.4 µs is the time for 8 bits and 104.2 µs is the bit time at 9600 bps.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m024",
+      "questionText": "A sensor sends 500 readings per second, each reading 2 bytes, over an 8N1 asynchronous link. Choosing from the standard rates 2400, 4800, 9600 and 19 200 baud, what is the lowest rate that can keep up?",
+      "options": [
+        "9600 baud",
+        "4800 baud",
+        "19 200 baud",
+        "2400 baud"
+      ],
+      "correctIndex": 2,
+      "explanation": "Characters/s = 500 x 2 = 1000; with 10 bits per 8N1 frame the line needs 1000 x 10 = 10000 baud, so 9600 is too slow and 19 200 is the lowest adequate rate. Choosing 9600 comes from counting only 8 bits per byte (8000 bps).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m025",
+      "questionText": "An RS-232 receiver input measures +1.5 V with respect to signal ground. How is this level treated by the standard?",
+      "options": [
+        "Logic 0 (space)",
+        "Logic 1 (mark)",
+        "A break condition",
+        "It is undefined (inside the -3 V to +3 V transition region)"
+      ],
+      "correctIndex": 3,
+      "explanation": "RS-232 defines logic 0 as +3 V to +15 V and logic 1 as -3 V to -15 V; anything between -3 V and +3 V is not a valid level. A break is a space held for longer than a whole frame.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m026",
+      "questionText": "What is the main job of a MAX232 chip in a microprocessor serial interface?",
+      "options": [
+        "Converting parallel data to serial data",
+        "Converting between TTL/CMOS logic levels and bipolar RS-232 levels",
+        "Generating the baud-rate clock for the UART",
+        "Adding start, parity and stop bits to each character"
+      ],
+      "correctIndex": 1,
+      "explanation": "The MAX232 uses charge pumps to make about ±10 V from a 5 V supply and translates levels in both directions. Parallel-serial conversion, framing and the baud clock are handled by the UART and its clock source.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m027",
+      "questionText": "On a DB9 RS-232 connector, which pin is signal ground?",
+      "options": [
+        "Pin 7",
+        "Pin 2",
+        "Pin 5",
+        "Pin 9"
+      ],
+      "correctIndex": 2,
+      "explanation": "DB9 uses pin 5 for signal ground, pin 2 for RxD and pin 3 for TxD; pin 9 is Ring Indicator. Pin 7 is signal ground on the older DB25 connector (on DB9 it is RTS).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m028",
+      "questionText": "In an RS-232 link, what are the RTS and CTS signals used for?",
+      "options": [
+        "Hardware flow control (handshaking) before data is sent",
+        "Carrying the transmit and receive data",
+        "Supplying the bit clock for synchronous mode",
+        "Reporting parity and framing errors"
+      ],
+      "correctIndex": 0,
+      "explanation": "The DTE raises Request To Send and waits for Clear To Send before transmitting, which stops a slow receiver from being overrun. Data travels on TxD/RxD, and errors are flagged inside the UART, not on the cable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m029",
+      "questionText": "In RS-232 terminology, a PC serial port connected to an external modem is classed as:",
+      "options": [
+        "DCE, with the modem as DTE",
+        "DTE, with the modem as DCE",
+        "DTE, and the modem is also DTE",
+        "DCE, and the modem is also DCE"
+      ],
+      "correctIndex": 1,
+      "explanation": "The computer or terminal is Data Terminal Equipment and the modem is Data Circuit-terminating (Communication) Equipment; a straight cable joins DTE to DCE, while two DTEs need a null-modem cable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m030",
+      "questionText": "Which statement about RS-485 is NOT correct?",
+      "options": [
+        "Each bit is sent as the voltage difference between two wires",
+        "Many drivers and receivers (typically 32 unit loads) can share one pair",
+        "Logic 1 is sent as -3 V to -15 V measured against signal ground",
+        "It can work over roughly 1200 m of cable"
+      ],
+      "correctIndex": 2,
+      "explanation": "Single-ended ±3 V to ±15 V levels describe RS-232. RS-485 is differential, multidrop with tri-state drivers, and reaches about 1200 m at lower speeds.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m031",
+      "questionText": "Which of the following is NOT one of the SPI bus signals?",
+      "options": [
+        "SDA",
+        "MOSI",
+        "MISO",
+        "SCLK"
+      ],
+      "correctIndex": 0,
+      "explanation": "SPI uses SCLK, MOSI, MISO and a slave-select (SS or CS) line per slave. SDA (serial data) belongs to the two-wire I²C bus.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m032",
+      "questionText": "An SPI master talks to 5 slaves, each with its own slave-select line. How many signal lines (excluding power and ground) does the master need?",
+      "options": [
+        "4",
+        "20",
+        "6",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "SCLK, MOSI and MISO are shared, and each slave needs one SS line: 3 + 5 = 8. 4 assumes a single SS for everyone and 20 gives every slave its own four wires.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m033",
+      "questionText": "Why must the SDA and SCL lines of an I²C bus have pull-up resistors?",
+      "options": [
+        "The resistors set the bus clock frequency",
+        "They terminate the line to prevent reflections as in RS-485",
+        "They convert the lines to differential signalling",
+        "The devices have open-drain outputs that can only pull the line low"
+      ],
+      "correctIndex": 3,
+      "explanation": "Every I²C device can only sink current, so the line returns to 1 through the pull-up when nobody drives it. This wired-AND action allows multi-master arbitration, clock stretching and the ACK bit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m034",
+      "questionText": "How is an I²C START condition signalled?",
+      "options": [
+        "SDA goes from low to high while SCL is high",
+        "SCL goes low while SDA is held high",
+        "SDA goes from high to low while SCL is high",
+        "SDA goes low while SCL is low"
+      ],
+      "correctIndex": 2,
+      "explanation": "During normal data transfer SDA may change only while SCL is low. A falling SDA while SCL is high is START, and a rising SDA while SCL is high is STOP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m035",
+      "questionText": "An I²C EEPROM has the 7-bit address 50H. What byte does the master send immediately after START to begin a read from it?",
+      "options": [
+        "A1H",
+        "A0H",
+        "51H",
+        "28H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The address byte is the 7-bit address shifted left one place with R/W in bit 0 (1 = read): (50H x 2) + 1 = A1H. A0H is the write address, 51H forgets the shift and 28H shifts the wrong way.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m036",
+      "questionText": "On a 400 kHz I²C bus, a master sends one address byte followed by 3 data bytes, each byte acknowledged. Ignoring the START and STOP conditions, how long does this take?",
+      "options": [
+        "80 µs",
+        "90 µs",
+        "67.5 µs",
+        "360 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each byte takes 8 data clocks + 1 ACK clock = 9 clocks, so 4 bytes = 36 clocks x 2.5 µs = 90 µs. 80 µs forgets the ACK bits, 67.5 µs forgets the address byte and 360 µs uses 100 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m037",
+      "questionText": "How many devices can a single USB host controller address at most?",
+      "options": [
+        "128",
+        "127",
+        "255",
+        "32"
+      ],
+      "correctIndex": 1,
+      "explanation": "USB device addresses are 7 bits wide (0 to 127), and address 0 is reserved for a device that has just been attached and not yet configured, leaving 127.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m038",
+      "questionText": "A serial link that can carry data in both directions, but only in one direction at any given moment, is called:",
+      "options": [
+        "Half duplex",
+        "Simplex",
+        "Full duplex",
+        "Multiplex"
+      ],
+      "correctIndex": 0,
+      "explanation": "Half duplex shares one channel and takes turns, as on a two-wire RS-485 bus. Simplex is one way only and full duplex sends both ways at the same time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m039",
+      "questionText": "Which of the following is an example of simplex communication?",
+      "options": [
+        "An ordinary telephone conversation",
+        "A two-wire RS-485 network",
+        "An RS-232 link using separate TxD and RxD lines",
+        "Broadcast television transmission to home receivers"
+      ],
+      "correctIndex": 3,
+      "explanation": "Broadcast TV flows only from transmitter to receivers. A telephone call and an RS-232 link with separate TxD/RxD are full duplex, and two-wire RS-485 is half duplex.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i52_m040",
+      "questionText": "How is serial data normally sent and received through the SID and SOD pins of the 8085?",
+      "options": [
+        "By a built-in UART that adds start and stop bits automatically",
+        "By an internal baud-rate generator driven from the CLK OUT pin",
+        "In software, one bit at a time with RIM/SIM, with bit timing produced by delay loops",
+        "By DMA transfers controlled by HOLD and HLDA"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 8085 has no UART: SIM copies accumulator bit D7 to SOD and RIM copies SID into D7, so the program must build each frame bit by bit and time it with delay routines.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m041",
+      "questionText": "On the 8085, which accumulator value, followed by SIM, sets the SOD pin to 1 without changing the interrupt masks?",
+      "options": [
+        "C0H",
+        "80H",
+        "40H",
+        "C8H"
+      ],
+      "correctIndex": 0,
+      "explanation": "D7 is the SOD bit and D6 (SDE) must be 1 for it to be latched; D3 (MSE) = 0 leaves the masks alone, so A = 1100 0000 = C0H. 80H leaves SDE = 0, 40H outputs 0, and C8H sets MSE and would rewrite the masks.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m042",
+      "questionText": "An 8085 executes RIM and the accumulator becomes 8BH (1000 1011₂). Which statement is correct?",
+      "options": [
+        "SID is 0 and RST 7.5 is pending",
+        "SID is 1 and interrupts are enabled (IE = 1)",
+        "SID is 1 and RST 7.5 is masked",
+        "SID is 0 and interrupts are disabled"
+      ],
+      "correctIndex": 1,
+      "explanation": "In the RIM byte D7 = SID = 1, D6-D4 (pending 7.5, 6.5, 5.5) = 000, D3 = IE = 1, and D2-D0 = 011 means RST 7.5 unmasked with RST 6.5 and 5.5 masked.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m043",
+      "questionText": "An 8085 with a 6 MHz crystal sends serial data through SOD at 1200 baud. How many T-states must elapse between successive bit outputs?",
+      "options": [
+        "5000",
+        "1250",
+        "250",
+        "2500"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8085 divides the crystal by 2, so the clock is 3 MHz (T = 0.333 µs). Bit time = 1/1200 = 833.3 µs, so 833.3 / 0.333 = 2500 T-states. 5000 forgets the divide-by-2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m044",
+      "questionText": "In the bit-oriented HDLC protocol, when does the transmitter insert an extra 0 into the data stream?",
+      "options": [
+        "After every six consecutive 1s",
+        "After every eight data bits",
+        "After every five consecutive 1s",
+        "Before every flag byte"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bit stuffing after five 1s guarantees that six 1s in a row (as in the flag 01111110) can only appear in a real flag. The receiver removes any 0 that follows five 1s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i52_m045",
+      "questionText": "The data bits 0111111111 (a 0 followed by nine 1s) are sent in an HDLC frame. What bit sequence is transmitted for this field after bit stuffing?",
+      "options": [
+        "0111111111",
+        "01111101111",
+        "01111110111",
+        "011111011110"
+      ],
+      "correctIndex": 1,
+      "explanation": "Count the 1s: after the fifth consecutive 1 a 0 is inserted and the count restarts, and the remaining four 1s need no stuffing, giving 01111101111. Stuffing after six 1s would give 01111110111.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i52_m046",
+      "questionText": "A 1000-byte message is sent either asynchronously in 8N1 format or synchronously as one block with 2 SYN characters and a 2-byte CRC added. How many fewer bits does the synchronous method send?",
+      "options": [
+        "1968",
+        "2000",
+        "1000",
+        "2032"
+      ],
+      "correctIndex": 0,
+      "explanation": "Async: 1000 x 10 = 10000 bits. Sync: (1000 + 2 + 2) x 8 = 8032 bits. Saving = 1968 bits; 2000 ignores the 4 overhead bytes of the synchronous block.",
+      "difficulty": "hard"
+    }
+  ]
+}

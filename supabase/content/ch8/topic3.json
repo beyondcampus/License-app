@@ -1,0 +1,1224 @@
+{
+  "parent": {
+    "id": "ch8_p3",
+    "title": "Testing, Cost Estimation, Quality & Configuration Management"
+  },
+  "subtopics": [
+    {
+      "id": "ch8_t3",
+      "title": "Testing Levels: Unit, Integration, Component, System & Acceptance",
+      "subtitle": "Unit to acceptance testing, integration strategies, stubs and drivers, V&V and regression",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why and Where Testing Fits"
+          },
+          {
+            "type": "paragraph",
+            "text": "Testing is the process of executing a program with the intent of finding errors (Myers). As Dijkstra observed, testing can show the presence of defects but never their absence. Testing is one part of verification and validation (V&V). Verification asks \"Are we building the product right?\" and checks that each work product conforms to its specification, mostly through reviews, inspections and static analysis. Validation asks \"Are we building the right product?\" and checks that the finished software meets the customer's real needs, mostly through system and acceptance testing."
+          },
+          {
+            "type": "bulletList",
+            "text": "Widely quoted testing principles:",
+            "items": [
+              "Exhaustive testing is impossible, so tests are chosen by risk and by systematic design techniques.",
+              "Early testing (shift-left): defects found in requirements and design are far cheaper to fix than defects found in operation.",
+              "Defect clustering: a small number of modules usually contain most of the defects (Pareto 80/20).",
+              "Pesticide paradox: repeating the same tests stops finding new bugs, so test suites must be reviewed and extended.",
+              "Testing is context dependent, and the absence of failures does not prove the system is useful (absence-of-errors fallacy).",
+              "Every test should be traceable to a customer requirement."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Level", "What is tested", "Usually done by", "Test basis"],
+              ["Unit", "A single function, method or class", "The developer", "Detailed design and code"],
+              ["Component (interface)", "A composite component through its interface", "Developers", "Interface specification"],
+              ["Integration", "Groups of modules working together", "Developers or test team", "Architectural design"],
+              ["System", "The complete integrated system", "Independent test team", "SRS (functional and non-functional)"],
+              ["Acceptance", "The system in the user's environment", "Customer or end users", "User requirements, contract"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Unit and Component Testing"
+          },
+          {
+            "type": "paragraph",
+            "text": "Unit testing exercises one module in isolation. Pressman lists what it should examine: the module interface, local data structures, boundary conditions, all independent paths and all error-handling paths. Because a unit is not a standalone program, a driver (a main program that calls the unit and passes test data) and stubs (dummy subprograms that replace modules the unit calls) are written. Frameworks such as JUnit, NUnit and pytest, and mock objects, make this cheap and repeatable."
+          },
+          {
+            "type": "bulletList",
+            "text": "Component (interface) testing, as described by Sommerville, focuses on the interfaces between the objects in a composite component:",
+            "items": [
+              "Interface types: parameter interfaces, shared-memory interfaces, procedural interfaces and message-passing interfaces.",
+              "Interface misuse: a caller passes parameters in the wrong order, of the wrong type or of the wrong number.",
+              "Interface misunderstanding: a caller makes wrong assumptions about the behaviour of the called component (e.g. calls binary search on an unsorted array).",
+              "Timing errors: producer and consumer run at different speeds in real-time or shared-memory systems and read out-of-date data.",
+              "Guidelines: test parameter values at the extremes of their ranges, pass null pointers, design tests that make the component fail, stress-test message passing, and vary the activation order of components sharing memory."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Integration Strategies"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Strategy", "How modules are combined", "Scaffolding needed", "Main advantage / drawback"],
+              ["Big bang", "All modules combined at once and tested as a whole", "None", "Simple to organise, but failures are very hard to localise"],
+              ["Top-down", "Start at the main control module and move down, depth-first or breadth-first", "Stubs", "Early working skeleton and demo; low-level processing tested late"],
+              ["Bottom-up", "Start with atomic modules, combine them into clusters, move up", "Drivers", "Low-level modules tested early; no complete program until the last module is added"],
+              ["Sandwich (hybrid)", "Top-down for upper layers and bottom-up for lower layers, meeting at a target layer", "Stubs and drivers", "Parallel testing of both ends; more scaffolding cost"]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Incremental strategies (top-down, bottom-up, sandwich) add one module or cluster at a time, so a new failure is almost certainly caused by the newly added piece. Each time a module is added, previously passed tests are rerun (regression testing). Many teams practise continuous integration, where every commit triggers an automated build and test run, and smoke testing, where each daily build is checked broadly for show-stopper errors before deeper testing begins."
+          },
+          {
+            "type": "heading",
+            "text": "System, Acceptance and Regression Testing"
+          },
+          {
+            "type": "bulletList",
+            "text": "System testing checks the whole integrated system against the SRS, including non-functional requirements:",
+            "items": [
+              "Functional testing: every specified function behaves as required.",
+              "Performance testing: response time and throughput; load testing at the expected peak, stress testing beyond the designed limits until the system breaks, volume testing with large data sets.",
+              "Security testing: the system resists improper penetration and protects data.",
+              "Recovery testing: the software is forced to fail and must recover correctly within a specified time.",
+              "Usability, compatibility, configuration and installation testing.",
+              "Release testing (Sommerville): a separate team tests a version intended for release, usually black-box, to convince the supplier it is good enough."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Acceptance testing decides whether the customer accepts the system:",
+            "items": [
+              "User acceptance testing (UAT): end users confirm the system supports their business tasks.",
+              "Alpha testing: done by users or internal staff at the developer's site in a controlled environment, with developers watching and recording problems.",
+              "Beta testing: done by real users at their own sites without developers present; users report problems back to the developer.",
+              "Contract and regulatory acceptance testing: checks against contract acceptance criteria or legal and safety regulations.",
+              "Operational acceptance testing: backup, restore, maintenance and administration tasks work."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Regression testing reruns a subset of already passed tests after any change (bug fix, enhancement, new module) to make sure nothing that used to work has broken. Retesting (confirmation testing) reruns the specific test that failed to confirm the fix. Smoke testing is a broad, shallow check that a new build is stable enough to test at all, while sanity testing is a narrow, quick check of one changed area. Automated regression suites are the main reason teams invest in test automation."
+          },
+          {
+            "type": "formula",
+            "latex": "DRE_i = \\frac{E_i}{E_i + E_{i+1}}",
+            "plainText": "DRE_i = E_i / (E_i + E_(i+1)), E_i = errors found in phase i, E_(i+1) = errors from phase i found later"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "DRE_i = \\frac{E_i}{E_i + E_{i+1}}",
+            "plainText": "Phase DRE = errors found in phase i / (errors found in phase i + errors from phase i found in phase i+1)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Req. coverage} = \\frac{\\text{requirements with tests}}{\\text{total requirements}} \\times 100\\%",
+            "plainText": "Requirements coverage = requirements with at least one test / total requirements x 100%"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Top-down integration needs stubs (lower modules are missing); bottom-up integration needs drivers (higher modules are missing); sandwich needs both; big bang needs neither. Alpha = developer's site with developers present; beta = customer's site without developers."
+          },
+          {
+            "type": "note",
+            "text": "In the V-model each test level is planned against a development phase: unit testing against detailed design, integration testing against architectural design, system testing against the SRS, and acceptance testing against user requirements."
+          },
+          {
+            "type": "warning",
+            "text": "Do not swap the V&V definitions: verification = building the product right (conformance to specification, often static), validation = building the right product (meets user needs, dynamic). Regression testing is about re-checking old functionality after a change, not about testing the fix itself."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_t3_01",
+          "title": "Phase defect removal efficiency",
+          "latex": "DRE_i = \\frac{E_i}{E_i + E_{i+1}}",
+          "plainText": "DRE_i = E_i / (E_i + E_(i+1))",
+          "description": "Measures how well a phase or test level filters its own errors before they escape to the next phase."
+        },
+        {
+          "id": "f_ch8_t3_02",
+          "title": "Requirements test coverage",
+          "latex": "\\text{Req. coverage} = \\frac{\\text{requirements with tests}}{\\text{total requirements}} \\times 100\\%",
+          "plainText": "Requirements coverage = requirements with tests / total requirements x 100%",
+          "description": "Shows what share of the SRS is traced to at least one system or acceptance test."
+        },
+        {
+          "id": "f_ch8_t3_03",
+          "title": "Test pass rate",
+          "latex": "\\text{Pass rate} = \\frac{\\text{tests passed}}{\\text{tests executed}} \\times 100\\%",
+          "plainText": "Pass rate = tests passed / tests executed x 100%",
+          "description": "A simple progress indicator reported at each test level and for each regression run."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_t3_01",
+          "front": "Which integration strategy needs drivers, and which needs stubs?",
+          "back": "Bottom-up integration needs drivers to call the low-level clusters; top-down integration needs stubs to stand in for lower modules not yet integrated. Sandwich needs both.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_t3_02",
+          "front": "What is the difference between load testing and stress testing?",
+          "back": "Load testing checks behaviour at the expected peak workload; stress testing pushes the system beyond its designed limits to see how and where it fails.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_t3_03",
+          "front": "Name the three kinds of interface error Sommerville identifies in component testing.",
+          "back": "Interface misuse (wrong parameters), interface misunderstanding (wrong assumptions about behaviour) and timing errors (producer and consumer at different speeds).",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_t3_n01",
+          "questionText": "A team links all 40 modules of a system together at once and starts testing. Which integration strategy is this, and what is its main weakness?",
+          "options": [
+            "Top-down integration; it needs many stubs",
+            "Bottom-up integration; it needs many drivers",
+            "Big bang integration; failures are hard to localise to a module",
+            "Sandwich integration; it needs both stubs and drivers"
+          ],
+          "correctIndex": 2,
+          "explanation": "Combining every module at once is big bang integration. It needs no scaffolding, but when a test fails the fault could be in any module or interface, so debugging is difficult.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_t3_n02",
+          "questionText": "After fixing a defect in the tax module, the tester reruns the previously passed payroll and report test cases to make sure they still work. This activity is called:",
+          "options": [
+            "Smoke testing",
+            "Regression testing",
+            "Beta testing",
+            "Stress testing"
+          ],
+          "correctIndex": 1,
+          "explanation": "Regression testing reruns earlier passed tests after a change to detect side effects that break existing functionality. Rerunning only the failed test would be retesting (confirmation testing).",
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i31",
+      "title": "Test Case Design, Test Automation & Testing Metrics",
+      "subtitle": "White-box and black-box design, cyclomatic complexity, automation and test metrics",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Test Case Design: Two Views"
+          },
+          {
+            "type": "paragraph",
+            "text": "A test case specifies preconditions, input values, the expected output and postconditions. White-box (structural, glass-box) testing designs tests from the internal logic of the code and measures coverage of statements, branches or paths. Black-box (functional, behavioural) testing designs tests from the specification only and finds incorrect or missing functions, interface errors, errors in data structures or external database access, performance errors, and initialisation and termination errors. Grey-box testing combines partial knowledge of internals with specification-based tests."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Coverage criterion", "Requirement", "Strength"],
+              ["Statement coverage", "Every statement executed at least once", "Weakest; can miss the false side of an if"],
+              ["Branch (decision) coverage", "Every decision takes both true and false outcomes", "Subsumes statement coverage"],
+              ["Condition coverage", "Every atomic condition takes true and false", "Does not by itself guarantee branch coverage"],
+              ["MC/DC", "Each condition shown to independently change the decision outcome", "Required for safety-critical avionics (DO-178C)"],
+              ["Path coverage", "Every feasible path from entry to exit", "Strongest; infinite when loops are unbounded"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Basis Path Testing and Cyclomatic Complexity"
+          },
+          {
+            "type": "paragraph",
+            "text": "McCabe's basis path testing draws a flow graph of the module (nodes = statements or decisions, edges = flow of control) and derives a basis set of linearly independent paths; an independent path introduces at least one new edge. Cyclomatic complexity V(G) equals the number of independent paths, so it is the upper bound on the number of tests needed to execute every statement and every branch at least once. McCabe recommended keeping V(G) at 10 or less per module; higher values correlate with more defects and harder testing."
+          },
+          {
+            "type": "formula",
+            "latex": "V(G) = E - N + 2P = \\pi + 1 = R",
+            "plainText": "V(G) = E - N + 2P = (number of predicate nodes) + 1 = number of regions"
+          },
+          {
+            "type": "code",
+            "language": "cpp",
+            "text": "int f(int x, int y) {\n  int s = 0;              // n1\n  while (x > 0) {         // n2  decision 1\n    if (x % 2 == 0)       // n3  decision 2\n      s += y;             // n4\n    else if (y > 10)      // n5  decision 3\n      s -= 1;             // n6\n    x--;                  // n7\n  }\n  return s;               // n8\n}"
+          },
+          {
+            "type": "bulletList",
+            "text": "Worked example for the function above (one connected component, P = 1):",
+            "items": [
+              "Edges: n1-n2, n2-n3, n2-n8, n3-n4, n3-n5, n4-n7, n5-n6, n5-n7, n6-n7, n7-n2, so E = 10 and N = 8.",
+              "V(G) = E - N + 2P = 10 - 8 + 2 = 4.",
+              "Check with predicate nodes: n2, n3 and n5 are decisions, so V(G) = 3 + 1 = 4; the planar graph also has 3 enclosed regions + 1 outer region = 4.",
+              "Basis paths: (1) n1-n2-n8; (2) n1-n2-n3-n4-n7-n2-n8; (3) n1-n2-n3-n5-n6-n7-n2-n8; (4) n1-n2-n3-n5-n7-n2-n8.",
+              "Test data: x = 0 for path 1; x = 2 for path 2; x = 1, y = 20 for path 3; x = 1, y = 5 for path 4."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Black-Box Techniques"
+          },
+          {
+            "type": "bulletList",
+            "text": "Main black-box test design techniques:",
+            "items": [
+              "Equivalence partitioning: divide the input domain into classes expected to be processed the same way; one test per class (valid and invalid).",
+              "Boundary value analysis (BVA): errors cluster at edges, so test at min, just above min, a nominal value, just below max and max; robustness testing also adds min-1 and max+1.",
+              "Decision table testing: list combinations of conditions and the resulting actions; each rule (column) becomes a test case. n binary conditions give up to 2^n rules.",
+              "State transition testing: model states, events and transitions; test every valid transition and selected invalid ones (e.g. an ATM card blocked after 3 wrong PINs).",
+              "Use case testing: derive tests from main and alternative flows of each use case.",
+              "Cause-effect graphing, pairwise (all-pairs) testing and experience-based error guessing complement these."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Technique", "Test values for age valid in 18 to 60", "Number of tests"],
+              ["Equivalence partitioning", "10 (invalid, below), 35 (valid), 70 (invalid, above)", "3"],
+              ["Standard BVA", "18, 19, 39, 59, 60", "5 (4n + 1 with n = 1)"],
+              ["Robustness BVA", "17, 18, 19, 39, 59, 60, 61", "7 (6n + 1 with n = 1)"],
+              ["Two-value boundary check", "17, 18, 60, 61", "4"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Test Automation"
+          },
+          {
+            "type": "bulletList",
+            "text": "Test automation uses tools to execute tests, compare actual with expected results and report outcomes:",
+            "items": [
+              "Test pyramid: many fast unit tests at the base, fewer service/API tests in the middle, few slow end-to-end UI tests at the top.",
+              "Framework styles: linear record-and-playback, modular, data-driven (test data held in external CSV/Excel/DB files), keyword-driven (actions described by keywords in tables), hybrid, and behaviour-driven (Given-When-Then scenarios).",
+              "Unit frameworks: JUnit, TestNG, NUnit, pytest, Google Test. UI: Selenium WebDriver, Cypress, Playwright, Appium for mobile.",
+              "API and performance: Postman, REST Assured, JMeter, LoadRunner, Gatling. BDD: Cucumber, SpecFlow. Coverage: JaCoCo, gcov.",
+              "Automate stable, repetitive, high-value tests (regression, smoke, data-heavy, performance); keep exploratory, usability and one-off tests manual.",
+              "Automated suites run in CI servers such as Jenkins or GitHub Actions on every commit."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Metrics for Testing"
+          },
+          {
+            "type": "bulletList",
+            "text": "Common test metrics and what they indicate:",
+            "items": [
+              "Statement, branch and path coverage percentages: how much of the code the tests exercise.",
+              "Defect density = defects / KLOC (or per function point): compares quality across modules and releases.",
+              "Defect removal efficiency (DRE) = defects found before release / total defects: filtering power of reviews and testing.",
+              "Defect leakage: defects that escape from one test level to the next or to customers.",
+              "Test execution rate and pass rate, test cases per requirement, defect age and defect arrival rate over time.",
+              "Cyclomatic complexity and Halstead measures to estimate how much testing a module needs."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "DRE = \\frac{E}{E + D}",
+            "plainText": "DRE = E / (E + D), E = errors found before delivery, D = defects found after delivery"
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "V(G) = E - N + 2P = \\pi + 1 = R",
+            "plainText": "V(G) = edges - nodes + 2 x components = predicate nodes + 1 = regions"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Branch coverage} = \\frac{\\text{branch outcomes executed}}{\\text{total branch outcomes}} \\times 100\\%",
+            "plainText": "Branch coverage = branch outcomes executed / total branch outcomes x 100%"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Defect density} = \\frac{\\text{defects}}{\\text{KLOC}}",
+            "plainText": "Defect density = number of defects / size in KLOC"
+          },
+          {
+            "type": "formula",
+            "latex": "DRE = \\frac{E}{E + D}",
+            "plainText": "DRE = E / (E + D)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "V(G) = decisions + 1 counts binary decisions. A compound condition such as if (a && b) is two predicate nodes in the flow graph, so it adds 2, not 1. A switch with k cases adds k - 1."
+          },
+          {
+            "type": "warning",
+            "text": "100% statement coverage does not guarantee 100% branch coverage (an if without an else can be fully covered by one true test). 100% branch coverage does guarantee 100% statement coverage. Path coverage subsumes both."
+          },
+          {
+            "type": "note",
+            "text": "BVA test counts for n independent variables: standard BVA 4n + 1, robustness 6n + 1, worst-case 5^n and robust worst-case 7^n. MCQs often test these counts."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i31_01",
+          "title": "Cyclomatic complexity",
+          "latex": "V(G) = E - N + 2P = \\pi + 1 = R",
+          "plainText": "V(G) = E - N + 2P = predicate nodes + 1 = regions",
+          "description": "Gives the number of linearly independent paths and the maximum number of basis-path tests."
+        },
+        {
+          "id": "f_ch8_i31_02",
+          "title": "Statement coverage",
+          "latex": "\\text{Statement coverage} = \\frac{\\text{statements executed}}{\\text{total statements}} \\times 100\\%",
+          "plainText": "Statement coverage = statements executed / total statements x 100%",
+          "description": "The weakest white-box coverage measure, reported by tools such as JaCoCo or gcov."
+        },
+        {
+          "id": "f_ch8_i31_03",
+          "title": "BVA test count",
+          "latex": "T_{BVA} = 4n + 1,\\quad T_{robust} = 6n + 1,\\quad T_{worst} = 5^{n}",
+          "plainText": "Standard BVA = 4n + 1, robustness = 6n + 1, worst case = 5^n tests for n variables",
+          "description": "Number of boundary value test cases needed for n independent input variables."
+        },
+        {
+          "id": "f_ch8_i31_04",
+          "title": "Defect density",
+          "latex": "\\text{Defect density} = \\frac{\\text{defects}}{\\text{KLOC}}",
+          "plainText": "Defect density = defects / KLOC",
+          "description": "Normalises defect counts by size so that modules and releases can be compared."
+        },
+        {
+          "id": "f_ch8_i31_05",
+          "title": "Defect removal efficiency",
+          "latex": "DRE = \\frac{E}{E + D}",
+          "plainText": "DRE = E / (E + D)",
+          "description": "Fraction of all defects removed before delivery; the ideal value is 1."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i31_01",
+          "front": "What does cyclomatic complexity tell a tester?",
+          "back": "It is the number of linearly independent paths in the flow graph, i.e. the upper bound on tests needed to cover every statement and branch in basis path testing.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i31_02",
+          "front": "Input valid range is 18 to 60. Give the standard BVA test values.",
+          "back": "18, 19, a nominal value such as 39, 59 and 60 (5 tests = 4n + 1 for one variable); robustness adds 17 and 61.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i31_03",
+          "front": "What distinguishes a data-driven from a keyword-driven automation framework?",
+          "back": "Data-driven keeps input and expected values in external files so one script runs many data sets; keyword-driven describes test steps as keywords in tables interpreted by the framework.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i31_04",
+          "front": "A module of 8 KLOC has 24 defects. What is its defect density?",
+          "back": "24 / 8 = 3 defects per KLOC.",
+          "difficulty": "easy"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i31_n01",
+          "questionText": "The control flow graph of a single procedure has 11 edges and 9 nodes. What is its cyclomatic complexity?",
+          "options": ["2", "3", "4", "5"],
+          "correctIndex": 2,
+          "explanation": "V(G) = E - N + 2P = 11 - 9 + 2(1) = 4, so four linearly independent paths form the basis set.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i31_n02",
+          "questionText": "A function takes three independent integer inputs. Using standard (non-robust) boundary value analysis under the single-fault assumption, how many test cases are required?",
+          "options": ["13", "15", "19", "125"],
+          "correctIndex": 0,
+          "explanation": "Standard BVA needs 4n + 1 test cases: 4(3) + 1 = 13. Robustness testing would need 6n + 1 = 19 and worst-case testing 5^3 = 125.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i31_n03",
+          "questionText": "In a test automation framework, one login script reads 500 username/password/expected-result rows from a CSV file and runs once per row. This framework style is:",
+          "options": [
+            "Keyword-driven",
+            "Data-driven",
+            "Linear record-and-playback",
+            "Modular"
+          ],
+          "correctIndex": 1,
+          "explanation": "A data-driven framework separates test data from test logic, so the same script is executed repeatedly with data read from external files.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i31_n04",
+          "questionText": "Reviews and testing found 180 defects before release, and customers reported 20 more defects after release. What is the defect removal efficiency?",
+          "options": ["10%", "11.1%", "88.9%", "90%"],
+          "correctIndex": 3,
+          "explanation": "DRE = E / (E + D) = 180 / (180 + 20) = 180 / 200 = 0.90, i.e. 90%.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i32",
+      "title": "Cost Estimation: Algorithmic Models, Duration & Staffing",
+      "subtitle": "Size and productivity, estimation techniques, COCOMO, function points and staffing",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Software Productivity and Size Measures"
+          },
+          {
+            "type": "paragraph",
+            "text": "Cost estimation predicts effort (person-months), schedule (calendar months) and cost; effort is the dominant cost in software. Productivity is output per unit of effort, and output is measured either by size (lines of code, usually counted in KLOC excluding comments and blank lines) or by functionality (function points, introduced by Albrecht in 1979, or object/application points). Estimates made at the start of a project can be out by a factor of four either way, and they become more accurate as the project proceeds (the cone of uncertainty)."
+          },
+          {
+            "type": "bulletList",
+            "text": "LOC versus function points:",
+            "items": [
+              "LOC: easy to count after coding and used directly by COCOMO, but depends on language and programming style and is hard to estimate early.",
+              "LOC penalises well-designed short programs, and high-level languages appear less productive per line.",
+              "Function points: language-independent and can be estimated from the requirements, but counting is subjective and needs trained counters.",
+              "Backfiring converts FP to LOC using language tables (roughly 128 LOC per FP for C, about 53 for Java, as published by Jones; figures vary)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Estimation Techniques"
+          },
+          {
+            "type": "bulletList",
+            "text": "Techniques listed by Sommerville and Pressman:",
+            "items": [
+              "Expert judgement and (wideband) Delphi: several experts estimate independently and iterate until they converge.",
+              "Estimation by analogy: compare with completed projects in the same application domain.",
+              "Parkinson's law: the work expands to fill the time available, so cost is set by resources, not by the product.",
+              "Pricing to win: the cost is whatever the customer can afford; the specification is then constrained.",
+              "Decomposition: top-down from the overall system, or bottom-up by estimating each work breakdown structure (WBS) task and summing.",
+              "Algorithmic cost modelling: effort = A x Size^B x M, calibrated on historical data (COCOMO, Putnam SLIM).",
+              "Agile: story points estimated by planning poker, with duration derived from team velocity."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "S = \\frac{S_{opt} + 4S_{m} + S_{pess}}{6}",
+            "plainText": "Three-point (PERT) estimate S = (optimistic + 4 x most likely + pessimistic) / 6"
+          },
+          {
+            "type": "heading",
+            "text": "Function Point Analysis"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Component", "Simple", "Average", "Complex"],
+              ["External inputs (EI)", "3", "4", "6"],
+              ["External outputs (EO)", "4", "5", "7"],
+              ["External inquiries (EQ)", "3", "4", "6"],
+              ["Internal logical files (ILF)", "7", "10", "15"],
+              ["External interface files (EIF)", "5", "7", "10"]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Unadjusted function points (UFP) are the sum of each component count multiplied by its weight. Fourteen general system characteristics (data communications, distributed processing, performance, reuse, online update and others) are each rated 0 (no influence) to 5 (essential), so their sum lies between 0 and 70 and the value adjustment factor VAF = 0.65 + 0.01 x sum lies between 0.65 and 1.35. Example: 20 average EI, 15 average EO, 10 average EQ, 6 average ILF and 4 average EIF give UFP = 80 + 75 + 40 + 60 + 28 = 283; with a sum of 42 the VAF is 1.07 and FP = 283 x 1.07 = 302.8, about 303."
+          },
+          {
+            "type": "heading",
+            "text": "Basic COCOMO (Boehm, 1981)"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Mode", "Effort E (person-months)", "Duration D (months)", "Typical project"],
+              ["Organic", "2.4 x KLOC^1.05", "2.5 x E^0.38", "Small, experienced team, familiar in-house problem"],
+              ["Semi-detached", "3.0 x KLOC^1.12", "2.5 x E^0.35", "Medium size, mixed experience, e.g. a DBMS or compiler"],
+              ["Embedded", "3.6 x KLOC^1.20", "2.5 x E^0.32", "Tight hardware, regulatory or real-time constraints"]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "E = a\\,(KLOC)^{b},\\quad D = c\\,E^{d},\\quad \\text{Staff} = \\frac{E}{D}",
+            "plainText": "E = a x KLOC^b person-months, D = c x E^d months, average staff = E / D"
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example, 32 KLOC organic project: 32^1.05 = 38.05, so E = 2.4 x 38.05 = 91.3 person-months. Then 91.3^0.38 = 5.56, so D = 2.5 x 5.56 = 13.9 months. Average staffing = 91.3 / 13.9 = 6.6, about 7 people, and productivity = 32,000 / 91.3 = about 350 LOC per person-month. Because b > 1, effort grows faster than size (diseconomy of scale), and because d < 1, doubling effort does not double the schedule."
+          },
+          {
+            "type": "bulletList",
+            "text": "Intermediate, detailed COCOMO and COCOMO II:",
+            "items": [
+              "Intermediate COCOMO: E = a x KLOC^b x EAF, where the effort adjustment factor is the product of 15 cost drivers (product, hardware, personnel and project attributes) rated very low to extra high; a = 3.2, 3.0, 2.8 for organic, semi-detached, embedded with the same exponents.",
+              "Detailed COCOMO applies phase-sensitive cost drivers to each lifecycle phase.",
+              "COCOMO II (2000) has submodels used as the project matures: application composition (object/application points, prototypes), early design (function points, 7 effort multipliers), reuse, and post-architecture (17 effort multipliers).",
+              "COCOMO II effort: PM = 2.94 x Size^E x product of EMs, with exponent E = 0.91 + 0.01 x sum of five scale factors (precedentedness, development flexibility, architecture/risk resolution, team cohesion, process maturity)."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Duration, Staffing, Brooks' Law and Putnam"
+          },
+          {
+            "type": "bulletList",
+            "text": "Planning schedule and team size:",
+            "items": [
+              "Average staffing = effort / duration; staff is not constant but follows the Norden-Rayleigh curve: builds up, peaks near delivery, then tails off.",
+              "Putnam's SLIM software equation relates size L, effort K and delivery time td: L = Ck x K^(1/3) x td^(4/3), so K is proportional to 1 / td^4 and small schedule compression costs a lot of effort.",
+              "Schedule cannot usefully be compressed below about 75% of the nominal time (the impossible region).",
+              "Brooks' law: adding manpower to a late software project makes it later, because newcomers need training and communication paths grow as n(n - 1)/2.",
+              "Example: a team of 4 has 6 paths, a team of 8 has 28 paths, so doubling the team more than quadruples the communication overhead."
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "FP = UFP \\times (0.65 + 0.01 \\times \\textstyle\\sum F_i)",
+            "plainText": "FP = UFP x (0.65 + 0.01 x sum of 14 Fi), each Fi rated 0 to 5"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Productivity} = \\frac{KLOC}{\\text{person-months}}",
+            "plainText": "Productivity = KLOC (or FP) delivered / person-months of effort"
+          },
+          {
+            "type": "formula",
+            "latex": "C = \\frac{n(n-1)}{2}",
+            "plainText": "Communication paths C = n(n - 1) / 2 for a team of n people"
+          },
+          {
+            "type": "formula",
+            "latex": "L = C_k\\,K^{1/3}\\,t_d^{4/3}",
+            "plainText": "Putnam software equation: L = Ck x K^(1/3) x td^(4/3)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Memorise the basic COCOMO constants: a = 2.4, 3.0, 3.6 and b = 1.05, 1.12, 1.20 for organic, semi-detached, embedded; c = 2.5 in all modes with d = 0.38, 0.35, 0.32. VAF always lies between 0.65 and 1.35."
+          },
+          {
+            "type": "warning",
+            "text": "Effort E is in person-months, duration D is in calendar months, and D is computed from E, not from KLOC. Dividing effort by duration gives average staff, not productivity."
+          },
+          {
+            "type": "note",
+            "text": "Brooks' law comes from The Mythical Man-Month (1975). Its reasons are ramp-up time for new members, task partitioning limits (some tasks cannot be split) and the n(n - 1)/2 growth of communication overhead."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i32_01",
+          "title": "Basic COCOMO effort",
+          "latex": "E = a\\,(KLOC)^{b}",
+          "plainText": "E = a x KLOC^b person-months",
+          "description": "Organic 2.4/1.05, semi-detached 3.0/1.12, embedded 3.6/1.20."
+        },
+        {
+          "id": "f_ch8_i32_02",
+          "title": "Basic COCOMO duration",
+          "latex": "D = 2.5\\,E^{d}",
+          "plainText": "D = 2.5 x E^d months",
+          "description": "The exponent d is 0.38 organic, 0.35 semi-detached and 0.32 embedded."
+        },
+        {
+          "id": "f_ch8_i32_03",
+          "title": "Average staffing",
+          "latex": "\\text{Staff} = \\frac{E}{D}",
+          "plainText": "Average staff = effort (person-months) / duration (months)",
+          "description": "Gives the average number of full-time people over the project schedule."
+        },
+        {
+          "id": "f_ch8_i32_04",
+          "title": "Function points",
+          "latex": "FP = UFP \\times (0.65 + 0.01 \\times \\textstyle\\sum F_i)",
+          "plainText": "FP = UFP x (0.65 + 0.01 x sum Fi)",
+          "description": "Adjusts unadjusted function points by 14 general system characteristics rated 0 to 5."
+        },
+        {
+          "id": "f_ch8_i32_05",
+          "title": "Communication paths",
+          "latex": "C = \\frac{n(n-1)}{2}",
+          "plainText": "C = n(n - 1) / 2",
+          "description": "Explains Brooks' law: coordination overhead grows quadratically with team size."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i32_01",
+          "front": "Estimate effort and duration for a 32 KLOC organic project with basic COCOMO.",
+          "back": "E = 2.4 x 32^1.05 = about 91 person-months; D = 2.5 x 91.3^0.38 = about 13.9 months, so roughly 6.6 people on average.",
+          "difficulty": "hard"
+        },
+        {
+          "id": "fc_ch8_i32_02",
+          "front": "What are the five components counted in function point analysis?",
+          "back": "External inputs, external outputs, external inquiries, internal logical files and external interface files.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i32_03",
+          "front": "What does Putnam's model imply about compressing the schedule?",
+          "back": "Effort is proportional to 1 / td^4, so even a small reduction in delivery time requires a large increase in effort.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i32_n01",
+          "questionText": "Basic COCOMO estimates a project at 144 person-months of effort and a development time of 12 months. What is the average number of staff required?",
+          "options": ["6", "12", "24", "144"],
+          "correctIndex": 1,
+          "explanation": "Average staffing = E / D = 144 / 12 = 12 persons.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i32_n02",
+          "questionText": "A system has 200 unadjusted function points, and the sum of its 14 general system characteristic ratings is 45. What is the adjusted function point count?",
+          "options": ["130", "200", "220", "270"],
+          "correctIndex": 2,
+          "explanation": "VAF = 0.65 + 0.01 x 45 = 1.10, so FP = 200 x 1.10 = 220. The values 130 and 270 are the minimum and maximum possible (VAF 0.65 and 1.35).",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i32_n03",
+          "questionText": "A late project grows its team from 5 to 10 developers. By how much do the possible pairwise communication paths increase?",
+          "options": [
+            "By 35 (from 10 to 45)",
+            "By 5 (from 5 to 10)",
+            "By 25 (from 20 to 45)",
+            "By 45 (from 45 to 90)"
+          ],
+          "correctIndex": 0,
+          "explanation": "Paths = n(n - 1)/2: 5 x 4 / 2 = 10 and 10 x 9 / 2 = 45, an increase of 35. This quadratic growth is one reason behind Brooks' law.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i32_n04",
+          "questionText": "Which COCOMO II submodel is intended for the earliest stage, for prototyping with GUI builders and reusable components, and sizes the system in object (application) points?",
+          "options": [
+            "Post-architecture model",
+            "Early design model",
+            "Reuse model",
+            "Application composition model"
+          ],
+          "correctIndex": 3,
+          "explanation": "The application composition model uses object/application points for prototype-style systems built from components. Early design uses function points, and post-architecture uses size plus 17 effort multipliers once the architecture is known.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i33",
+      "title": "Software Quality Assurance, Reviews, Metrics, ISO & CMMI",
+      "subtitle": "SQA activities and plans, FTRs, formal and statistical SQA, metrics, ISO 9001 and CMMI",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Quality and Quality Management"
+          },
+          {
+            "type": "paragraph",
+            "text": "Pressman defines software quality as conformance to explicitly stated functional and performance requirements, explicitly documented development standards, and implicit characteristics expected of all professionally developed software. Quality management has three parts: quality assurance (defining processes and standards that lead to quality), quality planning (choosing the standards for a particular project) and quality control (checking that the team follows them). The cost of quality is made up of prevention costs, appraisal costs, internal failure costs (defects found before delivery) and external failure costs (defects found by customers), and the latter are by far the most expensive."
+          },
+          {
+            "type": "bulletList",
+            "text": "SQA group activities and the SQA plan:",
+            "items": [
+              "Prepare an SQA plan for the project, identifying evaluations, audits and reviews, standards, error reporting procedures and documents to be produced.",
+              "Participate in writing the project's software process description and review it for compliance with organisational policy.",
+              "Review software engineering activities and audit designated work products to verify compliance with the defined process.",
+              "Ensure deviations in software work and work products are documented and handled; record non-compliance and report it to senior management.",
+              "IEEE 730 SQA plan outline: purpose and scope, reference documents, management, documentation, standards, practices and metrics, reviews and audits, testing, problem reporting and corrective action, tools and methods, code/media/supplier control, records, training and risk management."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Reviews: FTRs, Inspections and Walkthroughs"
+          },
+          {
+            "type": "paragraph",
+            "text": "A formal technical review (FTR) is an SQA activity in which software engineers examine a work product to uncover errors in function, logic or implementation, verify it meets its requirements, and check it follows standards. Guidelines: 3 to 5 people, advance preparation of no more than 2 hours each, meeting under 2 hours, review the product and not the producer, set and keep an agenda, limit debate, point out problems but do not try to solve them, use checklists, and take written notes. The review ends with a decision to accept, reject, or accept provisionally, recorded in a review summary report and an issues list."
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Review type", "Formality", "Led by", "Key characteristics"],
+              ["Inspection (Fagan)", "Highest", "Trained moderator", "Defined roles, checklists, entry/exit criteria, defect metrics collected"],
+              ["Technical review", "High", "Moderator or technical lead", "Peers check technical content against specifications and standards"],
+              ["Walkthrough", "Medium", "The author", "Author presents step by step; reviewers ask questions; also used for training"],
+              ["Pair programming", "Informal, continuous", "The pair", "Second developer reviews code as it is written"],
+              ["Desk check", "Lowest", "Individual", "Author or one colleague reads the work product alone"]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Fagan inspection roles and phases:",
+            "items": [
+              "Roles: moderator (plans and leads the meeting), author (producer of the work product), reader (paraphrases the material), recorder or scribe (logs defects), and inspectors.",
+              "Phases: planning, overview, individual preparation, inspection meeting, rework by the author, and follow-up by the moderator to verify fixes.",
+              "Inspections typically find a large share of defects before testing and are cheaper per defect than testing."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Formal and Statistical Approaches to SQA"
+          },
+          {
+            "type": "bulletList",
+            "text": "Beyond reviews and testing, SQA can be made more rigorous:",
+            "items": [
+              "Formal approaches: specify programs mathematically (Z, B, VDM) and prove correctness using preconditions, postconditions and loop invariants (Hoare logic), or verify models by model checking.",
+              "Cleanroom software engineering: box-structure specification, correctness verification instead of developer unit testing, and statistical usage testing to certify reliability.",
+              "Statistical SQA: collect and categorise information about defects, trace each defect to its underlying cause (incomplete specification, misinterpreted customer communication, logic error, etc.), apply the Pareto principle to isolate the vital few causes behind about 80% of defects, then correct those causes.",
+              "Six Sigma (Motorola): a quality level of 3.4 defects per million opportunities; DMAIC (define, measure, analyse, improve, control) for existing processes and DMADV (define, measure, analyse, design, verify) for new ones."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "DPMO = \\frac{\\text{defects} \\times 10^{6}}{\\text{units} \\times \\text{opportunities per unit}}",
+            "plainText": "DPMO = defects x 1,000,000 / (units x opportunities per unit); Six Sigma = 3.4 DPMO"
+          },
+          {
+            "type": "heading",
+            "text": "A Framework for Software Metrics"
+          },
+          {
+            "type": "bulletList",
+            "text": "Key terms and classifications (Pressman, IEEE):",
+            "items": [
+              "Measure: a quantitative indication of an attribute (e.g. number of errors). Measurement: the act of determining a measure. Metric: a quantitative measure of the degree to which a system or process has an attribute. Indicator: a metric or combination that gives insight for decisions.",
+              "Direct measures (LOC, effort, defects, execution speed) versus indirect measures (functionality, quality, complexity, reliability, maintainability).",
+              "Product metrics (size, complexity, design quality), process metrics (defect removal efficiency, defect arrival rates across the organisation) and project metrics (effort, schedule, cost for tactical control).",
+              "Goal-Question-Metric (GQM, Basili): define a measurement goal, derive questions that characterise it, then choose metrics that answer the questions.",
+              "Good metrics are simple and computable, empirically and intuitively persuasive, consistent and objective, consistent in units and dimensions, programming-language independent, and give actionable feedback."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Model", "Metric", "What it measures"],
+              ["Analysis (requirements)", "Function points; Davis specificity Q1 = nui / nr", "Size; lack of ambiguity (requirements all reviewers interpreted identically / total requirements)"],
+              ["Architectural design", "Card and Glass: S(i) = fout^2, D(i) = v(i)/(fout + 1), C(i) = S + D", "Structural, data and system complexity of each module"],
+              ["Component design", "Henry-Kafura: length x (fan-in x fan-out)^2; cyclomatic complexity", "Information flow and control complexity"],
+              ["Object-oriented design", "CK suite: WMC, DIT, NOC, CBO, RFC, LCOM", "Class complexity, inheritance depth, coupling and cohesion"],
+              ["Source code", "Halstead: N = N1 + N2, V = N log2 n", "Program length and volume from operators and operands"]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "ISO Standards and CMMI"
+          },
+          {
+            "type": "bulletList",
+            "text": "ISO standards relevant to software quality:",
+            "items": [
+              "ISO 9000: fundamentals and vocabulary of quality management. ISO 9001: requirements for a quality management system (QMS); the only certifiable standard in the family; generic to any organisation, based on the process approach, the Plan-Do-Check-Act cycle and risk-based thinking.",
+              "ISO/IEC 90003: guidelines for applying ISO 9001 to software development and maintenance.",
+              "ISO/IEC 9126 (superseded by ISO/IEC 25010): product quality model; 25010 has eight characteristics: functional suitability, performance efficiency, compatibility, usability, reliability, security, maintainability and portability.",
+              "ISO/IEC 12207: software life cycle processes; ISO/IEC 15504 (SPICE), now ISO/IEC 33000: process assessment."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["CMMI level", "Name", "Characteristic"],
+              ["1", "Initial", "Ad hoc, chaotic; success depends on individual heroics"],
+              ["2", "Managed", "Projects are planned, tracked and controlled (requirements management, project planning, configuration management)"],
+              ["3", "Defined", "An organisation-wide standard process, tailored for each project"],
+              ["4", "Quantitatively Managed", "Processes controlled using statistical and quantitative objectives"],
+              ["5", "Optimizing", "Continuous process improvement through causal analysis and innovation"]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "A = \\frac{MTTF}{MTTF + MTTR} = \\frac{MTTF}{MTBF}",
+            "plainText": "Availability = MTTF / (MTTF + MTTR) = MTTF / MTBF"
+          },
+          {
+            "type": "formula",
+            "latex": "N = N_1 + N_2,\\quad V = N \\log_2 n,\\quad n = n_1 + n_2",
+            "plainText": "Halstead length N = N1 + N2, volume V = N x log2(n), vocabulary n = n1 + n2"
+          },
+          {
+            "type": "formula",
+            "latex": "DPMO = \\frac{\\text{defects} \\times 10^{6}}{\\text{units} \\times \\text{opportunities}}",
+            "plainText": "DPMO = defects x 10^6 / (units x opportunities per unit)"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "CMMI staged levels in order: Initial, Managed, Defined, Quantitatively Managed, Optimizing (\"I Must Do Quality Optimization\"). Level 4 is about statistical control; level 5 is about continuous improvement."
+          },
+          {
+            "type": "warning",
+            "text": "ISO 9001 certifies an organisation's quality management system, not the quality of a particular software product. Product quality characteristics come from ISO/IEC 9126 and its successor ISO/IEC 25010."
+          },
+          {
+            "type": "note",
+            "text": "CMMI also has a continuous representation in which individual process areas are rated by capability level rather than the whole organisation by maturity level. Formality ordering of reviews: inspection > technical review > walkthrough > desk check."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i33_01",
+          "title": "Availability",
+          "latex": "A = \\frac{MTTF}{MTTF + MTTR}",
+          "plainText": "Availability = MTTF / (MTTF + MTTR)",
+          "description": "Probability that the software is operational when it is needed."
+        },
+        {
+          "id": "f_ch8_i33_02",
+          "title": "Mean time between failures",
+          "latex": "MTBF = MTTF + MTTR",
+          "plainText": "MTBF = MTTF + MTTR",
+          "description": "Average time from one failure to the next, including the repair time."
+        },
+        {
+          "id": "f_ch8_i33_03",
+          "title": "Halstead length and volume",
+          "latex": "N = N_1 + N_2,\\quad V = N \\log_2 n",
+          "plainText": "N = N1 + N2, V = N log2 n",
+          "description": "Size measures from total operators N1, total operands N2 and vocabulary n = n1 + n2."
+        },
+        {
+          "id": "f_ch8_i33_04",
+          "title": "Defects per million opportunities",
+          "latex": "DPMO = \\frac{\\text{defects} \\times 10^{6}}{\\text{units} \\times \\text{opportunities}}",
+          "plainText": "DPMO = defects x 10^6 / (units x opportunities)",
+          "description": "Six Sigma quality corresponds to 3.4 DPMO."
+        },
+        {
+          "id": "f_ch8_i33_05",
+          "title": "Card and Glass system complexity",
+          "latex": "S(i) = f_{out}^{2},\\ D(i) = \\frac{v(i)}{f_{out}+1},\\ C(i) = S(i) + D(i)",
+          "plainText": "S(i) = fout^2, D(i) = v(i) / (fout + 1), C(i) = S(i) + D(i)",
+          "description": "Architectural design metric combining structural (fan-out) and data (I/O variables) complexity."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i33_01",
+          "front": "What are the four steps of statistical SQA?",
+          "back": "Collect and categorise defect data, trace each defect to its root cause, use the Pareto principle to isolate the vital few causes, and correct those causes.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i33_02",
+          "front": "List the roles in a Fagan inspection.",
+          "back": "Moderator (leads), author, reader (paraphrases the work product), recorder/scribe and inspectors.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i33_03",
+          "front": "What is the difference between a measure, a metric and an indicator?",
+          "back": "A measure is a quantitative value of an attribute, a metric relates measures to the degree an attribute is present, and an indicator combines metrics to give insight for decisions.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i33_n01",
+          "questionText": "A server application has a mean time to failure of 990 hours and a mean time to repair of 10 hours. What is its availability?",
+          "options": ["90.0%", "99.0%", "98.9%", "1.0%"],
+          "correctIndex": 1,
+          "explanation": "Availability = MTTF / (MTTF + MTTR) = 990 / 1000 = 0.99, i.e. 99.0%. MTBF here is 1000 hours.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i33_n02",
+          "questionText": "A program has 10 distinct operators, 6 distinct operands, 20 total operator occurrences and 12 total operand occurrences. What is its Halstead volume?",
+          "options": ["64", "96", "128", "192"],
+          "correctIndex": 2,
+          "explanation": "Length N = 20 + 12 = 32 and vocabulary n = 10 + 6 = 16, so V = N log2 n = 32 x 4 = 128.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i33_n03",
+          "questionText": "In a Fagan-style software inspection, who plans the inspection, leads the meeting and verifies in follow-up that the rework has been done?",
+          "options": ["The author", "The reader", "The recorder", "The moderator"],
+          "correctIndex": 3,
+          "explanation": "The trained moderator plans and chairs the inspection and performs follow-up. The reader paraphrases the material, the recorder logs defects and the author reworks the product.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i33_n04",
+          "questionText": "An organisation applies Six Sigma to improve an existing software process. Which methodology does it follow, and what defect level is its target?",
+          "options": [
+            "DMAIC; 3.4 defects per million opportunities",
+            "DMADV; 3.4 defects per thousand opportunities",
+            "PDCA; 6 defects per million opportunities",
+            "DMAIC; 34 defects per million opportunities"
+          ],
+          "correctIndex": 0,
+          "explanation": "Existing processes are improved with DMAIC (define, measure, analyse, improve, control); DMADV is for designing new processes. Six Sigma quality corresponds to 3.4 defects per million opportunities.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch8_i34",
+      "title": "Configuration, Change, Version & Release Management",
+      "subtitle": "SCM planning, SCIs and baselines, change control, versioning, builds, releases and tools",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "What Configuration Management Does"
+          },
+          {
+            "type": "paragraph",
+            "text": "Software configuration management (SCM) is the set of policies, processes and tools for managing a changing software system; it is an umbrella activity applied throughout the life cycle because change can happen at any time. Sommerville divides it into four activities: change management, version management, system building and release management. Pressman lists five SCM tasks: identification of configuration objects, version control, change control, configuration auditing, and status reporting (configuration status accounting)."
+          },
+          {
+            "type": "heading",
+            "text": "Configuration Management Planning"
+          },
+          {
+            "type": "bulletList",
+            "text": "A configuration management plan (see IEEE 828) defines:",
+            "items": [
+              "Which items are managed (the configuration items) and the scheme for identifying and naming them.",
+              "Who is responsible for CM procedures and for submitting controlled items to the CM team.",
+              "Policies for change control and version management, including who may approve changes.",
+              "The CM records to be kept and the reports (status accounting) to be produced.",
+              "The CM tools to use, how to use them, and the structure of the CM database or repository.",
+              "Schedule of configuration audits and baselines at project milestones."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Configuration Items and Baselines"
+          },
+          {
+            "type": "paragraph",
+            "text": "A software configuration item (SCI) is any work product placed under configuration control: the SRS, design models, source code, test plans, test cases and data, user manuals, executables, and even the versions of compilers and tools used to build them. A baseline is a specification or product that has been formally reviewed and agreed upon, that thereafter serves as the basis for further development, and that can be changed only through formal change control procedures (IEEE). Typical baselines are functional (requirements), allocated, design and product baselines. Before an item is baselined, changes are informal; afterwards, every change needs an approved change request. A codeline is a sequence of versions of a component, and the mainline is the sequence of baselines forming the main development line."
+          },
+          {
+            "type": "heading",
+            "text": "Change Management"
+          },
+          {
+            "type": "bulletList",
+            "text": "The change control process for a baselined item:",
+            "items": [
+              "A user or developer submits a change request (CR) on a change request form.",
+              "The request is checked for validity; duplicate or misunderstood requests are closed.",
+              "Change analysis estimates the impact on other SCIs, the effort and the cost.",
+              "The change control board (CCB) decides to approve, reject or defer the change based on cost, benefit, risk, number of users affected and release plans.",
+              "If approved, an engineering change order (ECO) is issued; the SCIs are checked out, modified, reviewed (SQA audit) and tested.",
+              "The modified SCIs are checked in, a new baseline is established, the requester is notified and the CR is closed.",
+              "Every step is recorded in a change tracking tool, giving a full derivation history."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The CCB may be one person for a small project or a group of managers, customer representatives and technical staff for a large one; the key is that it is a recognised authority independent of the individual developer. Access control decides who may check out an object for change, and synchronisation control (locking) stops two people from overwriting each other's parallel changes. Configuration audits and formal technical reviews confirm that the change was made correctly and that the SCM procedures were followed."
+          },
+          {
+            "type": "heading",
+            "text": "Version Management"
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["Aspect", "Centralised VCS", "Distributed VCS"],
+              ["Repository", "One master repository on a server", "Every clone holds the full history"],
+              ["Examples", "RCS, CVS, Subversion (SVN), Perforce", "Git, Mercurial, Bazaar"],
+              ["Offline work", "Commits need the server", "Commit, branch and view history offline"],
+              ["Branching and merging", "Heavier; branches are server copies", "Cheap and frequent"],
+              ["Single point of failure", "Server loss can lose history", "Any clone can restore the repository"]
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Branching, merging and semantic versioning:",
+            "items": [
+              "Branches let work proceed in parallel: feature branches, release branches and hotfix branches (as in GitFlow), or short-lived branches merged daily into the trunk (trunk-based development).",
+              "Merging combines branches; when both changed the same lines a merge conflict must be resolved manually.",
+              "Storage: older tools store the latest version plus reverse deltas (RCS, SVN), while Git stores compressed snapshots of every committed file.",
+              "Tags label an exact set of versions, e.g. the source used for a release, so it can be rebuilt later.",
+              "Semantic versioning MAJOR.MINOR.PATCH: increment MAJOR for incompatible API changes (reset MINOR and PATCH to 0), MINOR for backward-compatible features (reset PATCH), PATCH for backward-compatible bug fixes.",
+              "Pre-release and build labels follow the core number, e.g. 2.0.0-beta.1 or 1.4.2+build.57; version 0.y.z signals initial development with no stability promise."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "System Building and Release Management"
+          },
+          {
+            "type": "bulletList",
+            "text": "System building creates a complete executable system by compiling and linking components, libraries and configuration files:",
+            "items": [
+              "Build tools and scripts: make, Ant, Maven, Gradle, MSBuild, CMake; they record dependencies and recompile only changed files (minimal recompilation using timestamps or checksums).",
+              "Continuous integration servers (Jenkins, GitHub Actions, GitLab CI) build and test on every commit; daily builds are followed by smoke tests.",
+              "Builds should be reproducible: the same tagged sources, libraries and tool versions give the same executable.",
+              "Sommerville distinguishes the development system, the build server and the target (execution) environment."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "Release management prepares software for external release and keeps track of released versions:",
+            "items": [
+              "A release is a version of the system distributed to customers; major releases add significant new functionality, minor releases repair bugs and fix reported problems.",
+              "A release contains executable code plus configuration files, data files, an installation program, electronic and paper documentation, and packaging.",
+              "Release timing depends on technical quality, platform changes, Lehman's fifth law (a large release tends to be followed by a smaller corrective one), competition, marketing and customer change proposals.",
+              "The exact versions of all source files, libraries, tools and OS used must be recorded so any release can be re-created."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              ["CM function", "Example CASE tools", "What the tool automates"],
+              ["Version control", "Git, Subversion, Mercurial, CVS, RCS", "Storing versions, branching, merging, check-in/check-out"],
+              ["Change and issue tracking", "Jira, Bugzilla, Redmine", "Change request workflow, CCB decisions, traceability"],
+              ["System building", "make, Ant, Maven, Gradle", "Dependency analysis and automated compilation and linking"],
+              ["CI/CD", "Jenkins, GitHub Actions, GitLab CI", "Automatic build, test and deployment on each commit"],
+              ["Artifact and release repositories", "Nexus, Artifactory, container registries", "Storing versioned binaries for release"],
+              ["Integrated CM environments", "IBM Rational ClearCase/Synergy, Azure DevOps", "Combined version, change and build management"]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "\\text{MAJOR.MINOR.PATCH}:\\ 2.4.7 \\to 2.4.8 \\mid 2.5.0 \\mid 3.0.0",
+            "plainText": "Semantic versioning MAJOR.MINOR.PATCH: 2.4.7 -> 2.4.8 (fix), 2.5.0 (feature), 3.0.0 (breaking)"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Change failure rate} = \\frac{\\text{failed changes}}{\\text{total changes deployed}} \\times 100\\%",
+            "plainText": "Change failure rate = changes causing failure in production / total changes deployed x 100%"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "When a semantic version field is incremented, every field to its right resets to 0: a new backward-compatible feature on 1.9.3 gives 1.10.0, and a breaking change on 1.10.0 gives 2.0.0."
+          },
+          {
+            "type": "warning",
+            "text": "Once an SCI is baselined it may not be changed informally; changes go through a change request, impact analysis and CCB approval. A version is any instance of an item; a release is a version actually distributed to customers."
+          },
+          {
+            "type": "note",
+            "text": "Pressman's five SCM tasks (identification, version control, change control, configuration audit, status reporting) and Sommerville's four activities (change management, version management, system building, release management) describe the same discipline from two angles."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch8_i34_01",
+          "title": "Semantic versioning",
+          "latex": "\\text{MAJOR.MINOR.PATCH}:\\ 2.4.7 \\to 2.4.8 \\mid 2.5.0 \\mid 3.0.0",
+          "plainText": "MAJOR.MINOR.PATCH: fix -> 2.4.8, feature -> 2.5.0, breaking change -> 3.0.0",
+          "description": "Incrementing a field resets all fields to its right to zero."
+        },
+        {
+          "id": "f_ch8_i34_02",
+          "title": "Change failure rate",
+          "latex": "\\text{Change failure rate} = \\frac{\\text{failed changes}}{\\text{total changes deployed}} \\times 100\\%",
+          "plainText": "Change failure rate = failed changes / total changes deployed x 100%",
+          "description": "Release-management metric showing how often a deployed change causes a production failure."
+        },
+        {
+          "id": "f_ch8_i34_03",
+          "title": "Delta storage",
+          "latex": "S_{stored} = S_{latest} + \\textstyle\\sum_{i} \\Delta_i",
+          "plainText": "Stored size = size of latest version + sum of reverse deltas",
+          "description": "Delta-based version control keeps one full version plus the differences needed to rebuild the others."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch8_i34_01",
+          "front": "What is a baseline in SCM?",
+          "back": "A formally reviewed and agreed work product that serves as the basis for further development and can be changed only through formal change control.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch8_i34_02",
+          "front": "What are Sommerville's four configuration management activities?",
+          "back": "Change management, version management, system building and release management.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch8_i34_03",
+          "front": "What does an engineering change order (ECO) record?",
+          "back": "The approved change, the constraints to respect, and the criteria for review and audit; it is issued after the CCB approves a change request.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch8_i34_n01",
+          "questionText": "A library is at version 2.4.7 under semantic versioning. The next release adds a new backward-compatible API function and no breaking changes. What should its version be?",
+          "options": ["2.4.8", "2.5.0", "2.5.7", "3.0.0"],
+          "correctIndex": 1,
+          "explanation": "A backward-compatible feature increments MINOR and resets PATCH to 0, giving 2.5.0. 2.4.8 is for bug fixes only, and 3.0.0 is for breaking changes.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i34_n02",
+          "questionText": "After the SRS has been baselined, the customer asks for an extra monthly report. What is the correct SCM action?",
+          "options": [
+            "The developer edits the SRS and code directly and commits the change",
+            "The baseline is deleted and a new SRS is written from scratch",
+            "A change request is raised, its impact analysed, and the CCB approves or rejects it before the baselined items are changed",
+            "The change is postponed to maintenance, where no change control applies"
+          ],
+          "correctIndex": 2,
+          "explanation": "Baselined SCIs can be changed only through formal change control: a change request, impact analysis, and a decision by the change control board, followed by an engineering change order.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch8_i34_n03",
+          "questionText": "Which property distinguishes a distributed version control system such as Git from a centralised one such as Subversion?",
+          "options": [
+            "It cannot support branching",
+            "It stores only the latest version of each file",
+            "It requires a network connection for every commit",
+            "Every clone holds the complete repository history, so commits and branching work offline"
+          ],
+          "correctIndex": 3,
+          "explanation": "In a DVCS each developer's clone is a full repository with all history, allowing local commits, cheap branching and recovery from any clone. Centralised systems keep history on one server.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch8_i34_n04",
+          "questionText": "In configuration management terminology, a release is best described as:",
+          "options": [
+            "A version of the system that is distributed to customers, with its configuration files, data, installer and documentation",
+            "Any instance of a configuration item that differs from other instances",
+            "A branch created to develop a new feature in parallel",
+            "The process of compiling and linking components into an executable"
+          ],
+          "correctIndex": 0,
+          "explanation": "Every release is a version, but a release is specifically a version distributed outside the development team. The other options describe a version, a branch and system building.",
+          "difficulty": "medium"
+        }
+      ]
+    }
+  ]
+}

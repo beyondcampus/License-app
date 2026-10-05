@@ -1,0 +1,701 @@
+{
+  "topicId": "ch1_i45",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: CMOS Inverter and Gate Design"
+    },
+    {
+      "type": "paragraph",
+      "text": "The voltage transfer characteristic (VTC) of the inverter can be traced by sweeping the input from 0 to V_DD and noting the region of each transistor. The output stays at V_DD until the nMOS turns on, falls steeply through the middle where both transistors are saturated and the gain is highest, and settles at 0 V once the pMOS turns off. The steepness of this middle section is what places V_IL and V_IH close to each other and gives CMOS its wide noise margins."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Input range",
+          "nMOS",
+          "pMOS",
+          "Output"
+        ],
+        [
+          "0 to V_tn",
+          "Cut-off",
+          "Ohmic",
+          "V_DD"
+        ],
+        [
+          "Just above V_tn",
+          "Saturation",
+          "Ohmic",
+          "Slightly below V_DD"
+        ],
+        [
+          "At V_M",
+          "Saturation",
+          "Saturation",
+          "Falling steeply (maximum gain)"
+        ],
+        [
+          "Just below V_DD − |V_tp|",
+          "Ohmic",
+          "Saturation",
+          "Slightly above 0 V"
+        ],
+        [
+          "V_DD − |V_tp| to V_DD",
+          "Ohmic",
+          "Cut-off",
+          "0 V"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The switching threshold V_M is the input voltage at which V_out = V_in. Equating the two saturation currents, k_n(V_M − V_tn)² = k_p(V_DD − V_M − |V_tp|)², gives the formula below. With matched devices (k_n = k_p, V_tn = |V_tp|) V_M = V_DD/2; a stronger nMOS pulls V_M lower and a stronger pMOS pushes it higher. Because μ_n is about 2 to 3 times μ_p, the pMOS is normally made that much wider to centre V_M."
+    },
+    {
+      "type": "formula",
+      "latex": "V_M = \\frac{V_{tn} + r\\,(V_{DD} - |V_{tp}|)}{1 + r}, \\qquad r = \\sqrt{k_p / k_n}",
+      "plainText": "VM = (Vtn + r (VDD - |Vtp|)) / (1 + r),  r = sqrt(kp / kn)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The C·V²·f law follows from energy accounting. Charging the load from 0 to V_DD draws charge Q = C·V_DD from the supply, so the supply delivers Q·V_DD = C·V_DD² of energy. Half of it, ½C·V_DD², ends up stored on the capacitor and the other half is lost as heat in the pMOS; on the falling edge the stored half is dissipated in the nMOS. One complete charge-discharge cycle therefore dissipates C·V_DD², independent of the transistor resistances. In a real chip only a fraction α of the nodes switch each clock cycle, and leakage adds a static term."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: power of a processor core\nGiven: 10^6 gates, C = 10 fF each, α = 0.1, V_DD = 1.2 V, f = 1 GHz, I_leak = 100 mA\nP_dyn  = α N C V_DD² f\n       = 0.1 × 10^6 × 10×10^-15 × 1.44 × 10^9 = 1.44 W\nP_stat = V_DD × I_leak = 1.2 × 0.1 = 0.12 W\nP_total = 1.44 + 0.12 = 1.56 W\nDropping V_DD to 1.0 V: P_dyn = 1.44 × (1.0/1.2)² = 1.0 W"
+    },
+    {
+      "type": "paragraph",
+      "text": "A static CMOS gate always has an nMOS pull-down network and a dual pMOS pull-up network with one transistor pair per input. Series nMOS implement AND inside the inversion, parallel nMOS implement OR, and the pull-up network swaps every series connection for a parallel one and vice versa. Transistors in series add their on-resistances, so series stacks must be widened: each of n series devices needs about n times the width of a single device for the same drive. This is why NAND (series nMOS, fast electrons) is preferred to NOR (series pMOS, slow holes)."
+    },
+    {
+      "type": "formula",
+      "latex": "t_p = \\frac{t_{pHL} + t_{pLH}}{2}, \\qquad t_{pHL} \\approx 0.69\\,R_n C_L, \\qquad f_{ring} = \\frac{1}{2N t_p}",
+      "plainText": "tp = (tpHL + tpLH)/2;  tpHL ~ 0.69 Rn CL;  ring oscillator f = 1/(2 N tp)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: worst-case delay of a 2-input NOR\nGiven: each pMOS R_on = 2 kΩ, each nMOS R_on = 1 kΩ, C_L = 50 fF\nPull-up: two pMOS in series -> R = 4 kΩ\nt_pLH = 0.69 × 4×10^3 × 50×10^-15 = 138 ps\nPull-down worst case: one nMOS on -> R = 1 kΩ\nt_pHL = 0.69 × 1×10^3 × 50×10^-15 = 34.5 ps\nAverage t_p = (138 + 34.5)/2 = 86 ps"
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with CMOS questions:",
+      "items": [
+        "Treating static power as the main loss: in active logic dynamic power C·V²·f dominates, while leakage matters mostly in idle or very dense chips.",
+        "Forgetting that power scales with V_DD squared: halving V_DD alone cuts dynamic power to one quarter, not one half.",
+        "Swapping the NAND and NOR structures: NAND = series nMOS and parallel pMOS; NOR = parallel nMOS and series pMOS.",
+        "Mixing up the noise-margin formulas: NM_H = V_OH − V_IH and NM_L = V_IL − V_OL, always output level minus input threshold on the same side.",
+        "Assuming CMOS fan-out is limited by DC current: it is limited by load capacitance and the resulting slower edges."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "A standard TTL output guarantees only V_OH = 2.7 V, below the 3.15 V V_IH of a 74HC input at 4.5 V, so the HIGH noise margin is negative. Use a 74HCT part (TTL-compatible input thresholds) or a pull-up resistor when TTL drives CMOS."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i45_m001",
+      "questionText": "A CMOS bus driver switches a 20 pF load at 50 MHz from a 3.3 V supply. Its dynamic power is approximately:",
+      "options": [
+        "3.3 mW",
+        "10.9 mW",
+        "1.09 mW",
+        "109 mW"
+      ],
+      "correctIndex": 1,
+      "explanation": "P = C·V_DD²·f = 20 × 10⁻¹² × 3.3² × 50 × 10⁶ = 10.9 × 10⁻³ W ≈ 10.9 mW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m002",
+      "questionText": "A CMOS circuit dissipates 40 mW of dynamic power at V_DD = 5 V. If V_DD is reduced to 2.5 V with the same capacitance and frequency, the dynamic power becomes:",
+      "options": [
+        "20 mW",
+        "40 mW",
+        "10 mW",
+        "2.5 mW"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dynamic power is proportional to V_DD²: halving V_DD gives 40 × (1/2)² = 10 mW.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m003",
+      "questionText": "A processor has 10^6 gates, each with an effective switched capacitance of 10 fF, activity factor α = 0.1, V_DD = 1.2 V and a 1 GHz clock. Its total leakage current is 100 mA. The total power is approximately:",
+      "options": [
+        "1.44 W",
+        "14.5 W",
+        "1.56 W",
+        "0.156 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "P_dyn = α N C V_DD² f = 0.1 × 10^6 × 10 × 10⁻¹⁵ × 1.44 × 10⁹ = 1.44 W; P_static = 1.2 × 0.1 = 0.12 W; total ≈ 1.56 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m004",
+      "questionText": "A CMOS gate has V_OH = 4.9 V, V_OL = 0.1 V, V_IH = 3.15 V and V_IL = 1.35 V. Its noise margins are:",
+      "options": [
+        "NM_H = 1.75 V, NM_L = 1.25 V",
+        "NM_H = 1.25 V, NM_L = 1.75 V",
+        "NM_H = 1.80 V, NM_L = 1.80 V",
+        "NM_H = 3.55 V, NM_L = 3.05 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "NM_H = V_OH − V_IH = 4.9 − 3.15 = 1.75 V; NM_L = V_IL − V_OL = 1.35 − 0.1 = 1.25 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m005",
+      "questionText": "A 74LS TTL output (V_OH(min) = 2.7 V, V_OL(max) = 0.5 V) drives a 74HC CMOS input (V_IH(min) = 3.15 V, V_IL(max) = 1.35 V at V_DD = 4.5 V). Which statement is correct?",
+      "options": [
+        "NM_H = −0.45 V, so a valid HIGH is not guaranteed; a pull-up resistor or a 74HCT input is needed",
+        "NM_H = 0.45 V, so the interface is reliable",
+        "NM_H = 0.7 V, so the interface is reliable",
+        "NM_L = −0.85 V, so only the LOW level fails"
+      ],
+      "correctIndex": 0,
+      "explanation": "NM_H = V_OH − V_IH = 2.7 − 3.15 = −0.45 V (negative, so the HIGH level may be misread), while NM_L = 1.35 − 0.5 = +0.85 V is fine. 74HCT inputs switch at TTL levels (V_IH = 2 V).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m006",
+      "questionText": "A CMOS gate has t_PHL = 6 ns and t_PLH = 10 ns. Its average propagation delay is:",
+      "options": [
+        "16 ns",
+        "4 ns",
+        "10 ns",
+        "8 ns"
+      ],
+      "correctIndex": 3,
+      "explanation": "t_p = (t_PHL + t_PLH)/2 = (6 + 10)/2 = 8 ns.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m007",
+      "questionText": "A ring oscillator is made of 5 identical CMOS inverters connected in a loop, each with propagation delay t_p = 2 ns. Its oscillation frequency is:",
+      "options": [
+        "50 MHz",
+        "100 MHz",
+        "250 MHz",
+        "500 MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "One period needs the edge to travel round the ring twice (once rising, once falling), so T = 2Nt_p = 2 × 5 × 2 ns = 20 ns and f = 1/T = 50 MHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m008",
+      "questionText": "A CMOS gate drives a load C = 50 fF from V_DD = 1.2 V with an average drive current I = 100 µA. Using t_p ≈ C·V_DD/I, its propagation delay is about:",
+      "options": [
+        "6 ns",
+        "0.6 ns",
+        "0.06 ns",
+        "2.4 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "t_p ≈ C·V_DD/I = 50 × 10⁻¹⁵ × 1.2/(100 × 10⁻⁶) = 6 × 10⁻¹⁰ s = 0.6 ns.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m009",
+      "questionText": "A logic gate dissipates 2 mW and has a propagation delay of 10 ns. Its speed-power (power-delay) product is:",
+      "options": [
+        "20 pJ",
+        "0.2 pJ",
+        "200 pJ",
+        "5 pJ"
+      ],
+      "correctIndex": 0,
+      "explanation": "PDP = P × t_p = 2 × 10⁻³ × 10 × 10⁻⁹ = 20 × 10⁻¹² J = 20 pJ, the energy per switching operation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m010",
+      "questionText": "A CMOS output drives a 15 pF load from a 5 V supply with a 1 MHz square wave. The average current drawn from the supply is:",
+      "options": [
+        "375 µA",
+        "75 µA",
+        "7.5 µA",
+        "750 µA"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each cycle the supply delivers charge Q = C·V_DD = 15 pF × 5 V = 75 pC, so I = Q·f = 75 × 10⁻¹² × 10⁶ = 75 µA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m011",
+      "questionText": "A CMOS output has an effective output resistance of 200 Ω, and its 10–90 % rise time (t_r ≈ 2.2RC) must not exceed 20 ns. Wiring adds 5 pF and each driven gate input adds 5 pF. The maximum fan-out is:",
+      "options": [
+        "9",
+        "19",
+        "8",
+        "4"
+      ],
+      "correctIndex": 2,
+      "explanation": "C_max = t_r/(2.2R) = 20 ns/(2.2 × 200 Ω) = 45.5 pF. Subtracting 5 pF of wiring leaves 40.5 pF, and 40.5/5 = 8.1, so at most 8 inputs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m012",
+      "questionText": "Each gate on a CMOS chip leaks 1 nA at V_DD = 5 V. For 10^6 gates, the static power is:",
+      "options": [
+        "0.5 mW",
+        "50 mW",
+        "5 mW",
+        "500 mW"
+      ],
+      "correctIndex": 2,
+      "explanation": "P = N × V_DD × I_leak = 10^6 × 5 × 10⁻⁹ = 5 × 10⁻³ W = 5 mW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m013",
+      "questionText": "In a CMOS process the electron mobility is 2.5 times the hole mobility. For equal pull-up and pull-down drive in an inverter whose nMOS has W/L = 2, the pMOS should have W/L of:",
+      "options": [
+        "0.8",
+        "2",
+        "2.5",
+        "5"
+      ],
+      "correctIndex": 3,
+      "explanation": "k is proportional to μ(W/L), so equal k needs (W/L)_p = 2.5 × (W/L)_n = 2.5 × 2 = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m014",
+      "questionText": "A static CMOS 3-input NAND gate uses how many transistors?",
+      "options": [
+        "3",
+        "6",
+        "4",
+        "9"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every input drives one nMOS and one pMOS: three nMOS in series for the pull-down and three pMOS in parallel for the pull-up, 6 in total.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m015",
+      "questionText": "A symmetric CMOS inverter (matched nMOS and pMOS) runs from V_DD = 3.3 V. Its switching threshold V_M is:",
+      "options": [
+        "3.3 V",
+        "0.7 V",
+        "1.65 V",
+        "2.5 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "With matched devices the pull-up and pull-down are equally strong, so V_M = V_DD/2 = 1.65 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m016",
+      "questionText": "A CMOS inverter has V_DD = 2.5 V, V_tn = 0.5 V, |V_tp| = 0.5 V and k_n = 4k_p. Its switching threshold V_M is:",
+      "options": [
+        "1.25 V",
+        "1.0 V",
+        "1.5 V",
+        "0.5 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "r = √(k_p/k_n) = 0.5, so V_M = [V_tn + r(V_DD − |V_tp|)]/(1 + r) = (0.5 + 0.5 × 2)/1.5 = 1.0 V. The stronger nMOS pulls V_M below V_DD/2.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m017",
+      "questionText": "A CMOS output charges a 10 pF load from 0 V to 5 V. The energy dissipated in the pMOS during this single LOW-to-HIGH transition is:",
+      "options": [
+        "250 pJ",
+        "50 pJ",
+        "62.5 pJ",
+        "125 pJ"
+      ],
+      "correctIndex": 3,
+      "explanation": "The supply delivers C·V² = 10 pF × 25 = 250 pJ; half (½CV² = 125 pJ) is stored on the capacitor and the other 125 pJ is dissipated in the pMOS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m018",
+      "questionText": "A chip's power budget allows 1 W of dynamic power. Its capacitance switched (charged and discharged) every clock cycle is 200 pF and V_DD = 1.8 V. The highest clock frequency it can run at is approximately:",
+      "options": [
+        "2.78 GHz",
+        "1.54 GHz",
+        "5.00 GHz",
+        "0.154 GHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = P/(C·V_DD²) = 1/(200 × 10⁻¹² × 1.8²) = 1/(6.48 × 10⁻¹⁰) ≈ 1.54 × 10⁹ Hz = 1.54 GHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m019",
+      "questionText": "A processor dissipates 20 W of dynamic power at 1.2 V and 2 GHz. If it is run at 0.9 V and 1.5 GHz, the dynamic power becomes approximately:",
+      "options": [
+        "15 W",
+        "11.25 W",
+        "6.33 W",
+        "8.44 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "P ∝ V²f: P = 20 × (0.9/1.2)² × (1.5/2) = 20 × 0.5625 × 0.75 ≈ 8.44 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m020",
+      "questionText": "At the switching threshold V_M of a CMOS inverter (input = output = V_M):",
+      "options": [
+        "Both transistors are cut off and the output floats",
+        "Both transistors are in saturation and the voltage gain is at its maximum",
+        "The nMOS is ohmic and the pMOS is cut off",
+        "Both transistors are ohmic and the gain is unity"
+      ],
+      "correctIndex": 1,
+      "explanation": "At V_M both devices conduct the same saturation current, so the output is very sensitive to the input: the VTC is steepest there.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m021",
+      "questionText": "As the input of a CMOS inverter rises just above V_tn while the output is still close to V_DD, the operating regions are:",
+      "options": [
+        "nMOS in the ohmic region, pMOS in saturation",
+        "nMOS in saturation, pMOS in the ohmic region",
+        "Both transistors in saturation",
+        "nMOS cut off, pMOS in saturation"
+      ],
+      "correctIndex": 1,
+      "explanation": "The nMOS has a small overdrive but a large V_DS ≈ V_DD, so it is saturated; the pMOS is fully on with only a small |V_DS|, so it is ohmic.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i45_m022",
+      "questionText": "The unloaded output of a CMOS inverter swings between:",
+      "options": [
+        "0.4 V and 2.4 V",
+        "V_tn and V_DD − |V_tp|",
+        "0 V and V_DD (rail to rail)",
+        "−V_DD and +V_DD"
+      ],
+      "correctIndex": 2,
+      "explanation": "In each steady state the conducting transistor carries no current, so it drops no voltage and the output reaches the supply rail or ground.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m023",
+      "questionText": "In a static CMOS 2-input NAND gate:",
+      "options": [
+        "The nMOS transistors are in parallel and the pMOS transistors are in series",
+        "The nMOS transistors are in series and the pMOS transistors are in parallel",
+        "All four transistors are in series",
+        "All four transistors are in parallel"
+      ],
+      "correctIndex": 1,
+      "explanation": "The output goes LOW only when both series nMOS are on (A = B = 1); either parallel pMOS pulls the output HIGH when any input is 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m024",
+      "questionText": "In a static CMOS 2-input NOR gate, the two pMOS transistors are connected:",
+      "options": [
+        "In series between V_DD and the output",
+        "In parallel between V_DD and the output",
+        "In series between the output and ground",
+        "In parallel between the output and ground"
+      ],
+      "correctIndex": 0,
+      "explanation": "The output is HIGH only when both inputs are 0, which needs both pMOS on in series; the nMOS are in parallel to ground.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m025",
+      "questionText": "NAND gates are usually preferred over NOR gates in CMOS design because:",
+      "options": [
+        "A NAND gate needs fewer transistors than a NOR gate",
+        "NOR gates cannot be built in CMOS",
+        "NAND gates have no dynamic power dissipation",
+        "A NOR gate puts the slower pMOS transistors in series, so it needs much wider devices for the same speed"
+      ],
+      "correctIndex": 3,
+      "explanation": "Both use 2n transistors, but series pMOS (low hole mobility) make the NOR pull-up slow or large, whereas NAND puts the faster nMOS in series.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m026",
+      "questionText": "In a static CMOS gate the pull-down network has nMOS A and B in series, and this pair is in parallel with nMOS C. The gate output is:",
+      "options": [
+        "Y = A·B + C",
+        "Y = NOT((A + B)·C)",
+        "Y = NOT(A + B·C)",
+        "Y = NOT(A·B + C)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The pull-down conducts, pulling Y LOW, when A·B + C = 1, so Y is the complement: an AND-OR-INVERT gate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m027",
+      "questionText": "The pull-up (pMOS) network of a static CMOS gate is obtained from its pull-down (nMOS) network by:",
+      "options": [
+        "Replacing series connections with parallel ones and parallel connections with series ones",
+        "Copying the network exactly using pMOS devices",
+        "Reversing the source and drain of each transistor",
+        "Adding an inverter at the output"
+      ],
+      "correctIndex": 0,
+      "explanation": "The pull-up must conduct exactly when the pull-down does not; by De Morgan's theorem this is the dual network with series and parallel exchanged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m028",
+      "questionText": "A CMOS transmission gate consists of:",
+      "options": [
+        "An nMOS and a pMOS in series with the same gate signal",
+        "Two nMOS transistors in parallel",
+        "A CMOS inverter followed by a buffer",
+        "An nMOS and a pMOS in parallel with complementary gate signals, passing both logic levels without threshold loss"
+      ],
+      "correctIndex": 3,
+      "explanation": "The nMOS passes a strong 0 and the pMOS a strong 1; in parallel they form a bidirectional switch that passes the full 0 to V_DD range.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m029",
+      "questionText": "A single nMOS pass transistor with its gate at V_DD = 5 V and V_tn = 1 V (body effect neglected) passes a logic 1. Its output node charges to at most:",
+      "options": [
+        "5 V",
+        "4 V",
+        "1 V",
+        "2.5 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "The nMOS stops conducting when its V_GS falls to V_tn, so the output rises only to V_DD − V_tn = 5 − 1 = 4 V: an nMOS passes a weak 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m030",
+      "questionText": "The static power dissipation of a CMOS inverter is almost zero because:",
+      "options": [
+        "In either steady state one transistor is off, so no DC path exists from V_DD to ground",
+        "Both transistors are always off",
+        "The supply current flows only through the gate oxide",
+        "The output always sits at V_DD/2"
+      ],
+      "correctIndex": 0,
+      "explanation": "With the input at 0 or V_DD, one of the series pair is cut off, so only tiny leakage currents flow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m031",
+      "questionText": "Short-circuit (crowbar) current in a CMOS inverter:",
+      "options": [
+        "Flows while the input is between V_tn and V_DD − |V_tp|, and grows when input edges are slow",
+        "Flows continuously whenever the output is HIGH",
+        "Is the main component of static power",
+        "Flows only when the load capacitance is zero"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only while the input passes through the middle range are both transistors on together; slow edges keep them both on longer, so the crowbar current increases.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m032",
+      "questionText": "Which change does NOT reduce the dynamic power of a CMOS circuit?",
+      "options": [
+        "Lowering the supply voltage",
+        "Reducing the load capacitance",
+        "Stopping the clock to idle blocks (clock gating)",
+        "Raising the clock frequency while keeping V_DD constant"
+      ],
+      "correctIndex": 3,
+      "explanation": "P = α·C·V_DD²·f, so reducing V_DD, C or the activity α lowers power, while a higher f raises it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m033",
+      "questionText": "The propagation delay t_PHL of a logic gate is measured:",
+      "options": [
+        "From the 50 % point of the input edge to the 50 % point of the falling output edge",
+        "From 10 % to 90 % of the output edge",
+        "From 0 V to V_DD of the input edge",
+        "From the 50 % point of the input to the 90 % point of the rising output"
+      ],
+      "correctIndex": 0,
+      "explanation": "Propagation delays are measured between the 50 % points of input and output; 10–90 % intervals define rise and fall times instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m034",
+      "questionText": "The fan-out of a CMOS gate driving other CMOS inputs is limited mainly by:",
+      "options": [
+        "The DC input current drawn by the driven gates",
+        "Breakdown of the gate oxide of the driving transistor",
+        "The total input capacitance of the driven gates, which slows the output edges",
+        "The value of the supply voltage"
+      ],
+      "correctIndex": 2,
+      "explanation": "CMOS inputs draw practically no DC current, but each adds a few picofarads; too many inputs make the edges too slow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m035",
+      "questionText": "Latch-up in a CMOS integrated circuit is caused by:",
+      "options": [
+        "Breakdown of the thin gate oxide by static charge",
+        "Leaving an output pin unconnected",
+        "Running the clock at too low a frequency",
+        "A parasitic pnpn (thyristor) structure formed by the wells, substrate and diffusions switching on"
+      ],
+      "correctIndex": 3,
+      "explanation": "Parasitic npn and pnp transistors in the substrate form an SCR; if triggered, for example by an input driven beyond the rails, it latches a low-resistance path from V_DD to ground.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m036",
+      "questionText": "An unused input of a CMOS 3-input NAND gate should be:",
+      "options": [
+        "Tied to ground",
+        "Tied to V_DD, directly or through a resistor",
+        "Left floating",
+        "Connected to the gate's own output"
+      ],
+      "correctIndex": 1,
+      "explanation": "A HIGH on a NAND input does not affect the other inputs; grounding it would force the output permanently HIGH, and a floating input can drift and cause excess current or oscillation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m037",
+      "questionText": "Which statement comparing CMOS (74HC) and TTL (74LS) logic is correct?",
+      "options": [
+        "TTL has larger noise margins than CMOS",
+        "CMOS inputs draw more current than TTL inputs",
+        "TTL works over a wider supply-voltage range than CMOS",
+        "CMOS power rises with switching frequency, whereas TTL power stays roughly constant"
+      ],
+      "correctIndex": 3,
+      "explanation": "CMOS dissipates mainly C·V²·f, so its power grows with frequency, while a TTL gate draws a roughly steady supply current. CMOS also has higher noise margins, near-zero input current and a wider supply range.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m038",
+      "questionText": "The original 4000-series CMOS logic family can operate from a supply of about:",
+      "options": [
+        "5 V ± 5 % only",
+        "0.8 V to 1.2 V",
+        "3 V to 15 V",
+        "24 V to 48 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "The 4000 series accepts roughly 3 to 15 V, unlike 74LS TTL, which requires 5 V ± 5 %.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m039",
+      "questionText": "A standard six-transistor SRAM cell stores one bit using:",
+      "options": [
+        "One MOSFET and one capacitor",
+        "A single floating-gate MOSFET",
+        "Two cross-coupled CMOS inverters plus two access transistors",
+        "A pair of bipolar transistors and two resistors"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two cross-coupled inverters form a latch (4 transistors) and two nMOS access transistors connect it to the bit lines. A MOSFET plus a capacitor is a DRAM cell.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m040",
+      "questionText": "In a CMOS inverter, the bodies of the transistors are normally connected as:",
+      "options": [
+        "nMOS body to V_DD and pMOS body to ground",
+        "Both bodies to ground",
+        "Both bodies to the output",
+        "nMOS body (p-substrate) to ground and pMOS body (n-well) to V_DD"
+      ],
+      "correctIndex": 3,
+      "explanation": "Tying the p-substrate to the lowest potential and the n-well to the highest keeps all source and drain junctions reverse biased.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m041",
+      "questionText": "In an inverter the nMOS has W/L = 2. For a 4-input NAND gate whose worst-case pull-down (four nMOS in series) should match that inverter, each nMOS needs a W/L of about:",
+      "options": [
+        "2",
+        "8",
+        "0.5",
+        "4"
+      ],
+      "correctIndex": 1,
+      "explanation": "Four equal series resistances add, so each must have one quarter of the inverter's resistance, i.e. four times its W/L: 4 × 2 = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m042",
+      "questionText": "A static CMOS complex gate implementing Y = NOT(A·B + C) needs how many transistors?",
+      "options": [
+        "6",
+        "3",
+        "8",
+        "10"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each of the three inputs drives one nMOS (pull-down: A and B in series, parallel with C) and one pMOS (the dual pull-up), giving 6 transistors.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m043",
+      "questionText": "The leakage (static) power of a CMOS chip increases when:",
+      "options": [
+        "The temperature rises or the threshold voltage is reduced",
+        "The clock frequency is increased",
+        "The load capacitance is increased",
+        "The chip is powered down"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sub-threshold leakage grows exponentially as V_T falls and as temperature rises; frequency and capacitance affect dynamic power, not leakage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m044",
+      "questionText": "CMOS logic has high noise immunity mainly because:",
+      "options": [
+        "Its inputs draw large currents that swamp noise",
+        "It is built from bipolar transistors",
+        "Its output levels are close to the rails and its transfer characteristic switches sharply near V_DD/2",
+        "Its outputs have very high impedance"
+      ],
+      "correctIndex": 2,
+      "explanation": "Rail-to-rail outputs and a steep VTC place V_IL and V_IH far from V_OL and V_OH, giving noise margins of roughly 30 % of V_DD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i45_m045",
+      "questionText": "For a logic family, the low-level noise margin NM_L is defined as:",
+      "options": [
+        "V_IL(max) − V_OL(max)",
+        "V_OH(min) − V_IH(min)",
+        "V_IH(min) − V_IL(max)",
+        "V_OH(min) − V_OL(max)"
+      ],
+      "correctIndex": 0,
+      "explanation": "NM_L is how far the worst-case LOW output can rise before it reaches the highest input voltage still read as LOW: V_IL − V_OL. V_OH − V_IH is NM_H.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i45_m046",
+      "questionText": "In a 2-input CMOS NOR gate each pMOS has an on-resistance of 2 kΩ and the load is 50 fF. Using t_p ≈ 0.69RC, the worst-case LOW-to-HIGH propagation delay is approximately:",
+      "options": [
+        "69 ps",
+        "200 ps",
+        "138 ps",
+        "34.5 ps"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two pMOS are in series, so R = 4 kΩ and t_pLH = 0.69 × 4 × 10³ × 50 × 10⁻¹⁵ = 1.38 × 10⁻¹⁰ s = 138 ps.",
+      "difficulty": "hard"
+    }
+  ]
+}

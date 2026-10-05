@@ -1,0 +1,543 @@
+{
+  "topicId": "ch5_i62",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Signatures, Certificates and PGP"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on digital signatures and PGP, cleaned up and corrected:",
+      "items": [
+        "Purpose of a digital signature: prove who sent a message (authentication) and that it was not changed (integrity); because only the signer holds the private key, the signer also cannot later deny having signed (non-repudiation).",
+        "Signing: hash the message, then sign the hash with the sender's private key; the result is the signature, sent together with the message.",
+        "Verifying: apply the sender's public key to the signature to recover the hash, hash the received message independently and compare the two; equal values mean the message is authentic and unaltered.",
+        "Correction: 'encrypting the hash with the private key' describes RSA only. DSA, ECDSA and EdDSA compute a signature from the hash and the private key, and the verifier runs a separate check with the public key; nothing is decrypted.",
+        "A signature does not hide the message. PGP adds confidentiality with a hybrid scheme: a new random session key encrypts the message with a fast symmetric cipher, and the recipient's public key encrypts only that short session key.",
+        "Why hybrid: symmetric ciphers are fast for long messages, while public-key encryption solves the problem of getting the key to the recipient. The recipient first recovers the session key with his private key and then decrypts the message with it."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: an RSA signature with small numbers\nKey: p = 3, q = 17 -> n = 51, phi(n) = 2 x 16 = 32\ne = 3 (gcd(3, 32) = 1); d = 11, since 3 x 11 = 33 = 1 x 32 + 1\nSign the hash h = 10:  S = 10^11 mod 51   (11 = 8 + 2 + 1)\n  10^2 = 100 -> 49;  10^4 = 49^2 = 2401 -> 4;  10^8 = 4^2 = 16\n  10^11 = 16 x 49 x 10:  16 x 49 = 784 -> 19;  19 x 10 = 190 -> 37\n  S = 37; Alice sends (M, 37)\nVerify with the public key (3, 51):  37^3 mod 51\n  37^2 = 1369 -> 43;  43 x 37 = 1591 -> 10 = H(M), so the signature is valid\nIf M is altered so that H(M') = 11, the check 10 = 11 fails: reject"
+    },
+    {
+      "type": "paragraph",
+      "text": "Real systems never sign the raw message with textbook RSA. Textbook RSA is multiplicative, s(m1) × s(m2) mod n = s(m1 × m2 mod n), so from two signatures an attacker can build a third without the private key; hashing the message and padding the hash in a fixed format (PKCS #1 v1.5 or the randomised PSS scheme) blocks this. An RSA signature is a number below n, so it is exactly as long as the modulus: 256 bytes for a 2048-bit key, however long the message. Because the signature covers only the digest, the hash must be collision resistant: if two messages share a digest, one signature is valid for both."
+    },
+    {
+      "type": "formula",
+      "latex": "W_{\\text{collision}} \\approx 2^{n/2}, \\qquad W_{\\text{preimage}} \\approx 2^{n}",
+      "plainText": "For an n-bit hash: finding a collision (birthday attack) takes about 2^(n/2) hash computations; finding a preimage or second preimage takes about 2^n"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Hash",
+          "Digest size",
+          "Ideal collision work",
+          "Status for new signatures"
+        ],
+        [
+          "MD5",
+          "128 bits (32 hex digits)",
+          "2^64; real collisions take seconds",
+          "Broken, never use"
+        ],
+        [
+          "SHA-1",
+          "160 bits (40 hex digits)",
+          "2^80; a real collision was published in 2017",
+          "Broken, never use"
+        ],
+        [
+          "SHA-256",
+          "256 bits (64 hex digits)",
+          "2^128",
+          "Standard choice"
+        ],
+        [
+          "SHA-384",
+          "384 bits (96 hex digits)",
+          "2^192",
+          "Used with larger keys and curves"
+        ],
+        [
+          "SHA-512",
+          "512 bits (128 hex digits)",
+          "2^256",
+          "Secure"
+        ],
+        [
+          "SHA3-256",
+          "256 bits (64 hex digits)",
+          "2^128",
+          "Secure alternative design (Keccak)"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: Alice sends Bob a signed and encrypted PGP message\nMessage 5,744 bytes; its SHA-256 digest (32 bytes) is signed with Alice's\n  RSA-2048 private key -> 256-byte signature; total 6,000 bytes\nZIP compresses message + signature to 45 %: 0.45 x 6,000 = 2,700 bytes\nA new random AES session key Ks encrypts the 2,700 bytes (length kept)\nKs encrypted with Bob's RSA-2048 public key -> 256 bytes; 2,956 in all\nRadix-64: 4 x ceil(2,956 / 3) = 4 x 986 = 3,944 characters are sent\nBob: radix-64 decode -> his private key recovers Ks -> Ks decrypts\n  -> unzip -> hash the message and check the signature with Alice's\n  public key (packet headers are ignored throughout)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each PGP user keeps two key rings. The private-key ring holds the user's own key pairs, each private key encrypted under a key derived from a hash of the passphrase; the public-key ring holds other people's public keys together with how far the user trusts each owner as an introducer and whether each key is considered valid. A key is identified by its fingerprint, for version 4 keys a 160-bit SHA-1 hash of the key written as 40 hex digits, and by a 64-bit key ID (the fingerprint's last 64 bits), which messages carry to say which key was used. Users compare fingerprints over a trusted channel, for example in person, before signing each other's keys. By default GnuPG accepts a key as valid when it is signed by one fully trusted introducer or by three marginally trusted ones."
+    },
+    {
+      "type": "bulletList",
+      "text": "Checking a certificate chain and revocation:",
+      "items": [
+        "Each certificate's signature is verified with the public key in its issuer's certificate, step by step up to a root CA certificate that is already in the trust store; the root is self-signed and is trusted only because it was installed in advance.",
+        "Every CA certificate in the chain must carry the Basic Constraints extension with CA set to true, and every certificate must be within its not-before and not-after dates.",
+        "The server's certificate must list the host name in its Subject Alternative Name extension; a wildcard such as *.shop.example covers exactly one label, for example pay.shop.example, but not shop.example itself or a.b.shop.example.",
+        "Revocation withdraws a certificate before it expires, for example when its private key has been stolen. A CRL is a CA-signed list of revoked serial numbers published at intervals, so it can be large and hours old.",
+        "OCSP (RFC 6960) asks the CA's responder about one serial number and gets a signed good, revoked or unknown answer; with OCSP stapling the server attaches a recent response to its TLS handshake, saving the client a lookup.",
+        "A certificate signing request (CSR) is what an applicant sends to a CA: its name and public key, signed with its own private key to prove that it holds that key."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Feature",
+          "PGP (OpenPGP)",
+          "S/MIME"
+        ],
+        [
+          "Standard",
+          "OpenPGP, RFC 9580 (2024), which replaced RFC 4880",
+          "S/MIME 4.0, RFC 8551, built on CMS"
+        ],
+        [
+          "Public-key credentials",
+          "OpenPGP keys signed by other users",
+          "X.509 certificates issued by CAs"
+        ],
+        [
+          "Trust model",
+          "Web of trust (decentralised)",
+          "Hierarchical PKI ending in root CAs"
+        ],
+        [
+          "Message format",
+          "OpenPGP packets, ASCII-armoured with radix-64",
+          "MIME parts such as application/pkcs7-mime"
+        ],
+        [
+          "Services",
+          "Signing, encryption, compression",
+          "Signing and encryption (compression optional)"
+        ],
+        [
+          "Typical users",
+          "Individuals, signing of open-source software",
+          "Organisations with corporate mail clients"
+        ]
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Keys: sign with the sender's private key and verify with the sender's public key; encrypt with the receiver's public key and decrypt with the receiver's private key. PGP order: sign, compress, encrypt, radix-64, with a fresh session key for every message that is encrypted once for each recipient. Sizes: an RSA signature is as long as the modulus (2048 bits = 256 bytes), radix-64 output is 4 × ceil(L/3) characters, and an n-bit hash gives only about 2^(n/2) collision resistance."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: signing with the receiver's key; believing a signature hides the message; trusting a public key obtained from an unauthenticated source, which a man-in-the-middle can replace with his own (certificates or fingerprint checks prevent this); and thinking a valid certificate proves a site is honest, when it only proves who controls the key. A MAC cannot replace a signature where non-repudiation is needed, and MD5 or SHA-1 must not be used for new signatures."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i62_m001",
+      "questionText": "In SSL/TLS and other public-key infrastructures, what does a certificate authority (CA) do?",
+      "options": [
+        "It encrypts all the data exchanged between the browser and the web server",
+        "It checks the identity of an applicant and issues a digital certificate, signed with the CA's private key, that binds the applicant's name to its public key",
+        "It routes packets between the client and the server",
+        "It scans downloaded files for viruses"
+      ],
+      "correctIndex": 1,
+      "explanation": "A CA vouches for public keys: after checking the applicant, it signs a certificate binding the subject's name to its key, and it can later revoke that certificate. Browsers verify the CA's signature, but the CA takes no part in encrypting the session.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m002",
+      "questionText": "In an RSA digital signature, which key is used to sign (that is, to 'encrypt') the hash of the message?",
+      "options": [
+        "The receiver's public key",
+        "A symmetric key shared with the receiver",
+        "A random one-time session key",
+        "The sender's private key"
+      ],
+      "correctIndex": 3,
+      "explanation": "Only the sender holds the private key, so only the sender can produce S = H(M)^d mod n, while anyone can check it with the sender's public key. Encrypting with the receiver's public key would give confidentiality, not a signature.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m003",
+      "questionText": "Which security service does a digital signature on its own NOT provide?",
+      "options": [
+        "Confidentiality of the message contents",
+        "Integrity of the message",
+        "Authentication of the sender",
+        "Non-repudiation by the sender"
+      ],
+      "correctIndex": 0,
+      "explanation": "The message travels next to its signature in readable form, so anyone can read it; to hide it, it must also be encrypted. A signature does provide integrity, origin authentication and non-repudiation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m004",
+      "questionText": "What does an X.509 public-key certificate essentially bind together?",
+      "options": [
+        "A user name and the user's password",
+        "A domain name and its IP address",
+        "The subject's identity and the subject's public key, under the issuing CA's signature",
+        "A private key and the MAC address of the computer that stores it"
+      ],
+      "correctIndex": 2,
+      "explanation": "A certificate states that a public key belongs to a named subject and is signed by the issuing CA, so anyone who trusts the CA can trust the key. Binding names to addresses is the job of DNS, and private keys never appear in certificates.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m005",
+      "questionText": "Which PGP step converts the binary output of signing, compression and encryption into printable ASCII characters so that the message can pass through e-mail systems?",
+      "options": [
+        "ZIP compression",
+        "Segmentation",
+        "Session-key generation",
+        "Radix-64 conversion"
+      ],
+      "correctIndex": 3,
+      "explanation": "Radix-64 (base64) maps every 3 bytes to 4 printable characters, making the data about 33 % larger, so that text-only mail systems carry it unchanged. Segmentation only splits long messages to fit mail size limits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m006",
+      "questionText": "How does PGP traditionally let a user decide that a public key really belongs to its claimed owner?",
+      "options": [
+        "Through a web of trust, in which users sign one another's keys and each user decides how far to trust each introducer",
+        "Through a single worldwide root CA run by the IETF",
+        "Through the MX record of the owner's mail domain",
+        "Through the TLS certificate of the owner's mail server"
+      ],
+      "correctIndex": 0,
+      "explanation": "PGP is decentralised: keys are signed by other users, and a key is accepted when it carries signatures from introducers the user trusts enough. S/MIME, by contrast, relies on X.509 certificates issued by CAs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m007",
+      "questionText": "Which ITU-T standard defines the format of the public-key certificates used by TLS and S/MIME?",
+      "options": [
+        "X.25",
+        "X.509",
+        "X.400",
+        "X.800"
+      ],
+      "correctIndex": 1,
+      "explanation": "X.509 defines public-key certificates (version 3 adds extensions) and certificate revocation lists. X.25 is an old packet-switching WAN standard, X.400 a message-handling (e-mail) standard and X.800 the OSI security architecture.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m008",
+      "questionText": "An OpenPGP version 4 key has a 160-bit fingerprint (a SHA-1 hash of the key), and its long key ID is the low-order 64 bits of that fingerprint. Written in hexadecimal, how many digits long are the fingerprint and the key ID?",
+      "options": [
+        "20 and 8",
+        "160 and 64",
+        "40 and 16",
+        "40 and 8"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each hex digit carries 4 bits, so the fingerprint has 160 / 4 = 40 digits and the key ID 64 / 4 = 16 digits. 20 and 8 are the lengths in bytes, not in hex digits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m009",
+      "questionText": "Why does a sender sign a hash of the message rather than the message itself?",
+      "options": [
+        "Hashing encrypts the message, so the signed message also becomes confidential",
+        "Signing the whole message would reveal the private key to the receiver",
+        "The receiver cannot recompute the hash, so the hash itself proves the sender's identity",
+        "The hash is short and of fixed length, so the slow private-key operation runs once on a few bytes and the signature has a fixed size, while any change to the message still changes the hash"
+      ],
+      "correctIndex": 3,
+      "explanation": "Public-key operations are slow and RSA can only process values smaller than n, so signing a 32-byte SHA-256 digest is far cheaper than signing megabytes of data. Because the hash is collision resistant, a signature on the digest effectively covers the whole message.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i62_m010",
+      "questionText": "Which of the following is NOT a field of an X.509 v3 certificate?",
+      "options": [
+        "Serial number",
+        "The subject's private key",
+        "Validity period (not before and not after)",
+        "Issuer name"
+      ],
+      "correctIndex": 1,
+      "explanation": "A certificate is public and carries only the subject's public key, together with the serial number, issuer, subject, validity period, extensions and the CA's signature. The private key never leaves its owner.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m011",
+      "questionText": "Which statement correctly distinguishes a CRL from OCSP?",
+      "options": [
+        "A CRL lists every valid certificate a CA has issued, while OCSP lists only the revoked ones",
+        "A CRL is sent by an applicant to request a new certificate, while OCSP returns the signed certificate",
+        "A CRL is a list of the serial numbers of revoked certificates, signed and published periodically by the CA; OCSP lets a client ask a responder about one certificate and receive a signed good, revoked or unknown answer",
+        "Both are encryption algorithms that protect certificates in transit"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both report revocation, which is needed when a private key is stolen or a certificate is mis-issued before it expires. A CRL must be downloaded in full and can be hours old, while OCSP (RFC 6960) answers for one certificate at a time; the request for a new certificate is a CSR.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m012",
+      "questionText": "A web server sends its certificate L, issued by the intermediate CA I, together with I's certificate, which was issued by the root CA R. R's self-signed certificate is in the browser's trust store. How does the browser check the signatures in this chain?",
+      "options": [
+        "It checks L's signature with I's public key, and I's signature with R's public key taken from its trust store",
+        "It checks L's signature with the server's private key, which is sent during the handshake",
+        "It checks L's signature with L's own public key, since every certificate is self-signed",
+        "It asks R to decrypt L with R's private key during every connection"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each certificate is signed by its issuer, so it is verified with the public key in the issuer's certificate, step by step up to a root the browser already trusts. Only the root is self-signed, and the CAs take no part in the connection itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m013",
+      "questionText": "PGP sends a message that is both signed and encrypted. In which order does the sender apply the operations?",
+      "options": [
+        "Compress, sign, radix-64 encode, encrypt",
+        "Encrypt, sign, compress, radix-64 encode",
+        "Radix-64 encode, compress, sign, encrypt",
+        "Sign, compress, encrypt, radix-64 encode"
+      ],
+      "correctIndex": 3,
+      "explanation": "The signature is computed on the original message; message and signature are then ZIP-compressed, encrypted with the session key and finally radix-64 encoded for transport, and the receiver reverses the steps. Signing before compressing lets the uncompressed message and its signature be stored and checked later, independently of the compression algorithm.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m014",
+      "questionText": "Why does PGP compress the message before encrypting it rather than after?",
+      "options": [
+        "Radix-64 conversion accepts only compressed input",
+        "Compression removes redundancy, which shortens the data to be encrypted and sent and leaves less structure for cryptanalysis, whereas ciphertext looks random and would hardly compress",
+        "The signature must be computed over the compressed data",
+        "ZIP compression is itself a form of encryption, so the session key can be shorter"
+      ],
+      "correctIndex": 1,
+      "explanation": "Good ciphertext is statistically random, so compressing after encryption would save almost nothing. Compressing first saves bandwidth and removes redundancy an attacker could exploit; the signature, however, is made before compression.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m015",
+      "questionText": "Alice sends one PGP-encrypted message to three recipients, Bob, Carol and Dave. How is it encrypted?",
+      "options": [
+        "The message is encrypted three times, each copy with a different recipient's public key",
+        "The message is encrypted once with Alice's private key, so that all three can decrypt it with her public key",
+        "The message is encrypted once with a random session key, and that session key is encrypted separately with each recipient's public key",
+        "The three recipients must first agree on a shared password, which PGP uses as the key"
+      ],
+      "correctIndex": 2,
+      "explanation": "The hybrid design encrypts the bulk data only once with a fast symmetric cipher, and each recipient's public key protects only the short session key, which that recipient unlocks with his own private key. Encrypting with Alice's private key would give no confidentiality, because her public key is public.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m016",
+      "questionText": "How does PGP protect the private keys stored on a user's own computer?",
+      "options": [
+        "They are kept in the private-key ring, each encrypted with a symmetric key derived from a hash of the user's passphrase",
+        "They are stored in plain text, because the user's disk is considered private",
+        "They are encrypted with the user's own public key",
+        "They are uploaded to a public key server, which keeps them secret"
+      ],
+      "correctIndex": 0,
+      "explanation": "The private-key ring holds the user's own key pairs with every private key encrypted under a key derived from the passphrase, so a stolen key file alone is not enough. The public-key ring holds other users' public keys and trust information, and key servers store only public keys.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m017",
+      "questionText": "Bob uses GnuPG's default rule: a key is valid if it is signed by at least 1 key whose owner he trusts fully, or by at least 3 keys whose owners he trusts marginally. He trusts Carol fully and Dave, Erin and Frank marginally, and he has verified all four of their keys himself. Key K1 is signed by Dave and Erin; K2 by Carol; K3 by Dave, Erin and Frank; K4 by Dave and by Grace, whom Bob does not know. Which keys does Bob accept as valid?",
+      "options": [
+        "K2 only",
+        "K1, K2 and K3",
+        "All four keys",
+        "K2 and K3 only"
+      ],
+      "correctIndex": 3,
+      "explanation": "K2 has one fully trusted signature and K3 three marginal ones, so both are valid. K1 has only two marginal signatures, and on K4 Grace's signature counts for nothing, leaving a single marginal one.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m018",
+      "questionText": "Bob checks a signed message. He hashes the message he received, and applying Alice's public key to the attached signature gives a different value. What should he conclude?",
+      "options": [
+        "The message is authentic but was compressed on the way",
+        "The signature is invalid: the message or the signature was altered, or it was not made with Alice's private key; Bob cannot tell which, so he rejects the message",
+        "Only the confidentiality of the message has been lost; its integrity is intact",
+        "Alice's private key must have been stolen, so her certificate should be revoked"
+      ],
+      "correctIndex": 1,
+      "explanation": "A mismatch means the check failed, but it cannot show whether the message was changed, the signature was damaged or a different key was used; in every case the message is not accepted as coming from Alice. A mismatch alone is no evidence that her key was stolen.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m019",
+      "questionText": "Which statement correctly compares S/MIME with PGP?",
+      "options": [
+        "S/MIME can only sign messages and cannot encrypt them",
+        "PGP needs an X.509 certificate from a CA for every key, while S/MIME uses a web of trust",
+        "S/MIME uses X.509 certificates issued by CAs and carries signed or encrypted content as MIME parts built with CMS, whereas PGP traditionally relies on a web of trust with OpenPGP keys",
+        "S/MIME encrypts only the hop between two mail servers, like STARTTLS"
+      ],
+      "correctIndex": 2,
+      "explanation": "Both sign and encrypt the message itself end to end; they differ mainly in their trust model and message format. S/MIME's CA-based PKI suits organisations and corporate mail clients, while OpenPGP is common among individuals and for signing software.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m020",
+      "questionText": "Why should MD5 and SHA-1 no longer be used as the hash in digital signatures?",
+      "options": [
+        "Practical collision attacks exist, so an attacker can prepare two different documents with the same digest, have the harmless one signed, and reuse that signature on the other",
+        "Their digests are too long for RSA to sign",
+        "They are keyed hashes, so the verifier would need the signer's secret key",
+        "They are much slower than SHA-256"
+      ],
+      "correctIndex": 0,
+      "explanation": "A signature covers only the digest, so two messages with equal digests share one signature. MD5 collisions take seconds to find and a SHA-1 collision was published in 2017, so signatures now use SHA-256 or stronger.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m021",
+      "questionText": "Why is it good practice to use separate key pairs for signing and for encryption, as PGP does with subkeys and X.509 does with the key-usage extension?",
+      "options": [
+        "Because RSA cannot mathematically use one key pair for both purposes",
+        "Because a signing private key must be published, while an encryption private key is kept secret",
+        "Because an encryption private key may need to be backed up or escrowed so that data can still be recovered, while copies of a signing key would undermine non-repudiation; the two keys can also be replaced on different schedules",
+        "Because encryption keys must always be ten times longer than signing keys"
+      ],
+      "correctIndex": 2,
+      "explanation": "If the key that decrypts stored data is lost, the data is lost too, so that key is often backed up; a signing key should exist only with its owner, so that a signature proves who signed. Separate keys let each be handled correctly and limit the damage if one is compromised.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m022",
+      "questionText": "On 15 April 2026 a browser connects to https://pay.shop.example. The server's certificate lists shop.example and www.shop.example as its Subject Alternative Names, is valid from 1 March 2026 to 30 May 2026, chains to a trusted root and is not revoked. What does the browser do?",
+      "options": [
+        "It accepts the certificate, because the chain, the dates and the revocation status are all in order",
+        "It rejects the certificate as expired",
+        "It rejects the certificate, because an intermediate CA may not issue server certificates",
+        "It rejects the certificate, because pay.shop.example is not among the names it certifies"
+      ],
+      "correctIndex": 3,
+      "explanation": "The host name must match a Subject Alternative Name, and pay.shop.example is not listed; a wildcard entry *.shop.example would have covered it. The dates (15 April lies between 1 March and 30 May) and the chain are fine, but one failed check is enough to reject the certificate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m023",
+      "questionText": "Alice's RSA public key is (e = 3, n = 55). Bob receives a message whose hash value is h = 17. Which of these is a valid signature by Alice on that hash?",
+      "options": [
+        "S = 18",
+        "S = 8",
+        "S = 27",
+        "S = 13"
+      ],
+      "correctIndex": 1,
+      "explanation": "Verification computes S^e mod n and compares it with h: 8^3 = 512 = 9 × 55 + 17, so 8^3 mod 55 = 17 matches. The others fail: 18^3 mod 55 = 2, 27^3 mod 55 = 48 and 13^3 mod 55 = 52 (18 is h^3 mod 55, obtained by wrongly applying the public key to the hash).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m024",
+      "questionText": "A signature scheme must offer 128-bit security against an attacker who searches for hash collisions. What is the smallest digest length that achieves this?",
+      "options": [
+        "128 bits",
+        "160 bits",
+        "256 bits",
+        "512 bits"
+      ],
+      "correctIndex": 2,
+      "explanation": "A birthday attack finds a collision after about 2^(n/2) hash computations, so 2^(n/2) = 2^128 gives n = 256 bits, as with SHA-256. A 128-bit digest resists collisions only up to about 2^64 work.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i62_m025",
+      "questionText": "Alice's RSA key uses p = 7, q = 11 and the public exponent e = 13. She signs a message whose hash value, reduced modulo n, is h = 18. What is her signature S?",
+      "options": [
+        "39",
+        "46",
+        "15",
+        "48"
+      ],
+      "correctIndex": 0,
+      "explanation": "n = 77, φ(n) = 6 × 10 = 60 and d = 13^(−1) mod 60 = 37 (13 × 37 = 481 = 8 × 60 + 1), so S = 18^37 mod 77 = 39, and the check 39^13 mod 77 = 18 confirms it. 46 = 18^13 mod 77 uses the public exponent, 15 uses an inverse taken modulo n, and 48 reduces modulo φ(n) instead of n.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i62_m026",
+      "questionText": "Alice signs with textbook RSA, without hashing or padding, and her public key is (e = 5, n = 91). An attacker has seen her signatures on the messages 2 and 5, which are s(2) = 32 and s(5) = 31. Without knowing her private key, what valid signature can he produce for the message 10?",
+      "options": [
+        "63",
+        "69",
+        "82",
+        "56"
+      ],
+      "correctIndex": 2,
+      "explanation": "Textbook RSA is multiplicative: s(2) × s(5) = 2^d × 5^d = 10^d (mod n), so s(10) = 32 × 31 mod 91 = 992 − 910 = 82, and 82^5 mod 91 = 10 verifies. 63 adds the two signatures instead of multiplying them, 69 = 32 × 5 mod 91 multiplies a signature by a message, and 56 reduces 992 modulo φ(n) = 72 instead of n. This forgery is why real schemes sign a padded hash (PKCS #1 v1.5 or PSS) instead of the raw message.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i62_m027",
+      "questionText": "Alice's RSA key pair is (e = 3, d = 7, n = 33) and Bob's public key is (e = 5, n = 91). Using textbook RSA, Alice signs the hash value h = 9 with her private key and then encrypts the signature with Bob's public key. What value does she send?",
+      "options": [
+        "15",
+        "81",
+        "8",
+        "71"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sign: S = 9^7 mod 33 = 15; encrypt: C = 15^5 mod 91 = 71. Bob recovers S = 71^29 mod 91 = 15 with his private key (d = 29) and checks 15^3 mod 33 = 9; 15 alone is the unencrypted signature, 81 = 9^5 mod 91 encrypts the hash without signing it, and 8 = 15^3 mod 91 uses Alice's exponent instead of Bob's.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i62_m028",
+      "questionText": "A PGP user signs with a 2048-bit RSA key. How long is the raw signature, and how many characters does it take after radix-64 encoding? Take the signature to be exactly as long as the modulus, and ignore packet headers, line breaks and the checksum.",
+      "options": [
+        "256 bytes; 342 characters",
+        "256 bytes; 344 characters",
+        "2048 bytes; 2732 characters",
+        "32 bytes; 44 characters"
+      ],
+      "correctIndex": 1,
+      "explanation": "An RSA signature is a number below n, so it occupies 2048 / 8 = 256 bytes; radix-64 then gives 4 × ceil(256 / 3) = 4 × 86 = 344 characters, including padding. 342 forgets that the output comes in whole groups of 4, and 32 bytes is the size of a SHA-256 digest, not of the signature.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i62_m029",
+      "questionText": "A PGP message and its signature together total 12,000 bytes. ZIP compresses them to 35 % of that size, encryption with the session key keeps the length unchanged, and the 256-byte RSA-encrypted session key is then prepended. Ignoring packet headers, line breaks and the checksum, how long is the result after radix-64 encoding?",
+      "options": [
+        "5,600 bytes",
+        "4,456 bytes",
+        "16,344 bytes",
+        "5,944 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Compressed: 0.35 × 12,000 = 4,200 bytes; adding the session key: 4,200 + 256 = 4,456 bytes; radix-64: 4 × ceil(4,456 / 3) = 4 × 1,486 = 5,944 bytes. 5,600 forgets the session key, 4,456 forgets the encoding and 16,344 skips the compression.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i62_m030",
+      "questionText": "A signature system uses a weak 80-bit hash, and an attacker can compute 10^9 hashes per second. Roughly how long does a birthday attack need to find a collision, and how long does it take to find a message matching one given digest (a second preimage)?",
+      "options": [
+        "About 18 minutes for a collision; about 38 million years for a second preimage",
+        "About 38 million years for both",
+        "About 18 minutes for both",
+        "About 38 million years for a collision; about 18 minutes for a second preimage"
+      ],
+      "correctIndex": 0,
+      "explanation": "A collision needs about 2^(n/2) = 2^40 ≈ 1.1 × 10^12 hashes, which is 1,100 s or about 18 minutes; a second preimage needs about 2^80 ≈ 1.2 × 10^24 hashes, which is 1.2 × 10^15 s or about 38 million years. This gap is why a hash used for signatures needs twice as many bits as the target security level.",
+      "difficulty": "hard"
+    }
+  ]
+}

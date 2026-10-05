@@ -1,0 +1,313 @@
+{
+  "parent": {"id": "ch6_p2", "title": "Context-Free Languages"},
+  "subtopics": [
+    {
+      "id": "ch6_t2",
+      "title": "Context-Free Grammars, Derivations & Parse Trees",
+      "subtitle": "CFG 4-tuple, language of a grammar, leftmost/rightmost derivations and parse trees",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "What a Context-Free Grammar Is"},
+          {"type": "paragraph", "text": "A context-free grammar (CFG) generates strings by repeatedly rewriting variables (non-terminals) using production rules. Every production has exactly one non-terminal on its left side, so a variable can be replaced regardless of the symbols around it, which is why the grammar is called context-free. CFGs describe nested, recursive structure such as matching brackets, nested blocks and arithmetic expressions, which finite automata and regular expressions cannot. The languages they generate are the context-free languages (CFLs), type 2 of the Chomsky hierarchy."},
+          {"type": "formula", "latex": "G = (V, T, P, S),\\quad A \\rightarrow \\alpha,\\ A \\in V,\\ \\alpha \\in (V \\cup T)^*", "plainText": "G = (V, T, P, S); every production is A → α with A a single variable and α any string of variables and terminals"},
+          {"type": "bulletList", "text": "The four components of a CFG:", "items": [
+            "V: a finite set of variables (non-terminals), usually written in capitals such as S, A, E.",
+            "T: a finite set of terminals (the alphabet of the language), disjoint from V, usually lowercase letters, digits or symbols such as id, +, (.",
+            "P: a finite set of productions A → α, where the head A is one variable and the body α is a string over V ∪ T (possibly ε).",
+            "S: the start symbol, a member of V from which every derivation begins.",
+            "Productions with the same head are combined with a bar: S → aSb | ε means S → aSb and S → ε."
+          ]},
+          {"type": "heading", "text": "Standard Example Grammars"},
+          {"type": "table", "rows": [
+            ["Language", "Grammar", "Sample string"],
+            ["{aⁿbⁿ | n ≥ 0}", "S → aSb | ε", "aabb"],
+            ["Balanced parentheses", "S → (S) | SS | ε", "(()())"],
+            ["Palindromes over {a, b}", "S → aSa | bSb | a | b | ε", "abba"],
+            ["Arithmetic expressions", "E → E + T | T, T → T * F | F, F → (E) | id", "id + id * id"]
+          ]},
+          {"type": "paragraph", "text": "One derivation step αAβ ⇒ αγβ replaces a variable A by the body γ of one of its productions; ⇒* means zero or more steps. Any string over V ∪ T derivable from S is a sentential form, and a sentential form made only of terminals is a sentence. The language of the grammar, L(G), is the set of all sentences. Two grammars are equivalent when they generate the same language."},
+          {"type": "formula", "latex": "L(G) = \\{\\, w \\in T^* \\mid S \\Rightarrow^* w \\,\\}", "plainText": "L(G) = { w ∈ T* | S ⇒* w }"},
+          {"type": "heading", "text": "Leftmost and Rightmost Derivations"},
+          {"type": "paragraph", "text": "When a sentential form contains several variables, a choice must be made about which to expand next. In a leftmost derivation (⇒lm) the leftmost variable is always replaced; in a rightmost derivation (⇒rm), also called canonical derivation, the rightmost variable is always replaced. Both reach the same string and, for a given parse tree, there is exactly one leftmost and one rightmost derivation. The example below derives id + id * id with the unambiguous expression grammar E → E + T | T, T → T * F | F, F → id."},
+          {"type": "code", "language": "text", "text": "Leftmost:\nE => E + T => T + T => F + T => id + T\n  => id + T * F => id + F * F => id + id * F => id + id * id\n\nRightmost:\nE => E + T => E + T * F => E + T * id => E + F * id\n  => E + id * id => T + id * id => F + id * id => id + id * id"},
+          {"type": "heading", "text": "Parse (Derivation) Trees"},
+          {"type": "bulletList", "text": "A parse tree shows a derivation graphically, ignoring the order in which variables were expanded:", "items": [
+            "The root is labelled with the start symbol S.",
+            "Every interior node is labelled with a variable; every leaf is labelled with a terminal or ε.",
+            "If a node A has children X1, X2, …, Xk from left to right, then A → X1X2…Xk must be a production in P.",
+            "The yield of the tree is the string of leaf labels read left to right; it is a sentence when every leaf is a terminal.",
+            "Construction: start at S, and for each derivation step attach the body symbols of the production used as children of the variable being expanded."
+          ]},
+          {"type": "code", "language": "text", "text": "Parse tree for id + id * id (yield read along the leaves):\n\n        E\n      / | \\\n     E  +  T\n     |    /|\\\n     T   T * F\n     |   |   |\n     F   F   id\n     |   |\n     id  id"},
+          {"type": "heading", "text": "Top-Down vs Bottom-Up Parsing"},
+          {"type": "table", "rows": [
+            ["Aspect", "Top-down", "Bottom-up"],
+            ["Tree built from", "Root (S) towards the leaves", "Leaves (input) towards the root"],
+            ["Derivation traced", "Leftmost derivation, forwards", "Rightmost derivation, in reverse"],
+            ["Typical methods", "Recursive descent, LL(1)", "Shift-reduce, LR(0), SLR, LALR, LR(1)"],
+            ["Grammar restrictions", "No left recursion; must be left-factored", "Handles left recursion; wider class of grammars"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "G = (V, T, P, S)", "plainText": "G = (V, T, P, S): variables, terminals, productions, start symbol"},
+          {"type": "formula", "latex": "\\alpha A \\beta \\Rightarrow \\alpha \\gamma \\beta \\ \\text{ if } A \\rightarrow \\gamma \\in P", "plainText": "αAβ ⇒ αγβ whenever A → γ is a production"},
+          {"type": "formula", "latex": "L(G) = \\{\\, w \\in T^* \\mid S \\Rightarrow^* w \\,\\}", "plainText": "L(G) = { w ∈ T* | S ⇒* w }"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "Leftmost and rightmost derivations of the same string differ only in the order of expansion. If the grammar is unambiguous, they correspond to the same single parse tree; counting derivation steps is the same for both."},
+          {"type": "warning", "text": "Top-down parsers loop forever on left-recursive rules such as E → E + T. Left recursion must be removed (E → TE′, E′ → +TE′ | ε) before recursive-descent or LL(1) parsing."},
+          {"type": "note", "text": "Every regular grammar is also context-free, so every regular language is a CFL; the converse fails, since {aⁿbⁿ} is context-free but not regular."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_t2_01", "title": "CFG 4-tuple", "latex": "G = (V, T, P, S)", "plainText": "G = (V, T, P, S)", "description": "A context-free grammar consists of variables, terminals, productions with a single variable on the left, and a start symbol."},
+        {"id": "f_ch6_t2_02", "title": "Derivation step", "latex": "\\alpha A \\beta \\Rightarrow \\alpha \\gamma \\beta \\ \\text{ if } A \\rightarrow \\gamma \\in P", "plainText": "αAβ ⇒ αγβ if A → γ ∈ P", "description": "One derivation step replaces a single variable by the body of one of its productions, independent of its context."},
+        {"id": "f_ch6_t2_03", "title": "Language of a grammar", "latex": "L(G) = \\{\\, w \\in T^* \\mid S \\Rightarrow^* w \\,\\}", "plainText": "L(G) = { w ∈ T* | S ⇒* w }", "description": "The language of a grammar is every terminal string derivable from the start symbol in zero or more steps."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_t2_01", "front": "What is the difference between a sentential form and a sentence?", "back": "A sentential form is any string over V ∪ T derivable from S; a sentence is a sentential form containing only terminals, i.e. a member of L(G).", "difficulty": "easy"},
+        {"id": "fc_ch6_t2_02", "front": "What is the yield of a parse tree?", "back": "The string formed by reading the leaf labels from left to right; for a complete tree it is the derived terminal string.", "difficulty": "easy"},
+        {"id": "fc_ch6_t2_03", "front": "Which derivation does a bottom-up (shift-reduce/LR) parser trace?", "back": "A rightmost derivation in reverse: it reduces the input back to the start symbol.", "difficulty": "medium"}
+      ],
+      "questions": [
+        {"id": "q_ch6_t2_n01", "questionText": "Using the grammar S → aSb | ab, how many derivation steps are needed to derive the string aaabbb from S?", "options": ["2", "3", "4", "6"], "correctIndex": 1, "explanation": "S ⇒ aSb ⇒ aaSbb ⇒ aaabbb: two uses of S → aSb and one of S → ab, a total of 3 steps.", "difficulty": "easy"},
+        {"id": "q_ch6_t2_n02", "questionText": "A bottom-up shift-reduce (LR) parser effectively constructs which derivation of the input string?", "options": ["A leftmost derivation in forward order", "A leftmost derivation in reverse order", "A rightmost derivation in reverse order", "A rightmost derivation in forward order"], "correctIndex": 2, "explanation": "Bottom-up parsers reduce handles from the leaves to the start symbol, which is exactly a rightmost derivation traced backwards.", "difficulty": "medium"},
+        {"id": "q_ch6_t2_n03", "questionText": "Which language is generated by the grammar S → aSa | bSb | a | b | ε?", "options": ["{ww | w ∈ {a, b}*}", "Strings with equal numbers of a's and b's", "Only even-length palindromes over {a, b}", "All palindromes over {a, b}"], "correctIndex": 3, "explanation": "aSa and bSb wrap matching symbols around the middle, ε gives even-length and a or b gives odd-length palindromes, so every palindrome is generated.", "difficulty": "medium"}
+      ]
+    },
+    {
+      "id": "ch6_i21",
+      "title": "Ambiguity & Normal Forms: CNF, GNF & BNF",
+      "subtitle": "Ambiguous grammars, CFG simplification, Chomsky and Greibach normal forms, BNF notation",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Ambiguous Grammars"},
+          {"type": "paragraph", "text": "A CFG is ambiguous if at least one string in L(G) has two or more distinct parse trees. Equivalently, the string has two different leftmost derivations, or two different rightmost derivations. Ambiguity is a property of the grammar, not of the string alone, and it matters because a compiler assigns meaning by the parse tree. The classic example is E → E + E | E * E | id, which gives id + id * id two trees."},
+          {"type": "code", "language": "text", "text": "Grammar: E -> E + E | E * E | id     String: id + id * id\n\nTree 1 (+ at root, means id + (id * id)):\nE => E + E => id + E => id + E * E => id + id * E => id + id * id\n\nTree 2 (* at root, means (id + id) * id):\nE => E * E => E + E * E => id + E * E => id + id * E => id + id * id\n\nTwo different leftmost derivations -> the grammar is ambiguous."},
+          {"type": "bulletList", "text": "Removing ambiguity from expression grammars:", "items": [
+            "Precedence: introduce one variable per precedence level, lowest precedence nearest the root: E for +, T for *, F for atoms.",
+            "Left associativity: use left recursion, E → E + T | T and T → T * F | F, so a + b + c groups as (a + b) + c.",
+            "Right associativity (e.g. exponent): use right recursion, P → F ^ P | F.",
+            "Dangling else: split statements into matched and unmatched forms so each else pairs with the nearest unmatched if.",
+            "There is no general algorithm: deciding whether an arbitrary CFG is ambiguous is undecidable."
+          ]},
+          {"type": "paragraph", "text": "A context-free language is inherently ambiguous if every grammar that generates it is ambiguous; the standard example is {aⁱbʲcᵏ | i = j or j = k}, where strings aⁿbⁿcⁿ always have two parse trees."},
+          {"type": "heading", "text": "Simplifying a CFG"},
+          {"type": "bulletList", "text": "Before converting to a normal form, clean the grammar in this safe order:", "items": [
+            "Remove ε-productions: find nullable variables (A ⇒* ε), then for each production add versions with every combination of nullable symbols omitted, and delete A → ε (keep S → ε only if ε ∈ L).",
+            "Remove unit productions A → B: for each unit pair (A, B) with A ⇒* B, copy all non-unit bodies of B to A.",
+            "Remove useless symbols: first delete non-generating variables (those deriving no terminal string), then delete symbols unreachable from S.",
+            "Doing these steps in this order guarantees that none reintroduces a problem removed earlier."
+          ]},
+          {"type": "heading", "text": "Chomsky Normal Form (CNF)"},
+          {"type": "formula", "latex": "A \\rightarrow BC \\ \\mid\\ a \\quad (A, B, C \\in V,\\ a \\in T;\\ S \\rightarrow \\varepsilon \\text{ only if } \\varepsilon \\in L)", "plainText": "A → BC | a, with B and C variables and a a terminal; S → ε allowed only when ε is in the language"},
+          {"type": "bulletList", "text": "Converting any CFG to CNF:", "items": [
+            "Step 1: add a new start symbol S0 → S so S never appears on a right side.",
+            "Step 2: remove ε-productions, then unit productions, then useless symbols.",
+            "Step 3: in every body of length ≥ 2, replace each terminal a by a new variable Ca with Ca → a.",
+            "Step 4: break bodies longer than 2 into a chain: A → B1B2B3 becomes A → B1X and X → B2B3.",
+            "Every CFL without ε has a CNF grammar; the parse tree of a CNF grammar is a binary tree."
+          ]},
+          {"type": "code", "language": "text", "text": "Convert S -> aSb | ab to CNF\nStep 3 (terminals): A -> a, B -> b;  S -> ASB | AB\nStep 4 (split):     S -> AX, X -> SB\nCNF:  S -> AX | AB,  X -> SB,  A -> a,  B -> b\n\nCheck aabb (n = 4, so 2n - 1 = 7 steps):\nS => AX => aX => aSB => aABB => aaBB => aabB => aabb"},
+          {"type": "formula", "latex": "\\text{steps to derive } w \\text{ in CNF} = 2n - 1,\\quad n = |w| \\ge 1", "plainText": "In CNF a string of length n needs exactly 2n − 1 steps: n − 1 uses of A → BC and n uses of A → a"},
+          {"type": "heading", "text": "Greibach Normal Form (GNF) and BNF"},
+          {"type": "paragraph", "text": "In Greibach Normal Form every production has the shape A → aα, a single terminal followed by zero or more variables (α ∈ V*). Each step therefore emits exactly one terminal, so a string of length n is derived in exactly n steps, and the grammar has no left recursion. GNF maps directly onto a PDA that reads one input symbol per move, which is why it is used in the CFG-to-PDA proof. Conversion requires removing left recursion (A → Aα | β becomes A → β | βA′, A′ → α | αA′) and substituting until each body starts with a terminal."},
+          {"type": "paragraph", "text": "Backus-Naur Form (BNF), introduced by John Backus and Peter Naur for ALGOL 60, is the standard notation for writing CFGs that define programming-language syntax. Non-terminals are written in angle brackets, ::= means 'is defined as', | separates alternatives, and terminals appear literally, e.g. <expr> ::= <expr> + <term> | <term>. Extended BNF (EBNF) adds { } for repetition, [ ] for optional parts and ( ) for grouping, so it needs fewer recursive rules."},
+          {"type": "table", "rows": [
+            ["Form", "Production shape", "Steps for |w| = n", "Main use"],
+            ["CNF", "A → BC | a", "2n − 1", "CYK parsing, pumping lemma proofs"],
+            ["GNF", "A → aα, α ∈ V*", "n", "Building a PDA, no left recursion"],
+            ["BNF", "<A> ::= alt1 | alt2", "Not fixed", "Specifying language syntax"],
+            ["EBNF", "BNF plus { }, [ ], ( )", "Not fixed", "Compact syntax specifications"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "\\text{CNF: } A \\rightarrow BC \\mid a", "plainText": "CNF: A → BC | a"},
+          {"type": "formula", "latex": "\\text{CNF derivation length} = 2n - 1", "plainText": "CNF derivation length = 2n − 1 for a string of length n"},
+          {"type": "formula", "latex": "\\text{GNF: } A \\rightarrow a\\alpha,\\ \\alpha \\in V^*", "plainText": "GNF: A → aα with α a string of variables; n steps for a string of length n"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For numeric MCQs: a string of length n needs 2n − 1 derivation steps in CNF and exactly n steps in GNF. For n = 5 that is 9 steps in CNF and 5 in GNF."},
+          {"type": "warning", "text": "Ambiguity belongs to a grammar and can often be removed by rewriting it; inherent ambiguity belongs to a language and can never be removed. Showing one string with two parse trees proves a grammar ambiguous, but no algorithm decides ambiguity in general."},
+          {"type": "note", "text": "Simplify in the order ε-productions, unit productions, useless symbols. Removing useless symbols first can leave new useless symbols after the other steps."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i21_01", "title": "Chomsky Normal Form", "latex": "A \\rightarrow BC \\mid a", "plainText": "A → BC | a", "description": "Every production has either exactly two variables or a single terminal on the right, giving binary parse trees."},
+        {"id": "f_ch6_i21_02", "title": "CNF derivation length", "latex": "\\text{steps} = 2n - 1", "plainText": "steps = 2n − 1", "description": "A string of length n needs n − 1 applications of A → BC and n applications of A → a in a CNF grammar."},
+        {"id": "f_ch6_i21_03", "title": "Greibach Normal Form", "latex": "A \\rightarrow a\\alpha,\\ \\alpha \\in V^*", "plainText": "A → aα, α ∈ V*", "description": "Every body starts with one terminal followed only by variables, so each derivation step emits exactly one terminal."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i21_01", "front": "Why is E → E + E | E * E | id ambiguous?", "back": "The string id + id * id has two parse trees (and two leftmost derivations): one with + at the root and one with * at the root.", "difficulty": "easy"},
+        {"id": "fc_ch6_i21_02", "front": "What does 'inherently ambiguous language' mean?", "back": "Every grammar generating the language is ambiguous, e.g. {aⁱbʲcᵏ | i = j or j = k}.", "difficulty": "medium"},
+        {"id": "fc_ch6_i21_03", "front": "In BNF, what do ::=, | and <name> mean?", "back": "::= means 'is defined as', | separates alternatives, and <name> denotes a non-terminal; terminals are written literally.", "difficulty": "easy"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i21_n01", "questionText": "A grammar is in Chomsky Normal Form. How many derivation steps are required to derive a string of length 6?", "options": ["6", "11", "12", "10"], "correctIndex": 1, "explanation": "In CNF a string of length n needs n − 1 steps of the form A → BC and n steps of the form A → a, i.e. 2n − 1 = 11.", "difficulty": "medium"},
+        {"id": "q_ch6_i21_n02", "questionText": "Which of the following languages is inherently ambiguous?", "options": ["{aⁿbⁿ | n ≥ 0}", "The language of balanced parentheses", "{aⁱbʲcᵏ | i = j or j = k}", "{wwᴿ | w ∈ {a, b}*}"], "correctIndex": 2, "explanation": "Strings aⁿbⁿcⁿ satisfy both conditions and receive two parse trees in every grammar for this language; the others have unambiguous grammars.", "difficulty": "hard"}
+      ]
+    },
+    {
+      "id": "ch6_i22",
+      "title": "Pushdown Automata & CFG–PDA Equivalence",
+      "subtitle": "PDA 7-tuple, acceptance modes, a worked aⁿbⁿ PDA, DPDA vs NPDA and CFG ↔ PDA",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "What a Pushdown Automaton Is"},
+          {"type": "paragraph", "text": "A pushdown automaton (PDA) is a finite automaton with ε-moves plus an unbounded stack used as last-in first-out memory. On each move it looks at the current state, the next input symbol (or reads nothing, an ε-move) and the symbol on top of the stack; it then changes state and replaces the top symbol by a string of stack symbols (popping, keeping or pushing). The stack lets it count and match nested structure such as aⁿbⁿ, which a finite automaton cannot. PDAs recognise exactly the context-free languages."},
+          {"type": "formula", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, Z_0, F)", "plainText": "M = (Q, Σ, Γ, δ, q0, Z0, F)"},
+          {"type": "bulletList", "text": "The seven components of a PDA:", "items": [
+            "Q: finite set of states; q0 ∈ Q is the start state.",
+            "Σ: input alphabet; Γ: stack alphabet (may include input symbols).",
+            "δ: transition function Q × (Σ ∪ {ε}) × Γ → finite subsets of Q × Γ*.",
+            "Z0 ∈ Γ: initial stack symbol, marking the bottom of the stack.",
+            "F ⊆ Q: set of final (accepting) states.",
+            "(p, γ) ∈ δ(q, a, X) means: in state q, reading a with X on top, go to p and replace X by γ (γ = ε pops, γ = X leaves it, γ = YX pushes Y)."
+          ]},
+          {"type": "paragraph", "text": "An instantaneous description (ID) is a triple (q, w, γ): the current state, the unread input, and the stack contents with the top written leftmost. If (p, β) ∈ δ(q, a, X) then (q, aw, Xγ) ⊢ (p, w, βγ), and ⊢* denotes zero or more moves. Acceptance is defined in terms of the IDs reachable from (q0, w, Z0)."},
+          {"type": "heading", "text": "Acceptance: Final State vs Empty Stack"},
+          {"type": "table", "rows": [
+            ["Mode", "Condition on w", "Language"],
+            ["Final state", "(q0, w, Z0) ⊢* (p, ε, γ) with p ∈ F, any stack γ", "L(M)"],
+            ["Empty stack", "(q0, w, Z0) ⊢* (p, ε, ε) for any state p", "N(M)"],
+            ["Equivalence", "For NPDAs each mode can be converted to the other", "Both give exactly the CFLs"]
+          ]},
+          {"type": "heading", "text": "Worked PDA for aⁿbⁿ (n ≥ 1)"},
+          {"type": "code", "language": "text", "text": "Q = {q0, q1, q2}, Σ = {a, b}, Γ = {a, Z0}, F = {q2}\n\nd(q0, a, Z0) = {(q0, aZ0)}   push first a\nd(q0, a, a)  = {(q0, aa)}    push each further a\nd(q0, b, a)  = {(q1, e)}     first b pops one a\nd(q1, b, a)  = {(q1, e)}     each b pops one a\nd(q1, e, Z0) = {(q2, Z0)}    all a's matched -> accept\n(d = delta, e = epsilon)"},
+          {"type": "code", "language": "text", "text": "Trace for aabb (accepted):\n(q0, aabb, Z0) |- (q0, abb, aZ0) |- (q0, bb, aaZ0)\n  |- (q1, b, aZ0) |- (q1, e, Z0) |- (q2, e, Z0)   q2 in F\n\nTrace for aab (rejected):\n(q0, aab, Z0) |- (q0, ab, aZ0) |- (q0, b, aaZ0) |- (q1, e, aZ0)\n  no move on (q1, e, a) -> halt in non-final state"},
+          {"type": "heading", "text": "Deterministic vs Nondeterministic PDA"},
+          {"type": "bulletList", "text": "Unlike finite automata, determinism reduces the power of a PDA:", "items": [
+            "DPDA: in every configuration at most one move is possible, and an ε-move on (q, X) is not allowed alongside an input move on (q, a, X).",
+            "DPDAs accept the deterministic CFLs (DCFLs), a proper subset of the CFLs; LR(k) parsers are DPDAs.",
+            "{wcwᴿ} is a DCFL: the centre marker c tells the machine when to switch from pushing to popping.",
+            "Even palindromes {wwᴿ} need an NPDA, which must guess the middle of the input nondeterministically.",
+            "Every DCFL has an unambiguous grammar, and DCFLs are closed under complement (general CFLs are not)."
+          ]},
+          {"type": "heading", "text": "CFG ↔ PDA Equivalence"},
+          {"type": "bulletList", "text": "CFG → PDA (single-state PDA accepting by empty stack, simulating leftmost derivations):", "items": [
+            "Step 1: use one state q; stack alphabet Γ = V ∪ T; the initial stack symbol is the start symbol S.",
+            "Step 2: for each variable A, add δ(q, ε, A) ∋ (q, β) for every production A → β (expand the top variable).",
+            "Step 3: for each terminal a, add δ(q, a, a) = {(q, ε)} (match input against the top terminal and pop it).",
+            "Step 4: accept by empty stack; the stack always holds the unmatched tail of a leftmost sentential form.",
+            "PDA → CFG (outline): convert to an empty-stack PDA, create variables [pXq] meaning 'from state p the PDA can pop X and end in state q', write productions from each transition, and add S → [q0 Z0 p] for every state p."
+          ]},
+          {"type": "table", "rows": [
+            ["Type", "Grammar (production form)", "Language class", "Machine"],
+            ["Type 0", "Unrestricted, α → β", "Recursively enumerable", "Turing machine"],
+            ["Type 1", "Context-sensitive, αAβ → αγβ, γ ≠ ε", "Context-sensitive", "Linear bounded automaton"],
+            ["Type 2", "Context-free, A → γ", "Context-free", "Pushdown automaton (NPDA)"],
+            ["Type 3", "Regular, A → aB | a", "Regular", "Finite automaton"]
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, Z_0, F)", "plainText": "PDA M = (Q, Σ, Γ, δ, q0, Z0, F)"},
+          {"type": "formula", "latex": "\\delta: Q \\times (\\Sigma \\cup \\{\\varepsilon\\}) \\times \\Gamma \\rightarrow 2^{Q \\times \\Gamma^*}", "plainText": "δ: Q × (Σ ∪ {ε}) × Γ → finite subsets of Q × Γ*"},
+          {"type": "formula", "latex": "L(M) = \\{\\, w \\mid (q_0, w, Z_0) \\vdash^* (p, \\varepsilon, \\gamma),\\ p \\in F \\,\\}", "plainText": "L(M) = { w | (q0, w, Z0) ⊢* (p, ε, γ), p ∈ F }"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For aⁿbⁿ the pattern is always: push one symbol per a, pop one per b, and accept when the bottom marker Z0 reappears exactly as the input ends. Reading aaabbb, the stack reaches its maximum height of 4 (three a's plus Z0)."},
+          {"type": "warning", "text": "DFA and NFA are equal in power, but DPDA is strictly weaker than NPDA. Do not assume every CFL has a deterministic PDA; even palindromes {wwᴿ} do not."},
+          {"type": "note", "text": "A PDA with two stacks can simulate a Turing machine, so adding a second stack jumps from type 2 straight to type 0 power."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i22_01", "title": "PDA 7-tuple", "latex": "M = (Q, \\Sigma, \\Gamma, \\delta, q_0, Z_0, F)", "plainText": "M = (Q, Σ, Γ, δ, q0, Z0, F)", "description": "A PDA has states, input and stack alphabets, a transition function, a start state, an initial stack symbol and final states."},
+        {"id": "f_ch6_i22_02", "title": "PDA transition function", "latex": "\\delta: Q \\times (\\Sigma \\cup \\{\\varepsilon\\}) \\times \\Gamma \\rightarrow 2^{Q \\times \\Gamma^*}", "plainText": "δ: Q × (Σ ∪ {ε}) × Γ → finite subsets of Q × Γ*", "description": "Each move depends on state, an input symbol or ε, and the stack top, and may lead to several (state, stack string) choices."},
+        {"id": "f_ch6_i22_03", "title": "Acceptance by empty stack", "latex": "N(M) = \\{\\, w \\mid (q_0, w, Z_0) \\vdash^* (p, \\varepsilon, \\varepsilon) \\,\\}", "plainText": "N(M) = { w | (q0, w, Z0) ⊢* (p, ε, ε) }", "description": "A string is accepted by empty stack when all input is consumed and the stack is empty, in any state."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i22_01", "front": "What is an instantaneous description of a PDA?", "back": "A triple (q, w, γ): current state, remaining input and stack contents with the top written leftmost.", "difficulty": "easy"},
+        {"id": "fc_ch6_i22_02", "front": "Why does {wwᴿ} need a nondeterministic PDA?", "back": "There is no marker for the middle, so the PDA must guess where w ends and switch from pushing to popping; no DPDA can do this.", "difficulty": "medium"},
+        {"id": "fc_ch6_i22_03", "front": "In the CFG → PDA construction, what two kinds of transitions are added?", "back": "For each production A → β, an ε-move replacing A on top by β; for each terminal a, a move reading a and popping a.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i22_n01", "questionText": "Which language is accepted by a nondeterministic PDA but by no deterministic PDA?", "options": ["{aⁿbⁿ | n ≥ 1}", "{wcwᴿ | w ∈ {a, b}*}", "{aⁿbⁿcⁿ | n ≥ 1}", "{wwᴿ | w ∈ {a, b}*}"], "correctIndex": 3, "explanation": "Even palindromes require guessing the midpoint, which only an NPDA can do; aⁿbⁿ and wcwᴿ are deterministic CFLs, and aⁿbⁿcⁿ is not context-free at all.", "difficulty": "medium"},
+        {"id": "q_ch6_i22_n02", "questionText": "A PDA for aⁿbⁿ starts with Z0 on the stack, pushes one a for every a read and pops one a for every b read. What is the maximum stack height (counting Z0) while it processes aaabbb?", "options": ["3", "4", "6", "7"], "correctIndex": 1, "explanation": "After reading the three a's the stack holds aaaZ0, i.e. 4 symbols; each b then pops one a.", "difficulty": "easy"}
+      ]
+    },
+    {
+      "id": "ch6_i23",
+      "title": "Pumping Lemma & Properties of Context-Free Languages",
+      "subtitle": "CFL pumping lemma, proving aⁿbⁿcⁿ non-CFL, closure and decision properties, CYK",
+      "theory": {
+        "concepts": [
+          {"type": "heading", "text": "Pumping Lemma for Context-Free Languages"},
+          {"type": "paragraph", "text": "For every context-free language L there is a constant p (the pumping length) such that every string s ∈ L with |s| ≥ p can be split as s = uvwxy satisfying three conditions: |vwx| ≤ p, |vx| ≥ 1, and uvⁱwxⁱy ∈ L for every i ≥ 0. Unlike the regular pumping lemma, two pieces v and x are pumped together, in step. Some books write the split as uvxyz with |vxy| ≤ p and |vy| > 0; the meaning is identical. The lemma gives a necessary condition, so it is used to prove that a language is not context-free."},
+          {"type": "formula", "latex": "s = uvwxy,\\ |vwx| \\le p,\\ |vx| \\ge 1,\\ uv^i w x^i y \\in L\\ \\ \\forall i \\ge 0", "plainText": "s = uvwxy, |vwx| ≤ p, |vx| ≥ 1, and uvⁱwxⁱy ∈ L for all i ≥ 0"},
+          {"type": "bulletList", "text": "Why it holds (proof idea using a CNF grammar with k variables, p = 2^k):", "items": [
+            "A CNF parse tree is binary, so a yield of length ≥ 2^k forces a root-to-leaf path with more than k variables.",
+            "By the pigeonhole principle some variable A repeats on that path.",
+            "The upper A derives vwx and the lower A derives w, so A ⇒* vAx and A ⇒* w.",
+            "Repeating the A ⇒* vAx part i times gives uvⁱwxⁱy; choosing the lowest repetition keeps |vwx| ≤ p, and CNF having no unit or ε rules gives |vx| ≥ 1."
+          ]},
+          {"type": "heading", "text": "Proving aⁿbⁿcⁿ Is Not Context-Free"},
+          {"type": "code", "language": "text", "text": "1. Assume L = {a^n b^n c^n | n >= 0} is a CFL with pumping length p.\n2. Choose s = a^p b^p c^p, so |s| = 3p >= p.\n3. Consider any split s = uvwxy with |vwx| <= p and |vx| >= 1.\n4. |vwx| <= p, so vwx cannot touch both the a's and the c's\n   (the p b's lie between them).\n5. Case 1: v and x each hold one kind of symbol -> pumping i = 2\n   raises at most two of the three counts, the third stays p.\n6. Case 2: v or x mixes two symbols -> uv^2wx^2y has them out of\n   order (e.g. ...abab...).\n7. Either way uv^2wx^2y is not in L: contradiction, so L is not a CFL."},
+          {"type": "bulletList", "text": "Other standard non-context-free languages:", "items": [
+            "{ww | w ∈ {a, b}*}: copying needs queue-like memory; choose s = aᵖbᵖaᵖbᵖ.",
+            "{aⁿbⁿcⁿ | n ≥ 0} and {aⁿbⁿcⁿdⁿ}: three or more counts that must agree.",
+            "{a^(n²) | n ≥ 0} and {a^q | q prime}: lengths grow too irregularly for linear pumping.",
+            "{aⁱbʲcᵏ | i < j < k}: two independent comparisons must hold at once."
+          ]},
+          {"type": "paragraph", "text": "Ogden's lemma is a stronger version in which any p or more positions of s are marked, and vx must contain at least one marked position (vwx at most p marked positions); it proves some languages non-context-free where the basic lemma fails, e.g. {aⁱbʲcᵏdˡ | i = 0 or j = k = l}."},
+          {"type": "heading", "text": "Closure Properties"},
+          {"type": "table", "rows": [
+            ["Operation", "Closed?", "Reason or counterexample"],
+            ["Union L1 ∪ L2", "Yes", "New start S → S1 | S2"],
+            ["Concatenation L1L2", "Yes", "New start S → S1S2"],
+            ["Kleene star L*", "Yes", "New start S → SS1 | ε"],
+            ["Homomorphism, reversal", "Yes", "Replace terminals by strings; reverse every production body"],
+            ["Intersection L1 ∩ L2", "No", "{aⁿbⁿcᵐ} ∩ {aᵐbⁿcⁿ} = {aⁿbⁿcⁿ}, not a CFL"],
+            ["Complement", "No", "Otherwise intersection would follow by De Morgan"],
+            ["Intersection with a regular set", "Yes", "Run the PDA and a DFA in parallel (product states)"]
+          ]},
+          {"type": "formula", "latex": "L_1 \\cap L_2 = \\overline{\\overline{L_1} \\cup \\overline{L_2}}", "plainText": "L1 ∩ L2 = complement(complement(L1) ∪ complement(L2)): closure under complement plus union would give closure under intersection"},
+          {"type": "heading", "text": "Decision Properties"},
+          {"type": "table", "rows": [
+            ["Question about a CFG G", "Decidable?", "Method or remark"],
+            ["Emptiness: is L(G) = ∅?", "Yes", "Check whether S is a generating variable"],
+            ["Finiteness: is L(G) finite?", "Yes", "In CNF, look for a cycle among useful variables"],
+            ["Membership: is w ∈ L(G)?", "Yes", "CYK algorithm, O(n³) for fixed G"],
+            ["Equivalence: L(G1) = L(G2)?", "No", "Undecidable in general"],
+            ["Is G ambiguous?", "No", "Undecidable (reduction from Post's correspondence problem)"],
+            ["Is L(G) = Σ*? Is L(G1) ∩ L(G2) = ∅?", "No", "Undecidable"]
+          ]},
+          {"type": "paragraph", "text": "The Cocke-Younger-Kasami (CYK) algorithm tests membership using a grammar in CNF and dynamic programming. A triangular table has a cell for every substring, n(n + 1)/2 cells for a string of length n; cells for length-1 substrings get every A with A → a, and longer substrings get every A with A → BC where B derives a prefix and C the remaining suffix. The string is accepted if S appears in the cell for the whole string. With three nested loops over start, length and split point, the running time is O(n³·|G|)."},
+          {"type": "formula", "latex": "V_{i,j} = \\{ A \\mid A \\rightarrow BC,\\ B \\in V_{i,k},\\ C \\in V_{i+k,\\,j-k} \\}", "plainText": "V(i, j) = { A | A → BC, B in V(i, k), C in V(i + k, j − k) } for 1 ≤ k < j; accept if S ∈ V(1, n)"},
+          {"type": "bulletList", "text": "Related facts that MCQs often combine:", "items": [
+            "Every regular language is context-free; a CFL intersected with a regular language is context-free.",
+            "CFL minus a regular language is context-free (L − R = L ∩ complement of R).",
+            "The complement of a particular CFL may or may not be context-free; the class is simply not closed.",
+            "DCFLs are closed under complement and intersection with regular sets, but not under union or intersection.",
+            "CFLs are closed under substitution, inverse homomorphism and reversal as well as the operations in the table."
+          ]}
+        ],
+        "formulas": [
+          {"type": "formula", "latex": "s = uvwxy,\\ |vwx| \\le p,\\ |vx| \\ge 1,\\ uv^i w x^i y \\in L", "plainText": "s = uvwxy with |vwx| ≤ p, |vx| ≥ 1 and uvⁱwxⁱy ∈ L for all i ≥ 0"},
+          {"type": "formula", "latex": "\\{a^n b^n c^m\\} \\cap \\{a^m b^n c^n\\} = \\{a^n b^n c^n\\}", "plainText": "{aⁿbⁿcᵐ} ∩ {aᵐbⁿcⁿ} = {aⁿbⁿcⁿ}: two CFLs whose intersection is not a CFL"},
+          {"type": "formula", "latex": "\\text{CYK cells} = \\tfrac{n(n+1)}{2},\\quad T(n) = O(n^3)", "plainText": "CYK table has n(n + 1)/2 cells and runs in O(n³) time"}
+        ],
+        "notes": [
+          {"type": "examTip", "text": "For aⁿbⁿcⁿ pick s = aᵖbᵖcᵖ. The key observation is that the window vwx has length at most p, so it can touch at most two of the three blocks; pumping with i = 2 (or i = 0) then unbalances the counts."},
+          {"type": "warning", "text": "The pumping lemma can only prove that a language is NOT context-free. A language that satisfies the pumping conditions is not thereby proven to be context-free."},
+          {"type": "note", "text": "To prove non-closure under complement, argue by contradiction: if CFLs were closed under complement, De Morgan's law with closure under union would make them closed under intersection, which is false."}
+        ]
+      },
+      "formulas": [
+        {"id": "f_ch6_i23_01", "title": "CFL pumping lemma", "latex": "s = uvwxy,\\ |vwx| \\le p,\\ |vx| \\ge 1,\\ uv^i w x^i y \\in L", "plainText": "s = uvwxy, |vwx| ≤ p, |vx| ≥ 1, uvⁱwxⁱy ∈ L for all i ≥ 0", "description": "Every long enough string in a CFL has two nearby pieces v and x that can be pumped together while staying in the language."},
+        {"id": "f_ch6_i23_02", "title": "Intersection counterexample", "latex": "\\{a^n b^n c^m\\} \\cap \\{a^m b^n c^n\\} = \\{a^n b^n c^n\\}", "plainText": "{aⁿbⁿcᵐ} ∩ {aᵐbⁿcⁿ} = {aⁿbⁿcⁿ}", "description": "Two context-free languages whose intersection is not context-free, showing CFLs are not closed under intersection."},
+        {"id": "f_ch6_i23_03", "title": "CYK table and time", "latex": "\\text{cells} = \\tfrac{n(n+1)}{2},\\quad T(n) = O(n^3)", "plainText": "cells = n(n + 1)/2, T(n) = O(n³)", "description": "The CYK membership test fills one cell per substring of the input and runs in cubic time for a fixed CNF grammar."}
+      ],
+      "flashcards": [
+        {"id": "fc_ch6_i23_01", "front": "What are the three conditions of the CFL pumping lemma for s = uvwxy?", "back": "|vwx| ≤ p, |vx| ≥ 1, and uvⁱwxⁱy ∈ L for every i ≥ 0.", "difficulty": "easy"},
+        {"id": "fc_ch6_i23_02", "front": "Is the intersection of a CFL with a regular language context-free?", "back": "Yes; a PDA and a DFA can be run in parallel using product states, so the result is always a CFL.", "difficulty": "medium"},
+        {"id": "fc_ch6_i23_03", "front": "Which CFG questions are undecidable?", "back": "Equivalence of two CFGs, whether a CFG is ambiguous, whether L(G) = Σ*, and whether two CFLs have an empty intersection.", "difficulty": "hard"},
+        {"id": "fc_ch6_i23_04", "front": "What does Ogden's lemma add to the pumping lemma?", "back": "It lets you mark positions of s and forces vx to include at least one marked position, making it stronger for proving non-context-freeness.", "difficulty": "hard"}
+      ],
+      "questions": [
+        {"id": "q_ch6_i23_n01", "questionText": "In the pumping lemma for context-free languages, with s = uvwxy and pumping length p, which of the following is NOT one of the required conditions?", "options": ["|vwx| ≤ p", "|vx| ≥ 1", "uvⁱwxⁱy ∈ L for all i ≥ 0", "|uv| ≤ p"], "correctIndex": 3, "explanation": "|uv| ≤ p belongs to the regular-language pumping lemma (as |xy| ≤ p); the CFL version bounds the middle window |vwx| instead.", "difficulty": "medium"},
+        {"id": "q_ch6_i23_n02", "questionText": "Which of the following languages is context-free?", "options": ["{aⁿbⁿcⁿ | n ≥ 0}", "{ww | w ∈ {a, b}*}", "{aⁿbᵐcᵐdⁿ | n, m ≥ 0}", "{a^(n²) | n ≥ 0}"], "correctIndex": 2, "explanation": "S → aSd | T, T → bTc | ε generates aⁿbᵐcᵐdⁿ because its two counts are nested; the other three fail the CFL pumping lemma.", "difficulty": "medium"},
+        {"id": "q_ch6_i23_n03", "questionText": "The CYK algorithm builds a triangular table with one cell for each substring of the input. How many cells are needed for an input string of length 5?", "options": ["10", "15", "20", "25"], "correctIndex": 1, "explanation": "There are n(n + 1)/2 substrings (start, length) for n = 5, i.e. 5 × 6 / 2 = 15 cells.", "difficulty": "easy"}
+      ]
+    }
+  ]
+}

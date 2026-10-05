@@ -1,0 +1,1125 @@
+{
+  "parent": {
+    "id": "ch6_p1",
+    "title": "Finite Automata & Regular Languages"
+  },
+  "subtopics": [
+    {
+      "id": "ch6_t1",
+      "title": "Finite Automata: DFA, NFA & Their Equivalence",
+      "subtitle": "Alphabets and languages, DFA 5-tuple, NFA and ε-NFA, subset construction, Moore/Mealy",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Alphabets, Languages and the DFA"
+          },
+          {
+            "type": "bulletList",
+            "text": "The vocabulary every automata question is written in:",
+            "items": [
+              "Alphabet Σ: a finite, non-empty set of symbols, e.g. Σ = {0, 1} or Σ = {a, b}.",
+              "String (word): a finite sequence of symbols from Σ. Its length |w| is the number of symbols; the empty string ε has length 0.",
+              "Σ^k is the set of all strings of length k; Σ* = Σ^0 ∪ Σ^1 ∪ Σ^2 ∪ … is the set of all strings including ε; Σ+ = Σ* − {ε}.",
+              "Concatenation joins strings: if x = ab and y = ba then xy = abba. ε is the identity: εw = wε = w.",
+              "Prefix and suffix: for w = abc, the prefixes are ε, a, ab, abc and the suffixes are ε, c, bc, abc.",
+              "Language: any subset L ⊆ Σ*. It may be finite ({a, ab}), infinite ({0^n 1^n}), empty (∅) or contain only ε ({ε}); note ∅ ≠ {ε}."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "A finite state machine (FSM) is an abstract machine that can be in exactly one of a finite number of states at a time and changes state in response to inputs. It has no auxiliary memory: everything it remembers about the input read so far is encoded in the current state. A finite automaton (FA) is an FSM used as a language acceptor: it reads an input string left to right, one symbol per move, and at the end answers accept or reject. In a deterministic finite automaton (DFA) every state has exactly one transition for every input symbol, so each input has exactly one computation path."
+          },
+          {
+            "type": "formula",
+            "latex": "M = (Q, \\Sigma, \\delta, q_0, F),\\quad \\delta : Q \\times \\Sigma \\to Q",
+            "plainText": "M = (Q, Σ, δ, q0, F), δ: Q × Σ → Q"
+          },
+          {
+            "type": "bulletList",
+            "text": "The five components of a DFA:",
+            "items": [
+              "Q: finite set of states.",
+              "Σ: finite input alphabet.",
+              "δ: total transition function Q × Σ → Q (one next state per state and symbol).",
+              "q0 ∈ Q: the single start state.",
+              "F ⊆ Q: set of accepting (final) states; the string is accepted if the machine ends in a state of F."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example: a DFA over Σ = {0, 1} accepting all strings that end in 01. State q0 means \"no useful suffix seen\", q1 means \"the last symbol was 0\", and q2 means \"the last two symbols were 01\" (accepting). Tracing 1101: q0 -1-> q0 -1-> q0 -0-> q1 -1-> q2, which is accepting, so 1101 is accepted; 0110 ends in q1 and is rejected."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "State",
+                "On 0",
+                "On 1",
+                "Role"
+              ],
+              [
+                "→ q0",
+                "q1",
+                "q0",
+                "Start, non-accepting"
+              ],
+              [
+                "q1",
+                "q1",
+                "q2",
+                "Last symbol was 0"
+              ],
+              [
+                "* q2",
+                "q1",
+                "q0",
+                "Accepting: ends in 01"
+              ]
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "\\hat\\delta(q, \\varepsilon) = q,\\quad \\hat\\delta(q, wa) = \\delta(\\hat\\delta(q, w), a)",
+            "plainText": "δ̂(q, ε) = q; δ̂(q, wa) = δ(δ̂(q, w), a); L(M) = { w | δ̂(q0, w) ∈ F }"
+          },
+          {
+            "type": "heading",
+            "text": "NFA, ε-NFA and ε-closure"
+          },
+          {
+            "type": "paragraph",
+            "text": "A non-deterministic finite automaton (NFA or NDFA) has the same five components, but δ maps a state and symbol to a set of states: δ: Q × Σ → 2^Q. A state may have zero, one or several moves on a symbol, and the NFA accepts if at least one computation path ends in a final state. An ε-NFA additionally allows ε-moves, δ: Q × (Σ ∪ {ε}) → 2^Q, that change state without consuming input. The ε-closure of a state q, ECLOSE(q), is the set of states reachable from q using only ε-moves, including q itself; ε-closures are taken before and after each symbol move when simulating or converting an ε-NFA."
+          },
+          {
+            "type": "bulletList",
+            "text": "Subset construction (NFA → DFA), step by step:",
+            "items": [
+              "Each DFA state is a set of NFA states; the DFA start state is {q0} (or ECLOSE(q0) for an ε-NFA).",
+              "For a DFA state S and symbol a, the next state is the union of δ(p, a) over all p in S (followed by ε-closure for an ε-NFA).",
+              "Add each newly produced set as a new DFA state and repeat until no new sets appear; only reachable subsets are built.",
+              "A DFA state is accepting if it contains at least one NFA final state; the empty set, if reached, is a dead (trap) state."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "DFA state (NFA set)",
+                "On 0",
+                "On 1",
+                "Accepting?"
+              ],
+              [
+                "→ {q0}",
+                "{q0, q1}",
+                "{q0}",
+                "No"
+              ],
+              [
+                "{q0, q1}",
+                "{q0, q1}",
+                "{q0, q2}",
+                "No"
+              ],
+              [
+                "* {q0, q2}",
+                "{q0, q1}",
+                "{q0}",
+                "Yes (contains q2)"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "The table converts the NFA for strings ending in 01 (q0 loops on 0 and 1, q0 -0-> q1, q1 -1-> q2, q2 final). Only 3 of the 2^3 = 8 possible subsets are reachable, and the result is exactly the hand-built DFA above. In general an n-state NFA gives a DFA with at most 2^n states, and some languages (e.g. strings whose n-th symbol from the end is 1) really need that many, so the bound is tight. Because every DFA is trivially an NFA, and every NFA can be converted, DFAs, NFAs and ε-NFAs accept exactly the same class: the regular languages."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Feature",
+                "DFA",
+                "NFA / ε-NFA"
+              ],
+              [
+                "Transition function",
+                "Q × Σ → Q",
+                "Q × Σ → 2^Q (ε allowed in ε-NFA)"
+              ],
+              [
+                "Moves per state and symbol",
+                "Exactly one",
+                "Zero, one or many"
+              ],
+              [
+                "Acceptance",
+                "The single path ends in F",
+                "Some path ends in F"
+              ],
+              [
+                "Ease of design",
+                "Harder, more states",
+                "Easier, fewer states"
+              ],
+              [
+                "Simulation cost per symbol",
+                "O(1) table lookup",
+                "Track a set of states"
+              ],
+              [
+                "Power",
+                "Regular languages",
+                "Regular languages (same)"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Machines with Output: Moore and Mealy"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Aspect",
+                "Moore machine",
+                "Mealy machine"
+              ],
+              [
+                "Output depends on",
+                "Current state only (λ: Q → Δ)",
+                "State and input (λ: Q × Σ → Δ)"
+              ],
+              [
+                "Output length for n inputs",
+                "n + 1 (includes start state)",
+                "n"
+              ],
+              [
+                "Reaction to input",
+                "One clock later (synchronous)",
+                "Immediate"
+              ],
+              [
+                "States needed",
+                "Usually more",
+                "Usually fewer"
+              ],
+              [
+                "Equivalence",
+                "Convertible to Mealy",
+                "Convertible to Moore"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "M = (Q, \\Sigma, \\delta, q_0, F),\\quad \\delta : Q \\times \\Sigma \\to Q",
+            "plainText": "DFA: M = (Q, Σ, δ, q0, F), δ: Q × Σ → Q"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{NFA: } \\delta : Q \\times (\\Sigma \\cup \\{\\varepsilon\\}) \\to 2^{Q}",
+            "plainText": "NFA / ε-NFA: δ: Q × (Σ ∪ {ε}) → 2^Q"
+          },
+          {
+            "type": "formula",
+            "latex": "|Q_{DFA}| \\le 2^{|Q_{NFA}|}",
+            "plainText": "Subset construction: number of DFA states ≤ 2^n for an n-state NFA"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "When converting an NFA to a DFA, build only reachable subsets and mark every subset containing an NFA final state as final. MCQs often ask for the maximum number of DFA states (2^n) or whether a dead state (∅) is counted."
+          },
+          {
+            "type": "warning",
+            "text": "∅ and {ε} are different languages: ∅ contains no strings, {ε} contains one string of length 0. Likewise a DFA must define a move for every state and symbol; a missing move silently implies a dead state, which you should show when counting states."
+          },
+          {
+            "type": "note",
+            "text": "Moore and Mealy machines are transducers (they produce output) rather than acceptors; they have the same expressive power, and a Moore machine's output sequence is one symbol longer because the start state also emits an output."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_t1_01",
+          "title": "DFA 5-tuple",
+          "latex": "M = (Q, \\Sigma, \\delta, q_0, F),\\quad \\delta : Q \\times \\Sigma \\to Q",
+          "plainText": "M = (Q, Σ, δ, q0, F), δ: Q × Σ → Q",
+          "description": "A DFA has exactly one next state for every state and input symbol."
+        },
+        {
+          "id": "f_ch6_t1_02",
+          "title": "Extended transition function",
+          "latex": "\\hat\\delta(q,wa)=\\delta(\\hat\\delta(q,w),a),\\ L(M)=\\{w \\mid \\hat\\delta(q_0,w)\\in F\\}",
+          "plainText": "δ̂(q, wa) = δ(δ̂(q, w), a); L(M) = { w | δ̂(q0, w) ∈ F }",
+          "description": "Extends δ from single symbols to whole strings and defines the accepted language."
+        },
+        {
+          "id": "f_ch6_t1_03",
+          "title": "NFA transition function",
+          "latex": "\\delta : Q \\times (\\Sigma \\cup \\{\\varepsilon\\}) \\to 2^{Q}",
+          "plainText": "δ: Q × (Σ ∪ {ε}) → 2^Q",
+          "description": "An NFA (with optional ε-moves) maps each state and symbol to a set of possible next states."
+        },
+        {
+          "id": "f_ch6_t1_04",
+          "title": "Subset construction bound",
+          "latex": "|Q_{DFA}| \\le 2^{n}",
+          "plainText": "DFA states ≤ 2^n for an n-state NFA",
+          "description": "Each DFA state is a subset of the n NFA states, so at most 2^n DFA states are possible."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_t1_01",
+          "front": "What is the ε-closure of a state q?",
+          "back": "The set of all states reachable from q using only ε-transitions, including q itself.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_t1_02",
+          "front": "In subset construction, which DFA states are accepting?",
+          "back": "Every DFA state (a set of NFA states) that contains at least one final state of the NFA.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_t1_03",
+          "front": "How does a Moore machine differ from a Mealy machine?",
+          "back": "A Moore machine's output depends only on the current state; a Mealy machine's output depends on the state and the current input. Both are equivalent in power.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_t1_04",
+          "front": "Are NFAs more powerful than DFAs?",
+          "back": "No. Every NFA (even with ε-moves) can be converted to an equivalent DFA, so both recognise exactly the regular languages; NFAs are only more compact.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": []
+    },
+    {
+      "id": "ch6_i11",
+      "title": "Minimization of Finite State Machines",
+      "subtitle": "Equivalent states, unreachable-state removal, partition and table-filling algorithms",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Why Minimize a DFA"
+          },
+          {
+            "type": "paragraph",
+            "text": "Many different DFAs accept the same regular language; they differ only in how many states they use. Minimization produces the DFA with the fewest possible states for the language, which reduces memory for transition tables, simplifies hardware (fewer flip-flops in a sequential circuit) and gives a canonical form that makes it easy to test whether two DFAs are equivalent. Minimization has two phases: remove unreachable states, then merge equivalent states."
+          },
+          {
+            "type": "bulletList",
+            "text": "Key definitions used by every minimization method:",
+            "items": [
+              "Unreachable state: a state that no input string can reach from q0; it can be deleted without changing the language.",
+              "Equivalent (indistinguishable) states p ≡ q: for every string w, δ̂(p, w) is accepting exactly when δ̂(q, w) is accepting.",
+              "Distinguishable states: there is at least one string w for which exactly one of δ̂(p, w), δ̂(q, w) is in F; w is a distinguishing string.",
+              "k-equivalence: p and q are k-equivalent if no string of length ≤ k distinguishes them. 0-equivalence simply splits final from non-final states.",
+              "State equivalence is an equivalence relation (reflexive, symmetric, transitive), so it partitions Q into blocks; each block becomes one state of the minimal DFA."
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Step 1: Remove Unreachable States"
+          },
+          {
+            "type": "paragraph",
+            "text": "Do a breadth-first or depth-first search from q0 over the transition graph and keep only the states visited. This must be done first: an unreachable state can look equivalent or non-equivalent to others and would otherwise survive into the \"minimal\" machine, leaving it non-minimal."
+          },
+          {
+            "type": "heading",
+            "text": "Step 2: Partition (Equivalence-Class) Method"
+          },
+          {
+            "type": "bulletList",
+            "text": "Partition refinement, step by step:",
+            "items": [
+              "P0: split the states into two blocks, F (final) and Q − F (non-final).",
+              "Pk+1: within each block of Pk, keep two states together only if, for every input symbol, their next states lie in the same block of Pk; otherwise split them.",
+              "Repeat until Pk+1 = Pk; the partition is then stable and its blocks are the equivalence classes.",
+              "Build the minimal DFA: one state per block; the start block contains q0; a block is final if its states are final; transitions are taken from any representative."
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Worked example over Σ = {0, 1}, start A, final states C, D, E, with transitions A: 0→B, 1→C; B: 0→A, 1→D; C: 0→E, 1→F; D: 0→E, 1→F; E: 0→E, 1→F; F: 0→F, 1→F. All six states are reachable. In P0 the non-final block {A, B, F} splits because A and B go to a final state on 1 while F does not; the final block {C, D, E} stays together because all three go to a final state on 0 and to F on 1."
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Stage",
+                "Blocks",
+                "Reason"
+              ],
+              [
+                "P0",
+                "{A, B, F}  {C, D, E}",
+                "Non-final vs final"
+              ],
+              [
+                "P1",
+                "{A, B}  {F}  {C, D, E}",
+                "On 1, F stays non-final; A, B reach final"
+              ],
+              [
+                "P2",
+                "{A, B}  {F}  {C, D, E}",
+                "No block splits: P2 = P1, stop"
+              ],
+              [
+                "Minimal DFA",
+                "3 states: [AB], [CDE], [F]",
+                "Accepts 0*10*; [F] is a dead state"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Table-Filling (Myhill–Nerode) Method"
+          },
+          {
+            "type": "paragraph",
+            "text": "The table-filling algorithm lists every unordered pair of states in a triangular table (n(n − 1)/2 pairs). First mark every pair with one final and one non-final state. Then repeatedly mark a pair (p, q) if, for some symbol a, the pair (δ(p, a), δ(q, a)) is already marked. When a full pass marks nothing new, every unmarked pair is equivalent and is merged. Both this method and partition refinement are based on the Myhill–Nerode theorem, which states that L is regular if and only if the relation \"x and y have the same future in L\" has finitely many classes, and the number of classes equals the number of states of the minimal DFA."
+          },
+          {
+            "type": "formula",
+            "latex": "p \\equiv q \\iff \\forall w:\\ \\hat\\delta(p,w)\\in F \\Leftrightarrow \\hat\\delta(q,w)\\in F",
+            "plainText": "p ≡ q iff for all w in Σ*: δ̂(p, w) ∈ F ⇔ δ̂(q, w) ∈ F"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Method",
+                "Idea",
+                "Time"
+              ],
+              [
+                "Partition refinement (Moore)",
+                "Split blocks until stable",
+                "O(k n^2)"
+              ],
+              [
+                "Table filling",
+                "Mark distinguishable pairs",
+                "O(k n^2) per pass"
+              ],
+              [
+                "Hopcroft's algorithm",
+                "Refine with smaller half of each split",
+                "O(k n log n)"
+              ]
+            ]
+          },
+          {
+            "type": "paragraph",
+            "text": "Uniqueness: the minimal DFA for a regular language is unique up to renaming of states (it is isomorphic to the Myhill–Nerode quotient automaton). Hence two DFAs accept the same language exactly when their minimal DFAs are identical after renaming. Moore machines are minimized the same way, except that P0 groups states by their output symbol instead of final/non-final, and two states stay together only if they produce the same output and move to equivalent states on every input."
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "P_0 = \\{F,\\ Q - F\\}",
+            "plainText": "Initial partition P0 = { F, Q − F }"
+          },
+          {
+            "type": "formula",
+            "latex": "\\text{Pairs to check} = \\binom{n}{2} = \\frac{n(n-1)}{2}",
+            "plainText": "Table-filling pairs = n(n − 1)/2"
+          },
+          {
+            "type": "formula",
+            "latex": "p \\equiv q \\iff \\forall w:\\ \\hat\\delta(p,w)\\in F \\Leftrightarrow \\hat\\delta(q,w)\\in F",
+            "plainText": "p ≡ q iff for every w, δ̂(p, w) ∈ F ⇔ δ̂(q, w) ∈ F"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Always delete unreachable states before partitioning, and start P0 with exactly two blocks, final and non-final. Keep refining until a pass produces no new split."
+          },
+          {
+            "type": "warning",
+            "text": "A final state can never be equivalent to a non-final state (ε distinguishes them), but two states with identical rows in the transition table are always equivalent. States with different rows may still be equivalent, so do not stop at comparing rows."
+          },
+          {
+            "type": "note",
+            "text": "Minimization applies to DFAs. Minimizing an NFA is computationally hard in general, so the usual route is NFA → DFA (subset construction) → minimal DFA."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i11_01",
+          "title": "Initial partition",
+          "latex": "P_0 = \\{F,\\ Q - F\\}",
+          "plainText": "P0 = { F, Q − F }",
+          "description": "The partition method begins by separating accepting states from non-accepting states."
+        },
+        {
+          "id": "f_ch6_i11_02",
+          "title": "State equivalence",
+          "latex": "p \\equiv q \\iff \\forall w:\\ \\hat\\delta(p,w)\\in F \\Leftrightarrow \\hat\\delta(q,w)\\in F",
+          "plainText": "p ≡ q iff for all w, δ̂(p, w) ∈ F ⇔ δ̂(q, w) ∈ F",
+          "description": "Two states are equivalent when no input string leads one to acceptance and the other to rejection."
+        },
+        {
+          "id": "f_ch6_i11_03",
+          "title": "Table-filling pairs",
+          "latex": "\\binom{n}{2} = \\frac{n(n-1)}{2}",
+          "plainText": "Pairs = n(n − 1)/2",
+          "description": "Number of unordered state pairs the table-filling method must examine for an n-state DFA."
+        },
+        {
+          "id": "f_ch6_i11_04",
+          "title": "Hopcroft complexity",
+          "latex": "T(n) = O(k\\, n \\log n)",
+          "plainText": "Hopcroft's algorithm: O(k · n log n) for n states, k symbols",
+          "description": "Hopcroft's partition-refinement algorithm is the fastest standard DFA minimization method."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i11_01",
+          "front": "What are the two phases of DFA minimization?",
+          "back": "First remove states unreachable from the start state, then merge equivalent (indistinguishable) states using partition refinement or table filling.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i11_02",
+          "front": "When are two DFA states distinguishable?",
+          "back": "When some string w drives one of them to an accepting state and the other to a non-accepting state.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i11_03",
+          "front": "Is the minimal DFA of a regular language unique?",
+          "back": "Yes, it is unique up to renaming of states (Myhill–Nerode theorem), which gives a way to test DFA equivalence.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i11_04",
+          "front": "How does the initial partition differ when minimizing a Moore machine?",
+          "back": "States are first grouped by their output symbol rather than by final/non-final.",
+          "difficulty": "hard"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i11_n01",
+          "questionText": "In the partition (equivalence-class) method of DFA minimization, the initial partition P0 is formed by:",
+          "options": [
+            "Grouping states by their number of outgoing transitions",
+            "Separating final states from non-final states",
+            "Placing each state in its own block",
+            "Separating reachable states from the start state"
+          ],
+          "correctIndex": 1,
+          "explanation": "P0 = {F, Q − F}: the empty string already distinguishes every final state from every non-final state. Later passes refine these two blocks.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i11_n02",
+          "questionText": "How many unordered pairs of states must be considered in the table-filling algorithm for a 6-state DFA?",
+          "options": [
+            "36",
+            "30",
+            "12",
+            "15"
+          ],
+          "correctIndex": 3,
+          "explanation": "The triangular table has n(n − 1)/2 entries; for n = 6 that is 6 × 5 / 2 = 15 pairs.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i11_n03",
+          "questionText": "Two states p and q of a DFA are said to be distinguishable if:",
+          "options": [
+            "There exists a string w such that exactly one of δ̂(p, w) and δ̂(q, w) is an accepting state",
+            "They have different transitions on at least one input symbol",
+            "One of them is reachable and the other is not",
+            "They are both non-accepting states"
+          ],
+          "correctIndex": 0,
+          "explanation": "Distinguishability is defined by acceptance behaviour on some string, not by the transitions themselves; states with different transitions may still be equivalent.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i11_n04",
+          "questionText": "The minimal DFA that accepts binary numbers (read most significant bit first) divisible by 5 has how many states?",
+          "options": [
+            "2",
+            "4",
+            "5",
+            "10"
+          ],
+          "correctIndex": 2,
+          "explanation": "The state must remember the value mod 5, giving remainders 0 to 4; all five are pairwise distinguishable, so the minimal DFA has 5 states with remainder 0 accepting.",
+          "difficulty": "hard"
+        }
+      ]
+    },
+    {
+      "id": "ch6_i12",
+      "title": "Regular Expressions & Equivalence with Finite Automata",
+      "subtitle": "RE operators, identities and Arden's theorem, Thompson's construction, state elimination",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Regular Expressions"
+          },
+          {
+            "type": "paragraph",
+            "text": "A regular expression (RE) is an algebraic notation for a regular language. It is defined recursively: ∅, ε and each symbol a ∈ Σ are regular expressions denoting ∅, {ε} and {a}; and if r and s are regular expressions, then r + s (union, also written r | s), rs (concatenation) and r* (Kleene star, zero or more repetitions) are regular expressions, as is (r). Nothing else is a regular expression. The positive closure r+ = rr* means one or more repetitions."
+          },
+          {
+            "type": "bulletList",
+            "text": "Operators and precedence (highest first):",
+            "items": [
+              "Kleene star r*: L(r)* = {ε} ∪ L(r) ∪ L(r)L(r) ∪ …; binds tightest.",
+              "Concatenation rs: every string of L(r) followed by every string of L(s).",
+              "Union r + s: L(r) ∪ L(s); binds loosest.",
+              "So ab* + c means (a(b*)) + c, not (ab)* + c or a(b* + c); use brackets to override."
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Regular expression",
+                "Language over {a, b}"
+              ],
+              [
+                "(a + b)*",
+                "All strings, including ε"
+              ],
+              [
+                "(a + b)*abb",
+                "Strings ending in abb"
+              ],
+              [
+                "a(a + b)*",
+                "Strings starting with a"
+              ],
+              [
+                "(a + b)*aa(a + b)*",
+                "Strings containing aa as a substring"
+              ],
+              [
+                "((a + b)(a + b))*",
+                "Strings of even length"
+              ],
+              [
+                "b*(ab*ab*)*",
+                "Strings with an even number of a's"
+              ],
+              [
+                "(b + ab)*(ε + a)",
+                "Strings with no two consecutive a's"
+              ]
+            ]
+          },
+          {
+            "type": "heading",
+            "text": "Algebraic Identities and Arden's Theorem"
+          },
+          {
+            "type": "bulletList",
+            "text": "Identities used to simplify REs:",
+            "items": [
+              "∅ + r = r, ∅r = r∅ = ∅, εr = rε = r.",
+              "ε* = ε, ∅* = ε, (r*)* = r*, r*r* = r*, rr* = r*r = r+.",
+              "r + r = r, r + s = s + r, r(s + t) = rs + rt, (r + s)t = rt + st.",
+              "(r + s)* = (r*s*)* = (r* + s*)*, and (rs)*r = r(sr)*.",
+              "Note r + ε ≠ r in general, and (rs)* ≠ r*s*."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "R = Q + RP \\ \\Rightarrow\\ R = QP^{*}\\quad (\\varepsilon \\notin L(P))",
+            "plainText": "Arden: if R = Q + RP and P does not contain ε, then R = QP* (unique solution)"
+          },
+          {
+            "type": "paragraph",
+            "text": "Arden's theorem converts a finite automaton to an RE algebraically. Write one equation per state expressing it as the sum of (predecessor state)(input symbol), adding ε for the start state; then solve the equations by substitution, using Arden's theorem to eliminate self-references. For example, q1 = ε + q1·0 gives q1 = ε0* = 0*."
+          },
+          {
+            "type": "heading",
+            "text": "Kleene's Theorem: RE ≡ FA"
+          },
+          {
+            "type": "paragraph",
+            "text": "Kleene's theorem states that a language is denoted by some regular expression if and only if it is accepted by some finite automaton. The proof has two directions: RE → ε-NFA (Thompson's construction) and FA → RE (state elimination, Arden's theorem or the R_ij^(k) dynamic-programming method). Together with subset construction this shows REs, DFAs, NFAs and ε-NFAs all describe the same class, the regular languages."
+          },
+          {
+            "type": "bulletList",
+            "text": "Thompson's construction (RE → ε-NFA), built bottom-up from the parse of the RE:",
+            "items": [
+              "Base cases: for ε, a start state with an ε-move to a final state; for symbol a, a start state with an a-move to a final state; for ∅, two states with no move.",
+              "Union r + s: a new start state with ε-moves to the starts of N(r) and N(s), and ε-moves from their finals to a new final state.",
+              "Concatenation rs: connect the final state of N(r) to the start of N(s) by an ε-move (or merge them).",
+              "Star r*: a new start and new final; ε-moves start → final (for zero repetitions), start → N(r), N(r) final → N(r) start (repeat) and N(r) final → new final.",
+              "Result: exactly one start and one final state, at most 2 states per symbol or operator, so size is linear in the length of the RE."
+            ]
+          },
+          {
+            "type": "bulletList",
+            "text": "State elimination (FA → RE):",
+            "items": [
+              "Make sure the start state has no incoming edges and there is a single final state with no outgoing edges (add new ones with ε-moves if needed).",
+              "Label edges with REs; parallel edges p → q labelled a and b become one edge a + b.",
+              "Eliminate an intermediate state k: for every pair p → k → q, add edge p → q labelled R_pk (R_kk)* R_kq, united with any existing R_pq.",
+              "Repeat until only start and final remain; the label on the edge between them is the RE."
+            ]
+          },
+          {
+            "type": "formula",
+            "latex": "R_{pq}' = R_{pq} + R_{pk}\\,(R_{kk})^{*}\\,R_{kq}",
+            "plainText": "State elimination: R'pq = Rpq + Rpk (Rkk)* Rkq"
+          },
+          {
+            "type": "heading",
+            "text": "Regular Grammars and Applications"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Form",
+                "Production shape",
+                "Generates"
+              ],
+              [
+                "Right-linear",
+                "A → aB or A → a or A → ε",
+                "Regular languages"
+              ],
+              [
+                "Left-linear",
+                "A → Ba or A → a or A → ε",
+                "Regular languages"
+              ],
+              [
+                "Mixed left and right",
+                "A → aB and A → Ba together",
+                "May be non-regular (linear)"
+              ],
+              [
+                "Applications",
+                "Lexical analysers, grep/sed, input validation",
+                "Pattern matching tools"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "R = Q + RP \\ \\Rightarrow\\ R = QP^{*}",
+            "plainText": "Arden's theorem: R = Q + RP ⇒ R = QP* (when ε ∉ P)"
+          },
+          {
+            "type": "formula",
+            "latex": "r^{+} = r\\,r^{*} = r^{*}r,\\quad r^{*} = \\varepsilon + r^{+}",
+            "plainText": "r+ = r r* = r* r; r* = ε + r+"
+          },
+          {
+            "type": "formula",
+            "latex": "R_{pq}' = R_{pq} + R_{pk}\\,(R_{kk})^{*}\\,R_{kq}",
+            "plainText": "R'pq = Rpq + Rpk (Rkk)* Rkq"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "To check an RE option quickly, test short strings: ε, single symbols and the shortest string that should be excluded. One counterexample is enough to eliminate an option."
+          },
+          {
+            "type": "warning",
+            "text": "Arden's theorem gives the unique solution R = QP* only when P does not contain ε. Also remember precedence: star, then concatenation, then union, so ab* is a(b*), not (ab)*."
+          },
+          {
+            "type": "note",
+            "text": "Practical \"regex\" engines add features such as back-references (e.g. (a*)\\1) that go beyond regular languages; the theory here covers only union, concatenation and star."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i12_01",
+          "title": "Arden's theorem",
+          "latex": "R = Q + RP \\ \\Rightarrow\\ R = QP^{*}\\quad (\\varepsilon \\notin L(P))",
+          "plainText": "If R = Q + RP and ε ∉ P, then R = QP*",
+          "description": "Solves the state equations of a finite automaton to obtain an equivalent regular expression."
+        },
+        {
+          "id": "f_ch6_i12_02",
+          "title": "Positive closure",
+          "latex": "r^{+} = r\\,r^{*},\\quad r^{*} = \\varepsilon + r^{+}",
+          "plainText": "r+ = r r*; r* = ε + r+",
+          "description": "Relates one-or-more repetition to the Kleene star."
+        },
+        {
+          "id": "f_ch6_i12_03",
+          "title": "State elimination rule",
+          "latex": "R_{pq}' = R_{pq} + R_{pk}\\,(R_{kk})^{*}\\,R_{kq}",
+          "plainText": "R'pq = Rpq + Rpk (Rkk)* Rkq",
+          "description": "Removing state k replaces every path p → k → q with a single RE-labelled edge."
+        },
+        {
+          "id": "f_ch6_i12_04",
+          "title": "Star identities",
+          "latex": "(r^{*})^{*} = r^{*},\\ \\ (r + s)^{*} = (r^{*}s^{*})^{*}",
+          "plainText": "(r*)* = r*; (r + s)* = (r* s*)*",
+          "description": "Common identities used to simplify regular expressions."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i12_01",
+          "front": "What does Kleene's theorem state?",
+          "back": "A language is described by a regular expression if and only if it is accepted by a finite automaton.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i12_02",
+          "front": "What does Thompson's construction produce?",
+          "back": "An ε-NFA with one start and one final state, built from a regular expression by combining small NFAs for union, concatenation and star.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i12_03",
+          "front": "What is the precedence of regular expression operators?",
+          "back": "Kleene star highest, then concatenation, then union lowest.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i12_04",
+          "front": "Which grammars generate exactly the regular languages?",
+          "back": "Regular grammars: right-linear (A → aB | a | ε) or left-linear (A → Ba | a | ε), but not a mixture of both.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i12_n01",
+          "questionText": "According to Arden's theorem, if R = Q + RP and P does not contain ε, the solution for R is:",
+          "options": [
+            "R = P*Q",
+            "R = QP*",
+            "R = (Q + P)*",
+            "R = Q*P"
+          ],
+          "correctIndex": 1,
+          "explanation": "Repeated substitution gives R = Q + QP + QPP + … = QP*; the condition ε ∉ P makes this the unique solution.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i12_n02",
+          "questionText": "Which of the following strings is NOT in the language of the regular expression (a + b)*abb?",
+          "options": [
+            "abb",
+            "babb",
+            "abba",
+            "aabb"
+          ],
+          "correctIndex": 2,
+          "explanation": "(a + b)*abb denotes strings ending in abb. abba ends in bba, so it is not in the language; the other three all end in abb.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i12_n03",
+          "questionText": "What is the correct order of precedence of regular expression operators, from highest to lowest?",
+          "options": [
+            "Union, concatenation, Kleene star",
+            "Concatenation, Kleene star, union",
+            "Kleene star, union, concatenation",
+            "Kleene star, concatenation, union"
+          ],
+          "correctIndex": 3,
+          "explanation": "Star binds tightest, then concatenation, then union, so ab* + c is read as (a(b*)) + c.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i12_n04",
+          "questionText": "Which regular expression over {a, b} denotes the set of all strings of even length (including ε)?",
+          "options": [
+            "((a + b)(a + b))*",
+            "(a + b)*(a + b)",
+            "(aa + bb)*",
+            "(ab)*"
+          ],
+          "correctIndex": 0,
+          "explanation": "Each iteration of ((a + b)(a + b))* adds exactly two arbitrary symbols. (aa + bb)* misses ab, (ab)* misses ba, and (a + b)*(a + b) includes odd lengths.",
+          "difficulty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "ch6_i13",
+      "title": "Pumping Lemma for Regular Languages",
+      "subtitle": "Statement, pigeonhole proof idea, adversary game, non-regularity proofs, closure properties",
+      "theory": {
+        "concepts": [
+          {
+            "type": "heading",
+            "text": "Statement of the Pumping Lemma"
+          },
+          {
+            "type": "paragraph",
+            "text": "The pumping lemma gives a property that every regular language must have. If L is regular, there is a constant p ≥ 1 (the pumping length) such that every string s ∈ L with |s| ≥ p can be split as s = xyz where |xy| ≤ p, |y| ≥ 1, and xy^i z ∈ L for every i ≥ 0. In words: every long enough string in L contains a short, non-empty middle section near the start that can be repeated any number of times, or deleted, without leaving the language."
+          },
+          {
+            "type": "formula",
+            "latex": "s = xyz,\\ \\ |xy| \\le p,\\ \\ |y| \\ge 1,\\ \\ xy^{i}z \\in L\\ \\ \\forall i \\ge 0",
+            "plainText": "s = xyz, |xy| ≤ p, |y| ≥ 1, xy^i z ∈ L for all i ≥ 0"
+          },
+          {
+            "type": "heading",
+            "text": "Why It Holds: the Pigeonhole Idea"
+          },
+          {
+            "type": "paragraph",
+            "text": "Let a DFA with p states accept L. Reading a string of length at least p visits p + 1 states (counting the start), so by the pigeonhole principle some state is visited twice within the first p symbols. Let x lead to that state the first time, y be the loop that returns to it (non-empty, and |xy| ≤ p), and z the rest. Going around the loop zero times (i = 0) or many times still ends in the same accepting state, so every xy^i z is accepted."
+          },
+          {
+            "type": "heading",
+            "text": "Using the Lemma as a Game"
+          },
+          {
+            "type": "bulletList",
+            "text": "To prove L is NOT regular, play against an adversary:",
+            "items": [
+              "Assume L is regular; the adversary picks the pumping length p (you do not choose it).",
+              "You choose a specific string s ∈ L with |s| ≥ p, cleverly, in terms of p.",
+              "The adversary chooses any split s = xyz with |xy| ≤ p and |y| ≥ 1; your argument must handle every such split.",
+              "You choose an i (often 0 or 2) such that xy^i z ∉ L.",
+              "This contradicts the lemma, so the assumption fails and L is not regular."
+            ]
+          },
+          {
+            "type": "code",
+            "language": "text",
+            "text": "L = { a^n b^n | n >= 0 }. Assume regular, pumping length p.\nChoose s = a^p b^p  (s in L, |s| = 2p >= p).\nAny split with |xy| <= p puts x, y inside the first p a's:\n  x = a^j, y = a^k (k >= 1), z = a^(p-j-k) b^p.\nPump i = 2: xy^2z = a^(p+k) b^p, with p + k != p.\nSo xy^2z is not in L -> contradiction -> L is not regular."
+          },
+          {
+            "type": "paragraph",
+            "text": "Palindromes over {a, b}: choose s = a^p b a^p. Since |xy| ≤ p, y is a block of a's from the left part only; pumping down (i = 0) gives a^(p−k) b a^p, which is not a palindrome, so the language is not regular. For L = {a^(n²)}, choose s = a^(p²): with 1 ≤ |y| ≤ p, xy²z has length between p² + 1 and p² + p < (p + 1)², strictly between two consecutive squares, so it is not in L. The same style works for {ww}, {a^n | n prime} and balanced parentheses."
+          },
+          {
+            "type": "warning",
+            "text": "The pumping lemma is a necessary condition, not a sufficient one: some non-regular languages satisfy it, so it can never prove a language IS regular. To show regularity, give a DFA, NFA, RE or regular grammar, or use closure properties."
+          },
+          {
+            "type": "heading",
+            "text": "Closure and Decision Properties"
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Operation",
+                "Regular languages closed?",
+                "Construction idea"
+              ],
+              [
+                "Union L1 ∪ L2",
+                "Yes",
+                "New ε-start to both NFAs, or product DFA"
+              ],
+              [
+                "Intersection L1 ∩ L2",
+                "Yes",
+                "Product DFA, accept if both accept"
+              ],
+              [
+                "Complement Σ* − L",
+                "Yes",
+                "Complete DFA, swap final and non-final"
+              ],
+              [
+                "Concatenation L1L2",
+                "Yes",
+                "ε-moves from finals of M1 to start of M2"
+              ],
+              [
+                "Kleene star L*",
+                "Yes",
+                "ε-loop back from finals, new final start"
+              ],
+              [
+                "Reversal L^R",
+                "Yes",
+                "Reverse edges, swap start and final"
+              ],
+              [
+                "Homomorphism h(L), h⁻¹(L)",
+                "Yes",
+                "Substitute strings into the RE / DFA"
+              ]
+            ]
+          },
+          {
+            "type": "table",
+            "rows": [
+              [
+                "Decision problem",
+                "Decidable?",
+                "Method"
+              ],
+              [
+                "Membership: is w ∈ L?",
+                "Yes",
+                "Run the DFA on w, O(|w|)"
+              ],
+              [
+                "Emptiness: is L = ∅?",
+                "Yes",
+                "Is any final state reachable from q0?"
+              ],
+              [
+                "Finiteness: is L finite?",
+                "Yes",
+                "Is there a reachable cycle that can reach F?"
+              ],
+              [
+                "Equivalence: L1 = L2?",
+                "Yes",
+                "Compare minimal DFAs, or test symmetric difference empty"
+              ]
+            ]
+          }
+        ],
+        "formulas": [
+          {
+            "type": "formula",
+            "latex": "s = xyz,\\ \\ |xy| \\le p,\\ \\ |y| \\ge 1,\\ \\ xy^{i}z \\in L\\ \\ \\forall i \\ge 0",
+            "plainText": "Pumping lemma: s = xyz, |xy| ≤ p, |y| ≥ 1, xy^i z ∈ L for all i ≥ 0"
+          },
+          {
+            "type": "formula",
+            "latex": "p^{2} < p^{2} + |y| \\le p^{2} + p < (p + 1)^{2}",
+            "plainText": "For a^(n²): p² < |xy²z| ≤ p² + p < (p + 1)², so the length is not a perfect square"
+          },
+          {
+            "type": "formula",
+            "latex": "L_1 \\cap L_2 = \\overline{\\overline{L_1} \\cup \\overline{L_2}}",
+            "plainText": "De Morgan: L1 ∩ L2 = complement(complement(L1) ∪ complement(L2))"
+          }
+        ],
+        "notes": [
+          {
+            "type": "examTip",
+            "text": "Choose the string so that the condition |xy| ≤ p forces y into one uniform block (for example, only a's in a^p b^p). Then a single value of i, usually 0 or 2, breaks the language for every possible split."
+          },
+          {
+            "type": "note",
+            "text": "Closure properties give a quick non-regularity proof: if L ∩ a*b* = {a^n b^n} and a*b* is regular, then L cannot be regular, since regular languages are closed under intersection."
+          },
+          {
+            "type": "warning",
+            "text": "Regular languages are closed under finite union but not under infinite union: every language, including {a^n b^n}, is an infinite union of singleton (regular) languages."
+          }
+        ]
+      },
+      "formulas": [
+        {
+          "id": "f_ch6_i13_01",
+          "title": "Pumping lemma conditions",
+          "latex": "|xy| \\le p,\\ \\ |y| \\ge 1,\\ \\ xy^{i}z \\in L\\ \\ \\forall i \\ge 0",
+          "plainText": "|xy| ≤ p, |y| ≥ 1, xy^i z ∈ L for all i ≥ 0",
+          "description": "Every string of length at least p in a regular language can be split and pumped this way."
+        },
+        {
+          "id": "f_ch6_i13_02",
+          "title": "Pigeonhole bound",
+          "latex": "|s| \\ge p \\Rightarrow p + 1 \\text{ states visited} \\Rightarrow \\text{a repeat}",
+          "plainText": "|s| ≥ p ⇒ p + 1 states visited in a p-state DFA ⇒ some state repeats",
+          "description": "Explains why the pumping length p can be taken as the number of DFA states."
+        },
+        {
+          "id": "f_ch6_i13_03",
+          "title": "Complement closure",
+          "latex": "\\overline{L} = \\Sigma^{*} - L",
+          "plainText": "complement(L) = Σ* − L",
+          "description": "Obtained from a complete DFA by swapping final and non-final states, so regular languages are closed under complement."
+        }
+      ],
+      "flashcards": [
+        {
+          "id": "fc_ch6_i13_01",
+          "front": "Can the pumping lemma prove that a language is regular?",
+          "back": "No. It is only a necessary condition; some non-regular languages satisfy it. It is used only to prove non-regularity by contradiction.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "fc_ch6_i13_02",
+          "front": "In a pumping-lemma proof, who chooses p, s, the split xyz and i?",
+          "back": "The adversary chooses p and the split; you choose s (with |s| ≥ p) and the value of i that pushes xy^i z out of L.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "fc_ch6_i13_03",
+          "front": "Name four decision problems that are decidable for regular languages.",
+          "back": "Membership, emptiness, finiteness and equivalence, all solvable using DFAs.",
+          "difficulty": "medium"
+        }
+      ],
+      "questions": [
+        {
+          "id": "q_ch6_i13_n01",
+          "questionText": "Which of the following languages is regular?",
+          "options": [
+            "{a^n b^n | n ≥ 0}",
+            "{ww | w ∈ {a, b}*}",
+            "{a^n b^m | n, m ≥ 0}",
+            "{a^(n²) | n ≥ 0}"
+          ],
+          "correctIndex": 2,
+          "explanation": "{a^n b^m} with independent n and m is just a*b*, which is regular. The other three need unbounded memory and can be shown non-regular with the pumping lemma.",
+          "difficulty": "easy"
+        },
+        {
+          "id": "q_ch6_i13_n02",
+          "questionText": "In proving {a^n b^n} non-regular with s = a^p b^p, the condition |xy| ≤ p guarantees that y consists of:",
+          "options": [
+            "Only b's",
+            "Only a's",
+            "Equal numbers of a's and b's",
+            "At least one a and one b"
+          ],
+          "correctIndex": 1,
+          "explanation": "The first p symbols of a^p b^p are all a's and xy lies within them, so y = a^k with k ≥ 1; pumping changes the number of a's only.",
+          "difficulty": "medium"
+        },
+        {
+          "id": "q_ch6_i13_n03",
+          "questionText": "The class of regular languages is NOT closed under which of the following operations?",
+          "options": [
+            "Complement",
+            "Intersection",
+            "Reversal",
+            "Infinite union"
+          ],
+          "correctIndex": 3,
+          "explanation": "Regular languages are closed under complement, intersection and reversal, but an infinite union of regular languages can be non-regular, e.g. the union of the singletons {a^n b^n}.",
+          "difficulty": "hard"
+        }
+      ]
+    }
+  ]
+}

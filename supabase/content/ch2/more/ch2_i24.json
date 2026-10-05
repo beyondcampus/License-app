@@ -1,0 +1,726 @@
+{
+  "topicId": "ch2_i24",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Signed Arithmetic"
+    },
+    {
+      "type": "paragraph",
+      "text": "2's complement works because an n-bit adder really computes modulo 2^n: the discarded carry is exactly a multiple of 2^n. Storing −N as 2^n − N therefore gives the right answer whenever the true result is in range. The same idea extends to any radix r. The radix complement of an n-digit number N is r^n − N (2's, 10's, 16's), and the diminished radix complement is (r^n − 1) − N (1's, 9's, 15's), found by subtracting each digit from r − 1."
+    },
+    {
+      "type": "formula",
+      "latex": "[N]_{r} = r^n - N, \\qquad [N]_{r-1} = (r^n - 1) - N = [N]_r - 1",
+      "plainText": "Radix complement = r^n − N; diminished radix complement = (r^n − 1) − N, one less"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Base",
+          "N",
+          "(r−1)'s complement",
+          "r's complement"
+        ],
+        [
+          "Binary (r = 2)",
+          "0110",
+          "1001",
+          "1010"
+        ],
+        [
+          "Octal (r = 8)",
+          "257",
+          "520",
+          "521"
+        ],
+        [
+          "Decimal (r = 10)",
+          "3528",
+          "6471",
+          "6472"
+        ],
+        [
+          "Hexadecimal (r = 16)",
+          "3AF",
+          "C50",
+          "C51"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: subtraction by 10's complement (4 digits)\n(a) 7832 - 2456\n    10's comp of 2456 = 7544\n    7832 + 7544 = 1 5376  -> end carry: result positive = 5376\n(b) 2456 - 7832\n    10's comp of 7832 = 2168\n    2456 + 2168 = 4624    -> no end carry: result negative\n    answer = -(10's comp of 4624) = -5376"
+    },
+    {
+      "type": "paragraph",
+      "text": "With the diminished complement (9's or 1's) an end carry is not discarded but added back to the least significant digit, which is the end-around carry. For example, 745 − 283 gives 745 + 716 = 1461, and 461 + 1 = 462. If there is no end carry, the result is negative and its magnitude is the 9's (or 1's) complement of the sum: 283 − 745 gives 283 + 254 = 537, so the answer is −462. The end-around carry is the extra addition that 2's complement avoids."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "8-bit operation",
+          "Result",
+          "Carry C",
+          "Overflow V"
+        ],
+        [
+          "(+80) + (+32)",
+          "70H (+112)",
+          "0",
+          "0"
+        ],
+        [
+          "(+80) + (+80)",
+          "A0H (−96)",
+          "0",
+          "1"
+        ],
+        [
+          "(−16) + (+32)",
+          "10H (+16)",
+          "1",
+          "0"
+        ],
+        [
+          "(−75) + (−80)",
+          "65H (+101)",
+          "1",
+          "1"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: (-75) + (-80) in 8 bits\n  -75 = 1011 0101\n  -80 = 1011 0000\n  sum = 1 0110 0101\ncarry into MSB = 0, carry out of MSB = 1 -> V = 1\nresult 0110 0101 = +101 (true sum -155 < -128): overflow"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; 8086: the same bits compared as signed and unsigned\n        MOV  AL, 0F0H    ; -16 signed, 240 unsigned\n        MOV  BL, 10H     ; +16\n        CMP  AL, BL      ; E0H: CF=0, SF=1, OF=0, ZF=0\n        JB   BELOW       ; not taken: CF = 0 (240 > 16)\n        JL   LESS        ; taken: SF != OF (-16 < +16)\nLESS:   MOV  AL, 9CH     ; -100\n        CBW              ; AX = FF9CH, sign copied into AH\nBELOW:  HLT"
+    },
+    {
+      "type": "paragraph",
+      "text": "Widening and narrowing follow one rule: the value is unchanged only if the bits added or removed are copies of the sign bit. FF80H can be cut to 80H (both −128), but 0080H cannot, because +128 would become −128. An arithmetic shift right divides by 2 and rounds toward minus infinity, so 1111 1011 (−5) becomes 1111 1101 (−3), not −2."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with signed numbers:",
+      "items": [
+        "Reporting overflow whenever there is a carry out; in signed arithmetic V = carry into MSB XOR carry out of MSB.",
+        "Zero-extending a negative number, e.g. turning 1011 (−5) into 0000 1011 (+11).",
+        "Forgetting the end-around carry in 1's or 9's complement, or wrongly adding it in 2's or 10's complement.",
+        "Using the 2's complement range −2^(n−1) to 2^(n−1) − 1 for sign-magnitude or 1's complement, which only reach ±(2^(n−1) − 1).",
+        "Reading a negative result of complement subtraction directly instead of complementing it to get the magnitude."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "After a subtraction, the 8085 CY flag and the 8086 CF flag hold the borrow, which is the complement of the adder's internal carry-out. 5AH − 3CH leaves CY = 0 (no borrow) even though the adder produced a carry of 1."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i24_m001",
+      "questionText": "The 8-bit sign-magnitude representation of −25 is:",
+      "options": [
+        "1001 1001",
+        "1110 0110",
+        "1110 0111",
+        "0001 1001"
+      ],
+      "correctIndex": 0,
+      "explanation": "+25 = 0001 1001; sign-magnitude only sets the sign bit, giving 1001 1001. 1110 0110 and 1110 0111 are the 1's and 2's complement forms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m002",
+      "questionText": "The 8-bit 1's complement representation of −37 is:",
+      "options": [
+        "1101 1010",
+        "1101 1011",
+        "1010 0101",
+        "0010 0101"
+      ],
+      "correctIndex": 0,
+      "explanation": "+37 = 0010 0101; inverting every bit gives 1101 1010. Adding 1 would give the 2's complement 1101 1011, and 1010 0101 is sign-magnitude.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m003",
+      "questionText": "The range of a 6-bit 2's complement number is:",
+      "options": [
+        "−32 to +31",
+        "−31 to +31",
+        "−32 to +32",
+        "0 to 63"
+      ],
+      "correctIndex": 0,
+      "explanation": "An n-bit 2's complement number covers −2^(n−1) to 2^(n−1) − 1: −2⁵ = −32 to 2⁵ − 1 = +31. −31 to +31 is the 1's complement range; 0 to 63 is unsigned.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m004",
+      "questionText": "The range of an 8-bit sign-magnitude number is:",
+      "options": [
+        "−128 to +127",
+        "−127 to +127",
+        "−128 to +128",
+        "0 to 255"
+      ],
+      "correctIndex": 1,
+      "explanation": "Seven bits hold the magnitude (0 to 127) and one bit the sign, so the range is ±(2⁷ − 1) = −127 to +127, with two codes for zero.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m005",
+      "questionText": "Which signed-number representation has only one code for zero?",
+      "options": [
+        "1's complement",
+        "2's complement",
+        "Sign-magnitude",
+        "Both sign-magnitude and 1's complement"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sign-magnitude has +0 and −0 (0000 and 1000) and 1's complement has 0000 and 1111; in 2's complement negating 0000 gives 0000 again, so there is a single zero.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m006",
+      "questionText": "The 9's complement of the decimal number 3528 is:",
+      "options": [
+        "6471",
+        "6472",
+        "7582",
+        "3527"
+      ],
+      "correctIndex": 0,
+      "explanation": "Subtract each digit from 9: 9999 − 3528 = 6471. Adding 1 would give the 10's complement 6472.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m007",
+      "questionText": "The 10's complement of the 4-digit decimal number 4700 is:",
+      "options": [
+        "5299",
+        "5301",
+        "6300",
+        "5300"
+      ],
+      "correctIndex": 3,
+      "explanation": "10's complement = 10⁴ − 4700 = 5300 (or 9's complement 5299 + 1). The trailing zeros stay zero.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m008",
+      "questionText": "The 4-bit 2's complement number 1010 is sign-extended to 8 bits. The result is:",
+      "options": [
+        "0000 1010",
+        "1010 0000",
+        "1000 1010",
+        "1111 1010"
+      ],
+      "correctIndex": 3,
+      "explanation": "Sign extension copies the sign bit (1) into all new upper positions: 1111 1010, still −6. 0000 1010 would change the value to +10.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m009",
+      "questionText": "The most negative number that can be stored as a 16-bit 2's complement integer is:",
+      "options": [
+        "−32767",
+        "−65535",
+        "−32768",
+        "−65536"
+      ],
+      "correctIndex": 2,
+      "explanation": "The range is −2¹⁵ to 2¹⁵ − 1, so the most negative value is −32768 (8000H). −32767 is the limit for 16-bit 1's complement or sign-magnitude.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m010",
+      "questionText": "The 8-bit 2's complement pattern 1000 0000 represents:",
+      "options": [
+        "0",
+        "+128",
+        "−127",
+        "−128"
+      ],
+      "correctIndex": 3,
+      "explanation": "The MSB has weight −2⁷ and all other bits are 0, so the value is −128. It has no positive partner in 8 bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m011",
+      "questionText": "In 4-bit 1's complement, the two codes that represent zero are:",
+      "options": [
+        "0000 and 1000",
+        "0000 only",
+        "1000 and 1111",
+        "0000 and 1111"
+      ],
+      "correctIndex": 3,
+      "explanation": "Inverting +0 = 0000 gives 1111, which is −0 in 1's complement. 0000 and 1000 are the two zeros of sign-magnitude.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m012",
+      "questionText": "In 2's complement addition, overflow can never occur when:",
+      "options": [
+        "Both operands are positive",
+        "Both operands are negative",
+        "The operands have opposite signs",
+        "The result is negative"
+      ],
+      "correctIndex": 2,
+      "explanation": "Adding a positive and a negative number gives a result whose magnitude is no larger than the larger operand, so it always fits. A negative result can itself be the sign of overflow when two positives are added.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m013",
+      "questionText": "The 8-bit 2's complement of 3AH is:",
+      "options": [
+        "C6H",
+        "C5H",
+        "BAH",
+        "3BH"
+      ],
+      "correctIndex": 0,
+      "explanation": "100H − 3AH = C6H (or invert 3AH to C5H and add 1). BAH just sets the sign bit, as in sign-magnitude.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m014",
+      "questionText": "The 4-bit 2's complement number 1101 has the decimal value:",
+      "options": [
+        "13",
+        "−3",
+        "−5",
+        "−2"
+      ],
+      "correctIndex": 1,
+      "explanation": "−8 + 4 + 0 + 1 = −3. Read as unsigned it is 13, as sign-magnitude −5 and as 1's complement −2.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i24_m015",
+      "questionText": "How many distinct numeric values can an n-bit 1's complement number represent?",
+      "options": [
+        "2^n",
+        "2^n − 1",
+        "2^(n−1)",
+        "2^n + 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "There are 2^n bit patterns, but two of them (all 0s and all 1s) both mean zero, leaving 2^n − 1 distinct values, e.g. 15 for 4 bits (−7 to +7).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m016",
+      "questionText": "Using 8-bit 2's complement, (+45) + (−20) is computed as 0010 1101 + 1110 1100. The correct result is:",
+      "options": [
+        "1110 0111 (−25)",
+        "0001 1001 (+25), with the carry out of the MSB discarded",
+        "0001 1001 (+25), with overflow",
+        "0100 0001 (+65)"
+      ],
+      "correctIndex": 1,
+      "explanation": "0010 1101 + 1110 1100 = 1 0001 1001; discard the carry to get 0001 1001 = +25. The operands have opposite signs, so there is no overflow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m017",
+      "questionText": "The 8-bit pattern 1101 0110 is a 2's complement number. Its decimal value is:",
+      "options": [
+        "−42",
+        "214",
+        "−86",
+        "−41"
+      ],
+      "correctIndex": 0,
+      "explanation": "−128 + 64 + 16 + 4 + 2 = −42 (or negate: 0010 1010 = 42). 214 is the unsigned value, −86 the sign-magnitude reading and −41 the 1's complement reading.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m018",
+      "questionText": "Which of these additions of 8-bit 2's complement numbers produces overflow?",
+      "options": [
+        "(−100) + (+50)",
+        "(+100) + (+50)",
+        "(−60) + (−60)",
+        "(+70) + (−120)"
+      ],
+      "correctIndex": 1,
+      "explanation": "+150 exceeds the 8-bit limit of +127, so the result wraps to a negative pattern. −120 and −50 are in range; the opposite-sign sums can never overflow.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m019",
+      "questionText": "Two 8-bit 2's complement numbers 1111 1111 (−1) and 1111 1111 (−1) are added. Which describes the result?",
+      "options": [
+        "Result 1111 1110 (−2), carry-out 1, overflow",
+        "Result 1111 1110 (−2), carry-out 1, no overflow",
+        "Result 1111 1110 (−2), carry-out 0, no overflow",
+        "Result 0000 0000, carry-out 1, overflow"
+      ],
+      "correctIndex": 1,
+      "explanation": "1111 1111 + 1111 1111 = 1 1111 1110. The carry-out is 1, but the carry into the MSB is also 1, so V = 1 ⊕ 1 = 0: −2 is correct and the carry is simply discarded.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m020",
+      "questionText": "In 8-bit 1's complement arithmetic, (+9) + (−4) is computed as 0000 1001 + 1111 1011. The correct result is:",
+      "options": [
+        "0000 0101 (+5), after adding the end-around carry",
+        "0000 0100 (+4), after discarding the carry",
+        "1111 1010 (−5)",
+        "0000 0110 (+6), after adding the end-around carry"
+      ],
+      "correctIndex": 0,
+      "explanation": "0000 1001 + 1111 1011 = 1 0000 0100. In 1's complement the carry is added back to the LSB: 0000 0100 + 1 = 0000 0101 = +5. Discarding it (the 2's complement rule) would give 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m021",
+      "questionText": "7832 − 2456 is performed by adding the 10's complement of 2456 to 7832 and discarding the end carry. The result is:",
+      "options": [
+        "5376",
+        "5375",
+        "15376",
+        "4624"
+      ],
+      "correctIndex": 0,
+      "explanation": "10's complement of 2456 = 7544; 7832 + 7544 = 15376. The end carry shows the result is positive, so drop it: 5376.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m022",
+      "questionText": "745 − 283 is performed using the 9's complement method with end-around carry. The final result is:",
+      "options": [
+        "461",
+        "1461",
+        "462",
+        "538"
+      ],
+      "correctIndex": 2,
+      "explanation": "9's complement of 283 = 716; 745 + 716 = 1461. Add the end-around carry to the remaining digits: 461 + 1 = 462.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m023",
+      "questionText": "The 8-bit 2's complement value F5H is sign-extended to 16 bits. The result is:",
+      "options": [
+        "00F5H",
+        "FFF5H",
+        "F5FFH",
+        "80F5H"
+      ],
+      "correctIndex": 1,
+      "explanation": "F5H has its sign bit set (it is −11), so the new upper byte is filled with 1s: FFF5H, still −11. 00F5H would be +245.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m024",
+      "questionText": "An arithmetic shift right by one place is applied to the 8-bit 2's complement number 1110 1000 (−24). The result is:",
+      "options": [
+        "0111 0100 (+116)",
+        "1101 0000 (−48)",
+        "1111 0100 (−12)",
+        "1111 0101 (−11)"
+      ],
+      "correctIndex": 2,
+      "explanation": "An arithmetic right shift moves every bit right and copies the sign bit into the MSB, giving 1111 0100 = −12 (−24 ÷ 2). A logical shift would insert 0 and give 0111 0100; 1101 0000 is the left shift.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m025",
+      "questionText": "During an 8-bit 2's complement addition the carry into the sign bit is 1 and the carry out of the sign bit is 0. This means:",
+      "options": [
+        "Overflow: two positive operands produced a negative result",
+        "Overflow: two negative operands produced a positive result",
+        "No overflow; the carry out is simply discarded",
+        "No overflow, but the unsigned result is wrong"
+      ],
+      "correctIndex": 0,
+      "explanation": "V = Cin(MSB) ⊕ Cout(MSB) = 1 ⊕ 0 = 1, so overflow. A carry-out of 0 with a carry-in of 1 is only possible when both sign bits are 0, and the sign bit of the result then becomes 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m026",
+      "questionText": "Which statement about 8-bit 2's complement is NOT correct?",
+      "options": [
+        "The 2's complement of 0000 0000 is 0000 0000",
+        "Taking the 2's complement twice returns the original number",
+        "The 2's complement of 1111 1111 is 0000 0001",
+        "The 2's complement of 1000 0000 is 0111 1111"
+      ],
+      "correctIndex": 3,
+      "explanation": "Inverting 1000 0000 gives 0111 1111, and adding 1 gives 1000 0000 again: −128 has no positive partner in 8 bits. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m027",
+      "questionText": "On the 8086, AL = 9CH. After the instruction CBW, register AX contains:",
+      "options": [
+        "009CH",
+        "9CFFH",
+        "FF9CH",
+        "FF64H"
+      ],
+      "correctIndex": 2,
+      "explanation": "CBW copies bit 7 of AL into all bits of AH. 9CH has bit 7 = 1 (it is −100), so AH = FFH and AX = FF9CH, still −100.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m028",
+      "questionText": "The byte FFH is interpreted as an unsigned number and as an 8-bit 2's complement number. Its two values are:",
+      "options": [
+        "255 unsigned, −127 signed",
+        "−1 unsigned, 255 signed",
+        "255 unsigned, −128 signed",
+        "255 unsigned, −1 signed"
+      ],
+      "correctIndex": 3,
+      "explanation": "As unsigned, FFH = 255. In 2's complement, 1111 1111 = −128 + 127 = −1. −127 would be the sign-magnitude reading.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m029",
+      "questionText": "The minimum number of bits needed to represent −200 in 2's complement is:",
+      "options": [
+        "8",
+        "10",
+        "9",
+        "7"
+      ],
+      "correctIndex": 2,
+      "explanation": "8 bits cover only −128 to +127. 9 bits cover −256 to +255, which includes −200, so 9 bits are needed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m030",
+      "questionText": "An 8-bit adder performs 5AH − 3CH by adding the 2's complement of 3CH. The 8-bit result and the adder's carry-out are:",
+      "options": [
+        "0001 1110 (1EH) with carry-out 0",
+        "1110 0010 (E2H) with carry-out 0",
+        "1001 0110 (96H) with carry-out 0",
+        "0001 1110 (1EH) with carry-out 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "2's complement of 3CH = C4H; 5AH + C4H = 11EH. The 8-bit result is 1EH (90 − 60 = 30), and the carry-out of 1 means no borrow was needed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m031",
+      "questionText": "Using an 8-bit adder, 0001 0010 (18) − 0010 1101 (45) is computed by adding the 2's complement of the subtrahend. The result and carry-out are:",
+      "options": [
+        "1110 0101 (−27), carry-out 1",
+        "1110 0101 (−27), carry-out 0",
+        "0001 1011 (+27), carry-out 0",
+        "1110 0100 (−28), carry-out 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "2's complement of 0010 1101 is 1101 0011; 0001 0010 + 1101 0011 = 1110 0101 with no carry. The pattern is −27 (negate: 0001 1011 = 27). 1110 0100 results from using the 1's complement.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m032",
+      "questionText": "The 16-bit word FF38H is a 2's complement integer. Its decimal value is:",
+      "options": [
+        "65336",
+        "−199",
+        "−200",
+        "−32568"
+      ],
+      "correctIndex": 2,
+      "explanation": "Negate: invert FF38H to 00C7H and add 1 to get 00C8H = 200, so the value is −200. 65336 is the unsigned reading and −32568 the sign-magnitude reading.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m033",
+      "questionText": "The 4-bit 2's complement number 1011 is extended to 8 bits and added to 0000 0111. The 8-bit result is:",
+      "options": [
+        "0001 0010 (+18)",
+        "0000 0010 (+2)",
+        "1111 1110 (−2)",
+        "0000 0011 (+3)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sign extension gives 1111 1011 (−5); 1111 1011 + 0000 0111 = 1 0000 0010, discard the carry: +2. Zero-extending to 0000 1011 would wrongly add 11 + 7 = 18.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m034",
+      "questionText": "The 16's complement of the 3-digit hexadecimal number 3AF is:",
+      "options": [
+        "C50",
+        "C51",
+        "C61",
+        "3B0"
+      ],
+      "correctIndex": 1,
+      "explanation": "16's complement = 16³ − 3AFH = 1000H − 3AFH = C51H. The 15's complement (subtract each digit from F) is C50, and adding 1 gives C51.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m035",
+      "questionText": "The 9's complement of the BCD digit 0111 (7) is:",
+      "options": [
+        "0010",
+        "1000",
+        "0011",
+        "1001"
+      ],
+      "correctIndex": 0,
+      "explanation": "9 − 7 = 2, which in BCD is 0010. 1000 is the bitwise (1's) complement of 0111, which is not the 9's complement in BCD.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m036",
+      "questionText": "A 16-bit 2's complement value is to be truncated to its low 8 bits. For which value does truncation keep the numeric value unchanged?",
+      "options": [
+        "0080H",
+        "FF7FH",
+        "FF80H",
+        "0100H"
+      ],
+      "correctIndex": 2,
+      "explanation": "FF80H = −128 and its low byte 80H is also −128. 0080H (+128) would become −128, FF7FH (−129) would become +127, and 0100H (+256) would become 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m037",
+      "questionText": "Which of the following is NOT a reason why computers use 2's complement for signed integers?",
+      "options": [
+        "It has only one representation of zero",
+        "The same adder circuit performs both addition and subtraction",
+        "No end-around carry is needed after addition",
+        "It gives a symmetric range with equal numbers of positive and negative values"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 2's complement range is asymmetric, −2^(n−1) to 2^(n−1) − 1, with one more negative value. The other three are genuine advantages over sign-magnitude and 1's complement.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i24_m038",
+      "questionText": "2456 − 7832 is performed by adding the 10's complement of 7832 to 2456. No end carry is produced. The correct final result is:",
+      "options": [
+        "4624",
+        "+5376",
+        "−4624",
+        "−5376"
+      ],
+      "correctIndex": 3,
+      "explanation": "10's complement of 7832 = 2168; 2456 + 2168 = 4624 with no end carry, so the answer is negative and equals the 10's complement of 4624: −5376.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m039",
+      "questionText": "An 8-bit 2's complement unit computes (+100) − (−50). Which statement describes the result bits and the overflow flag V?",
+      "options": [
+        "1001 0110, which reads as +150; V = 0",
+        "0011 0010, which reads as +50; V = 0",
+        "1001 0110, which reads as −106; V = 1",
+        "1001 0110, which reads as −106; V = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Subtracting −50 means adding +50: 0110 0100 + 0011 0010 = 1001 0110. The true answer +150 exceeds +127, so V = 1 and the pattern reads as −128 + 22 = −106.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m040",
+      "questionText": "The 8-bit 2's complement numbers −75 (1011 0101) and −80 (1011 0000) are added. The 8-bit result, carry-out C and overflow V are:",
+      "options": [
+        "0110 0101 (+101), C = 1, V = 1",
+        "0110 0101 (+101), C = 1, V = 0",
+        "1011 0101 (−75), C = 0, V = 1",
+        "0110 0101 (+101), C = 0, V = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "1011 0101 + 1011 0000 = 1 0110 0101, so C = 1 and the result reads +101. Two negatives produced a positive (true sum −155 < −128), so V = 1: carry into the MSB is 0 and carry out is 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m041",
+      "questionText": "In an 8-bit 2's complement addition the carry out of the MSB is 1 and the carry into the MSB is 0. What can be concluded?",
+      "options": [
+        "Both operands were positive and overflow occurred",
+        "The operands had opposite signs and there is no overflow",
+        "Both operands were negative, the result is positive, and overflow occurred",
+        "Both operands were negative and there is no overflow, because the carry is discarded"
+      ],
+      "correctIndex": 2,
+      "explanation": "A carry out of the sign position with no carry into it requires both sign bits to be 1, and their sum bit is then 1 + 1 + 0 = 0. V = 1 ⊕ 0 = 1: two negatives gave a positive.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m042",
+      "questionText": "On the 8086, AL = 80H. After ADD AL, 80H the contents of AL and the flags CF, OF and ZF are:",
+      "options": [
+        "AL = 00H, CF = 1, OF = 1, ZF = 1",
+        "AL = 00H, CF = 1, OF = 0, ZF = 1",
+        "AL = 00H, CF = 0, OF = 1, ZF = 1",
+        "AL = 80H, CF = 0, OF = 0, ZF = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "80H + 80H = 100H, so AL = 00H, CF = 1 and ZF = 1. As signed values (−128) + (−128) = −256 is out of range and two negatives gave a non-negative result, so OF = 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m043",
+      "questionText": "On the 8086, AL = 50H. After SUB AL, 70H the contents of AL and the flags CF, OF and SF are:",
+      "options": [
+        "AL = E0H, CF = 0, OF = 0, SF = 1",
+        "AL = E0H, CF = 1, OF = 1, SF = 1",
+        "AL = 20H, CF = 0, OF = 0, SF = 0",
+        "AL = E0H, CF = 1, OF = 0, SF = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "50H − 70H = −20H = E0H. A borrow was needed (50H < 70H), so CF = 1; bit 7 is 1, so SF = 1. As signed values 80 − 112 = −32 is in range, so OF = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m044",
+      "questionText": "On the 8086, AL = F0H and BL = 10H. The instruction CMP AL, BL is executed. Which conditional jumps would be taken next?",
+      "options": [
+        "JB is taken (unsigned 240 < 16), but JL is not taken",
+        "JL is taken (signed −16 < +16), but JB is not taken (unsigned 240 > 16)",
+        "Both JL and JB are taken",
+        "Neither JL nor JB is taken"
+      ],
+      "correctIndex": 1,
+      "explanation": "F0H − 10H = E0H with no borrow, so CF = 0 (JB not taken); SF = 1 and OF = 0, so SF ≠ OF and JL (signed less) is taken. The same bits compare differently as signed and unsigned numbers.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m045",
+      "questionText": "Two 16-bit 2's complement numbers are subtracted: 1234H − 5678H. The 16-bit result and its signed decimal value are:",
+      "options": [
+        "4444H, which is +17476",
+        "BBBBH, which is −17477",
+        "BBBCH, which is +48060",
+        "BBBCH, which is −17476"
+      ],
+      "correctIndex": 3,
+      "explanation": "1234H + (2's complement of 5678H = A988H) = BBBCH. It is negative, and negating gives 4444H = 17476, so the value is −17476. BBBBH comes from using the 1's complement; 48060 is the unsigned reading.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i24_m046",
+      "questionText": "The 8-bit pattern 1011 0101 is read in sign-magnitude, 1's complement and 2's complement, in that order. Its three values are:",
+      "options": [
+        "−53, −75, −74",
+        "−75, −74, −53",
+        "−53, −74, −75",
+        "+181, −74, −75"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sign-magnitude: magnitude 011 0101 = 53, so −53. 1's complement: invert to 0100 1010 = 74, so −74. 2's complement: −128 + 53 = −75. As unsigned it would be 181.",
+      "difficulty": "hard"
+    }
+  ]
+}

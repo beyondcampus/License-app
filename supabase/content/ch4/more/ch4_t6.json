@@ -1,0 +1,762 @@
+{
+  "topicId": "ch4_t6",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: VHDL Semantics, Types and Attributes"
+    },
+    {
+      "type": "paragraph",
+      "text": "A VHDL simulator works in cycles: each triggered process runs until it reaches a wait statement (or the end of a process with a sensitivity list), and only then are the scheduled signal values updated, one delta cycle later at the same simulation time. Every signal read during one run of a process therefore sees the old value, and when the same signal is assigned twice in one run the last assignment wins. Variables change at once, and a process's variables keep their values from one activation of the process to the next (variables declared in a subprogram are re-created on every call). At time zero every object without an explicit initial value starts at the leftmost value of its type, T'left: 'U' for std_logic, the first literal of an enumeration, 0 for natural and integer'left for integer."
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "-- signals a = 1 and b = 2 initially (type integer)\nprocess\n  variable x : integer := 1;\n  variable y : integer := 2;\nbegin\n  a <= b;  b <= a;          -- both read the OLD values\n  x := y;  y := x;          -- y reads the NEW x\n  wait for 0 ns;            -- let one delta cycle pass\n  report \"a=\" & integer'image(a) & \" b=\" & integer'image(b) &\n         \" x=\" & integer'image(x) & \" y=\" & integer'image(y);\n  wait;\nend process;\n-- GHDL output: a=2 b=1 x=2 y=2  (signals swapped, variables did not)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Driver 1",
+          "Driver 2",
+          "Resolved std_logic value"
+        ],
+        [
+          "'0'",
+          "'1'",
+          "'X' (contention)"
+        ],
+        [
+          "'1'",
+          "'Z'",
+          "'1'"
+        ],
+        [
+          "'0'",
+          "'H'",
+          "'0' (forcing beats weak)"
+        ],
+        [
+          "'L'",
+          "'H'",
+          "'W' (weak unknown)"
+        ],
+        [
+          "'Z'",
+          "'H'",
+          "'H'"
+        ],
+        [
+          "'Z'",
+          "'Z'",
+          "'Z'"
+        ],
+        [
+          "'U'",
+          "any value",
+          "'U'"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Type rules that often trip up beginners:",
+      "items": [
+        "VHDL is strongly typed: std_logic_vector, unsigned and signed are distinct types, so an unsigned result must be converted back with std_logic_vector(...), and a vector becomes a number only through to_integer(unsigned(...)).",
+        "A subtype such as natural, positive or integer range 0 to 255 is compatible with its base type, and a value outside its range is a run-time bound-check error, never a silent wrap-around; a type declared with type t is range ... is a new type that needs an explicit conversion.",
+        "Array assignments must match in length: VHDL never pads or truncates automatically, so a 7-element value assigned to an 8-element target is an error.",
+        "Aggregates build composite values by position or by name, e.g. (7 => '1', others => '0') for a 7 downto 0 vector sets only its leftmost bit, and others fills whatever remains.",
+        "Bit-string literals: X\"3C\" is 00111100 and O\"17\" is 001111; VHDL-2008 allows a width prefix, and without a signed specifier the value is zero-extended on the left.",
+        "Record fields are selected with a dot (p.r, p.g) and array elements with parentheses, so mem(3)(7) is bit 7 of word 3 of an array of vectors."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Attribute (v : std_logic_vector(11 downto 4))",
+          "Meaning",
+          "Result"
+        ],
+        [
+          "v'left / v'right",
+          "Bounds as written; for an ascending range 'left is the low bound",
+          "11 / 4"
+        ],
+        [
+          "v'high / v'low",
+          "Largest and smallest index",
+          "11 / 4"
+        ],
+        [
+          "v'length",
+          "Number of elements, high − low + 1",
+          "8"
+        ],
+        [
+          "v'range",
+          "The index range, reusable in loops and declarations",
+          "11 downto 4"
+        ],
+        [
+          "day_t'pos(THU), with type day_t is (MON, TUE, WED, THU, FRI)",
+          "Position number, counting from 0",
+          "3"
+        ],
+        [
+          "day_t'val(1) / day_t'succ(WED)",
+          "Value at a position / next value",
+          "TUE / THU"
+        ],
+        [
+          "clk'event",
+          "True if clk changed in the current simulation cycle",
+          "boolean"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{signed}(n-1 \\text{ downto } 0):\\; -2^{n-1} \\le x \\le 2^{n-1} - 1",
+      "plainText": "signed(n−1 downto 0) holds −2^(n−1) to 2^(n−1) − 1, e.g. 8 bits give −128 to 127"
+    },
+    {
+      "type": "bulletList",
+      "text": "Operator rules worth memorising:",
+      "items": [
+        "and, or, xor, nand, nor and xnor have equal precedence, so mixing them needs parentheses: a and b or c does not compile while a and b and c does, and nand or nor cannot be chained at all.",
+        "not binds more tightly than the binary logical operators, so not a and b means (not a) and b.",
+        "Integer / truncates toward zero, rem takes the sign of the left operand and mod takes the sign of the right operand: 7 rem (−3) = 1 but 7 mod (−3) = −2.",
+        "Unary minus has lower precedence than *, /, mod and rem, so −7 mod 3 is read as −(7 mod 3) = −1; write (−7) mod 3 when a negative operand is meant.",
+        "The predefined relational operators on std_logic_vector compare element by element from the left, like strings, and vectors of different lengths are never equal; convert to unsigned or signed for a numeric comparison.",
+        "& concatenates elements and arrays, so for a 4-bit a, a(2 downto 0) & '0' shifts left by one place and a(0) & a(3 downto 1) rotates right."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Rules for concurrent statements and processes:",
+      "items": [
+        "Concurrent statements (signal assignments, when-else, with-select, processes and instances) run whenever their inputs change, so their order in the architecture does not matter; if, case and loop are sequential and belong inside a process or subprogram.",
+        "In when-else the first true condition wins, giving a priority structure; with-select and case must cover every value of the selector, and since std_logic has nine values a 2-element std_logic_vector has 9² = 81 values, so when others is needed.",
+        "A process has either a sensitivity list or wait statements, never both; an incomplete sensitivity list makes simulation differ from the synthesised logic, and VHDL-2008 process (all) avoids the problem.",
+        "y <= a after 5 ns uses inertial delay, which swallows pulses shorter than 5 ns, while transport delay passes every pulse; synthesis ignores after clauses.",
+        "clk'event and clk = '1' is also true for a change from 'U' or 'X' to '1', whereas rising_edge(clk) additionally requires the previous value to be '0' or 'L'."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "vhdl",
+      "text": "entity popcount is\n  port (d : in std_logic_vector(7 downto 0); n : out natural range 0 to 8);\nend entity;\narchitecture rtl of popcount is\nbegin\n  process (d)\n    variable c : natural range 0 to 8;\n  begin\n    c := 0;                         -- reset on every activation\n    for i in d'range loop\n      if d(i) = '1' then c := c + 1; end if;\n    end loop;\n    n <= c;\n  end process;\nend architecture;"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "GHDL --std=08 simulation of popcount (library ieee; use ieee.std_logic_1164.all; above the entity);\nd changes at 0, 10 and 20 ns and n is sampled at 5, 15 and 25 ns\n@5 ns   d = x\"96\" = 1001 0110  ->  n = 4\n@15 ns  d = x\"FF\" = 1111 1111  ->  n = 8\n@25 ns  d = x\"03\" = 0000 0011  ->  n = 2\nWithout the line c := 0; the variable keeps its count between activations:\n4 at 5 ns; at 10 ns it climbs from 4 towards 4 + 8 = 12, and the increment from\n8 to 9 violates range 0 to 8 and stops the simulation with a bound-check failure."
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: reading a signal in the same process run that assigns it and expecting the new value; leaving inputs out of a combinational process's sensitivity list; using the non-standard std_logic_arith or std_logic_unsigned packages instead of numeric_std; comparing std_logic_vector values with < or > and expecting a numeric result; driving one std_logic signal from two processes, which resolves to 'X' when they disagree; and forgetting when others in a case or with-select on a std_logic_vector."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t6_m001",
+      "questionText": "Under which IEEE standard number is VHDL standardised?",
+      "options": [
+        "IEEE 1364",
+        "IEEE 1076",
+        "IEEE 1800",
+        "IEEE 754"
+      ],
+      "correctIndex": 1,
+      "explanation": "VHDL is IEEE 1076, first standardised in 1987 and revised in 1993, 2000, 2002, 2008 and 2019. IEEE 1364 is Verilog, 1800 is SystemVerilog and 754 is floating-point arithmetic.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m002",
+      "questionText": "In the process below, s is a signal of type integer initialised to 0. What does the first report print?\n\nprocess\n  variable v : integer := 0;\nbegin\n  s <= 5;\n  v := 5;\n  report integer'image(s) & \" \" & integer'image(v);\n  wait for 1 ns;\n  report integer'image(s) & \" \" & integer'image(v);\n  wait;\nend process;",
+      "options": [
+        "5 5",
+        "5 0",
+        "0 5",
+        "0 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "v changes at once, but s <= 5 is only scheduled and takes effect after the process suspends, so the first report prints 0 5. After wait for 1 ns the second report prints 5 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m003",
+      "questionText": "The design uses ieee.std_logic_1164. What happens when this code is simulated?\n\nsignal a : std_logic_vector(3 downto 0) := \"1010\";\nsignal b : std_logic_vector(2 downto 0) := \"011\";\nsignal y : std_logic_vector(7 downto 0);\n...\ny <= a & b;",
+      "options": [
+        "y becomes \"01010011\" because the value is zero-extended on the left",
+        "y becomes \"10100110\" because the value is left-justified",
+        "y becomes \"U1010011\", with the unassigned bit left uninitialised",
+        "An error is reported because the 7-element value does not fit the 8-element target"
+      ],
+      "correctIndex": 3,
+      "explanation": "a & b has 4 + 3 = 7 elements and VHDL never pads or truncates in an array assignment; GHDL stops with a bound-check failure. Writing '0' & a & b makes the lengths match and gives \"01010011\".",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m004",
+      "questionText": "acc is a signal of type integer initialised to 0. What does the report print?\n\nprocess begin\n  for i in 1 to 4 loop\n    acc <= acc + i;\n  end loop;\n  wait for 1 ns;\n  report integer'image(acc);\n  wait;\nend process;",
+      "options": [
+        "10",
+        "0",
+        "4",
+        "1"
+      ],
+      "correctIndex": 2,
+      "explanation": "Inside the loop acc still reads its old value 0, so the four assignments schedule 1, 2, 3 and 4 in turn and only the last survives; after the wait acc = 4, as GHDL reports. A variable would have accumulated 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m005",
+      "questionText": "Which VHDL design unit selects the architecture used for an entity, or the entity bound to each component instance, without editing the design itself?",
+      "options": [
+        "Package",
+        "Package body",
+        "Configuration",
+        "Entity declaration"
+      ],
+      "correctIndex": 2,
+      "explanation": "A configuration declaration binds entities to architectures and component instances to entities. Without one, an entity instantiated with no architecture name uses its most recently analysed architecture.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m006",
+      "questionText": "For signal v : std_logic_vector(2 to 9);, what are v'left, v'right and v'length?",
+      "options": [
+        "9, 2 and 8",
+        "2, 9 and 8",
+        "2, 9 and 7",
+        "9, 2 and 7"
+      ],
+      "correctIndex": 1,
+      "explanation": "'left and 'right are the bounds as written, so for this ascending range 'left = 2 and 'right = 9, and 'length = 9 − 2 + 1 = 8. For a downto range 'left would be the high bound.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m007",
+      "questionText": "Which VHDL design unit collects type declarations, constants, functions and component declarations so that several designs can share them through a use clause?",
+      "options": [
+        "Configuration",
+        "Architecture",
+        "Package",
+        "Entity"
+      ],
+      "correctIndex": 2,
+      "explanation": "A package, with an optional package body holding subprogram code, is analysed into a library and made visible with a clause such as use work.my_pkg.all;. Declarations inside an architecture are visible only in that architecture.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m008",
+      "questionText": "Given type state_t is (IDLE, LOAD, RUN, DONE);, what is state_t'pos(RUN)?",
+      "options": [
+        "3",
+        "1",
+        "2",
+        "Undefined, because 'pos applies only to integer types"
+      ],
+      "correctIndex": 2,
+      "explanation": "Enumeration literals are numbered from 0 in declaration order, so IDLE = 0, LOAD = 1 and RUN = 2, as GHDL reports. 'pos, 'val, 'succ and 'pred all apply to enumeration types.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m009",
+      "questionText": "A record type and signal are declared as below, with ieee.numeric_std in use. Which statement correctly clears field g?\n\ntype pixel_t is record\n  r, g, b : unsigned(7 downto 0);\nend record;\nsignal p : pixel_t;",
+      "options": [
+        "p.g <= (others => '0');",
+        "p(g) <= (others => '0');",
+        "p'g <= (others => '0');",
+        "g.p <= (others => '0');"
+      ],
+      "correctIndex": 0,
+      "explanation": "Record fields are selected with a dot after the object name. GHDL rejects p(g) and g.p because no object named g exists, and p'g because ' introduces an attribute.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m010",
+      "questionText": "These signals have no initial values and are not driven before time 0:\n\ntype state_t is (IDLE, RUN, DONE);\nsignal n  : natural;\nsignal r  : integer range 5 to 20;\nsignal st : state_t;\n\nWhat values do n, r and st have at the start of simulation?",
+      "options": [
+        "0, 0 and IDLE",
+        "'U' for all three",
+        "−2147483648, 5 and DONE",
+        "0, 5 and IDLE"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each object starts at T'left, the leftmost value of its subtype: natural'left = 0, the range 5 to 20 starts at 5, and IDLE is the first enumeration literal (GHDL reports n=0 r=5 st=idle). 'U' is the default only for types based on std_ulogic.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m011",
+      "questionText": "A VHDL design unit has no library or use clauses at all. Which of these types can it still use?",
+      "options": [
+        "std_logic",
+        "integer",
+        "unsigned",
+        "std_logic_vector"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every design unit implicitly has library std, work; and use std.standard.all;, which declares bit, boolean, integer, character, string and time. std_logic and std_logic_vector need ieee.std_logic_1164 and unsigned needs ieee.numeric_std; GHDL reports 'no declaration' for them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m012",
+      "questionText": "A synthesis tool implements signal count : integer range 0 to 999; as an unsigned binary number. How many bits does it need?",
+      "options": [
+        "9",
+        "32",
+        "10",
+        "1000"
+      ],
+      "correctIndex": 2,
+      "explanation": "ceil(log2(999 + 1)) = ceil(9.97) = 10 bits, because 2^9 = 512 is too small and 2^10 = 1024 is enough; GHDL --synth maps the port to a 10-bit vector. An unconstrained integer would take 32 bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m013",
+      "questionText": "Which port mode suits a data-bus pin that the entity must both drive and read, releasing it with 'Z' when another device drives the bus?",
+      "options": [
+        "inout",
+        "buffer",
+        "out",
+        "in"
+      ],
+      "correctIndex": 0,
+      "explanation": "inout gives a bidirectional port that can be driven, released with 'Z' and read. buffer is an output that can be read back internally but cannot accept values from outside, and in and out work in one direction only.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m014",
+      "questionText": "A signal is declared as integer range −100 to 100. How many bits does synthesis need to hold it in 2's complement?",
+      "options": [
+        "7",
+        "32",
+        "201",
+        "8"
+      ],
+      "correctIndex": 3,
+      "explanation": "n bits of 2's complement cover −2^(n−1) to 2^(n−1) − 1; 7 bits reach only −64 to 63, so 8 bits (−128 to 127) are needed, which GHDL --synth confirms. 201 is the number of values, not the number of bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m015",
+      "questionText": "a, b and y are std_logic_vector(7 downto 0), and the design uses only ieee.std_logic_1164 and ieee.numeric_std. Which assignment compiles and adds a and b?",
+      "options": [
+        "y <= a + b;",
+        "y <= unsigned(a) + unsigned(b);",
+        "y <= std_logic_vector(a + b);",
+        "y <= std_logic_vector(unsigned(a) + unsigned(b));"
+      ],
+      "correctIndex": 3,
+      "explanation": "numeric_std defines + for unsigned and signed but not for std_logic_vector, so a + b has no matching operator, and an unsigned sum cannot be assigned to a std_logic_vector without converting it back. GHDL analyses only the fully converted form.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m016",
+      "questionText": "The design uses ieee.std_logic_1164 and ieee.numeric_std. What is the result of the expression a > b?\n\nsignal a : std_logic_vector(3 downto 0) := \"1000\";\nsignal b : std_logic_vector(2 downto 0) := \"111\";",
+      "options": [
+        "FALSE",
+        "TRUE",
+        "Analysis fails because the lengths differ",
+        "Simulation stops with a length-mismatch error"
+      ],
+      "correctIndex": 0,
+      "explanation": "The predefined > on std_logic_vector compares elements from the left like strings: the first elements are both '1', then a's '0' is less than b's '1', so a < b and GHDL reports false. unsigned(a) > unsigned(b) compares 8 with 7 and gives TRUE.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m017",
+      "questionText": "How many values does the std_ulogic type, on which std_logic is based, have?",
+      "options": [
+        "9",
+        "4",
+        "2",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "The nine values are 'U', 'X', '0', '1', 'Z', 'W', 'L', 'H' and '-'. The type bit has only two, '0' and '1'.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m018",
+      "questionText": "With a = \"1011\" (a std_logic_vector(3 downto 0)), what is y after y <= a(2 downto 0) & a(3);?",
+      "options": [
+        "\"1101\"",
+        "\"0110\"",
+        "\"1110\"",
+        "\"0111\""
+      ],
+      "correctIndex": 3,
+      "explanation": "a(2 downto 0) is \"011\" and a(3) is '1', so the concatenation is \"0111\", a rotate left by one place (confirmed by GHDL). \"1101\" is the rotate right and \"0110\" is a shift left that fills with '0'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m019",
+      "questionText": "A testbench declares signal s : std_logic; with no initial value and never drives it. What value does a report of s show during simulation?",
+      "options": [
+        "'0'",
+        "'U'",
+        "'X'",
+        "'Z'"
+      ],
+      "correctIndex": 1,
+      "explanation": "Objects without an initial value start at the leftmost value of their type, and std_logic'left is 'U' (uninitialised); GHDL reports s='U'. 'X' appears only when drivers conflict or an operation involves unknown values.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m020",
+      "questionText": "What is the value of v after this declaration?\n\nsignal v : std_logic_vector(7 downto 0) := (6 => '1', 1 downto 0 => '1', others => '0');",
+      "options": [
+        "\"11000010\"",
+        "\"01000011\"",
+        "\"01000001\"",
+        "\"00100011\""
+      ],
+      "correctIndex": 1,
+      "explanation": "Named association sets bits 6, 1 and 0, and others fills the rest with '0'; with a downto range bit 7 is written first, giving \"01000011\" (x\"43\"), as GHDL reports. \"11000010\" is the same pattern read in reverse bit order.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m021",
+      "questionText": "One concurrent statement drives an open-drain line with s <= 'H'; (the pull-up) and another drives s <= '0';. What is the resolved value of the std_logic signal s?",
+      "options": [
+        "'H'",
+        "'X'",
+        "'W'",
+        "'0'"
+      ],
+      "correctIndex": 3,
+      "explanation": "The std_logic resolution function lets a forcing value override a weak one, so '0' wins over 'H'; GHDL reports '0'. 'X' results from '0' against '1', and 'W' from 'L' against 'H'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m022",
+      "questionText": "In the code below, a is '1' and b is '0' from time 0, and b changes to '1' at 10 ns. What value does y have in simulation at 15 ns?\n\nprocess (a) begin\n  y <= a and b;\nend process;",
+      "options": [
+        "'0'",
+        "'1'",
+        "'U'",
+        "'X'"
+      ],
+      "correctIndex": 0,
+      "explanation": "The process runs once at time 0, giving y = '1' and '0' = '0', and is never resumed because b is missing from the sensitivity list, so y stays '0' (confirmed with GHDL). Synthesis would build an AND gate giving '1', a simulation-synthesis mismatch fixed by process (a, b) or process (all).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m023",
+      "questionText": "Which std_logic value means \"don't care\", letting synthesis choose '0' or '1' for input combinations that never occur?",
+      "options": [
+        "'X'",
+        "'U'",
+        "'Z'",
+        "'-'"
+      ],
+      "correctIndex": 3,
+      "explanation": "'-' is the don't-care value. 'X' is forcing unknown (seen in simulation, e.g. after bus contention), 'U' is uninitialised and 'Z' is high impedance; note that v = \"1-\" is an exact comparison, and only the VHDL-2008 matching operator ?= treats '-' as a wildcard (GHDL: false and '1' for v = \"10\").",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m024",
+      "questionText": "Which of these processes is illegal in VHDL-2008?",
+      "options": [
+        "process (clk) begin wait until clk = '1'; y <= a; end process;",
+        "process begin wait until clk = '1'; y <= a; end process;",
+        "process (all) begin y <= a and b; end process;",
+        "process (a, b) begin y <= a and b; end process;"
+      ],
+      "correctIndex": 0,
+      "explanation": "A process may have a sensitivity list or wait statements but not both; GHDL reports that a wait statement is not allowed in a sensitized process. process (all), new in VHDL-2008, makes the process sensitive to every signal it reads.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m025",
+      "questionText": "Why is std_logic generally preferred over bit for signals in synthesisable designs and testbenches?",
+      "options": [
+        "std_logic synthesises to fewer gates than bit",
+        "bit cannot be used in a port declaration",
+        "std_logic signals are updated without delta cycles",
+        "std_logic is resolved and can represent 'Z', 'X', 'U' and weak levels, so tri-state buses and uninitialised or conflicting signals can be simulated"
+      ],
+      "correctIndex": 3,
+      "explanation": "bit has only '0' and '1' and is unresolved, so it cannot show high impedance, contention or an uninitialised value. The synthesised hardware is the same; the benefit lies in modelling and simulation.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m026",
+      "questionText": "An entity has the ports a : in std_logic; b : inout std_logic; y : out std_logic. Which statement in its architecture is illegal?",
+      "options": [
+        "a <= '0';",
+        "y <= a;",
+        "b <= 'Z';",
+        "y <= b;"
+      ],
+      "correctIndex": 0,
+      "explanation": "A port of mode in can only be read, so the assignment to a is rejected (GHDL: port \"a\" can't be assigned). An inout port may be both driven and read, and an out port may be driven.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m027",
+      "questionText": "a, b, c and y are std_logic signals. Which concurrent assignment fails to analyse?",
+      "options": [
+        "y <= a and b and c;",
+        "y <= (a and b) or c;",
+        "y <= a and b or c;",
+        "y <= not a and b;"
+      ],
+      "correctIndex": 2,
+      "explanation": "The binary logical operators all have the same precedence, and an unparenthesised sequence may repeat only one associative operator, so mixing and with or needs parentheses. not has higher precedence, so not a and b is legal and means (not a) and b.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m028",
+      "questionText": "Why does GHDL refuse to analyse this selected signal assignment, where sel is a std_logic_vector(1 downto 0)?\n\nwith sel select\n  y <= a when \"00\",\n       b when \"01\",\n       c when \"10\",\n       d when \"11\";",
+      "options": [
+        "A selected signal assignment may only be used inside a process",
+        "The choices cover only 4 of the 81 possible values of sel, so a when others choice is required",
+        "The choices of a 2-bit selector must be written as integers",
+        "d when \"11\" repeats one of the earlier choices"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each std_logic element has 9 values, so sel has 9² = 81 values, and a selected assignment, like a case statement, must cover all of them; GHDL reports missing choice(s). Changing the last choice to d when others makes it legal.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m029",
+      "questionText": "Which of these statements can be written directly in an architecture body, outside any process?",
+      "options": [
+        "if sel = '1' then y <= a; else y <= b; end if;",
+        "y <= a when sel = '1' else b;",
+        "case sel is when '1' => y <= a; when others => y <= b; end case;",
+        "for i in 0 to 3 loop y(i) <= a(i); end loop;"
+      ],
+      "correctIndex": 1,
+      "explanation": "The conditional signal assignment is a concurrent statement. if, case and loop are sequential statements that must sit inside a process or subprogram; outside a process GHDL tries to read them as generate statements, which need a label and the keyword generate.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m030",
+      "questionText": "The integer signal m holds −7. What does integer'image(m / 2) report?",
+      "options": [
+        "−4",
+        "3",
+        "−3.5",
+        "−3"
+      ],
+      "correctIndex": 3,
+      "explanation": "VHDL integer division truncates toward zero, so −7/2 = −3, and GHDL reports -3. −4 would be floor division, and an integer result can never be −3.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m031",
+      "questionText": "A signal is declared as signal d : std_logic_vector(15 downto 4);. What is d'length?",
+      "options": [
+        "11",
+        "12",
+        "16",
+        "15"
+      ],
+      "correctIndex": 1,
+      "explanation": "'length = high − low + 1 = 15 − 4 + 1 = 12, which GHDL reports. 11 forgets the + 1, and 16 and 15 wrongly assume the range starts at 0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m032",
+      "questionText": "Two concurrent signal assignments in an architecture are swapped so that the second one is written first. How does this change the simulated or synthesised behaviour?",
+      "options": [
+        "The statement written last now takes priority",
+        "The design no longer compiles, because outputs must be assigned in port order",
+        "Not at all, because concurrent statements run whenever their inputs change, regardless of textual order",
+        "Only the simulation changes; synthesis still follows the original order"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each concurrent statement behaves as an independent process sensitive to its inputs, so the order in which they appear in the architecture is irrelevant. Order matters only for sequential statements inside a process.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m033",
+      "questionText": "The entity below is instantiated with generic map (N => 12). What value appears on q?\n\nentity maxval is\n  generic (N : positive := 8);\n  port (q : out natural);\nend entity;\narchitecture rtl of maxval is\n  constant MAXV : natural := 2**N - 1;\nbegin\n  q <= MAXV;\nend architecture;",
+      "options": [
+        "255",
+        "4096",
+        "4095",
+        "2047"
+      ],
+      "correctIndex": 2,
+      "explanation": "The generic map overrides the default of 8, so MAXV = 2^12 − 1 = 4095, as GHDL reports. 255 is the result for the default N = 8, 4096 forgets the − 1 and 2047 uses N − 1 = 11.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m034",
+      "questionText": "What values do (−7) mod 3 and (−7) rem 3 give in VHDL?",
+      "options": [
+        "−1 and 2",
+        "2 and −1",
+        "−1 and −1",
+        "2 and 2"
+      ],
+      "correctIndex": 1,
+      "explanation": "mod takes the sign of the right operand, so (−7) mod 3 = 2, while rem takes the sign of the left operand, so (−7) rem 3 = −1; GHDL reports 2 and -1. Without the parentheses −7 mod 3 would parse as −(7 mod 3) = −1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m035",
+      "questionText": "A memory type is declared as type mem_t is array (0 to 63) of std_logic_vector(31 downto 0);. How many bits of storage does one object of type mem_t represent?",
+      "options": [
+        "2048",
+        "256",
+        "2016",
+        "96"
+      ],
+      "correctIndex": 0,
+      "explanation": "There are 64 elements of 32 bits each, so 64 × 32 = 2048 bits. 256 is the size in bytes, 2016 uses only 63 elements and 96 adds instead of multiplying.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m036",
+      "questionText": "Entity sub has port (x : in integer; y : in integer; d : out integer) and computes d <= x - y;. Signals p = 3 and q = 10 are connected by u1 : entity work.sub port map (q, p, r);. What value does r take?",
+      "options": [
+        "−7",
+        "13",
+        "3",
+        "7"
+      ],
+      "correctIndex": 3,
+      "explanation": "Positional association connects the actuals to the formals in declaration order, x => q, y => p and d => r, so r = 10 − 3 = 7, which GHDL reports. Connecting p to x because p is declared first gives −7.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m037",
+      "questionText": "What value does the report print?\n\nprocess\n  variable acc : integer := 0;\nbegin\n  for i in 1 to 4 loop\n    acc := acc + i;\n  end loop;\n  report integer'image(acc);\n  wait;\nend process;",
+      "options": [
+        "4",
+        "0",
+        "10",
+        "1"
+      ],
+      "correctIndex": 2,
+      "explanation": "A variable is updated immediately, so the loop adds 1 + 2 + 3 + 4 = 10, which GHDL reports. The value 4 is what a signal assigned in the same loop would end up with.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m038",
+      "questionText": "Which statement about y <= a after 5 ns; inside an RTL architecture is correct?",
+      "options": [
+        "Synthesis inserts a 5 ns delay line in front of y",
+        "It is a syntax error in any architecture intended for synthesis",
+        "y changes immediately in simulation; the 5 ns is only a timing constraint for synthesis",
+        "In simulation y follows a 5 ns later, but synthesis ignores the after clause"
+      ],
+      "correctIndex": 3,
+      "explanation": "after clauses model delay for simulation only; synthesis tools ignore them, usually with a warning, because real delays come from the target technology. Timing requirements are given to the tools as separate constraints.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m039",
+      "questionText": "In VHDL-2008, what are the length and value of this constant?\n\nconstant C : std_logic_vector := 12X\"3A\";",
+      "options": [
+        "8 bits: \"00111010\"",
+        "12 bits: \"001110100000\"",
+        "12 bits: \"000000111010\"",
+        "16 bits: \"0000000000111010\""
+      ],
+      "correctIndex": 2,
+      "explanation": "X\"3A\" is 0011 1010, and the prefix 12 sets the length, padding on the left with '0' because no S (signed) specifier is given; GHDL reports length 12 and 000000111010. Without the prefix the literal would be 8 bits long.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m040",
+      "questionText": "A std_logic clock starts at 'U' and changes to '1' at 5 ns. In process (clk), which conditions are true at 5 ns?",
+      "options": [
+        "Only rising_edge(clk)",
+        "Only clk'event and clk = '1'",
+        "Both conditions",
+        "Neither condition"
+      ],
+      "correctIndex": 1,
+      "explanation": "clk'event and clk = '1' only checks that clk changed and is now '1', whereas rising_edge(clk) also requires the previous value to be '0' or 'L'. A change from 'U' to '1' therefore satisfies only the first, and GHDL prints only the event-style message.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m041",
+      "questionText": "With s1 = '1' and s2 = '1', which input drives y?\n\ny <= a when s1 = '1' else\n     b when s2 = '1' else\n     c;",
+      "options": [
+        "a, because the first true condition wins",
+        "b, because the last true condition wins",
+        "c, because the conditions conflict",
+        "None of them; y becomes 'X' because two conditions are true"
+      ],
+      "correctIndex": 0,
+      "explanation": "A conditional signal assignment tests its conditions in order and uses the first true one, which is why it synthesises to a priority multiplexer. The GHDL run with s1 = s2 = '1' gives y = a.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t6_m042",
+      "questionText": "What happens when this testbench process is simulated?\n\nsignal n : natural := 0;\n...\nprocess begin\n  n <= n - 1;\n  wait for 1 ns;\n  report integer'image(n);\n  wait;\nend process;",
+      "options": [
+        "Simulation stops with a range (bound) check error, because −1 is outside natural",
+        "n wraps around to integer'high",
+        "n becomes −1, because natural is just another name for integer",
+        "n stays 0 and the assignment is silently ignored"
+      ],
+      "correctIndex": 0,
+      "explanation": "natural is the subtype integer range 0 to integer'high, so n − 1 = −1 is a legal integer expression but assigning it to n fails the subtype check at run time; GHDL reports a bound check failure. VHDL integers never wrap around.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m043",
+      "questionText": "With ieee.std_logic_1164 and ieee.numeric_std in use, an entity has the port q : out unsigned(3 downto 0), and its clocked process contains q <= q + 1;. Which statement is correct?",
+      "options": [
+        "It is legal in every VHDL version",
+        "It is illegal in VHDL-93 because an out port cannot be read, but legal in VHDL-2008",
+        "It is illegal in every VHDL version; q must be declared inout",
+        "It is legal only if q is changed to std_logic_vector"
+      ],
+      "correctIndex": 1,
+      "explanation": "GHDL with --std=93 reports that port q cannot be read, while --std=08 accepts the code, since VHDL-2008 allows out ports to be read inside the architecture. Before 2008 the usual fixes were an internal signal copied to the port, or mode buffer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t6_m044",
+      "questionText": "Input a is '0', goes to '1' at 10 ns and back to '0' at 12 ns. Which describes y1 and y2 between 10 ns and 20 ns?\n\ny1 <= a after 5 ns;\ny2 <= transport a after 5 ns;",
+      "options": [
+        "y1 stays '0'; y2 is '1' from 15 ns to 17 ns",
+        "Both are '1' from 15 ns to 17 ns",
+        "y1 is '1' from 15 ns to 17 ns; y2 stays '0'",
+        "Both stay '0'"
+      ],
+      "correctIndex": 0,
+      "explanation": "The default inertial delay rejects pulses shorter than the 5 ns delay, so the 2 ns pulse never reaches y1, while transport delay passes every pulse shifted by 5 ns. GHDL shows y2 rising at 15 ns and falling at 17 ns, with no event on y1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m045",
+      "questionText": "Given the declarations below, which assignment fails to analyse?\n\ntype small_t is range 0 to 255;\nsubtype byte_t is integer range 0 to 255;\nsignal x : small_t := 10;\nsignal y : byte_t := 10;\nsignal z : integer := 20;",
+      "options": [
+        "z <= y;",
+        "z <= x;",
+        "z <= integer(x);",
+        "y <= z;"
+      ],
+      "correctIndex": 1,
+      "explanation": "small_t is a new type distinct from integer, so assigning it to z needs the explicit conversion integer(x). byte_t is only a subtype of integer, so z <= y and y <= z both analyse, the latter being range-checked at run time.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t6_m046",
+      "questionText": "The process below never resets c. The input d is x\"00\" at time 0, becomes x\"0F\" at 10 ns and x\"03\" at 20 ns. What is n at 25 ns?\n\nprocess (d)\n  variable c : natural := 0;\nbegin\n  for i in d'range loop\n    if d(i) = '1' then c := c + 1; end if;\n  end loop;\n  n <= c;\nend process;",
+      "options": [
+        "6",
+        "2",
+        "4",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "Variables keep their values between activations: the run at time 0 counts nothing, the run at 10 ns adds four ones (c = 4) and the run at 20 ns adds two more, so n = 6, as GHDL reports. Adding c := 0; at the top of the process would give 2.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,719 @@
+{
+  "topicId": "ch2_i71",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Chapter 2 Formula Drill"
+    },
+    {
+      "type": "paragraph",
+      "text": "The sheet above lists the rules; this drill applies each one once as a short worked calculation. Work every line yourself with the answer covered, then compare. Each line is a single step or two, so the aim is speed with the radix, the direction of the shift and the off-by-one kept right."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Conversions and codes\n2F7H    = 2x256 + 15x16 + 7        = 759 (decimal)\n245     = 3x64 + 6x8 + 5           = 365 (octal)\n0.6875  x2 -> 1, 0, 1, 1           = 0.1011 (binary)\n+19     = 0001 0011\n1's c.  = 1110 1100 = ECH  ;  2's c. (-19) = 1110 1101 = EDH\nGray of 0111: 0, 0^1, 1^1, 1^1     = 0100\n25 in BCD = 0010 0101 ; in binary = 11001"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Code",
+          "4-bit range",
+          "8-bit range",
+          "16-bit range"
+        ],
+        [
+          "Unsigned",
+          "0 to 15",
+          "0 to 255",
+          "0 to 65535"
+        ],
+        [
+          "Sign-magnitude",
+          "-7 to +7",
+          "-127 to +127",
+          "-32767 to +32767"
+        ],
+        [
+          "1's complement",
+          "-7 to +7",
+          "-127 to +127",
+          "-32767 to +32767"
+        ],
+        [
+          "2's complement",
+          "-8 to +7",
+          "-128 to +127",
+          "-32768 to +32767"
+        ],
+        [
+          "Largest unsigned (hex)",
+          "FH",
+          "FFH",
+          "FFFFH"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{SM, 1's: } -(2^{n-1}-1) \\ldots 2^{n-1}-1,\\qquad \\text{2's: } -2^{n-1} \\ldots 2^{n-1}-1",
+      "plainText": "Sign-magnitude and 1's complement: −(2^(n−1) − 1) to 2^(n−1) − 1;  2's complement: −2^(n−1) to 2^(n−1) − 1"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "K-maps and counters\n3-variable map: 8 cells ; a quad leaves 3 - 2 = 1 literal\n4-variable map: 16 cells ; pair -> 3 literals, octet -> 1 literal\nMOD-6:  4 < 6 <= 8        -> 3 flip-flops, 8 - 6 = 2 unused states\nMOD-10 ripple: 4 flip-flops, clear at 1010 -> NAND(Q3, Q1)\n4 flip-flops: ring MOD-4, Johnson MOD-8, binary MOD-16\n1 MHz into a 5-bit Johnson (MOD-10) -> 100 kHz"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Addresses and memory\n8 KB block from 2000H: end = 2000H + 1FFFH      = 3FFFH\n32 KB from 8K x 8 chips: 32K/8K = 4 chips\n   A0-A12 (13 lines) to every chip, A13-A14 -> 2-to-4 decoder\n16K x 8 from 4K x 4: (16K x 8)/(4K x 4) = 8 chips (4 rows of 2)\n1234H:0056H -> 12340H + 0056H                   = 12396H\n[BP+DI+10H], BP = 0200H, DI = 0030H -> EA = 0240H in SS"
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{End} = \\text{Start} + \\text{Size} - 1,\\qquad \\text{Chips} = \\frac{M \\times W}{m \\times w}",
+      "plainText": "End address = start + size − 1;  chips = (M words × W bits) ÷ (m words × w bits per chip)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Serial timing, DMA and vectors\n4800 baud, 8N1 (1+8+1 = 10 bits) -> 480 char/s, bit time 208.3 us\n9600 baud, 7E1 (1+7+1+1 = 10 bits) -> 960 char/s\n8251 at 9600 baud with x64 factor -> TxC = 614.4 kHz\nBurst DMA of 1 KB at 0.5 us per transfer -> 1024 x 0.5 = 512 us\nINT 21H: 4 x 21H = 84H -> IP at 00084H, CS at 00086H\nRST 7 -> 7 x 8 = 38H ; RST 5.5 -> 5.5 x 8 = 44 = 002CH"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Chip",
+          "Function",
+          "Numbers to remember"
+        ],
+        [
+          "8253 / 8254",
+          "Programmable interval timer",
+          "3 independent 16-bit counters, 6 modes"
+        ],
+        [
+          "8251",
+          "USART",
+          "Synchronous and asynchronous; baud factor x1, x16, x64"
+        ],
+        [
+          "8237",
+          "DMA controller",
+          "4 channels, up to 64 KB per block"
+        ],
+        [
+          "8257",
+          "DMA controller",
+          "4 channels, 14-bit count, up to 16 KB per block"
+        ],
+        [
+          "8259",
+          "Programmable interrupt controller",
+          "8 IR inputs; 64 with one master and 8 slaves"
+        ],
+        [
+          "8279",
+          "Keyboard and display controller",
+          "Scans a 64-key matrix; 16-character display RAM"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "The usual slips in this chapter are off-by-one errors: an address range ends at start + size − 1, a counter needing N states is not always full so unused states remain, and a 2's complement range has one more negative value than positive. Keep hex arithmetic in hex; 1FFFH + 1 is 2000H, not 2000 decimal."
+    },
+    {
+      "type": "examTip",
+      "text": "For any numeric question, first write the one-line rule, then substitute. Speed comes from recognising the rule (2^n, log₂N, 4n, 8n, × 10H, baud ÷ frame bits), not from calculating faster."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i71_m001",
+      "questionText": "The value of 1011₂ + 27₈ + 1AH, written in decimal, is:",
+      "options": [
+        "60",
+        "64",
+        "56",
+        "70"
+      ],
+      "correctIndex": 0,
+      "explanation": "Convert each term: 1011₂ = 11, 27₈ = 2 × 8 + 7 = 23, 1AH = 16 + 10 = 26; 11 + 23 + 26 = 60. Reading 27₈ as decimal 27 gives the wrong total 64.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m002",
+      "questionText": "Which of the following numbers has the largest value?",
+      "options": [
+        "101101₂",
+        "55₈",
+        "2EH",
+        "44₁₀"
+      ],
+      "correctIndex": 2,
+      "explanation": "101101₂ = 32 + 8 + 4 + 1 = 45, 55₈ = 5 × 8 + 5 = 45, 2EH = 2 × 16 + 14 = 46 and 44₁₀ = 44, so 2EH is the largest.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m003",
+      "questionText": "The hexadecimal subtraction 5A3H − 2C7H gives:",
+      "options": [
+        "3DCH",
+        "2DCH",
+        "2E4H",
+        "31CH"
+      ],
+      "correctIndex": 1,
+      "explanation": "Units: 3 − 7 needs a borrow, 19 − 7 = 12 = C; sixteens: (A − 1) − C = 9 − 12 needs a borrow, 25 − 12 = 13 = D; 256s: (5 − 1) − 2 = 2. Result 2DCH (check: 1443 − 711 = 732 = 2DCH). 3DCH forgets the last borrow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m004",
+      "questionText": "The binary product 1011₂ × 1101₂ is:",
+      "options": [
+        "10011111₂",
+        "10001011₂",
+        "10001111₂",
+        "1110111₂"
+      ],
+      "correctIndex": 2,
+      "explanation": "1011₂ = 11 and 1101₂ = 13, so the product is 143 = 10001111₂. By shift-and-add: 1011 + 101100 + 1011000 = 10001111.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m005",
+      "questionText": "Which decimal fraction can be represented EXACTLY with a finite number of binary digits?",
+      "options": [
+        "0.1",
+        "0.2",
+        "0.3",
+        "0.375"
+      ],
+      "correctIndex": 3,
+      "explanation": "0.375 = 3/8 = 0.011₂, a denominator that is a power of 2. 0.1, 0.2 and 0.3 have a factor 5 in their denominators, so their binary expansions repeat forever (0.1 = 0.000110011…₂).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m006",
+      "questionText": "One byte is used to hold a number. The largest value it can hold as unsigned binary and as packed BCD (two digits) is:",
+      "options": [
+        "255 and 99",
+        "255 and 255",
+        "127 and 99",
+        "256 and 100"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unsigned binary: 1111 1111 = 2⁸ − 1 = 255. Packed BCD stores two decimal digits of 4 bits each, and the largest is 1001 1001 = 99, since codes above 1001 are invalid.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m007",
+      "questionText": "The packed BCD byte 1001 0110 (96H) is converted to a pure binary number. The binary result, in hexadecimal, is:",
+      "options": [
+        "96H",
+        "0906H",
+        "60H",
+        "5AH"
+      ],
+      "correctIndex": 2,
+      "explanation": "The BCD digits mean 9 and 6, i.e. 96 decimal = 64 + 32 = 0110 0000₂ = 60H. 0906H is the unpacked BCD form and 5AH = 90 drops the units digit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m008",
+      "questionText": "The 8-bit 2's complement number F6H is sign-extended to 16 bits and then added to 0020H in a 16-bit adder (carry out ignored). The 16-bit result is:",
+      "options": [
+        "0116H",
+        "0016H",
+        "FFD6H",
+        "00D6H"
+      ],
+      "correctIndex": 1,
+      "explanation": "Sign extension copies bit 7 into the high byte: F6H → FFF6H (−10). FFF6H + 0020H = 1 0016H, and dropping the carry leaves 0016H = +22 = −10 + 32. 0116H results from zero-extending instead (246 + 32).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m009",
+      "questionText": "An 8-bit ALU adds 6BH and 2DH. Which statement about the result is correct?",
+      "options": [
+        "The result is 98H: correct both as unsigned and as signed",
+        "The result is 98H: correct as unsigned (152), but a signed overflow (V = 1)",
+        "The result is 98H with a carry out, so the unsigned result is wrong",
+        "The result is 88H with no overflow"
+      ],
+      "correctIndex": 1,
+      "explanation": "6BH + 2DH = 107 + 45 = 152 = 98H, which fits in 8 unsigned bits (C = 0). As signed numbers, two positives gave a result with bit 7 = 1 (−104), so V = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m010",
+      "questionText": "An 8-bit ALU adds F0H and 10H. Which statement about the result is correct?",
+      "options": [
+        "The 8-bit result is 00H with C = 0 and V = 1: correct as unsigned, wrong as signed",
+        "The 8-bit result is 00H with carry C = 1 and V = 0: wrong as unsigned, correct as signed",
+        "The 8-bit result is 00H with C = 1 and V = 1: wrong both as unsigned and as signed",
+        "The 8-bit result is 100H with no carry"
+      ],
+      "correctIndex": 1,
+      "explanation": "Unsigned 240 + 16 = 256 does not fit in 8 bits, so C = 1 and the byte 00H is wrong as unsigned. Signed −16 + 16 = 0 is correct; the carries into and out of bit 7 are both 1, so V = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m011",
+      "questionText": "A 2-input NOR gate is fed by A and B, and its output drives one input of a 2-input NAND gate whose other input is C. The NAND output is:",
+      "options": [
+        "A'B'C",
+        "(A + B)C'",
+        "A'B' + C'",
+        "A + B + C'"
+      ],
+      "correctIndex": 3,
+      "explanation": "The NOR gives (A + B)'. The NAND gives [(A + B)'·C]' = (A + B)'' + C' = A + B + C' by De Morgan's theorem.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m012",
+      "questionText": "The expression (A + B')(A' + B) simplifies to:",
+      "options": [
+        "AB' + A'B (XOR)",
+        "1",
+        "AB'",
+        "AB + A'B' (XNOR)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Expanding: AA' + AB + A'B' + BB' = 0 + AB + A'B' + 0 = AB + A'B', which is A XNOR B (1 when A = B).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m013",
+      "questionText": "The function F = A'B + AC written in minimal product-of-sums form is:",
+      "options": [
+        "(A' + B)(A + C)",
+        "(A + B)(A + C)",
+        "(A' + B')(A + C')",
+        "(A + B)(A' + C)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Check: (A + B)(A' + C) = AA' + AC + A'B + BC = AC + A'B + BC, and BC is the consensus of AC and A'B, so it equals A'B + AC. When A = 0 the POS reduces to B and when A = 1 to C, matching the SOP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m014",
+      "questionText": "When an 8085 program is translated to 8086 code using Intel's standard register correspondence, the 8085 HL pair (the memory pointer M) maps to:",
+      "options": [
+        "CX",
+        "BX",
+        "DX",
+        "SP"
+      ],
+      "correctIndex": 1,
+      "explanation": "The standard mapping is A → AL, BC → CX, DE → DX and HL → BX (H → BH, L → BL). BX is the 8086 general register that can serve as a memory pointer, just as HL does in MOV A, M.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m015",
+      "questionText": "F(A, B, C, D) = Σm(2, 3, 10) + d(6, 7, 11), where d marks don't-cares. The minimal SOP form of F is:",
+      "options": [
+        "A'C",
+        "A'B'C + AB'CD'",
+        "B'C",
+        "B'CD'"
+      ],
+      "correctIndex": 2,
+      "explanation": "Taking don't-care 11 as 1, cells 2, 3, 10, 11 (B = 0, C = 1) form a quad, giving B'C; cells 6 and 7 are left as 0. A'C misses minterm 10, B'CD' misses minterm 3, and A'B'C + AB'CD' is correct but not minimal.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m016",
+      "questionText": "Using a K-map, F(A, B, C, D) = Σm(0, 1, 2, 3, 8, 9, 10, 11, 14, 15) simplifies to:",
+      "options": [
+        "B' + ACD'",
+        "A'B' + AC",
+        "B' + AC",
+        "B' + ACD"
+      ],
+      "correctIndex": 2,
+      "explanation": "Minterms 0–3 and 8–11 (all with B = 0) form an octet giving B'. Minterms 10, 11, 14, 15 (A = 1, C = 1) form a quad giving AC, so F = B' + AC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m017",
+      "questionText": "F(A, B, C, D) = 1 when the unsigned number ABCD (A = MSB) is a multiple of 3, including 0. How many product terms does its minimal SOP form contain?",
+      "options": [
+        "3",
+        "4",
+        "6",
+        "5"
+      ],
+      "correctIndex": 2,
+      "explanation": "The minterms are 0, 3, 6, 9, 12, 15 (0000, 0011, 0110, 1001, 1100, 1111). Every pair differs in at least two bits, so no two are adjacent on the K-map; each minterm is its own prime implicant, giving 6 four-literal terms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m018",
+      "questionText": "The eight outputs Y0–Y7 of an enabled 3-to-8 decoder (active-high) are connected to inputs D0–D7 of an 8-to-3 encoder in the same order. If the decoder input is 101, the encoder output is:",
+      "options": [
+        "010, the bitwise complement of the input",
+        "101, the same as the decoder input",
+        "011, the 2's complement of the input",
+        "Undefined, because several encoder inputs are active"
+      ],
+      "correctIndex": 1,
+      "explanation": "Input 101 makes only Y5 HIGH, so only D5 of the encoder is active and it outputs 5 = 101. A decoder followed by the matching encoder simply passes the code through; only one line is ever active, so no priority is needed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m019",
+      "questionText": "The 8085 instruction STA 2050H (opcode 32H) is stored starting at address 3000H. The bytes at 3000H, 3001H and 3002H are:",
+      "options": [
+        "32H, 20H, 50H",
+        "32H, 50H, 20H",
+        "50H, 20H, 32H",
+        "20H, 50H, 32H"
+      ],
+      "correctIndex": 1,
+      "explanation": "The opcode comes first, followed by the 16-bit address with its low byte first (little-endian): 32H at 3000H, 50H at 3001H and 20H at 3002H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m020",
+      "questionText": "A 16-bit ripple-carry adder with no carry input is to be built with the fewest gates, using full adders and half adders. It needs:",
+      "options": [
+        "16 full adders and 1 half adder",
+        "8 full adders and 8 half adders",
+        "16 half adders",
+        "15 full adders and 1 half adder"
+      ],
+      "correctIndex": 3,
+      "explanation": "The least significant bit has only two inputs, so a half adder suffices there; each of the other 15 bits must also add the incoming carry and needs a full adder.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m021",
+      "questionText": "A JK flip-flop has its J input connected to its own Q' output and its K input connected to its own Q output. On every active clock edge it:",
+      "options": [
+        "Toggles",
+        "Holds its state",
+        "Always sets to 1",
+        "Always resets to 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "Q⁺ = JQ' + K'Q = Q'·Q' + Q'·Q = Q'. When Q = 0 the inputs are J = 1, K = 0 (set); when Q = 1 they are J = 0, K = 1 (reset), so the output toggles like a T flip-flop with T = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m022",
+      "questionText": "A 4-bit synchronous counter uses T flip-flops with T0 = 1, T1 = Q0, T2 = Q0·Q1 and T3 = Q0·Q1·Q2. In state Q3 Q2 Q1 Q0 = 1011, the next state is:",
+      "options": [
+        "1100",
+        "1010",
+        "0100",
+        "1101"
+      ],
+      "correctIndex": 0,
+      "explanation": "With Q0 = Q1 = 1 and Q2 = 0: T0 = 1, T1 = 1, T2 = 1, T3 = 0. Q0, Q1, Q2 toggle and Q3 holds, giving 1100 (11 + 1 = 12), as expected for a binary up counter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m023",
+      "questionText": "A 4-bit binary up counter is loaded with 1011 and then receives 9 clock pulses. Its final state is:",
+      "options": [
+        "0011",
+        "1111",
+        "0101",
+        "0100"
+      ],
+      "correctIndex": 3,
+      "explanation": "The count goes 11 → 11 + 9 = 20, and a 4-bit counter wraps at 16, so the state is 20 − 16 = 4 = 0100. 0011 is one pulse short.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m024",
+      "questionText": "A 3-bit synchronous binary counter clocked at 8 MHz drives a 3-to-8 decoder with active-high outputs. The waveform at output Y5 has a frequency and duty cycle of:",
+      "options": [
+        "1 MHz, 12.5%",
+        "1 MHz, 50%",
+        "1.6 MHz, 20%",
+        "125 kHz, 12.5%"
+      ],
+      "correctIndex": 0,
+      "explanation": "The counter has 8 states, so each decoder output goes HIGH once every 8 clocks: f = 8 MHz ÷ 8 = 1 MHz. It stays HIGH for 1 clock of the 8, so the duty cycle is 1/8 = 12.5%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m025",
+      "questionText": "On the 8085, MVI A, 0C5H; ANI 3CH; XRI 0FFH are executed. The accumulator then holds:",
+      "options": [
+        "FBH",
+        "04H",
+        "02H",
+        "3AH"
+      ],
+      "correctIndex": 0,
+      "explanation": "C5H AND 3CH = 1100 0101 AND 0011 1100 = 0000 0100 = 04H; XOR with FFH inverts every bit: 1111 1011 = FBH. 02H would come from ORI 3CH instead of ANI 3CH.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m026",
+      "questionText": "On the 8085, MVI A, 20H; SUI 30H; CMA; INR A are executed. The final accumulator and CY flag are:",
+      "options": [
+        "A = 0FH, CY = 1",
+        "A = F0H, CY = 1",
+        "A = 10H, CY = 1",
+        "A = 10H, CY = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "SUI: 20H − 30H = F0H with a borrow, so CY = 1. CMA gives 0FH and INR A gives 10H, i.e. the 2's complement of F0H, the magnitude of the negative result. Neither CMA nor INR changes CY, so it stays 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m027",
+      "questionText": "On the 8085, DE = 0035H. The program MOV A, E; CMA; MOV E, A; MOV A, D; CMA; MOV D, A; INX D is executed. DE now holds:",
+      "options": [
+        "FFCAH",
+        "8035H",
+        "FFCBH",
+        "CBFFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "Complementing both bytes gives FFCAH (the 1's complement) and INX D adds 1, giving FFCBH, the 16-bit 2's complement of 0035H (−53). 8035H is the sign-magnitude form.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m028",
+      "questionText": "On the 8085, MVI A, 64H is followed by two RRC instructions. The accumulator and CY are then:",
+      "options": [
+        "91H, CY = 1",
+        "32H, CY = 0",
+        "19H, CY = 1",
+        "19H, CY = 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "64H = 0110 0100. RRC → 0011 0010 (32H), CY = 0; RRC → 0001 1001 (19H), CY = 0. Because the two bits rotated out were 0, this equals dividing 100 by 4 = 25 = 19H. 91H is the result of two RLCs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m029",
+      "questionText": "On the 8085, the packed BCD byte 47H is split by MVI A, 47H; ANI 0F0H; RRC; RRC; RRC; RRC. The accumulator finally holds:",
+      "options": [
+        "40H",
+        "04H",
+        "07H",
+        "70H"
+      ],
+      "correctIndex": 1,
+      "explanation": "ANI 0F0H keeps the high digit: 40H. Four RRCs rotate the byte right by four places, moving the high nibble into the low nibble: 0100 0000 → 0000 0100 = 04H, the unpacked tens digit.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m030",
+      "questionText": "On the 8085, LXI H, 20FFH; INR L; MOV M, A are executed. MOV M, A writes the accumulator to address:",
+      "options": [
+        "2100H",
+        "20FFH",
+        "2000H",
+        "2001H"
+      ],
+      "correctIndex": 2,
+      "explanation": "INR L is an 8-bit increment: L goes from FFH to 00H (setting Z) and no carry passes into H, so HL = 2000H. INX H would have given 2100H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m031",
+      "questionText": "On the 8085, SP = 2400H, BC = 5678H and DE = 1234H. After PUSH B, PUSH D and then POP H, the contents of HL and SP are:",
+      "options": [
+        "HL = 5678H, SP = 23FEH",
+        "HL = 3412H, SP = 23FEH",
+        "HL = 1234H, SP = 23FEH",
+        "HL = 1234H, SP = 2402H"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each PUSH lowers SP by 2: PUSH B → 23FEH, PUSH D → 23FCH. POP H takes the last pair pushed (DE = 1234H; L from 23FCH, H from 23FDH) and raises SP by 2 to 23FEH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m032",
+      "questionText": "On the 8086, AL = 05H. After NEG AL, AL and CF are:",
+      "options": [
+        "AL = FAH, CF = 1",
+        "AL = FBH, CF = 1",
+        "AL = FBH, CF = 0",
+        "AL = 85H, CF = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "NEG forms the 2's complement (0 − AL): 00H − 05H = FBH (−5), and CF = 1 because the operand was not zero. FAH is only the 1's complement and 85H the sign-magnitude form.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m033",
+      "questionText": "On the 8086, CMP AX, AX is executed (AX holds any value). Which result is correct?",
+      "options": [
+        "ZF = 1, CF = 0, SF = 0, PF = 0; AX unchanged",
+        "ZF = 1, CF = 0; AX becomes 0000H",
+        "ZF = 0, CF = 1; AX unchanged",
+        "ZF = 1, CF = 0, SF = 0, PF = 1; AX unchanged"
+      ],
+      "correctIndex": 3,
+      "explanation": "CMP subtracts without storing the result, so AX is unchanged. AX − AX = 0 gives ZF = 1, no borrow (CF = 0), sign bit 0 (SF = 0), and the low byte 00H has an even number (zero) of 1s, so PF = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m034",
+      "questionText": "On the 8086, AX = 1234H and CL = 04H. After ROL AX, CL, AX and CF are:",
+      "options": [
+        "AX = 4123H, CF = 0",
+        "AX = 2340H, CF = 1",
+        "AX = 2341H, CF = 0",
+        "AX = 2341H, CF = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Rotating left by 4 moves the top hex digit to the bottom: 1234H → 2341H. After ROL, CF holds the last bit rotated out of the MSB, which is now bit 0 of the result (1). 4123H would be ROR and 2340H would be SHL.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m035",
+      "questionText": "On the 8086, AX = 7FFFH and CF = 1. After INC AX, which result is correct?",
+      "options": [
+        "AX = 8000H, OF = 1, SF = 1, CF = 0",
+        "AX = 8000H, OF = 0, SF = 1, CF = 1",
+        "AX = 0000H, OF = 0, ZF = 1, CF = 1",
+        "AX = 8000H, OF = 1, SF = 1, CF = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "7FFFH + 1 = 8000H: +32767 + 1 cannot be represented in 16 signed bits, so OF = 1, and bit 15 is 1, so SF = 1. INC does not affect CF, which keeps its old value 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m036",
+      "questionText": "On the 8086, AL = F0H and BL = 10H. After MUL BL, the contents of AX and the CF/OF flags are:",
+      "options": [
+        "AX = 0F00H, CF = OF = 0",
+        "AX = 00F0H, CF = OF = 0",
+        "AX = 0F00H, CF = OF = 1",
+        "AX = F000H, CF = OF = 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "MUL BL computes AX = AL × BL = F0H × 10H = 240 × 16 = 3840 = 0F00H. Because the upper half AH = 0FH is not zero, CF and OF are both set to 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m037",
+      "questionText": "On the 8086, AX = FFF9H and BL = 02H. After IDIV BL (signed division), AL and AH contain:",
+      "options": [
+        "AL = FCH (−4), AH = 01H (+1)",
+        "AL = FDH (−3), AH = FFH (−1)",
+        "AL = 03H (+3), AH = 01H (+1)",
+        "AL = FDH (−3), AH = 01H (+1)"
+      ],
+      "correctIndex": 1,
+      "explanation": "AX = FFF9H = −7 and BL = +2. IDIV rounds the quotient toward zero, so −7 ÷ 2 = −3 (FDH) in AL, and the remainder takes the sign of the dividend: −7 − (−3 × 2) = −1 (FFH) in AH.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i71_m038",
+      "questionText": "On the 8086, CX = 0000H when a loop body ending in LOOP L is entered from the top. How many times does the body execute?",
+      "options": [
+        "65536",
+        "0",
+        "1",
+        "65535"
+      ],
+      "correctIndex": 0,
+      "explanation": "LOOP first decrements CX and then jumps if CX ≠ 0. The first decrement turns 0000H into FFFFH, so the loop continues until CX has counted all the way down: 65536 passes in total. JCXZ is used before such loops to skip them when CX = 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m039",
+      "questionText": "An 8086 runs at 5 MHz, and each bus cycle takes 4 clock periods and fetches one aligned word. With no wait states, and with the EU taking no bytes from the queue meanwhile, how long does the BIU need to fill its empty 6-byte instruction queue?",
+      "options": [
+        "2.4 µs",
+        "4.8 µs",
+        "1.2 µs",
+        "0.8 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "6 bytes ÷ 2 bytes per bus cycle = 3 bus cycles; each bus cycle = 4 × 200 ns = 800 ns, so 3 × 0.8 µs = 2.4 µs. 4.8 µs assumes one byte per bus cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m040",
+      "questionText": "On the 8086, DS = 7A00H. The data segment covers the physical addresses:",
+      "options": [
+        "7A000H to 7AFFFH",
+        "7A000H to 89FFFH",
+        "7A00H to 17A00H",
+        "7A000H to 8A000H"
+      ],
+      "correctIndex": 1,
+      "explanation": "Base = 7A00H × 10H = 7A000H; a segment spans 64 KB, so the last address is 7A000H + FFFFH = 89FFFH. 8A000H is one past the end.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m041",
+      "questionText": "Which statement about the 8086 instruction LAHF is correct?",
+      "options": [
+        "It copies SF, ZF, AF, PF and CF (the low byte of FLAGS, laid out like the 8085 flag register) into AH",
+        "It copies all 16 bits of FLAGS into AX",
+        "It loads AH from the memory byte addressed by the flags",
+        "It copies OF, DF, IF and TF into AH"
+      ],
+      "correctIndex": 0,
+      "explanation": "LAHF (load AH from flags) moves the low byte of FLAGS, which holds SF, ZF, AF, PF and CF in the same bit positions as the 8085 flag register, into AH. SAHF does the reverse; the high-byte flags OF, DF, IF and TF are not included.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m042",
+      "questionText": "Compared with the 8085, the 8086 has how many more address lines, and how many times larger is its directly addressable memory?",
+      "options": [
+        "4 more lines; 16 times larger",
+        "4 more lines; 4 times larger",
+        "8 more lines; 16 times larger",
+        "4 more lines; 2 times larger"
+      ],
+      "correctIndex": 0,
+      "explanation": "The 8085 has 16 address lines (2¹⁶ = 64 KB) and the 8086 has 20 (2²⁰ = 1 MB). Each extra line doubles the space, so 4 extra lines give 2⁴ = 16 times more memory.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m043",
+      "questionText": "Which of the following statements is NOT correct?",
+      "options": [
+        "The 8086 has a 6-byte instruction prefetch queue",
+        "The 8085 multiplexes its lower address byte with data on AD0–AD7",
+        "The 8086 can address 1 MB of memory with its 20 address lines",
+        "The 8085 has a 16-bit data bus"
+      ],
+      "correctIndex": 3,
+      "explanation": "The 8085 has an 8-bit data bus and a 16-bit address bus; the other three statements are correct.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i71_m044",
+      "questionText": "Which statement correctly compares interrupt vectors in the 8085 and the 8086?",
+      "options": [
+        "8085 RST vectors are fixed code addresses 8 bytes apart; each 8086 vector is a 4-byte CS:IP pointer in a 1 KB table",
+        "Both processors use a 256-entry pointer table at address 00000H",
+        "Each 8086 vector is a fixed code address 8 bytes apart, as in the 8085",
+        "8085 vectors are 4-byte pointers and 8086 vectors are 8-byte code areas"
+      ],
+      "correctIndex": 0,
+      "explanation": "An 8085 RST n jumps directly to code at 8n (0000H, 0008H, … 0038H). The 8086 reads a 4-byte pointer (IP then CS) from address 4n; 256 × 4 bytes = 1 KB at 00000H–003FFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i71_m045",
+      "questionText": "Which of the following does NOT cause an interrupt in the 8086?",
+      "options": [
+        "Executing HLT",
+        "Executing DIV with a zero divisor",
+        "Executing INTO while OF = 1",
+        "Completing an instruction while TF = 1"
+      ],
+      "correctIndex": 0,
+      "explanation": "HLT only stops the processor until an interrupt or reset arrives. A zero divisor causes type 0, INTO with OF = 1 causes type 4, and TF = 1 causes the single-step type 1 interrupt.",
+      "difficulty": "medium"
+    }
+  ]
+}

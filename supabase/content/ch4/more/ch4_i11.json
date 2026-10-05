@@ -1,0 +1,689 @@
+{
+ "topicId": "ch4_i11",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Sizing, Sequencing and Timing Microprograms"
+  },
+  {
+   "type": "paragraph",
+   "text": "A microinstruction is sized field by field. Signals that may be active together each need their own bit, as in a horizontal format. A group of k signals that are never active together, such as the sources that drive one bus, can share an encoded field of ceil(log2(k + 1)) bits, because one code must mean 'none of them'. A condition-select field that chooses among c status bits plus 'always true' needs ceil(log2(c + 1)) bits, the branch-type field needs enough bits to name each kind of address transition, and the next-address field needs log2 N bits for an N-word control memory."
+  },
+  {
+   "type": "formula",
+   "latex": "w = h + \\sum \\lceil \\log_2(k_i+1) \\rceil + \\lceil \\log_2(c+1) \\rceil + b + \\log_2 N",
+   "plainText": "w = h direct bits + sum over encoded groups of ceil(log2(ki + 1)) + ceil(log2(c + 1)) condition bits + b branch-type bits + log2 N address bits"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 1: sizing a microinstruction\nGiven: 2K-word control memory, 12 independent signals,\n       groups of 6, 15 and 3 mutually exclusive micro-operations,\n       10 status conditions plus 'always', 4 branch types\nDirect field         : 12 bits\nGroup of 6  (+ none) : ceil(log2 7)  = 3 bits\nGroup of 15 (+ none) : ceil(log2 16) = 4 bits\nGroup of 3  (+ none) : ceil(log2 4)  = 2 bits\nCondition select     : ceil(log2 11) = 4 bits\nBranch type          : log2 4        = 2 bits\nNext address         : log2 2048     = 11 bits\nWord = 12 + 3 + 4 + 2 + 4 + 2 + 11 = 38 bits\nControl memory = 2048 x 38 = 77,824 bits = 9.5 KiB\nOne bit per signal in the groups would give 12 + 24 + 4 + 2 + 11 = 53 bits"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "Sequencing technique",
+     "How the next address is obtained",
+     "Cost or limitation"
+    ],
+    [
+     "Two address fields",
+     "The tested condition picks one of two explicit addresses in the word",
+     "Widest word; no incrementer needed"
+    ],
+    [
+     "Single address field plus incrementer (Mano)",
+     "CAR + 1 normally; the AD field on a true branch; SBR on RET; the mapped opcode on MAP",
+     "One address field; needs an incrementer and a multiplexer"
+    ],
+    [
+     "Variable format",
+     "Control words fall through to CAR + 1; separate branch words carry the condition and address",
+     "Shortest word; each branch costs an extra microinstruction"
+    ],
+    [
+     "Opcode mapping (fixed bits or mapping ROM)",
+     "The opcode forms the routine's start address after fetch",
+     "Fixed bits waste unused words; a ROM allows any placement"
+    ]
+   ]
+  },
+  {
+   "type": "paragraph",
+   "text": "Mano's sequencer is a 4 × 1 multiplexer in front of CAR whose inputs are CAR + 1, the AD field, SBR and the mapped opcode address. A second 4 × 1 multiplexer, steered by CD, picks the status bit T (U, I, S or Z), and small input logic turns BR and T into the select lines. JMP and CALL take AD when T = 1 and CAR + 1 when T = 0, CALL also loads SBR with CAR + 1 but only when the branch is taken, and RET and MAP ignore T altogether. A CALL whose condition is false therefore behaves exactly like a step to the next word."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Worked example 2: EXCHANGE with I = 1 (opcode 0011 maps to 0 0011 00 = 12)\nCAR  Microinstruction          Effect                 Next CAR\n64   PCTAR U JMP NEXT          AR <- PC               65\n65   READ, INCPC U JMP NEXT    DR <- M[AR], PC+1      66\n66   DRTAR U MAP               AR <- DR(0-10)         12\n12   NOP I CALL INDRCT         I = 1: SBR <- 13       67\n67   READ U JMP NEXT           DR <- M[AR]            68\n68   DRTAR U RET               AR <- DR(0-10)         13 (from SBR)\n13   READ U JMP NEXT           DR <- M[AR]            14\n14   ACTDR, DRTAC U JMP NEXT   AC and DR swap         15\n15   WRITE U JMP FETCH         M[AR] <- DR            64\nTotal: 9 microinstructions (7 when I = 0)"
+  },
+  {
+   "type": "paragraph",
+   "text": "Long microprograms often repeat the same control word many times. A two-level store keeps each distinct word once in a nanomemory and replaces every microinstruction with a short pointer to it. For example, 1024 microinstructions of 120 bits containing only 128 distinct words need 1024 × 120 = 122,880 bits in one level, but only 1024 × 7 + 128 × 120 = 7,168 + 15,360 = 22,528 bits in two levels, about 18% of the original. The price is a second memory access in every step, and the Motorola 68000 is a well-known processor that used such a microcode and nanocode pair."
+  },
+  {
+   "type": "formula",
+   "latex": "S_{2} = N \\lceil \\log_{2} U \\rceil + U\\,w \\quad \\text{versus} \\quad S_{1} = N\\,w",
+   "plainText": "Two-level store S2 = N × ceil(log2 U) + U × w bits, versus one level S1 = N × w (N microinstructions, U distinct words of w bits)"
+  },
+  {
+   "type": "bulletList",
+   "text": "Timing rules for microprogrammed control:",
+   "items": [
+    "Instruction time = (fetch-routine words + effective-address words when used + execute words) × microinstruction cycle; weight any optional part by how often it runs.",
+    "Without a pipeline register the microinstruction cycle is control-memory access time plus datapath time; with one it is the larger of the two, because the next word is read while the current one executes.",
+    "A branch that tests a status bit produced by the current microinstruction cannot be overlapped in the same way and can cost an extra cycle.",
+    "A hardwired unit produces each step's signals within a few gate delays, so the same sequence of steps runs faster; microprogramming trades that speed for ease of change."
+   ]
+  },
+  {
+   "type": "warning",
+   "text": "Common slips: forgetting the 'none' code when encoding a group (8 signals need 4 bits, not 3); sizing the address field from the word length instead of the number of words; counting the fetch routine only once for a whole program; treating micro-operations in different fields of one word as sequential (they all take effect at the same clock edge); and assuming that CALL loads SBR even when its condition is false."
+  },
+  {
+   "type": "examTip",
+   "text": "For a sizing question, write one line per field with its bit count before adding them, and check every encoded field for a 'none' code and the condition field for an 'always' code. For a Mano trace, list the CAR values in order: fetch 64, 65, 66, then the mapped address 4 × opcode, with 67 and 68 inserted whenever I = 1 leads to the INDRCT subroutine."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch4_i11_m001",
+   "questionText": "A control unit must generate 48 control signals, any combination of which may be active in the same clock. How wide is the control field of a purely horizontal microinstruction?",
+   "options": [
+    "6 bits",
+    "7 bits",
+    "24 bits",
+    "48 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "A horizontal format gives every control signal its own bit, so any combination can be specified: 48 bits. Six bits (ceil(log2 48)) could name only one signal at a time.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m002",
+   "questionText": "Who proposed microprogramming in 1951 as a systematic way to design the control unit of a computer?",
+   "options": [
+    "John von Neumann",
+    "Seymour Cray",
+    "Maurice Wilkes",
+    "Gordon Moore"
+   ],
+   "correctIndex": 2,
+   "explanation": "Maurice Wilkes of Cambridge suggested storing the control signals of each step as words in a control memory, which is the basis of microprogrammed control.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m003",
+   "questionText": "A control unit has 30 control signals split into four groups of 8, 16, 4 and 2 signals. Within a group at most one signal is active at a time, and each group must also be able to encode 'no signal active'. What is the minimum width of the encoded control field?",
+   "options": [
+    "14 bits",
+    "10 bits",
+    "30 bits",
+    "5 bits"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each group needs ceil(log2(k + 1)) bits: ceil(log2 9) = 4, ceil(log2 17) = 5, ceil(log2 5) = 3 and ceil(log2 3) = 2, a total of 14 bits. Forgetting the 'none' code gives 3 + 4 + 2 + 1 = 10.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m004",
+   "questionText": "Which register in a microprogrammed control unit plays the same role for microinstructions that the program counter plays for machine instructions?",
+   "options": [
+    "Subroutine register (SBR)",
+    "Instruction register (IR)",
+    "Control address register (CAR)",
+    "Memory address register (MAR)"
+   ],
+   "correctIndex": 2,
+   "explanation": "CAR holds the control-memory address of the microinstruction to be read next, and the sequencer increments or loads it, just as PC is incremented or loaded for the main program.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m005",
+   "questionText": "The condition-select field of a microinstruction must choose one of 8 status bits or an 'always true' condition for unconditional branches. How many bits does the field need?",
+   "options": [
+    "3 bits",
+    "8 bits",
+    "4 bits",
+    "9 bits"
+   ],
+   "correctIndex": 2,
+   "explanation": "There are 8 + 1 = 9 choices and ceil(log2 9) = 4 bits. Three bits cover only 8 choices, which leaves no code for 'always'.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m006",
+   "questionText": "In Mano's microprogrammed computer the microinstruction at control address 65 is READ, INCPC U JMP NEXT (READ is F2 code 100 and INCPC is F3 code 101). What is its 20-bit binary form, written as F1 F2 F3 CD BR AD?",
+   "options": [
+    "000 100 101 00 00 1000010",
+    "100 000 101 00 00 1000010",
+    "000 100 101 00 00 1000001",
+    "000 100 101 00 11 1000010"
+   ],
+   "correctIndex": 0,
+   "explanation": "F1 is NOP (000), F2 = READ (100), F3 = INCPC (101), CD = U (00) and BR = JMP (00); NEXT means address 65 + 1 = 66 = 1000010. Using 65 itself, or the MAP code 11, are the typical slips.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m007",
+   "questionText": "Mano's control memory holds the word 000 000 000 01 01 1000011 (F1 F2 F3 CD BR AD) at address 0. What does this microinstruction do?",
+   "options": [
+    "NOP I CALL 67: if the indirect bit is 1, save 1 in SBR and go to 67",
+    "NOP U JMP 67: always go to 67",
+    "NOP I JMP 67: if the indirect bit is 1, go to 67 without saving a return address",
+    "NOP S CALL 67: if AC is negative, save 1 in SBR and go to 67"
+   ],
+   "correctIndex": 0,
+   "explanation": "All three F fields are 000 (no micro-operation); CD = 01 selects I, BR = 01 is CALL and AD = 1000011 = 67, the INDRCT subroutine. When I = 1 the sequencer stores CAR + 1 = 1 in SBR and loads 67 into CAR.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m008",
+   "questionText": "Microprograms stored in a control memory are commonly referred to as:",
+   "options": [
+    "Middleware",
+    "Firmware",
+    "Macrocode",
+    "System software"
+   ],
+   "correctIndex": 1,
+   "explanation": "Microcode sits between hardware and software: it is stored permanently, usually in ROM, and is called firmware.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m009",
+   "questionText": "Mano's fetch routine ends with DRTAR U MAP at address 66. DR holds the instruction 1 0010 00000101011 (I bit, 4-bit opcode, 11-bit address). Which address is loaded into CAR?",
+   "options": [
+    "2",
+    "8",
+    "67",
+    "72"
+   ],
+   "correctIndex": 1,
+   "explanation": "MAP loads CAR(2–5) from the opcode DR(11–14) = 0010 and clears the other bits, so CAR = 0 0010 00 = 8, the start of the STORE routine. Using the opcode alone gives 2, and including the I bit gives 1001000 = 72.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m010",
+   "questionText": "A control unit with a 10-bit CAR maps each 5-bit opcode to the routine address 1 x x x x x 0 0 0 0 (a 1, the opcode, then four 0s). How many consecutive words can each routine occupy before reaching the next opcode's routine, and at which decimal address does the routine for opcode 00011 start?",
+   "options": [
+    "16 words; address 48",
+    "32 words; address 560",
+    "4 words; address 140",
+    "16 words; address 560"
+   ],
+   "correctIndex": 3,
+   "explanation": "Four trailing zeros leave 2^4 = 16 words per opcode. Opcode 00011 gives 10 0011 0000 in binary = 512 + 48 = 560; dropping the leading 1 would give 48.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m011",
+   "questionText": "Opcodes are 6 bits long, and the control memory holds 1024 microinstructions. What size must a mapping ROM be if it gives the starting address of each opcode's routine?",
+   "options": [
+    "1024 words × 6 bits",
+    "64 words × 6 bits",
+    "10 words × 64 bits",
+    "64 words × 10 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "The ROM is addressed by the opcode (2^6 = 64 words), and each word must hold a full control-memory address of log2 1024 = 10 bits. A mapping ROM lets routines start anywhere instead of at a fixed bit pattern.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m012",
+   "questionText": "In Mano's microprogrammed control unit, where is the return address saved when a microprogram subroutine is called?",
+   "options": [
+    "In the subroutine register (SBR)",
+    "On a stack in main memory",
+    "In the control address register (CAR)",
+    "In main-memory location 0"
+   ],
+   "correctIndex": 0,
+   "explanation": "CALL stores CAR + 1 in SBR and loads the subroutine address into CAR, and RET copies SBR back into CAR. Main-memory location 0 is used by the basic computer's interrupt cycle, not by microprogram calls.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m013",
+   "questionText": "In Mano's microprogrammed computer an ADD instruction with I = 1 (indirect) is executed. In what order are control-memory addresses visited, from the start of the fetch routine until CAR returns to FETCH?",
+   "options": [
+    "64, 65, 66, 0, 1, 2",
+    "64, 65, 66, 67, 68, 0, 1, 2",
+    "64, 65, 66, 0, 67, 68, 1, 2",
+    "64, 65, 66, 0, 67, 68, 0, 1, 2"
+   ],
+   "correctIndex": 2,
+   "explanation": "Fetch runs 64–66 and MAP sends opcode 0000 to address 0, where NOP I CALL INDRCT saves 1 in SBR and jumps to 67. INDRCT (67, 68) reads the effective address and RET returns to 1; words 1 and 2 read the operand and add it, and word 2 jumps back to FETCH.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m014",
+   "questionText": "In Mano's microprogrammed computer a BRANCH instruction is executed while AC(15) = 0 (AC not negative). How many microinstructions are executed, counting the fetch routine, before control returns to FETCH?",
+   "options": [
+    "6",
+    "5",
+    "4",
+    "8"
+   ],
+   "correctIndex": 1,
+   "explanation": "Fetch uses 64, 65 and 66, and MAP goes to 4. There NOP S JMP OVER finds S = 0 and falls through to 5, where NOP U JMP FETCH returns: 64, 65, 66, 4, 5 = 5 microinstructions.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m015",
+   "questionText": "What is the purpose of the control data register (pipeline register) at the output of the control memory?",
+   "options": [
+    "It stores the return address of a microprogram subroutine",
+    "It converts the instruction opcode into a routine starting address",
+    "It buffers data words passing between main memory and the CPU",
+    "It holds the current microinstruction so that its control bits drive the datapath while the next address is formed and read"
+   ],
+   "correctIndex": 3,
+   "explanation": "Latching the microinstruction frees the control memory for the next access while the present word executes. SBR stores return addresses, the mapping logic converts opcodes and MBR buffers memory data.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m016",
+   "questionText": "Mano's microprogrammed computer executes ADD (I = 0), STORE (I = 1), BRANCH (I = 0, with AC(15) = 1) and EXCHANGE (I = 0), in that order. Each microinstruction takes 100 ns. Counting every fetch routine, how long do the four instructions take?",
+   "options": [
+    "2.7 µs",
+    "1.5 µs",
+    "2.5 µs",
+    "3.2 µs"
+   ],
+   "correctIndex": 0,
+   "explanation": "ADD: 64, 65, 66, 0, 1, 2 = 6; STORE with the INDRCT call: 64–66, 8, 67, 68, 9, 10 = 8; BRANCH taken: 64–66, 4, 6, 7 = 6; EXCHANGE: 64–66, 12–15 = 7. The total is 27 × 100 ns = 2.7 µs.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m017",
+   "questionText": "A control memory that can be written, so that the microprogram can be loaded from disk at start-up or changed later, makes possible:",
+   "options": [
+    "Dynamic microprogramming",
+    "Hardwired control",
+    "Nanoprogramming",
+    "Instruction pipelining"
+   ],
+   "correctIndex": 0,
+   "explanation": "With a writable control store the microcode is not fixed in ROM, so it can be replaced while the system is in service, for example to fix errors or to add instructions.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m018",
+   "questionText": "In Mano's BRANCH routine the word at address 6 (OVER) is NOP I CALL INDRCT. When a BRANCH with AC(15) = 1 and I = 1 reaches it, what value is stored in SBR?",
+   "options": [
+    "6",
+    "67",
+    "68",
+    "7"
+   ],
+   "correctIndex": 3,
+   "explanation": "CALL saves CAR + 1 = 6 + 1 = 7 in SBR before loading 67, the address of INDRCT. After INDRCT's RET the routine continues at 7 with ARTPC U JMP FETCH.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m019",
+   "questionText": "A microprogram has 2048 microinstructions of 200 bits each, but only 256 of them are different. It is rebuilt as a two-level store: a micromemory of pointers into a nanomemory that holds the 256 distinct 200-bit words. What is the total storage of the two-level scheme?",
+   "options": [
+    "409,600 bits",
+    "51,200 bits",
+    "67,584 bits",
+    "16,384 bits"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each pointer needs log2 256 = 8 bits: micromemory 2048 × 8 = 16,384 bits plus nanomemory 256 × 200 = 51,200 bits gives 67,584 bits. A single-level store would need 2048 × 200 = 409,600 bits.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m020",
+   "questionText": "Which statement about horizontal microinstructions is NOT correct?",
+   "options": [
+    "Many micro-operations can be activated in the same clock",
+    "The word is long because each control signal has its own bit",
+    "Each field has to be decoded before its control signals can be applied",
+    "Little or no decoding logic is needed, so they are fast"
+   ],
+   "correctIndex": 2,
+   "explanation": "Needing a decoder for every field describes vertical (encoded) microinstructions. A horizontal word uses one bit per signal, which makes it long, highly parallel and fast.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m021",
+   "questionText": "Reading a microinstruction from control memory takes 40 ns, and carrying out its micro-operations in the datapath takes 30 ns. With a pipeline register the next microinstruction is read while the current one executes. Ignoring branch effects, what is the microinstruction cycle time?",
+   "options": [
+    "70 ns",
+    "40 ns",
+    "30 ns",
+    "35 ns"
+   ],
+   "correctIndex": 1,
+   "explanation": "With overlap the cycle is set by the slower of the two stages: max(40, 30) = 40 ns. Without the pipeline register the steps are in series: 40 + 30 = 70 ns.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m022",
+   "questionText": "A control memory has 512 words. Each microinstruction has 20 directly controlled signals (one bit each), two encoded fields for groups of 7 and 12 mutually exclusive micro-operations (each field must also encode 'none'), a condition-select field for 8 status bits or 'always true', a 2-bit branch-type field and a next-address field. How long is the microinstruction?",
+   "options": [
+    "41 bits",
+    "33 bits",
+    "54 bits",
+    "42 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "Direct 20 + ceil(log2 8) = 3 + ceil(log2 13) = 4 + condition ceil(log2 9) = 4 + branch 2 + address log2 512 = 9 gives 42 bits. Forgetting 'always' gives 41, leaving out the address gives 33, and one bit per signal in the groups gives 54.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m023",
+   "questionText": "When is a two-level (nanoprogrammed) control store most attractive?",
+   "options": [
+    "When many microinstructions in a long microprogram are identical, so each can be replaced by a short pointer into a small nanomemory",
+    "When the microprogram is short and every microinstruction is different",
+    "When the control unit must be as fast as possible",
+    "When the instruction set is small and regular, as in RISC processors"
+   ],
+   "correctIndex": 0,
+   "explanation": "Nanoprogramming stores each distinct wide word once and replaces the copies with pointers, which saves space at the cost of a second memory access in every step.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m024",
+   "questionText": "A 1K-word control memory holds microinstructions with three encoded fields for groups of 4, 8 and 3 mutually exclusive micro-operations (each field also encodes 'none'), 5 directly controlled bits, a 2-bit branch-type field, a 2-bit condition-select field and a next-address field. What is the total size of the control memory?",
+   "options": [
+    "26,624 bits",
+    "18,432 bits",
+    "3,584 bits",
+    "28,672 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "The encoded fields need ceil(log2 5) = 3, ceil(log2 9) = 4 and ceil(log2 4) = 2 bits; adding 5 + 2 + 2 and log2 1024 = 10 address bits gives 28 bits, and 1024 × 28 = 28,672 bits. Without the 'none' codes the word is 26 bits (26,624), and without the address field 18 bits (18,432).",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m025",
+   "questionText": "Which capability follows naturally from microprogrammed control and is hard to obtain with hardwired control?",
+   "options": [
+    "Executing each instruction in fewer clock cycles than a hardwired unit",
+    "Emulating the instruction set of another computer by loading a different microprogram",
+    "Removing the need for an instruction register",
+    "Eliminating the instruction fetch phase"
+   ],
+   "correctIndex": 1,
+   "explanation": "Because the instruction set is defined by the microcode, a different microprogram lets the same hardware run another machine's instructions; several IBM System/360 models used this to run programs written for older IBM computers.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m026",
+   "questionText": "Which of the following is NOT a way in which a microprogram sequencer forms the next microinstruction address?",
+   "options": [
+    "Incrementing CAR",
+    "Loading the address field when a selected condition is true",
+    "Copying the program counter (PC) into CAR",
+    "Mapping the opcode bits to a routine starting address"
+   ],
+   "correctIndex": 2,
+   "explanation": "The sequencer increments CAR, branches to the address field (conditionally or not), maps the opcode, or calls and returns through SBR. PC addresses machine instructions in main memory, not microinstructions.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m027",
+   "questionText": "In a microprogrammed CPU every instruction runs a 3-microinstruction fetch routine and an execute routine averaging 4 microinstructions, and 40% of instructions also call a 2-microinstruction effective-address subroutine. Each microinstruction takes 60 ns. What is the average instruction time?",
+   "options": [
+    "468 ns",
+    "540 ns",
+    "420 ns",
+    "288 ns"
+   ],
+   "correctIndex": 0,
+   "explanation": "Average microinstructions per instruction = 3 + 4 + 0.4 × 2 = 7.8, and 7.8 × 60 ns = 468 ns. Counting the subroutine for every instruction gives 540 ns, ignoring it gives 420 ns and leaving out the fetch routine gives 288 ns.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m028",
+   "questionText": "In the variable-format microinstruction technique, one bit says whether a word is a control microinstruction or a branch microinstruction. What is the main drawback?",
+   "options": [
+    "Every microinstruction must carry two full address fields",
+    "A branch needs a microinstruction of its own, because the bits that normally carry control signals hold the branch condition and address instead",
+    "The control memory must be writable",
+    "CAR can no longer be incremented between microinstructions"
+   ],
+   "correctIndex": 1,
+   "explanation": "Sharing the bits keeps the words short, but a branch word issues no control signals, so routines take extra cycles. Two explicit address fields in every word are the drawback of a different technique.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m029",
+   "questionText": "A datapath has 64 control signals. A horizontal format uses a 64-bit control field. A vertical format activates exactly one signal per microinstruction, using a code that must also allow 'no operation'. For a routine of 10 steps, each activating 3 signals at once, how many control-field bits does each format use (address fields ignored)?",
+   "options": [
+    "Horizontal 640 bits, vertical 70 bits",
+    "Horizontal 640 bits, vertical 180 bits",
+    "Horizontal 192 bits, vertical 210 bits",
+    "Horizontal 640 bits, vertical 210 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "Horizontal: 10 words × 64 bits = 640. Vertical: 65 codes need ceil(log2 65) = 7 bits and each step needs 3 words, so 30 × 7 = 210 bits; 6-bit codes would give 180, and one word per step 70.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch4_i11_m030",
+   "questionText": "Which of the following is NOT an advantage of microprogrammed control over hardwired control?",
+   "options": [
+    "Easier modification or extension of the instruction set",
+    "A systematic design that simplifies complex control units",
+    "Higher operating speed with the same technology",
+    "Design errors can be corrected by changing the microcode"
+   ],
+   "correctIndex": 2,
+   "explanation": "Microprogrammed control is slower, because every step needs a control-memory read. Its benefits are flexibility, a systematic design and easy correction.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m031",
+   "questionText": "A vertical microinstruction has a single micro-operation field that encodes 100 distinct micro-operations plus a no-operation code. How many bits does this field need?",
+   "options": [
+    "7",
+    "100",
+    "6",
+    "10"
+   ],
+   "correctIndex": 0,
+   "explanation": "101 codes are needed, and 2^6 = 64 < 101 ≤ 128 = 2^7, so 7 bits are required. One bit per micro-operation (100 bits) would be the horizontal choice.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m032",
+   "questionText": "Why do most RISC processors use hardwired control?",
+   "options": [
+    "They have too many instructions to fit into a control memory",
+    "Their simple, fixed-format instructions complete in about one clock, and reading a control memory for each step would lengthen that clock",
+    "Hardwired control is easier to modify when instructions are added",
+    "Microprogrammed control cannot be combined with any form of pipelining"
+   ],
+   "correctIndex": 1,
+   "explanation": "RISC designs aim at about one instruction per cycle with a short cycle time, and hardwired decoding avoids the control-memory access delay. Large, irregular instruction sets are where microprogramming pays off.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m033",
+   "questionText": "A microinstruction has 40 control bits, a 6-bit condition-select field and two explicit next-address fields (one used when the condition is true, the other when it is false) for a 4K-word control memory. How long is the microinstruction?",
+   "options": [
+    "70 bits",
+    "58 bits",
+    "64 bits",
+    "46 bits"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each address field needs log2 4096 = 12 bits, so the word is 40 + 6 + 2 × 12 = 70 bits. With a single address field it would be 58 bits.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m034",
+   "questionText": "Mano's EXCHANGE routine contains the microinstruction ACTDR, DRTAC U JMP NEXT. Why does it swap AC and DR correctly?",
+   "options": [
+    "F1 executes before F2, so DR is copied into AC first and AC into DR afterwards",
+    "The sequencer inserts a hidden temporary register between F1 and F2",
+    "Only DRTAC executes; ACTDR is ignored because both use the bus",
+    "Both transfers are triggered by the same clock edge, so each register receives the other's old contents"
+   ],
+   "correctIndex": 3,
+   "explanation": "DRTAC (F1 = 100) and ACTDR (F2 = 101) are in different fields and take effect together at the end of the clock period, when both registers still hold their old values. If they ran one after the other, both registers would end up with the same value.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m035",
+   "questionText": "Which pair of micro-operations cannot be specified together in one of Mano's 20-bit microinstructions because they are coded in the same field?",
+   "options": [
+    "READ and INCPC",
+    "READ and ACTDR",
+    "PCTAR and READ",
+    "DRTAR and INCPC"
+   ],
+   "correctIndex": 1,
+   "explanation": "READ (100) and ACTDR (101) are both F2 codes, and a field holds only one code. INCPC is in F3 while PCTAR and DRTAR are in F1, so the other pairs are legal; READ, INCPC is in fact the second word of the fetch routine.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m036",
+   "questionText": "A control memory of 16 KiB (1 KiB = 1024 bytes) holds 64-bit microinstructions. How many microinstructions does it hold, and how wide must CAR be?",
+   "options": [
+    "256 microinstructions; 8-bit CAR",
+    "2048 microinstructions; 12-bit CAR",
+    "2048 microinstructions; 11-bit CAR",
+    "16,384 microinstructions; 14-bit CAR"
+   ],
+   "correctIndex": 2,
+   "explanation": "16 KiB = 16 × 1024 × 8 = 131,072 bits, and 131,072 / 64 = 2048 words, so CAR needs log2 2048 = 11 bits. Dividing the byte count by 64 without converting to bits gives 256.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m037",
+   "questionText": "Mano's mapping 0 xxxx 00 gives each opcode four consecutive control words. What is done if a new instruction's routine needs six microinstructions?",
+   "options": [
+    "The routine starts at its mapped address and continues, through a jump, in free words elsewhere in control memory",
+    "The instruction cannot be implemented in this control unit",
+    "The mapping hardware automatically allocates eight words to that opcode",
+    "The extra microinstructions are placed in main memory"
+   ],
+   "correctIndex": 0,
+   "explanation": "The first words sit at the mapped address, and a JMP in the last of them transfers to spare control words (for example above the fetch and INDRCT words), where the routine is completed and returns to FETCH.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m038",
+   "questionText": "An ADD instruction with I = 0 reaches control address 0, where Mano's microinstruction is NOP I CALL INDRCT. What does the sequencer do?",
+   "options": [
+    "CAR ← 67 and SBR ← 1",
+    "CAR ← 1; SBR is not changed",
+    "CAR ← 1 and SBR ← 1",
+    "CAR ← 64 (return to FETCH)"
+   ],
+   "correctIndex": 1,
+   "explanation": "With the condition false, CALL behaves like a branch not taken: CAR is simply incremented and the SBR load signal stays inactive. Only when I = 1 does it store 1 in SBR and jump to 67.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m039",
+   "questionText": "What does the mapping process in a microprogrammed control unit do?",
+   "options": [
+    "Converts a virtual address into a physical main-memory address",
+    "Converts the opcode of a machine instruction into the starting address of its routine in control memory",
+    "Assigns each micro-operation to a field of the microinstruction",
+    "Copies the control memory into a cache at start-up"
+   ],
+   "correctIndex": 1,
+   "explanation": "After fetch, the opcode bits are transformed, by a fixed bit arrangement or a mapping ROM, into a control-memory address, so the sequencer can jump to that instruction's microroutine.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m040",
+   "questionText": "In Mano's 128-word control memory the fetch routine is placed at address 64. Why?",
+   "options": [
+    "Address 64 is the reset address of every control ROM",
+    "Addresses 0–63 are reserved for the interrupt cycle",
+    "A routine that starts at a power of two runs faster",
+    "The mapping 0 xxxx 00 puts every opcode routine in addresses 0–63, so 64–127 are free for fetch and shared subroutines"
+   ],
+   "correctIndex": 3,
+   "explanation": "With a 0 in the top bit of the mapped address, all 16 opcodes × 4 words fall in the lower half of control memory. The upper half, starting at 64, holds FETCH and INDRCT.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m041",
+   "questionText": "In a microprogrammed CPU, how is one machine-language instruction carried out?",
+   "options": [
+    "By a routine of one or more microinstructions read from control memory",
+    "By one machine-language subroutine stored in main memory",
+    "By a single state of a hardwired sequence counter",
+    "By an interrupt service routine"
+   ],
+   "correctIndex": 0,
+   "explanation": "Each machine instruction is interpreted by its own microroutine: after the shared fetch routine, the mapped routine issues the control words that perform the instruction.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m042",
+   "questionText": "In Mano's microinstruction format, what is the AD field used for when BR = 10 (RET)?",
+   "options": [
+    "It is loaded into CAR",
+    "It is saved into SBR",
+    "It is added to SBR to form the return address",
+    "It is not used, because CAR is loaded from SBR"
+   ],
+   "correctIndex": 3,
+   "explanation": "RET selects the SBR input of the sequencer multiplexer whatever the condition, so the address field is ignored; in the binary microprogram the AD field of such a word is simply 0000000.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m043",
+   "questionText": "Which statement about Mano's microprogrammed control unit is NOT correct?",
+   "options": [
+    "With BR = CALL and a false condition, CAR is simply incremented",
+    "With BR = MAP, the next address comes from the opcode whatever the CD field selects",
+    "Enlarging the control memory from 128 to 256 words requires wider F1, F2 and F3 fields",
+    "The U condition is always 1, so U JMP is an unconditional branch"
+   ],
+   "correctIndex": 2,
+   "explanation": "More control words need one more address bit, in CAR and the AD field (7 to 8 bits); the F fields depend only on the micro-operations they encode. The other three statements describe the sequencer correctly.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m044",
+   "questionText": "Which fields of Mano's 20-bit microinstruction go to the next-address logic (sequencer) rather than being decoded into datapath micro-operations?",
+   "options": [
+    "F1, F2 and F3",
+    "CD, BR and AD",
+    "F3 and AD only",
+    "BR only"
+   ],
+   "correctIndex": 1,
+   "explanation": "CD selects the status bit to test, BR chooses the kind of address transition and AD supplies the branch address, while the F fields are decoded into register-transfer signals.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch4_i11_m045",
+   "questionText": "A control memory holds 2K microinstructions of 48 bits each. What is its capacity in KiB (1 KiB = 1024 bytes)?",
+   "options": [
+    "96 KiB",
+    "6 KiB",
+    "12 KiB",
+    "12,288 KiB"
+   ],
+   "correctIndex": 2,
+   "explanation": "2048 × 48 = 98,304 bits = 12,288 bytes = 12 KiB. Dividing the bit count by 1024 without first converting to bytes gives 96.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch4_i11_m046",
+   "questionText": "An instruction set of 40 instructions needs execute routines averaging 6 microinstructions each, plus a shared 3-word fetch routine and a 2-word effective-address subroutine. The number of control-memory words must be a power of two. Each microinstruction has 36 control bits, a 3-bit condition field, a 2-bit branch field and a next-address field. What is the minimum control memory size?",
+   "options": [
+    "12,005 bits",
+    "10,496 bits",
+    "25,600 bits",
+    "12,544 bits"
+   ],
+   "correctIndex": 3,
+   "explanation": "Words needed = 40 × 6 + 3 + 2 = 245, rounded up to 256, so the address field is 8 bits and a word is 36 + 3 + 2 + 8 = 49 bits: 256 × 49 = 12,544 bits. Not rounding up gives 245 × 49 = 12,005, and dropping the address field gives 256 × 41 = 10,496.",
+   "difficulty": "hard"
+  }
+ ]
+}

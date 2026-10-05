@@ -1,0 +1,551 @@
+{
+  "topicId": "ch5_t1",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Layer Functions, Encapsulation and Protocol Placement"
+    },
+    {
+      "type": "bulletList",
+      "text": "Top-down memory aid 'All People Seem To Need Data Processing' (layer 7 to layer 1), with each layer's job in one line:",
+      "items": [
+        "Application (7), where the user interacts: browsers and mail clients use protocols such as HTTP, FTP, SMTP and DNS.",
+        "Presentation (6), data formatting: translation between representations (ASCII/Unicode, JPEG, MPEG), compression and encryption. Older notes list SSL here; SSL is obsolete and today's equivalent is TLS 1.2/1.3.",
+        "Session (5), manages conversations: opens, maintains and closes dialogues and inserts checkpoints so that a long transfer can resume after a failure.",
+        "Transport (4), delivery between processes: TCP gives reliable, ordered delivery with flow and error control; UDP is connectionless with low overhead and no retransmission.",
+        "Network (3), routing: logical (IP) addressing and choice of path across many networks; IP is the protocol, helped by ICMP and the routing protocols.",
+        "Data link (2), frame creation: groups bits into frames, adds MAC addresses and an error-detecting trailer (FCS); examples are Ethernet (802.3) and Wi-Fi (802.11).",
+        "Physical (1), raw bits: cables, connectors, voltages, light pulses and radio signals; hubs and repeaters work at this layer."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The TCP/IP model can be remembered as A-T-I-N from the top: Application (OSI 5 to 7), Transport (OSI 4), Internet (OSI 3) and Network Access (OSI 1 and 2). OSI is a reference model used for learning and design, while TCP/IP is the suite that actually runs the Internet. The two were built in opposite orders: the OSI layers were defined first and protocols were written for them later, so the model is general but its protocols never caught on. TCP/IP's protocols came first and the model was drawn afterwards to describe them, so it fits TCP/IP closely but describes other stacks poorly."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Aspect",
+          "OSI model",
+          "TCP/IP model"
+        ],
+        [
+          "Developed by",
+          "ISO (ISO 7498, published 1984)",
+          "DARPA's ARPANET research; now maintained by the IETF"
+        ],
+        [
+          "Number of layers",
+          "7",
+          "4 in RFC 1122 (Forouzan draws 5)"
+        ],
+        [
+          "Order of design",
+          "Model first, protocols later",
+          "Protocols first, model later"
+        ],
+        [
+          "Network-layer service",
+          "Connectionless and connection-oriented",
+          "Connectionless only (IP datagrams)"
+        ],
+        [
+          "Transport-layer service",
+          "Connection-oriented in the original design",
+          "Both: TCP connection-oriented, UDP connectionless"
+        ],
+        [
+          "Session and presentation",
+          "Separate layers 5 and 6",
+          "Folded into the application layer"
+        ],
+        [
+          "Use today",
+          "Teaching and reference vocabulary",
+          "The working protocol suite of the Internet"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Data flow (transmission mode) between two devices takes one of three forms:",
+      "items": [
+        "Simplex: one direction only, like a keyboard sending to a computer or a broadcast transmitter; one side always sends and the other always receives.",
+        "Half-duplex: both directions but not at the same time, like a walkie-talkie; whichever side is sending uses the whole channel. Hub-based Ethernet runs half-duplex.",
+        "Full-duplex: both directions at the same time, like a telephone call; the capacity is shared between the two directions or separate paths are used. Switched Ethernet links run full-duplex."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "How the main standards bodies work:",
+      "items": [
+        "IETF: a proposal starts as an Internet-Draft, which expires after six months unless revised; an approved specification is published as an RFC and matures from Proposed Standard to Internet Standard (RFC 6410 cut the old three levels to two). Not every RFC is a standard: many are informational or experimental.",
+        "IEEE 802 committee: 802.1 bridging and VLANs (802.1D, 802.1Q), 802.3 Ethernet, 802.11 wireless LAN, 802.15 wireless PAN (802.15.1 was based on Bluetooth, 802.15.4 underlies Zigbee) and 802.16 WiMAX.",
+        "ITU-T (formerly CCITT): telephone and WAN standards such as X.25, the V-series modem standards and the G-series transmission standards.",
+        "ISO: international standards in every industry, including the OSI reference model; ANSI is the United States member body of ISO, and EIA/TIA write cabling standards.",
+        "De facto standards arise from widespread use (HTTP began this way with the first Web browsers), while de jure standards are formally adopted by a recognised body."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Protocol",
+          "Carried in",
+          "TCP/IP layer by encapsulation"
+        ],
+        [
+          "ARP",
+          "Ethernet frame, EtherType 0x0806 (no IP header)",
+          "Between link and Internet layers"
+        ],
+        [
+          "ICMP",
+          "IPv4 datagram, protocol number 1",
+          "Internet"
+        ],
+        [
+          "OSPF",
+          "IP datagram, protocol number 89",
+          "Internet (routing protocol carried directly in IP)"
+        ],
+        [
+          "RIP",
+          "UDP, port 520",
+          "Application process that performs network-layer routing"
+        ],
+        [
+          "BGP",
+          "TCP, port 179",
+          "Application process that performs network-layer routing"
+        ],
+        [
+          "DHCP",
+          "UDP, ports 67 (server) and 68 (client)",
+          "Application"
+        ],
+        [
+          "DNS",
+          "UDP or TCP, port 53",
+          "Application"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Every header carries a field that tells the receiver which protocol above should get the payload, so decapsulation is a chain of lookups. In an Ethernet frame the EtherType is 0x0800 for IPv4, 0x86DD for IPv6 or 0x0806 for ARP; in the IPv4 header the Protocol field is 1 for ICMP, 6 for TCP or 17 for UDP; and the destination port finally selects the application process, for example 53 for DNS. A router decapsulates only up to layer 3 and builds a new layer-2 frame for the next hop, so MAC addresses change hop by hop while the source and destination IP addresses stay the same unless NAT rewrites them."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: encapsulating 1,000 bytes of HTTP data (no IP/TCP options)\nApplication data                      : 1000 bytes\n+ TCP header 20        -> segment      = 1020 bytes\n+ IPv4 header 20       -> packet       = 1040 bytes\n+ Ethernet header 14 + FCS 4 -> frame  = 1058 bytes (dest MAC .. FCS)\n+ preamble and SFD 8   -> on the wire  = 1066 bytes\n+ inter-frame gap 12   -> link time    = 1078 byte times\nShare of link time carrying application data = 1000 / 1078 = 92.8 %"
+    },
+    {
+      "type": "formula",
+      "latex": "f_{hdr} = \\frac{nh}{M + nh}, \\quad \\eta = \\frac{M}{M + nh}",
+      "plainText": "Header fraction f = nh / (M + nh) and efficiency = M / (M + nh), for an M-byte message passing n layers that each add an h-byte header"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: header overhead in an n-layer stack\nMessage M = 400 bytes, n = 5 layers, each adds h = 20 bytes\nHeaders    = n x h = 5 x 20       = 100 bytes\nSent       = M + nh = 400 + 100   = 500 bytes\nHeader fraction = 100 / 500       = 20 %\nEfficiency      = 400 / 500       = 80 %\nAt 1 Mbps: 500 x 8 = 4000 bits -> 4 ms (only 3.2 ms carry the message)\nTrap: 100 / 400 = 25 % divides by the message, not by what is sent"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: only the data link layer adds a trailer (the FCS) as well as a header; the TCP/IP model has no separate session or presentation layer; SSL 2.0 and 3.0 are prohibited (RFC 6176 and RFC 7568), so name TLS for encryption today; and ARP and OSPF are not carried over UDP or TCP, while RIP, BGP, DHCP and DNS are."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_t1_m001",
+      "questionText": "Which layer of the OSI model is responsible for routing packets from the source network to the destination network?",
+      "options": [
+        "Data link layer",
+        "Network layer",
+        "Transport layer",
+        "Session layer"
+      ],
+      "correctIndex": 1,
+      "explanation": "The network layer (layer 3) handles logical (IP) addressing and chooses the path through intermediate routers. The data link layer only moves frames across a single link.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m002",
+      "questionText": "How many layers does the TCP/IP reference model have in its standard form (RFC 1122)?",
+      "options": [
+        "4",
+        "5",
+        "7",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "RFC 1122 describes four layers: application, transport, internet and link (network access). Some textbooks, such as Forouzan, split the link layer into data link and physical and draw five.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m003",
+      "questionText": "In the OSI reference model, which layer is responsible for data encryption and compression?",
+      "options": [
+        "Application layer",
+        "Session layer",
+        "Presentation layer",
+        "Transport layer"
+      ],
+      "correctIndex": 2,
+      "explanation": "The presentation layer (layer 6) handles the representation of data: translation, compression and encryption. In the TCP/IP model these jobs are done inside the application layer, for example by a TLS library.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m004",
+      "questionText": "In which topology are all devices connected to one central node, so that a failure of that node brings down the whole network?",
+      "options": [
+        "Mesh",
+        "Ring",
+        "Bus",
+        "Star"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a star each device has its own link to a central hub or switch. A cable fault affects only one device, but the central device is a single point of failure.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m005",
+      "questionText": "Which of the following describes full-duplex communication?",
+      "options": [
+        "Data flows in both directions at the same time",
+        "Data flows in one direction only",
+        "Data flows in both directions, but only one direction at a time",
+        "Data is buffered and retransmitted later"
+      ],
+      "correctIndex": 0,
+      "explanation": "Full-duplex lets both stations transmit simultaneously, like a telephone call. One direction only is simplex, and taking turns in both directions is half-duplex, like a walkie-talkie.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m006",
+      "questionText": "Which protocol automatically assigns IP addresses, subnet masks and default gateways to hosts on a network?",
+      "options": [
+        "ARP",
+        "ICMP",
+        "DHCP",
+        "DNS"
+      ],
+      "correctIndex": 2,
+      "explanation": "DHCP (Dynamic Host Configuration Protocol) leases addresses and settings to clients; it is an application-layer protocol over UDP ports 67 (server) and 68 (client). ARP maps IP addresses to MAC addresses and DNS maps names to IP addresses.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m007",
+      "questionText": "When TCP is the transport protocol, what is the protocol data unit at the transport layer called?",
+      "options": [
+        "Frame",
+        "Segment",
+        "Packet",
+        "Bit"
+      ],
+      "correctIndex": 1,
+      "explanation": "TCP carries data in segments (UDP's unit is the user datagram). The network-layer PDU is the packet or datagram, the data link PDU the frame, and the physical layer carries bits.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m008",
+      "questionText": "Which organisation develops the Internet's protocol standards and publishes them as RFCs (Requests for Comments)?",
+      "options": [
+        "IEEE",
+        "ITU-T",
+        "ANSI",
+        "IETF"
+      ],
+      "correctIndex": 3,
+      "explanation": "The Internet Engineering Task Force develops Internet standards, published as RFCs such as RFC 791 (IPv4) and RFC 9293 (TCP). IEEE writes LAN standards such as 802.3, and ITU-T writes telecommunication standards.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m009",
+      "questionText": "In the memory aid 'All People Seem To Need Data Processing' for the OSI layers from layer 7 down to layer 1, which layer does the word 'Need' stand for?",
+      "options": [
+        "Network layer",
+        "Transport layer",
+        "Data link layer",
+        "Session layer"
+      ],
+      "correctIndex": 0,
+      "explanation": "Read top down: Application, Presentation, Session, Transport, Network, Data link, Physical. 'Need' is the fifth word, so it is the network layer (layer 3).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_t1_m010",
+      "questionText": "Which TCP/IP protocol do hosts and routers use to report delivery problems, such as 'destination unreachable', back to the source of an IP datagram?",
+      "options": [
+        "ARP",
+        "TCP",
+        "ICMP",
+        "UDP"
+      ],
+      "correctIndex": 2,
+      "explanation": "ICMP (RFC 792) carries error-reporting and query messages inside IP datagrams, with protocol number 1. ARP resolves addresses, and TCP and UDP are transport protocols.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m011",
+      "questionText": "Which element of a protocol specifies when data should be sent and how fast it may be sent?",
+      "options": [
+        "Syntax",
+        "Timing",
+        "Semantics",
+        "Encoding"
+      ],
+      "correctIndex": 1,
+      "explanation": "A protocol has three key elements: syntax (the format and order of fields), semantics (the meaning of each field and the action to take) and timing (when to send and at what speed).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m012",
+      "questionText": "HTTP was used by the first Web browsers and servers and was widely adopted before any formal standard existed. A standard that arises in this way is called:",
+      "options": [
+        "A de jure standard",
+        "An Internet-Draft",
+        "A reference model",
+        "A de facto standard"
+      ],
+      "correctIndex": 3,
+      "explanation": "A de facto standard ('in fact') is established by widespread use without formal approval, while a de jure standard ('by law') is formally adopted by a recognised body. HTTP was later specified in IETF RFCs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m013",
+      "questionText": "Which IEEE 802 working group standardises wireless personal area networks (WPANs)?",
+      "options": [
+        "802.15",
+        "802.3",
+        "802.11",
+        "802.1"
+      ],
+      "correctIndex": 0,
+      "explanation": "IEEE 802.15 covers WPANs: 802.15.1 was based on Bluetooth and 802.15.4 underlies Zigbee. 802.3 is Ethernet, 802.11 is wireless LAN and 802.1 covers bridging and VLANs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m014",
+      "questionText": "The application layer of the TCP/IP model corresponds to the OSI application layer together with which two other OSI layers?",
+      "options": [
+        "Transport and session",
+        "Network and transport",
+        "Session and presentation",
+        "Presentation and data link"
+      ],
+      "correctIndex": 2,
+      "explanation": "TCP/IP's application layer absorbs OSI layers 5, 6 and 7, so session control, encryption and data formatting are handled by the applications themselves. The transport layer maps one-to-one onto OSI layer 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m015",
+      "questionText": "During encapsulation, which layer adds both a header and a trailer to the data it receives from the layer above?",
+      "options": [
+        "Transport layer",
+        "Network layer",
+        "Application layer",
+        "Data link layer"
+      ],
+      "correctIndex": 3,
+      "explanation": "The data link layer adds a header (MAC addresses and type) and a trailer (the frame check sequence, a CRC) to form a frame. The transport and network layers add headers only.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m016",
+      "questionText": "Which pairing of address type and TCP/IP layer is correct?",
+      "options": [
+        "MAC address - network layer",
+        "Port number - transport layer",
+        "IP address - data link layer",
+        "URL - physical layer"
+      ],
+      "correctIndex": 1,
+      "explanation": "Port numbers (16 bits) identify processes at the transport layer. MAC addresses belong to the data link layer, IP addresses to the network layer, and URLs or e-mail addresses are application-level (specific) addresses.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m017",
+      "questionText": "Which statement about the type of service offered by layers of the TCP/IP model is correct?",
+      "options": [
+        "The Internet layer offers only connectionless service, while the transport layer offers both connection-oriented (TCP) and connectionless (UDP) service",
+        "The Internet layer offers both connection-oriented and connectionless service, while the transport layer offers only connection-oriented service",
+        "Both the Internet layer and the transport layer offer only connection-oriented service",
+        "The Internet layer is connection-oriented, while the transport layer offers only connectionless service"
+      ],
+      "correctIndex": 0,
+      "explanation": "IP is a connectionless datagram service, and above it the transport layer offers a choice of TCP (connection-oriented, reliable) or UDP (connectionless). The second option is the pattern Tanenbaum gives for the OSI model (both services at the network layer, only connection-oriented service at the transport layer), not for TCP/IP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m018",
+      "questionText": "Which function belongs to the OSI data link layer rather than to the network layer?",
+      "options": [
+        "Choosing a path through several intermediate networks",
+        "Assigning logical addresses that are unique across the internetwork",
+        "Delivering frames between two directly connected nodes using MAC addresses",
+        "Fragmenting packets to fit the MTU of the next network"
+      ],
+      "correctIndex": 2,
+      "explanation": "The data link layer gives hop-to-hop (node-to-node) delivery of frames over one link. Routing, logical addressing and IPv4 fragmentation are network-layer jobs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m019",
+      "questionText": "Which of the following protocols is carried directly inside IP datagrams rather than over TCP or UDP?",
+      "options": [
+        "RIP",
+        "BGP",
+        "DNS",
+        "OSPF"
+      ],
+      "correctIndex": 3,
+      "explanation": "OSPF messages are placed straight into IP datagrams with protocol number 89. RIP uses UDP port 520, BGP uses TCP port 179 and DNS normally uses UDP (or TCP) port 53.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m020",
+      "questionText": "Which protocol's messages are carried directly in an Ethernet frame, with no IP header at all?",
+      "options": [
+        "ICMP",
+        "ARP",
+        "DHCP",
+        "OSPF"
+      ],
+      "correctIndex": 1,
+      "explanation": "ARP requests and replies use EtherType 0x0806 and sit directly in the frame, because ARP is how a host finds the MAC address it needs. ICMP and OSPF travel inside IP datagrams, and DHCP runs over UDP and IP.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m021",
+      "questionText": "In a layered network architecture, what is the difference between a protocol and an interface?",
+      "options": [
+        "A protocol is the set of rules between peer layers on different machines; an interface defines the operations and services between adjacent layers on the same machine",
+        "A protocol connects adjacent layers on one machine; an interface connects peer layers on different machines",
+        "A protocol is always implemented in hardware; an interface is always implemented in software",
+        "A protocol applies only to the physical layer; interfaces apply to all the other layers"
+      ],
+      "correctIndex": 0,
+      "explanation": "Layer n on one host communicates logically with layer n on the other host using the layer-n protocol, and it obtains services from layer n-1 on the same host through the interface. Keeping the two separate lets one layer's implementation change without affecting its neighbours.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m022",
+      "questionText": "In the OSI service model with the four primitives request, indication, response and confirm, which primitive informs the called service user that a remote peer wants to set up a connection?",
+      "options": [
+        "Request",
+        "Response",
+        "Indication",
+        "Confirm"
+      ],
+      "correctIndex": 2,
+      "explanation": "The caller issues CONNECT.request; the service provider delivers CONNECT.indication to the called user; the called user answers with CONNECT.response; and the caller finally receives CONNECT.confirm.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m023",
+      "questionText": "Which analogy best matches a connectionless (datagram) service?",
+      "options": [
+        "A telephone call, in which a circuit is set up before anyone talks",
+        "The postal system, in which each letter carries the full destination address and is handled independently",
+        "A pipe, in which items always come out in the order they went in",
+        "A train carriage reserved for one passenger for the whole journey"
+      ],
+      "correctIndex": 1,
+      "explanation": "In a connectionless service every message carries the full address and is forwarded on its own, so messages may take different paths and arrive out of order. A connection-oriented service works like a telephone call, with setup, transfer and release.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m024",
+      "questionText": "In a bus topology, what is the purpose of the terminators fitted at both ends of the backbone cable?",
+      "options": [
+        "To amplify the signal for distant stations",
+        "To assign addresses to the stations on the bus",
+        "To connect the bus to a router",
+        "To absorb the signal at the cable ends so that it does not reflect back and interfere"
+      ],
+      "correctIndex": 3,
+      "explanation": "A terminator is a resistor matched to the cable's impedance. Without it the signal reflects off the open end and corrupts later transmissions, disrupting the whole bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_t1_m025",
+      "questionText": "A protocol stack has 4 layers and each layer adds a 20-byte header. An application passes down a 560-byte message, which is sent on a 1 Mbps link (1 Mbps = 10^6 bit/s, no other overhead). What fraction of the transmitted bytes are headers, and how long does the transmission take?",
+      "options": [
+        "12.5 %, 5.12 ms",
+        "14.3 %, 4.48 ms",
+        "12.5 %, 4.48 ms",
+        "87.5 %, 5.12 ms"
+      ],
+      "correctIndex": 0,
+      "explanation": "Headers = 4 x 20 = 80 bytes, so 640 bytes are sent and the header fraction is 80 / 640 = 12.5 %. Time = 640 x 8 / 10^6 = 5.12 ms; 14.3 % and 4.48 ms wrongly use the 560-byte message alone.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t1_m026",
+      "questionText": "A web server sends 1,200 bytes of application data in one TCP segment over IPv4 and Ethernet. Assuming 20-byte TCP and IPv4 headers (no options), a 14-byte Ethernet header and a 4-byte FCS, how long is the Ethernet frame from the destination MAC address to the end of the FCS?",
+      "options": [
+        "1,240 bytes",
+        "1,254 bytes",
+        "1,258 bytes",
+        "1,266 bytes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Frame = 1200 + 20 (TCP) + 20 (IPv4) + 14 (header) + 4 (FCS) = 1,258 bytes. 1,240 is only the IP packet, 1,254 forgets the FCS and 1,266 wrongly adds the 8-byte preamble and SFD.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t1_m027",
+      "questionText": "A host sends a long file over 100 Mbps Ethernet in full-size frames with a 1,500-byte payload. Each frame also costs 8 bytes of preamble and SFD, a 14-byte header, a 4-byte FCS and a 12-byte inter-frame gap, and every payload carries 20-byte IPv4 and 20-byte TCP headers (no options). What is the maximum application-data throughput (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "93.8 Mbps",
+        "94.9 Mbps",
+        "96.2 Mbps",
+        "97.5 Mbps"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each frame occupies 8 + 14 + 1500 + 4 + 12 = 1,538 byte times and carries 1500 - 40 = 1,460 bytes of data, so throughput = 100 x 1460 / 1538 = 94.9 Mbps. 97.5 ignores the TCP/IP headers and 96.2 ignores the preamble and gap.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t1_m028",
+      "questionText": "A fully connected mesh network uses 66 dedicated duplex links. How many devices does it have, and how many I/O ports are needed in total?",
+      "options": [
+        "12 devices, 66 ports in total",
+        "11 devices, 110 ports in total",
+        "12 devices, 144 ports in total",
+        "12 devices, 132 ports in total"
+      ],
+      "correctIndex": 3,
+      "explanation": "n(n - 1)/2 = 66 gives n = 12. Each device needs n - 1 = 11 ports, so the total is 12 x 11 = 132 (two ports per link: 2 x 66); 66 ports counts only one end of each link.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t1_m029",
+      "questionText": "A host receives an Ethernet frame whose EtherType is 0x0800. Inside it, the IPv4 Protocol field is 17 and the transport header's destination port is 53. Which chain of protocols processes the frame, from bottom to top?",
+      "options": [
+        "Ethernet -> IPv4 -> UDP -> DNS",
+        "Ethernet -> IPv6 -> UDP -> DNS",
+        "Ethernet -> IPv4 -> TCP -> DNS",
+        "Ethernet -> ARP -> UDP -> DHCP"
+      ],
+      "correctIndex": 0,
+      "explanation": "EtherType 0x0800 means IPv4 (0x86DD would be IPv6 and 0x0806 ARP), Protocol 17 means UDP (6 would be TCP), and port 53 is DNS. Each header names the protocol that receives its payload.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_t1_m030",
+      "questionText": "A packet travels from host A through two routers to host B, and no NAT is used. Which statement correctly describes the addresses carried on the three links?",
+      "options": [
+        "The MAC addresses stay the same on every link, while the IP addresses change at each router",
+        "Both the MAC and the IP addresses stay the same from end to end",
+        "The source and destination IP addresses stay the same on every link, while the source and destination MAC addresses change on each link",
+        "Both the MAC and the IP addresses are replaced at each router"
+      ],
+      "correctIndex": 2,
+      "explanation": "IP addresses identify the two end hosts and are carried unchanged across the internetwork. Each router removes the incoming frame and builds a new one whose source MAC is its outgoing interface and whose destination MAC is the next hop, found by ARP.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,542 @@
+{
+  "topicId": "ch5_i55",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Monitoring Tools"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your monitoring notes, cleaned up and corrected:",
+      "items": [
+        "MRTG (Multi Router Traffic Grapher) monitors link traffic by polling SNMP counters and graphing the average bandwidth used, which shows congestion and growth trends; it does not capture or decode packets.",
+        "PRTG, originally 'Paessler Router Traffic Grapher' and now PRTG Network Monitor, is a full monitoring suite: bandwidth, uptime (ping, HTTP), device health and alerts, viewed through a web interface or mobile apps.",
+        "SNMP (Simple Network Management Protocol) is how these tools collect the information: a manager polls the agents on routers, switches and servers, and the agents report errors and events on their own with traps.",
+        "Wireshark captures packets and decodes them layer by layer for troubleshooting. It really does show passwords sent by unencrypted protocols such as Telnet, FTP or HTTP, but not the contents of TLS or SSH sessions without their keys.",
+        "Packet Tracer is Cisco's simulator for building and testing networks without real hardware; it cannot monitor or capture traffic on a real network."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "SNMP in more depth:",
+      "items": [
+        "OID tree: iso(1).org(3).dod(6).internet(1) = 1.3.6.1; below it mgmt(2).mib-2(1) = 1.3.6.1.2.1 holds the standard MIB-II groups (system .1, interfaces .2, ip .4, tcp .6, udp .7), and private(4).enterprises(1) = 1.3.6.1.4.1 holds vendor MIBs, e.g. Cisco's under 1.3.6.1.4.1.9.",
+        "Instances: a scalar object is read with the suffix .0, e.g. sysUpTime.0 = 1.3.6.1.2.1.1.3.0, while a table column takes the row index, e.g. ifOutOctets of interface 2 = 1.3.6.1.2.1.2.2.1.16.2.",
+        "GetBulk (v2c and v3) with N non-repeaters, R repeating variables and max-repetitions M returns up to N + M x R variable bindings in one response.",
+        "SNMP runs over UDP because each poll is one small request and reply, the manager handles timeouts and retries itself, and a connectionless protocol keeps working when the network is congested or failing.",
+        "Security: v1 and v2c authenticate only with a community string sent in clear text (the common defaults 'public' for read and 'private' for read-write are widely known); SNMPv3's User-based Security Model offers the levels noAuthNoPriv, authNoPriv (HMAC authentication) and authPriv (authentication plus AES or DES encryption), with view-based access control."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Trace: snmpwalk -v2c -c public 192.0.2.1 ifDescr   (GetNext requests to UDP 161)\nGetNext ifDescr     -> ifDescr.1 = \"Gi0/0\"\nGetNext ifDescr.1   -> ifDescr.2 = \"Gi0/1\"\nGetNext ifDescr.2   -> ifDescr.3 = \"Null0\"\nGetNext ifDescr.3   -> ifType.1 = 6   (outside ifDescr, so the walk stops)\nA column of r rows needs r + 1 GetNext requests; here 3 + 1 = 4"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Goal",
+          "Capture filter (BPF, set before capturing)",
+          "Display filter (applied afterwards)"
+        ],
+        [
+          "Traffic to or from one host",
+          "host 10.0.0.5",
+          "ip.addr == 10.0.0.5"
+        ],
+        [
+          "Only web traffic on port 80",
+          "tcp port 80",
+          "tcp.port == 80"
+        ],
+        [
+          "Only DNS",
+          "port 53",
+          "dns"
+        ],
+        [
+          "One subnet",
+          "net 192.168.1.0/24",
+          "ip.addr == 192.168.1.0/24"
+        ],
+        [
+          "Everything except SSH",
+          "not port 22",
+          "!(tcp.port == 22)"
+        ],
+        [
+          "Only ICMP (ping)",
+          "icmp",
+          "icmp"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\Delta C = (C_2 - C_1 + 2^{32}) \\bmod 2^{32}, \\quad R = \\frac{8\\,\\Delta C}{\\Delta t}",
+      "plainText": "Counter increase allowing for one wrap of a 32-bit counter: delta = (C2 - C1 + 2^32) mod 2^32; rate in bit/s = 8 x delta / interval"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: 32-bit ifInOctets polled 300 s apart (MRTG's default interval)\nReading 1: C1 = 4,290,000,000      Reading 2: C2 = 3,032,704   (C2 < C1, so it wrapped)\nDelta = 2^32 - C1 + C2 = 4,294,967,296 - 4,290,000,000 + 3,032,704 = 8,000,000 octets\nRate  = 8 x 8,000,000 / 300 = 213,333 bit/s, about 213 kbit/s\nNaive C2 - C1 = -4,286,967,296: a negative, meaningless rate\nOn a 2 Mbps link this is 213,333 / 2,000,000 = about 10.7 % utilisation"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: how often must a 32-bit octet counter be polled?\nWrap time at full load = 2^32 x 8 / link rate\n  100 Mbps: 34,359,738,368 / 10^8 = 343.6 s   (just longer than a 300 s poll)\n  1 Gbps:   34.4 s, so it can wrap several times between 5-minute polls\nFix: the 64-bit ifHCInOctets / ifHCOutOctets counters (SNMPv2c or v3), which take\n  2^64 x 8 / 10^10 = about 468 years to wrap even at 10 Gbps\nUtilisation: 5,625,000 octets in 300 s on a 1 Mbps link\n  = 8 x 5,625,000 / 300 = 150,000 bit/s = 15 %"
+    },
+    {
+      "type": "bulletList",
+      "text": "Wireshark and tcpdump in practice:",
+      "items": [
+        "Promiscuous mode makes the network card pass up every frame it receives, not only those addressed to it. On a switched LAN that is still only your own traffic plus broadcast, multicast and flooded frames, so seeing other hosts needs a SPAN (port-mirroring) port or a network tap; capturing all 802.11 frames on Wi-Fi needs monitor mode.",
+        "Follow TCP Stream applies the display filter tcp.stream eq N and shows the reassembled payload of that one connection, with client and server data in different colours.",
+        "Colouring rules are display filters that paint matching rows in the packet list; the default 'Bad TCP' rule, for example, highlights retransmissions, duplicate ACKs and zero windows. They never change what is captured.",
+        "Statistics menus give Conversations and Endpoints (who talks to whom, and how much), Protocol Hierarchy and I/O Graphs, and Analyze > Expert Information lists warnings such as retransmissions.",
+        "tcpdump options: -i interface, -n no name resolution, -c packet count, -w write a pcap file, -r read one, followed by a BPF expression, e.g. tcpdump -i eth0 -n -w web.pcap tcp port 80."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "NetFlow, PRTG and Packet Tracer:",
+      "items": [
+        "NetFlow (Cisco; standardised as IPFIX) makes a router group packets into flows by key fields (source and destination IP and port, protocol, ToS and input interface) and export one record per flow, with packet and byte counts and times, to a collector over UDP. It answers who is using the bandwidth, which interface counters cannot; sFlow instead samples 1 in N packets.",
+        "PRTG: each sensor is one measurement (traffic on one port, ping time, CPU load, free disk space). Data come from SNMP, WMI (Windows performance data without SNMP), packet sniffing, NetFlow/sFlow/IPFIX and HTTP, with scanning intervals from 30 s up to a day; the free edition covers 100 sensors.",
+        "Packet Tracer: Realtime mode behaves like a live network, while Simulation mode pauses time so you can step through the Event List and open each PDU to see its OSI-layer details; topologies are saved as .pkt files."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Question to answer",
+          "Best tool",
+          "Why"
+        ],
+        [
+          "How busy was the WAN link each day this month?",
+          "MRTG or PRTG (SNMP counters)",
+          "Long-term averages of interface octet counters"
+        ],
+        [
+          "Which hosts and applications use that bandwidth?",
+          "NetFlow, sFlow or IPFIX collector (e.g. a PRTG flow sensor)",
+          "Per-flow records name the addresses and ports"
+        ],
+        [
+          "Why does this one TCP connection stall?",
+          "Wireshark or tcpdump",
+          "Shows every segment, retransmission and window"
+        ],
+        [
+          "Tell me at once when a link goes down",
+          "SNMP traps or informs sent to the manager",
+          "The agent reports the event without being polled"
+        ],
+        [
+          "Will this OSPF design work before we buy routers?",
+          "Cisco Packet Tracer",
+          "Simulates the devices and their IOS configuration"
+        ]
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "MRTG and PRTG answer 'how much?' over time from SNMP counters, NetFlow answers 'who and what?', Wireshark and tcpdump answer 'what exactly is in the packets?', and Packet Tracer only simulates. Remember UDP 161 for the agent and 162 for traps, community strings in clear text for v1 and v2c, rate = 8 x change in octets / interval, and that tcp port 80 is capture syntax while tcp.port == 80 is display syntax."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i55_m001",
+      "questionText": "What is SNMP (Simple Network Management Protocol) used for?",
+      "options": [
+        "Sending e-mail",
+        "Managing and monitoring network devices such as routers, switches and servers",
+        "Browsing the web",
+        "Transferring files"
+      ],
+      "correctIndex": 1,
+      "explanation": "SNMP lets a management station read counters and status from agents on network devices, change their settings and receive their alerts (traps). E-mail uses SMTP, the web uses HTTP and file transfer uses FTP or SFTP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m002",
+      "questionText": "What does MRTG (Multi Router Traffic Grapher) do?",
+      "options": [
+        "It polls devices for traffic counters and graphs network bandwidth usage over time",
+        "It captures and decodes individual network packets",
+        "It encrypts file transfers",
+        "It manages e-mail delivery"
+      ],
+      "correctIndex": 0,
+      "explanation": "MRTG reads interface octet counters by SNMP, by default every 5 minutes, and publishes daily, weekly, monthly and yearly traffic graphs as web pages. Capturing and decoding packets is what Wireshark does.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m003",
+      "questionText": "What kind of traffic analysis can be performed with PRTG Network Monitor (originally Paessler Router Traffic Grapher)?",
+      "options": [
+        "Decrypting the packets of secure web pages",
+        "Resolving IP addresses to domain names",
+        "Monitoring bandwidth usage and device performance through sensors, with alerts",
+        "Verifying that e-mail traffic is encrypted"
+      ],
+      "correctIndex": 2,
+      "explanation": "PRTG collects bandwidth, availability and health data (via SNMP, WMI, flow data and packet sniffing) into sensors, graphs them and raises alerts. It cannot decrypt HTTPS traffic, and name resolution is DNS's job.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m004",
+      "questionText": "In SNMP, what is an agent?",
+      "options": [
+        "The central station that polls the devices and draws the graphs",
+        "A dedicated cable that carries management traffic",
+        "The password (community string) that protects the MIB",
+        "Software on a managed device, such as a router or switch, that keeps the device's MIB and answers the manager's requests"
+      ],
+      "correctIndex": 3,
+      "explanation": "The manager (network management station) sends requests and receives traps, while the agent on each device reads or sets its MIB objects and reports events. The community string is only the shared secret of v1 and v2c.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m005",
+      "questionText": "What is a MIB in network management?",
+      "options": [
+        "The Management Information Base: the collection of managed objects on a device, each named by an OID, that an SNMP manager can read or set",
+        "The maximum interface bandwidth of a router port",
+        "A log file of all the packets captured by Wireshark",
+        "The encryption key used by SNMPv3"
+      ],
+      "correctIndex": 0,
+      "explanation": "A MIB defines objects such as sysUpTime, ifInOctets and ifAdminStatus in SMI (ASN.1) and places them in the OID tree. The agent holds their values, and the manager reads or changes them with SNMP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m006",
+      "questionText": "Which part of the global OID tree is 1.3.6.1.2.1?",
+      "options": [
+        "private.enterprises, where vendors define their own objects",
+        "mib-2, the standard MIB-II objects (iso.org.dod.internet.mgmt.mib-2)",
+        "The interfaces table (ifTable) of MIB-II",
+        "The SNMPv3 user-based security (USM) objects"
+      ],
+      "correctIndex": 1,
+      "explanation": "1.3.6.1 is iso(1).org(3).dod(6).internet(1), and mgmt(2).mib-2(1) adds .2.1, the root of MIB-II groups such as system (.1) and interfaces (.2). Vendor MIBs live under private.enterprises, 1.3.6.1.4.1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m007",
+      "questionText": "The ifInOctets column of the MIB-II interfaces table has the OID 1.3.6.1.2.1.2.2.1.10. Which OID does MRTG request to read the inbound octet counter of the interface whose ifIndex is 3?",
+      "options": [
+        "1.3.6.1.2.1.2.2.1.10.0",
+        "1.3.6.1.2.1.2.2.3.10",
+        "1.3.6.1.2.1.2.2.1.3",
+        "1.3.6.1.2.1.2.2.1.10.3"
+      ],
+      "correctIndex": 3,
+      "explanation": "A table cell is named by the column OID followed by the row index, so ifInOctets for ifIndex 3 is ...1.10.3. The suffix .0 is used only for scalar objects such as sysUpTime.0, and ...2.2.1.3 is a different column (ifType).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m008",
+      "questionText": "A switch has 24 interfaces (rows 1 to 24 of ifTable). A manager walks the ifInOctets column (i) with GetNext requests only, and (ii) with GetBulk requests using non-repeaters = 0 and max-repetitions = 10. Counting the request that shows the column has ended, how many requests does each walk need?",
+      "options": [
+        "(i) 24, (ii) 3",
+        "(i) 25, (ii) 25",
+        "(i) 25, (ii) 3",
+        "(i) 24, (ii) 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "GetNext returns one row per request, and the 25th request returns an OID beyond the column, which ends the walk. Each GetBulk returns 10 bindings: rows 1-10, rows 11-20, then rows 21-24 plus 6 bindings past the column, so 3 requests.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m009",
+      "questionText": "A GetBulkRequest lists three variables, sysUpTime, ifInOctets and ifOutOctets, with non-repeaters = 1 and max-repetitions = 10. Assuming the interface table has more than 10 rows and the reply fits in one message, how many variable bindings does the response contain?",
+      "options": [
+        "21",
+        "30",
+        "11",
+        "20"
+      ],
+      "correctIndex": 0,
+      "explanation": "The first variable (the non-repeater) is returned once, and each of the R = 2 remaining variables is repeated M = 10 times: N + M x R = 1 + 10 x 2 = 21. 30 treats all three as repeaters, and 11 repeats only one of them.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m010",
+      "questionText": "An administrator's SNMP manager sets ifAdminStatus.5 on a switch to down(2), shutting interface 5. Which SNMP operation does it use?",
+      "options": [
+        "GetRequest",
+        "Trap",
+        "GetNextRequest",
+        "SetRequest"
+      ],
+      "correctIndex": 3,
+      "explanation": "SetRequest writes a new value to a MIB object, here the interface's administrative status. Get and GetNext only read values, and a Trap is an unsolicited alert from the agent to the manager.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m011",
+      "questionText": "What is the difference between an SNMP Trap and an InformRequest?",
+      "options": [
+        "A Trap is sent by the manager and an Inform by the agent",
+        "An Inform is acknowledged by the receiving manager with a Response and is retransmitted if no reply arrives; a Trap is sent once and never acknowledged",
+        "A Trap uses UDP port 161 and an Inform uses TCP port 162",
+        "An Inform reads a value from the agent, while a Trap writes one"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both are notifications sent to the manager, normally to UDP port 162; Inform, introduced in SNMPv2, adds acknowledgement and retries so that events are not silently lost. Reading and writing values are done with Get and Set.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m012",
+      "questionText": "Why does SNMP use UDP rather than TCP?",
+      "options": [
+        "UDP guarantees that every trap reaches the manager",
+        "TCP cannot carry OIDs",
+        "Each poll is one small request and reply, the manager handles timeouts and retries itself, and a connectionless protocol keeps working when the network is congested or failing",
+        "UDP encrypts the community string"
+      ],
+      "correctIndex": 2,
+      "explanation": "With no handshake or connection state, a manager can poll thousands of agents cheaply, and management traffic still gets through when links are overloaded. The price is that lost messages must be caught by the manager's own timers, which is why Inform was added for notifications.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m013",
+      "questionText": "An attacker captures an SNMPv2c SetRequest that a manager sends to a router. What can the attacker most likely do next?",
+      "options": [
+        "Read the read-write community string in plain text from the packet and use it to change the router's settings",
+        "Nothing, because SNMPv2c encrypts every message with AES",
+        "Only read the router's uptime, because Set messages hide their contents",
+        "Nothing, because community strings are hashed before they are sent"
+      ],
+      "correctIndex": 0,
+      "explanation": "SNMPv1 and v2c send the community string, their only credential, unencrypted in every message, so one captured Set exposes write access. SNMPv3 at the authPriv level prevents this.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m014",
+      "questionText": "Which SNMPv3 security level provides both authentication of messages and encryption of their contents?",
+      "options": [
+        "noAuthNoPriv",
+        "authNoPriv",
+        "privNoAuth",
+        "authPriv"
+      ],
+      "correctIndex": 3,
+      "explanation": "SNMPv3's User-based Security Model has three levels: noAuthNoPriv (user name only), authNoPriv (HMAC authentication) and authPriv (authentication plus AES or DES encryption). Privacy without authentication is not defined.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m015",
+      "questionText": "MRTG polls a 32-bit ifInOctets counter 300 s apart and reads 4,294,000,000 and then 2,000,000. Assuming the counter wrapped exactly once, what is the average inbound rate over the interval?",
+      "options": [
+        "About 53.3 kbit/s",
+        "About 79.1 kbit/s",
+        "About 9.9 kbit/s",
+        "About 114.5 Mbit/s"
+      ],
+      "correctIndex": 1,
+      "explanation": "Delta = 2^32 - 4,294,000,000 + 2,000,000 = 2,967,296 octets, so the rate = 8 x 2,967,296 / 300 = 79,128 bit/s. Using only the second reading gives 53.3 kbit/s, forgetting the factor 8 gives 9.9 k, and taking |C2 - C1| gives 114.5 Mbit/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m016",
+      "questionText": "A monitoring tool polls a 32-bit octet counter every 60 s. The counter's increase can be measured correctly only if it stays below 2^32 octets between polls. At full load, on which of these interfaces is the 32-bit counter still usable: 100 Mbps, 400 Mbps and 1 Gbps (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "100 Mbps only",
+        "All three, because the tool corrects for counter wraps",
+        "100 Mbps and 400 Mbps only",
+        "None of the three"
+      ],
+      "correctIndex": 2,
+      "explanation": "Wrap time = 2^32 x 8 / rate: 343.6 s at 100 Mbps, 85.9 s at 400 Mbps and 34.4 s at 1 Gbps, so only the 1 Gbps counter passes 2^32 octets within 60 s and needs the 64-bit ifHCInOctets counter. Using a 300 s interval would leave only 100 Mbps, and forgetting the factor 8 would wrongly rule out all three.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m017",
+      "questionText": "Users complain that a 100 Mbps link is slow for a few seconds at a time, yet its MRTG graph never shows more than 60 Mbps. What is the most likely explanation?",
+      "options": [
+        "MRTG plots 5-minute averages, so short bursts at the full 100 Mbps are averaged away",
+        "MRTG counts only packets, not bytes, so it under-reports traffic",
+        "The link cannot be the problem, because a 60 % peak average proves there is always spare capacity",
+        "SNMP counters stop counting while the link is congested"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each point is the octet-counter change over the 5-minute poll interval divided by 300 s, so a 20-second burst at line rate barely moves the average. Shorter polling intervals, or flow and packet tools, reveal such micro-bursts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m018",
+      "questionText": "Over a 300 s interval, the counters of a 100 Mbps full-duplex interface rise by 2,250,000,000 (ifInOctets) and 750,000,000 (ifOutOctets). Taking 1 Mbps = 10^6 bit/s, what are the inbound and outbound utilisations?",
+      "options": [
+        "In 7.5 %, out 2.5 %",
+        "In 80 %, out 80 %",
+        "In 57.2 %, out 19.1 %",
+        "In 60 %, out 20 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "Inbound = 8 x 2.25 x 10^9 / 300 = 60 Mbps = 60 % and outbound = 8 x 0.75 x 10^9 / 300 = 20 Mbps = 20 %, since each direction of a full-duplex link has its own 100 Mbps. Adding them (80 %) treats the link as half duplex, 7.5 % forgets the factor 8, and 57.2 % uses 1 Mbps = 2^20 bit/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m019",
+      "questionText": "In PRTG Network Monitor, what is a sensor?",
+      "options": [
+        "A hardware probe that must be plugged into every switch",
+        "One monitored measurement on a device, such as the traffic on one switch port, a ping time or a disk's free space",
+        "A Wireshark capture filter",
+        "The SNMP community string of a device"
+      ],
+      "correctIndex": 1,
+      "explanation": "PRTG organises monitoring as devices with sensors, each sensor collecting one set of values with its own graphs and alert limits. Licences are counted in sensors, and the free edition allows 100.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m020",
+      "questionText": "PRTG must monitor CPU load and disk usage on Windows servers on which SNMP is not installed. Which data source does it normally use?",
+      "options": [
+        "WMI (Windows Management Instrumentation)",
+        "NetFlow",
+        "Packet sniffing on a mirror port",
+        "SNMP traps"
+      ],
+      "correctIndex": 0,
+      "explanation": "WMI exposes Windows performance and configuration data to authorised remote queries, so PRTG's WMI sensors need no SNMP agent. NetFlow and packet sniffing describe network traffic, not a server's CPU or disks.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m021",
+      "questionText": "In Cisco Packet Tracer, which mode lets a student step through a ping hop by hop and open each PDU to see its OSI-layer details?",
+      "options": [
+        "Realtime mode",
+        "Promiscuous mode",
+        "Simulation mode",
+        "Monitor mode"
+      ],
+      "correctIndex": 2,
+      "explanation": "Simulation mode pauses the clock and records events in the Event List, so each packet can be advanced and inspected layer by layer. Realtime mode runs like a live network, and promiscuous and monitor modes belong to packet capture on real interfaces.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m022",
+      "questionText": "A student has no lab equipment but wants to build a three-router network, configure OSPF with IOS commands and check that it works. Which tool fits best?",
+      "options": [
+        "Wireshark",
+        "MRTG",
+        "PRTG",
+        "Cisco Packet Tracer"
+      ],
+      "correctIndex": 3,
+      "explanation": "Packet Tracer simulates Cisco routers, switches and end devices, including a large subset of IOS commands, so designs can be tested without hardware. Wireshark, MRTG and PRTG observe real networks and cannot build one.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i55_m023",
+      "questionText": "Which Wireshark capture filter (BPF syntax) records only DNS traffic to or from the host 10.0.0.5?",
+      "options": [
+        "ip.addr == 10.0.0.5 && dns",
+        "host 10.0.0.5 and port 53",
+        "host == 10.0.0.5 and port == 53",
+        "dns.host 10.0.0.5"
+      ],
+      "correctIndex": 1,
+      "explanation": "Capture filters use BPF primitives such as host, net, port, tcp and udp, combined with and, or and not; port 53 covers DNS over both UDP and TCP. ip.addr == 10.0.0.5 && dns is a valid display filter, but it cannot be used as a capture filter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m024",
+      "questionText": "Which Wireshark display filter shows only the first segment of each TCP connection attempt (SYN set, ACK not set)?",
+      "options": [
+        "tcp.flags.syn == 1 && tcp.flags.ack == 0",
+        "tcp.flags.syn == 1",
+        "tcp[tcpflags] & tcp-syn != 0",
+        "tcp.syn = 1 and ack = 0"
+      ],
+      "correctIndex": 0,
+      "explanation": "tcp.flags.syn == 1 alone also matches the server's SYN-ACK, so the ACK bit must be tested as well. tcp[tcpflags] & tcp-syn != 0 is capture-filter (BPF) syntax, and the last option is valid in neither.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m025",
+      "questionText": "An analyst runs Wireshark in promiscuous mode on a PC connected to an ordinary port of a switched Ethernet LAN. Which traffic can she capture?",
+      "options": [
+        "Every frame on the LAN, because promiscuous mode makes the switch copy all traffic to her port",
+        "Only frames addressed to her own MAC address, because promiscuous mode has an effect only on hubs",
+        "Only frames the switch sends to her port: her own traffic plus broadcasts, multicasts and flooded unknown-unicast frames; to see other hosts' traffic she needs a SPAN (mirror) port or a tap",
+        "All traffic on the LAN, but only the headers and never the payloads"
+      ],
+      "correctIndex": 2,
+      "explanation": "Promiscuous mode only stops her own network card from discarding frames addressed to other MACs; the switch still forwards each known unicast frame only to its destination's port. Port mirroring (SPAN) or a tap delivers copies of other hosts' traffic.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i55_m026",
+      "questionText": "What does Wireshark's 'Follow TCP Stream' do?",
+      "options": [
+        "It starts a new capture that records only new TCP connections",
+        "It traces the route of a TCP connection hop by hop, like traceroute",
+        "It decrypts the TLS records of an HTTPS session without needing any keys",
+        "It filters the capture to one TCP connection (tcp.stream eq N) and shows its reassembled payload as a conversation in both directions"
+      ],
+      "correctIndex": 3,
+      "explanation": "It applies the display filter tcp.stream eq N and shows the bytes of that connection in order, client and server data in different colours, which makes protocols such as HTTP, SMTP or FTP easy to read. Encrypted TLS payloads stay unreadable unless the session keys are supplied.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m027",
+      "questionText": "Which statement about Wireshark's colouring rules is correct?",
+      "options": [
+        "They are display-filter expressions that paint matching rows in the packet list, for example highlighting TCP retransmissions, and they do not change what is captured or saved",
+        "They decide which packets are captured and which are dropped",
+        "They encrypt the packets of different protocols with different keys",
+        "They can be set only in tcpdump, before the capture starts"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each rule pairs a display filter with foreground and background colours; the default 'Bad TCP' rule, for instance, marks retransmissions, duplicate ACKs and zero windows. Colouring affects only how the rows are shown.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m028",
+      "questionText": "Which tcpdump command captures traffic to or from port 443 on interface eth0, without resolving addresses to names, and saves it to a file for later analysis in Wireshark?",
+      "options": [
+        "tcpdump -i eth0 -n -r tls.pcap port 443",
+        "tcpdump -i eth0 -n -w tls.pcap port 443",
+        "tcpdump -i eth0 -n -w tls.pcap tcp.port == 443",
+        "tcpdump -i eth0 -n -c 443 -w tls.pcap"
+      ],
+      "correctIndex": 1,
+      "explanation": "-i chooses the interface, -n turns off name resolution, -w writes raw packets to a pcap file and port 443 is the BPF filter. -r reads an existing file, tcp.port == 443 is display-filter syntax, and -c 443 would stop after 443 packets of any kind.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m029",
+      "questionText": "What does a NetFlow record, exported by a router to a collector, contain?",
+      "options": [
+        "A full copy of every packet, including its payload",
+        "Only the total octet counters of each interface, as SNMP gives",
+        "A summary of one flow: its key fields (source and destination IP and port, protocol, ToS, input interface) with packet and byte counts and start and end times",
+        "A copy of the router's routing table"
+      ],
+      "correctIndex": 2,
+      "explanation": "The router groups packets that share the key fields into flows and exports one record per flow over UDP, so a collector can show which hosts and applications use the bandwidth. No payload is exported, which keeps the data small.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i55_m030",
+      "questionText": "Which statement about Wireshark is NOT correct?",
+      "options": [
+        "It can read passwords sent by unencrypted protocols such as Telnet or HTTP",
+        "It decodes protocols layer by layer, from the Ethernet frame up to the application data",
+        "It can open capture files saved by tcpdump",
+        "It can block or modify packets passing through the interface in real time, like a firewall"
+      ],
+      "correctIndex": 3,
+      "explanation": "Wireshark is a passive analyser: it copies packets from the capture driver (libpcap or Npcap) and never alters or blocks the live traffic. It does decode hundreds of protocols, show plaintext credentials and read tcpdump's pcap files.",
+      "difficulty": "medium"
+    }
+  ]
+}

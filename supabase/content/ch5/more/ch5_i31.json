@@ -1,0 +1,500 @@
+{
+  "topicId": "ch5_i31",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Routing Algorithms"
+    },
+    {
+      "type": "paragraph",
+      "text": "In brief: a distance vector router knows only its distance to each destination and shares it with its neighbours, while a link state router learns the whole topology by flooding and runs Dijkstra's shortest path algorithm, which finds the minimum-cost path from one node to every other node. Flooding sends each packet to every neighbour except the one it came from; it is simple and always finds a path but wastes bandwidth on duplicates. Hop count is the metric of RIP, the classic distance vector protocol, not a rule of distance vector itself: the algorithm works with any additive cost such as delay or a bandwidth-based cost. Link state converges quickly and accurately because every router computes from the same complete map; the price is extra memory and processing."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Algorithm",
+          "What a router knows",
+          "Strength",
+          "Weakness"
+        ],
+        [
+          "Static",
+          "Only the routes the administrator typed in",
+          "No routing traffic; simple and predictable",
+          "No reaction to failures; manual upkeep"
+        ],
+        [
+          "Flooding",
+          "Nothing: no routing table is needed",
+          "Very robust; finds a path whenever one exists",
+          "Huge numbers of duplicate packets"
+        ],
+        [
+          "Distance vector",
+          "Distances reported by its neighbours",
+          "Simple; little memory and CPU",
+          "Slow on bad news; count-to-infinity"
+        ],
+        [
+          "Link state",
+          "Complete topology of its area",
+          "Fast convergence; consistent loop-free routes",
+          "More memory, CPU and flooding traffic"
+        ],
+        [
+          "Hierarchical",
+          "Own region in detail; each other region as one entry",
+          "Much smaller routing tables",
+          "Some paths longer than optimal"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Dijkstra's algorithm keeps two sets of nodes: permanent ones, whose least cost is final, and tentative ones. At each step it makes permanent the tentative node with the smallest total distance from the source, not the node behind the cheapest single link, and then relaxes that node's neighbours. A tentative label can drop several times before it becomes permanent, and the predecessor stored with each final label gives the shortest-path tree. The next hop to a destination is found by walking the predecessors back to the node adjacent to the source."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example: Dijkstra from A\nLinks: A-B 1, A-C 4, B-C 5, B-D 2, C-E 1, D-E 6, D-F 3, E-F 2\nLabel = cost + predecessor; * = made permanent in this step\nStep  Permanent   B     C     D     E     F\n0     A           1A    4A    inf   inf   inf\n1     +B (1)      1A*   4A    3B    inf   inf\n2     +D (3)      .     4A    3B*   9D    6D\n3     +C (4)      .     4A*   .     5C    6D\n4     +E (5)      .     .     .     5C*   6D\n5     +F (6)      .     .     .     .     6D*\nNext hops from A: B, D and F via B; C and E via C"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example: distance vector update at router X\nLinks: X-A 2, X-B 5, X-C 1. Latest vectors received:\n            to W   to Y   to Z\nfrom A        6      3      9\nfrom B        2      4      1\nfrom C        8      3      7\nW: min(2+6, 5+2, 1+8) = min(8, 7, 9)  = 7 via B\nY: min(2+3, 5+4, 1+3) = min(5, 9, 4)  = 4 via C\nZ: min(2+9, 5+1, 1+7) = min(11, 6, 8) = 6 via B\nNew vector at X: W 7 (B), Y 4 (C), Z 6 (B); X's old values are not used"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Line A-B-C-D-E, unit costs; columns = distance to A held by B, C, D, E\nBad news: link A-B fails (synchronous exchanges, no split horizon)\n               B   C   D   E\nBefore         1   2   3   4\nExchange 1     3   2   3   4   B believes C's stale 2 and sets 3\nExchange 2     3   4   3   4\nExchange 3     5   4   5   4\nExchange 4     5   6   5   6   rises by 2 every 2 exchanges, up to infinity\nGood news: when A comes back, a router k hops away learns of it in k exchanges"
+    },
+    {
+      "type": "bulletList",
+      "text": "How link state flooding stays reliable and consistent:",
+      "items": [
+        "Each LSP carries a sequence number that its originator increases for every new LSP; receivers remember the highest number seen from each source.",
+        "An arriving LSP with a higher number is stored and forwarded on every line except the one it came in on; a duplicate or lower-numbered LSP is discarded as obsolete.",
+        "An age field counts down as time passes and at each hop; an LSP whose age reaches zero is removed, which clears out information from crashed routers or corrupted sequence numbers.",
+        "LSPs are acknowledged hop by hop and held briefly before forwarding, so a newer copy that arrives meanwhile replaces the older one.",
+        "Once flooding finishes every router holds the same database and computes a consistent shortest-path tree; a router floods again only when one of its links changes, plus a slow periodic refresh."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "T = \\sum_{k=1}^{h} d\\,(d-1)^{k-1}",
+      "plainText": "T = d + d(d − 1) + … + d(d − 1)^(h − 1) transmissions when every router has d lines, copies live h hops and duplicates are not suppressed"
+    },
+    {
+      "type": "paragraph",
+      "text": "More levels save even more table space. In a three-level hierarchy a router keeps one entry per router in its own region, one per other region in its own cluster and one per other cluster, so 720 routers arranged as 8 clusters of 9 regions of 10 routers need 10 + 8 + 7 = 25 entries, against 30 + 23 = 53 with two levels (24 regions of 30 routers) and 720 with none. Kamoun and Kleinrock showed that for N routers the best number of levels is about ln N, needing about e ln N entries per router. The price is longer paths: traffic for a remote region always enters it by the route chosen for the region as a whole, which may not be the best route to every router inside it."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in routing calculations:",
+      "items": [
+        "Picking the next permanent node by the cheapest single link instead of the smallest total distance from the source.",
+        "Forgetting to lower a tentative label when a newly permanent node offers a cheaper path; in the Dijkstra trace above E falls from 9 to 5.",
+        "In a distance vector update, using a neighbour's advertised cost without adding the cost of the link to that neighbour, or mixing in the router's own old values: the new table comes only from the neighbours' latest vectors plus the link costs.",
+        "Confusing the destination with the next hop: a forwarding table stores only the first router on the path, found by walking the predecessors back towards the source.",
+        "Believing split horizon cures count-to-infinity: it stops two-router loops only, and a loop through three or more routers can still count up."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For Dijkstra questions draw one column per node and one row per step, write every label as cost plus predecessor (such as 3B), and circle the smallest tentative label in each row. The last row gives the least costs, and following the predecessors gives the paths and the next hops."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i31_m001",
+      "questionText": "What is the primary function of the network layer?",
+      "options": [
+        "Detecting and correcting bit errors on a single link",
+        "Dividing the bit stream into frames",
+        "Routing packets from the source host to the destination host using logical (IP) addresses",
+        "Encrypting data to keep it confidential"
+      ],
+      "correctIndex": 2,
+      "explanation": "The network layer carries packets end to end across many networks: it gives them logical (IP) addresses, computes routes and forwards each packet hop by hop. Framing and per-link error control belong to the data link layer, and encryption is a security service rather than the network layer's core job.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m002",
+      "questionText": "Which description fits flooding as a routing algorithm?",
+      "options": [
+        "Every incoming packet is sent out on every line except the one it arrived on",
+        "Each packet is sent only along the least-cost path computed with Dijkstra's algorithm",
+        "Each packet is sent to one neighbour chosen at random",
+        "Each router sends its whole routing table to its neighbours at fixed intervals"
+      ],
+      "correctIndex": 0,
+      "explanation": "Flooding needs no routing table: each router copies the packet onto all its other lines, so every possible path is tried in parallel. Following a Dijkstra path is link state forwarding, and the periodic table exchange is distance vector routing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m003",
+      "questionText": "What is the key advantage of link state routing over distance vector routing?",
+      "options": [
+        "Lower memory and processing requirements at each router",
+        "Faster convergence, because every router computes its routes from the same complete map of the topology",
+        "No need for HELLO packets to discover neighbours",
+        "Each router exchanges information only with its directly connected neighbours"
+      ],
+      "correctIndex": 1,
+      "explanation": "Link state routers flood their link states to all routers and each runs Dijkstra on an identical database, so they converge quickly and do not count to infinity. The price is more memory and CPU; they do use HELLO packets, and talking only to neighbours describes distance vector.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m004",
+      "questionText": "Which statement about static routing is correct?",
+      "options": [
+        "Routers exchange periodic updates to learn their routes",
+        "Routes are recomputed with Dijkstra's algorithm whenever a link changes",
+        "It is another name for adaptive routing",
+        "Routes are entered manually by the administrator and do not adapt automatically when a link fails"
+      ],
+      "correctIndex": 3,
+      "explanation": "Static (non-adaptive) routes are configured by hand, so they cost no routing traffic or CPU but stay in place even when the path they use goes down. Exchanging updates and recomputing routes are features of dynamic (adaptive) routing.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m005",
+      "questionText": "Which is a disadvantage of dynamic routing compared with static routing?",
+      "options": [
+        "Every route must be re-entered by hand after each topology change",
+        "It cannot send traffic around a failed link",
+        "Routers spend bandwidth, CPU time and memory exchanging and processing routing updates",
+        "It limits every network to a diameter of 15 hops"
+      ],
+      "correctIndex": 2,
+      "explanation": "Dynamic routing adapts automatically, but the routing protocol consumes link bandwidth, processor time and memory. Manual re-entry and failing to route around failures are weaknesses of static routing, and the 15-hop limit belongs to RIP alone, not to dynamic routing in general.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m006",
+      "questionText": "What does the optimality principle of routing state?",
+      "options": [
+        "If router J is on the optimal path from router I to router K, then the optimal path from J to K follows the same route",
+        "The optimal path between two routers is always the one with the fewest hops",
+        "Every router must know the full topology before any optimal path can be found",
+        "Once computed, an optimal path never needs to be recomputed"
+      ],
+      "correctIndex": 0,
+      "explanation": "Any part of an optimal path is itself optimal, so the optimal routes from all sources to one destination form a sink tree rooted at that destination. The principle says nothing about hop count, full topology knowledge or paths staying fixed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m007",
+      "questionText": "Which statement correctly distinguishes routing from forwarding?",
+      "options": [
+        "Routing and forwarding are two names for the same operation",
+        "Routing computes paths and builds the tables across the network; forwarding moves each packet from an input to the right output using those tables",
+        "Forwarding computes routes, while routing only copies packets between interfaces",
+        "Routing is done only by hosts and forwarding only by switches"
+      ],
+      "correctIndex": 1,
+      "explanation": "Routing is the slower, network-wide control process that runs algorithms such as Dijkstra or Bellman-Ford, while forwarding is the fast per-packet lookup in the forwarding table at each router.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m008",
+      "questionText": "A network has links A–B 4, A–C 2, B–C 1, B–D 5, C–D 8, C–E 10, D–E 2, D–F 6 and E–F 3. Using Dijkstra's algorithm from A, what is the least cost from A to F?",
+      "options": [
+        "14",
+        "15",
+        "16",
+        "13"
+      ],
+      "correctIndex": 3,
+      "explanation": "The labels become permanent as C 2, B 3 (via C), D 8, E 10 and F 13, giving the path A–C–B–D–E–F = 2 + 1 + 5 + 2 + 3 = 13. The other values are costs of worse routes: A–C–B–D–F = 14, A–B–D–F = 15 and A–C–D–F = 16.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m009",
+      "questionText": "A network has links A–B 1, A–D 4, B–C 3, B–D 2, C–E 1, D–E 5, C–F 6 and E–F 2. Which is the least-cost path from A to F?",
+      "options": [
+        "A–B–C–E–F, cost 7",
+        "A–B–D–E–F, cost 10",
+        "A–D–E–F, cost 11",
+        "A–B–C–F, cost 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "Dijkstra from A gives B 1, D 3 (via B), C 4 (via B), E 5 (via C) and F 7 (via E), so the path is A–B–C–E–F = 1 + 3 + 1 + 2 = 7. The other routes cost 10, 11 and 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m010",
+      "questionText": "A network has links S–A 6, S–B 2, S–C 6, A–B 3, B–D 7, A–D 2, C–D 4, C–E 3 and D–E 1. In what order does Dijkstra's algorithm, run from S, make the nodes permanent?",
+      "options": [
+        "S, B, C, A, D, E",
+        "S, B, A, D, C, E",
+        "S, B, A, C, D, E",
+        "S, B, A, C, E, D"
+      ],
+      "correctIndex": 2,
+      "explanation": "B (2) is first; it lowers A to 5 and sets D to 9. A (5) then lowers D to 7, C (6) sets E to 9, D (7) lowers E to 8, and E (8) is last, so the order is S, B, A, C, D, E.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i31_m011",
+      "questionText": "Router A runs Dijkstra's algorithm on a network with links A–B 2, A–C 1, B–C 2, B–D 1, C–E 4, D–E 1, D–F 5 and E–F 1. In A's resulting forwarding table, which destinations have next hop B?",
+      "options": [
+        "B and D only",
+        "B, D, E and F",
+        "B, D and F",
+        "B, C, D, E and F"
+      ],
+      "correctIndex": 1,
+      "explanation": "The least costs are C 1 (direct), B 2, D 3 (A–B–D), E 4 (A–B–D–E, better than 5 via C) and F 5 (A–B–D–E–F), so every destination except C is reached through B. Keeping E's first label of 5 via C is the mistake that gives 'B and D only'.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i31_m012",
+      "questionText": "Dijkstra's algorithm is guaranteed to find the least-cost paths only when:",
+      "options": [
+        "All link costs are equal",
+        "The network is a tree with no loops",
+        "Each router knows only its neighbours' distances",
+        "All link costs are non-negative"
+      ],
+      "correctIndex": 3,
+      "explanation": "Dijkstra fixes a node's cost as soon as it is the smallest tentative label, which is safe only if no later link can make a path cheaper, that is, if no cost is negative. Equal costs or a loop-free tree are not required, and knowing only neighbours' distances is the distance vector setting.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m013",
+      "questionText": "With N routers and a simple array (no priority queue), how does the running time of Dijkstra's algorithm grow?",
+      "options": [
+        "O(N^2)",
+        "O(N)",
+        "O(log N)",
+        "O(2^N)"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each of the N steps scans up to N tentative labels to find the smallest, giving about N × N operations; a binary-heap priority queue reduces this to O(E log N) for E links.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m014",
+      "questionText": "Five routers are fully connected (every pair has a direct link). Router A floods a packet; every router, A included, forwards each copy it receives on all lines except the one it arrived on, with no duplicate detection, and each copy is discarded after it has travelled 3 hops. How many link transmissions occur in total?",
+      "options": [
+        "84",
+        "36",
+        "52",
+        "64"
+      ],
+      "correctIndex": 2,
+      "explanation": "Copies per hop are 4 (A's lines), then 4 × 3 = 12, then 12 × 3 = 36, because each copy leaves on the 3 lines other than its arrival line; the total is 4 + 12 + 36 = 52. Forgetting to exclude the arrival line gives 4 + 16 + 64 = 84.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m015",
+      "questionText": "A connected network has 6 routers and 9 links. A source router floods one packet on all its links; every other router forwards only the first copy it receives, on all its links except the one it arrived on, and every router discards later copies. How many link transmissions occur in total?",
+      "options": [
+        "18",
+        "9",
+        "5",
+        "13"
+      ],
+      "correctIndex": 3,
+      "explanation": "The source sends one copy per link and every other router sends (degree − 1) copies once, so the total is the sum of degrees − (N − 1) = 2E − (N − 1) = 18 − 5 = 13, whatever the exact layout. 18 forgets the arrival line, 9 counts each link once and 5 is a spanning tree.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i31_m016",
+      "questionText": "In selective flooding, a router:",
+      "options": [
+        "Sends every packet on all lines, including the arrival line",
+        "Sends an incoming packet only on the lines that lead roughly in the right direction",
+        "Sends a packet only on the least-cost line found by Dijkstra's algorithm",
+        "Drops every packet whose hop counter is not zero"
+      ],
+      "correctIndex": 1,
+      "explanation": "Selective flooding is a cheaper variant of flooding: instead of every outgoing line, the router uses only the lines heading approximately towards the destination, for example not sending a westbound packet east.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m017",
+      "questionText": "Which statement about flooding is NOT correct?",
+      "options": [
+        "It creates few duplicate packets, so it is efficient for ordinary unicast traffic",
+        "It needs no routing tables",
+        "If any path exists, some copy of the packet travels along the shortest one",
+        "Link state protocols use a controlled form of it to distribute link state packets"
+      ],
+      "correctIndex": 0,
+      "explanation": "Flooding creates huge numbers of duplicates, which is why it needs a hop counter or sequence numbers and is not used for ordinary traffic. The other statements are true: it needs no tables, it tries every path in parallel, and link state routing floods LSPs because that reaches every router.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m018",
+      "questionText": "In distance vector routing, a router sends its routing information to:",
+      "options": [
+        "Every router in the network, by flooding",
+        "Only the designated router of its area",
+        "Only its directly connected neighbours",
+        "Only the destination hosts listed in its table"
+      ],
+      "correctIndex": 2,
+      "explanation": "A distance vector router sends its whole vector of best known distances only to its neighbours, which combine it with their own link costs, so each router knows the network only through its neighbours. Flooding to every router is how link state distributes LSPs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m019",
+      "questionText": "Router J has links J–A 4, J–B 7 and J–C 3. The latest distance vectors from its neighbours give these distances to router D: A 9, B 5 and C 11. What is J's new distance to D, and which next hop does it use?",
+      "options": [
+        "13, next hop A",
+        "5, next hop B",
+        "14, next hop C",
+        "12, next hop B"
+      ],
+      "correctIndex": 3,
+      "explanation": "By Bellman-Ford, D_J(D) = min(4 + 9, 7 + 5, 3 + 11) = min(13, 12, 14) = 12 via B. Taking B's advertised 5 without adding the link cost 7 is a common error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m020",
+      "questionText": "Router X has links X–Y 2 and X–Z 7. Y advertises the distances Y 0, Z 1, W 4, and Z advertises Y 1, Z 0, W 2. After X updates its table, what are its distances to Y, Z and W?",
+      "options": [
+        "Y 2, Z 7, W 9",
+        "Y 2, Z 3, W 6",
+        "Y 2, Z 3, W 9",
+        "Y 2, Z 1, W 4"
+      ],
+      "correctIndex": 1,
+      "explanation": "To Y: min(2 + 0, 7 + 1) = 2; to Z: min(2 + 1, 7 + 0) = 3 via Y; to W: min(2 + 4, 7 + 2) = 6 via Y. Using only the direct links gives Z 7, and forgetting to add the link costs gives Z 1 and W 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m021",
+      "questionText": "Routers A, B, C and D form a line with link costs A–B 1, B–C 2 and C–D 1 and run distance vector routing without split horizon, all exchanging vectors at the same moments. Before the failure B, C and D list A at distances 1, 3 and 4. Link A–B then fails. What is B's distance to A after the third exchange?",
+      "options": [
+        "7",
+        "5",
+        "4",
+        "Infinity (unreachable)"
+      ],
+      "correctIndex": 0,
+      "explanation": "B now hears only C: exchange 1 gives B = 3 + 2 = 5 (C still 3, D 4); exchange 2 gives B 5, C = min(5 + 2, 4 + 1) = 5, D 4; exchange 3 gives B = 5 + 2 = 7, C 5, D 6. The values keep climbing until they reach the protocol's infinity, which is the count-to-infinity problem.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i31_m022",
+      "questionText": "Routers A, B, C, D and E form a line with unit link costs. A has been down, so B, C, D and E list A as unreachable. A comes back up, and all routers exchange distance vectors at the same moments. After how many exchanges does E first have a finite route to A?",
+      "options": [
+        "1",
+        "5",
+        "8",
+        "4"
+      ],
+      "correctIndex": 3,
+      "explanation": "Good news spreads one hop per exchange: B learns distance 1 in exchange 1, C 2 in exchange 2, D 3 in exchange 3 and E 4 in exchange 4. Only bad news, such as a failure, triggers the slow count-to-infinity.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m023",
+      "questionText": "Routers X, Y, Z and V have links X–Y 4, Y–Z 1, X–Z 50 and Z–V 2. Z's least-cost route to X goes through Y (cost 5). With split horizon with poison reverse, what distance to X does Z advertise to Y and to V?",
+      "options": [
+        "Nothing to Y (the route is left out), and 5 to V",
+        "5 to both Y and V",
+        "Infinity to Y, and 5 to V",
+        "50 to Y, and 5 to V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Poison reverse sends a route back to the neighbour it was learned from with an infinite metric, so Y will never try to reach X through Z, while other neighbours such as V get the real cost 5. Leaving the route out of the update to Y is plain split horizon.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m024",
+      "questionText": "Which statement about split horizon in distance vector routing is correct?",
+      "options": [
+        "It prevents count-to-infinity in every topology",
+        "It removes loops between two routers but cannot always stop count-to-infinity when three or more routers form a loop",
+        "It requires each router to know the complete network topology",
+        "It replaces periodic updates with updates sent only when a link changes"
+      ],
+      "correctIndex": 1,
+      "explanation": "Split horizon stops a router from telling a neighbour about a route learned from that same neighbour, which kills two-router ping-pong loops. In a triangle of routers stale routes can still circulate the long way round, and the last option describes triggered updates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m025",
+      "questionText": "What is the purpose of a hold-down timer in distance vector routing?",
+      "options": [
+        "For a set time after a route fails, the router ignores updates offering that destination at an equal or worse metric",
+        "It sets the interval between two periodic routing updates",
+        "It limits how many hops a packet may travel before it is discarded",
+        "It delays a router's first LSP until all its neighbours have answered HELLO packets"
+      ],
+      "correctIndex": 0,
+      "explanation": "Hold-down stops a router from believing a neighbour's stale route to a destination that has just failed, giving the news of the failure time to spread; only a better route is accepted while the timer runs. It works alongside split horizon, route poisoning and triggered updates against slow convergence.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m026",
+      "questionText": "In link state routing, what does a link state packet (LSP) contain?",
+      "options": [
+        "The sender's complete routing table with a distance to every destination",
+        "Only the sender's MAC address",
+        "The shortest-path tree that the sender has computed",
+        "The sender's identity, a sequence number, an age and the list of its neighbours with the link costs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each router floods only its own local picture: who it is, its neighbours and the cost to each, plus a sequence number and age that let others discard old copies. Sending a full distance table is distance vector, and every router computes its own shortest-path tree.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m027",
+      "questionText": "A router's database holds router X's LSP with sequence number 45. An LSP from X with sequence number 42 then arrives. What does the router do with it?",
+      "options": [
+        "Replaces the stored LSP and floods the arriving one on every line",
+        "Floods it on all lines except the one it arrived on and keeps both copies",
+        "Discards it as obsolete",
+        "Runs Dijkstra's algorithm again using the arriving LSP"
+      ],
+      "correctIndex": 2,
+      "explanation": "A router keeps, per source, the highest sequence number seen; a duplicate or lower-numbered LSP carries older information and is rejected rather than stored or forwarded. Only an LSP with a higher sequence number is new and gets flooded.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i31_m028",
+      "questionText": "How does a link state router learn which routers are its neighbours?",
+      "options": [
+        "It reads the full routing tables its neighbours send periodically",
+        "It sends a HELLO packet on each line and each router at the other end replies with its identity",
+        "It looks up the names of nearby routers in DNS",
+        "It broadcasts ARP requests for every IP address"
+      ],
+      "correctIndex": 1,
+      "explanation": "Neighbour discovery with HELLO packets is the first step of link state routing; the router then measures the cost to each neighbour, builds its LSP and floods it. Receiving whole routing tables from neighbours is how distance vector works.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i31_m029",
+      "questionText": "1,200 routers are organised as 6 clusters, each made of 10 regions of 20 routers. In this three-level hierarchy each router keeps one entry per router in its own region (itself included), one per other region of its own cluster and one per other cluster. How many entries does each routing table have?",
+      "options": [
+        "34",
+        "36",
+        "79",
+        "1,200"
+      ],
+      "correctIndex": 0,
+      "explanation": "Entries = 20 routers in the own region + (10 − 1) other regions + (6 − 1) other clusters = 20 + 9 + 5 = 34, against 20 + 59 = 79 with two levels (60 regions of 20) and 1,200 in a flat table. Counting the router's own region and cluster again gives 36.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i31_m030",
+      "questionText": "Which statement comparing distance vector and link state routing is NOT correct?",
+      "options": [
+        "A link state router floods only its own link costs, but to every router",
+        "A distance vector router sends its whole vector, but only to its neighbours",
+        "Under distance vector, one router advertising a wrongly low cost can mislead routers across the network, because each router builds on its neighbours' results",
+        "Link state converges more slowly than distance vector, because every router must run Dijkstra's algorithm"
+      ],
+      "correctIndex": 3,
+      "explanation": "Link state normally converges faster: once the LSPs are flooded each router computes its own tree from the full map, and Dijkstra runs quickly. The other three statements are true; the third is why a single faulty router can do more damage under distance vector than under link state.",
+      "difficulty": "hard"
+    }
+  ]
+}

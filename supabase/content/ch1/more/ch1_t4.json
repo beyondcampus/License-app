@@ -1,0 +1,744 @@
+{
+  "topicId": "ch1_t4",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Device Families, Ratings and Data Sheets"
+    },
+    {
+      "type": "bulletList",
+      "text": "Semiconductor devices can be classified in several independent ways, and a question may use any of them:",
+      "items": [
+        "By number of junctions or layers: one pn junction (diode), two junctions (BJT), three junctions in a pnpn stack (SCR or thyristor), no junction in the current path (the MOSFET channel, the Schottky metal-semiconductor contact).",
+        "By carriers: bipolar or minority-carrier devices (pn diode, BJT, SCR) rely on both electrons and holes; unipolar or majority-carrier devices (JFET, MOSFET, Schottky diode) use only one type, so they store almost no charge and switch faster.",
+        "By control: two-terminal devices have no control input; the BJT is current-controlled; JFETs, MOSFETs and IGBTs are voltage-controlled.",
+        "By power level: small-signal devices (milliwatts, used in amplifiers and logic) versus power devices (watts to kilowatts, used in converters and motor drives), which need heat sinks."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Property",
+          "BJT",
+          "JFET",
+          "MOSFET"
+        ],
+        [
+          "Control quantity",
+          "Base current",
+          "Gate-source voltage",
+          "Gate-source voltage"
+        ],
+        [
+          "DC input resistance",
+          "About 1 to 10 kΩ (CE)",
+          "About 10^9 Ω",
+          "10^12 Ω or more"
+        ],
+        [
+          "Conduction",
+          "Bipolar (electrons and holes)",
+          "Unipolar",
+          "Unipolar"
+        ],
+        [
+          "Normally on or off",
+          "Off with zero base current",
+          "On at V_GS = 0",
+          "Enhancement: off; depletion: on"
+        ],
+        [
+          "On-state temperature trend",
+          "V_BE falls, so current can run away",
+          "Channel resistance rises",
+          "R_DS(on) rises, so current shares"
+        ],
+        [
+          "Typical strength",
+          "High g_m, low V_CE(sat) at small currents",
+          "Low noise",
+          "Fast switching, easy drive, dense ICs"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A data sheet has two distinct parts. The absolute maximum ratings are limits that must never be exceeded, even briefly; operating a device at them gives no safety margin. The electrical characteristics are measured values (minimum, typical, maximum) at stated test conditions, such as h_FE at a given I_C and V_CE. Power ratings are normally quoted at 25 °C, and above that temperature the permissible dissipation is derated linearly: P_D(T) = P_D(25 °C) − k(T − 25), where the derating factor k (in W/°C, often quoted in mW/°C) equals 1/θ_JA, so that P_D(25 °C) = (T_J(max) − 25)/θ_JA."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Device",
+          "Key maximum ratings",
+          "Key characteristics"
+        ],
+        [
+          "Rectifier diode",
+          "V_RRM (peak inverse voltage), I_F(AV), I_FSM surge",
+          "V_F at rated current, I_R leakage, t_rr"
+        ],
+        [
+          "Zener diode",
+          "P_Z(max), I_Z(max)",
+          "V_Z at test current, dynamic resistance r_z"
+        ],
+        [
+          "BJT",
+          "V_CEO, V_CBO, V_EBO, I_C(max), P_D",
+          "h_FE (min to max), V_CE(sat), f_T"
+        ],
+        [
+          "MOSFET",
+          "V_DS(max), V_GS(max) about ±20 V, I_D, P_D",
+          "R_DS(on), V_GS(th), gate charge Q_g, capacitances"
+        ],
+        [
+          "LED",
+          "I_F(max), reverse voltage (often only 5 V)",
+          "V_F at rated I_F, luminous intensity, wavelength"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "T_J = T_A + P_D\\,(\\theta_{JC} + \\theta_{CS} + \\theta_{SA})",
+      "plainText": "TJ = TA + PD x (theta_JC + theta_CS + theta_SA)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: choosing a heat sink\nGiven: P_D = 15 W, T_J(max) = 150 °C, T_A = 45 °C\n       theta_JC = 1.2 °C/W, theta_CS = 0.3 °C/W\nStep 1: total theta allowed = (150 - 45) / 15 = 7.0 °C/W\nStep 2: theta_SA <= 7.0 - 1.2 - 0.3 = 5.5 °C/W\nStep 3: pick a 4.5 °C/W heat sink (below the limit)\nCheck : T_J = 45 + 15 x (1.2 + 0.3 + 4.5) = 45 + 90 = 135 °C\nResult: 135 °C < 150 °C, so the design is safe"
+    },
+    {
+      "type": "formula",
+      "latex": "P_{BJT} = V_{CE(sat)} I_C + V_{BE(sat)} I_B, \\quad P_{MOS} = I_D^2 R_{DS(on)}",
+      "plainText": "P_BJT = VCE(sat) x IC + VBE(sat) x IB;   P_MOS = ID^2 x RDS(on)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: BJT or MOSFET as a 10 A switch?\nBJT   : V_CE(sat) = 0.4 V, forced beta = 10 -> I_B = 1 A, V_BE(sat) = 1.0 V\n        P = 0.4 x 10 + 1.0 x 1 = 4 + 1 = 5 W\nMOSFET: R_DS(on) = 0.015 ohm, gate current negligible\n        P = 10^2 x 0.015 = 1.5 W\nBreak-even (collector loss only): I^2 x 0.015 = 0.4 x I\n        I = 0.4 / 0.015 = 26.7 A\nBelow about 27 A the MOSFET has the lower conduction loss;\nthe MOSFET loss grows as I^2, the BJT loss roughly as I."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes with ratings and device comparisons:",
+      "items": [
+        "Using the 25 °C power rating at a higher ambient temperature without derating it first.",
+        "Adding only the heat-sink thermal resistance and forgetting θ_JC and θ_CS, which are always in series with it.",
+        "Assuming V_CEO equals V_CBO; with the base open the collector leakage is multiplied by β, so V_CEO is lower.",
+        "Designing for the typical h_FE; a robust bias circuit must work over the full minimum-to-maximum spread.",
+        "Treating a MOSFET as lossless when on; R_DS(on) roughly doubles between 25 °C and 150 °C."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "A MOSFET gate oxide is only tens of nanometres thick and is destroyed if V_GS exceeds its rating (typically about ±20 V). Static charge from handling easily reaches thousands of volts, so MOSFETs and CMOS ICs are stored in conductive packaging and handled with earthing straps."
+    },
+    {
+      "type": "examTip",
+      "text": "For thermal problems write one line: T_J = T_A + P × (sum of all thermal resistances in the path). For derating, subtract k × (T − 25) from the 25 °C rating. For switch losses, BJT loss is V_CE(sat) × I_C (plus base drive) and MOSFET loss is I² × R_DS(on)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_t4_m001",
+      "questionText": "Which of the following is a unipolar device, in which current is carried by only one type of charge carrier?",
+      "options": [
+        "Bipolar junction transistor",
+        "pn-junction diode",
+        "Field-effect transistor",
+        "Silicon-controlled rectifier"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a FET the channel current is carried only by majority carriers (electrons in an n-channel device, holes in a p-channel device). BJTs, pn diodes and SCRs all depend on both electrons and holes crossing junctions.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m002",
+      "questionText": "A small-signal transistor is rated P_D = 625 mW at 25 °C ambient and is derated linearly at 5 mW/°C above 25 °C. Its maximum permissible dissipation at 75 °C ambient is:",
+      "options": [
+        "375 mW",
+        "250 mW",
+        "500 mW",
+        "625 mW"
+      ],
+      "correctIndex": 0,
+      "explanation": "P_D(75 °C) = 625 − 5 × (75 − 25) = 625 − 250 = 375 mW. Subtracting 5 × 75 instead of 5 × 50 gives the wrong 250 mW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m003",
+      "questionText": "A four-layer pnpn device with three junctions, used for controlled rectification, is the:",
+      "options": [
+        "Bipolar junction transistor",
+        "Silicon-controlled rectifier (thyristor)",
+        "Enhancement MOSFET",
+        "Zener diode"
+      ],
+      "correctIndex": 1,
+      "explanation": "The SCR is a pnpn structure with three junctions; a gate pulse latches it on. A BJT has three layers and two junctions, and a Zener diode has one junction.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m004",
+      "questionText": "A device with a junction-to-ambient thermal resistance θ_JA = 200 °C/W dissipates 0.4 W in an ambient of 30 °C. Its junction temperature is:",
+      "options": [
+        "80 °C",
+        "230 °C",
+        "530 °C",
+        "110 °C"
+      ],
+      "correctIndex": 3,
+      "explanation": "T_J = T_A + P θ_JA = 30 + 0.4 × 200 = 30 + 80 = 110 °C. The 80 °C figure is only the temperature rise, before adding the ambient.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m005",
+      "questionText": "Among the following, which device offers the highest DC input resistance at its control terminal?",
+      "options": [
+        "MOSFET (insulated gate)",
+        "JFET (reverse-biased gate junction)",
+        "BJT in common-emitter connection",
+        "BJT in common-base connection"
+      ],
+      "correctIndex": 0,
+      "explanation": "The oxide-insulated MOSFET gate has an input resistance of 10^12 Ω or more. A JFET gate is a reverse-biased junction, about 10^9 Ω; a BJT input is only kilohms (CE) or tens of ohms (CB).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m006",
+      "questionText": "Thermal runaway is a failure mechanism mainly associated with:",
+      "options": [
+        "MOSFETs, because their R_DS(on) falls sharply as they heat up",
+        "Metal-film resistors, because their resistance rises with temperature",
+        "Bipolar junction transistors, because rising temperature increases collector current, which raises the temperature further",
+        "Reverse-biased diodes carrying zero current"
+      ],
+      "correctIndex": 2,
+      "explanation": "In a BJT, heating lowers V_BE and raises leakage and β, so collector current and dissipation increase, which heats the junction further. A MOSFET's R_DS(on) rises with temperature, which opposes runaway.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m007",
+      "questionText": "A power transistor has T_J(max) = 150 °C, θ_JC = 1.5 °C/W, case-to-sink θ_CS = 0.5 °C/W and heat-sink θ_SA = 3 °C/W. At an ambient of 40 °C, the maximum power it can dissipate continuously is:",
+      "options": [
+        "73.3 W",
+        "36.7 W",
+        "30 W",
+        "22 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "Total θ = 1.5 + 0.5 + 3 = 5 °C/W, so P = (150 − 40)/5 = 110/5 = 22 W. Using θ_JC alone gives 73.3 W and ignoring the ambient gives 30 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m008",
+      "questionText": "Power MOSFETs can be connected in parallel to share a large current more easily than BJTs because:",
+      "options": [
+        "Their threshold voltages are exactly identical from device to device",
+        "R_DS(on) increases with temperature, so a hotter device automatically takes less current",
+        "Their gates draw large currents that balance the devices",
+        "They have a negative temperature coefficient of on-state resistance"
+      ],
+      "correctIndex": 1,
+      "explanation": "A MOSFET that carries more current heats up, its R_DS(on) rises and current shifts to the cooler devices, so sharing is self-correcting. BJTs have the opposite tendency, so they need emitter ballast resistors.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m009",
+      "questionText": "A device dissipates 10 W with T_J(max) = 125 °C at an ambient of 25 °C. Given θ_JC = 2 °C/W and θ_CS = 1 °C/W, the largest heat-sink thermal resistance θ_SA that may be used is:",
+      "options": [
+        "10 °C/W",
+        "8 °C/W",
+        "9 °C/W",
+        "7 °C/W"
+      ],
+      "correctIndex": 3,
+      "explanation": "Total allowed θ = (125 − 25)/10 = 10 °C/W; θ_SA = 10 − 2 − 1 = 7 °C/W. Forgetting θ_CS gives 8 °C/W and forgetting θ_JC gives 9 °C/W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m010",
+      "questionText": "A Schottky diode switches faster than an ordinary pn-junction diode mainly because:",
+      "options": [
+        "It is a majority-carrier device, so almost no minority charge is stored that must be removed at turn-off",
+        "It has a larger band gap than silicon",
+        "Its forward drop is higher, about 1.5 V",
+        "It is always made from germanium"
+      ],
+      "correctIndex": 0,
+      "explanation": "A metal-semiconductor junction conducts by majority carriers, so there is practically no stored minority charge and hence negligible reverse-recovery time. Its forward drop is lower (about 0.2 to 0.4 V), not higher.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m011",
+      "questionText": "A MOSFET switch with R_DS(on) = 0.05 Ω carries a steady drain current of 10 A. Its conduction loss is:",
+      "options": [
+        "0.5 W",
+        "5 W",
+        "2.5 W",
+        "10 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "P = I² R_DS(on) = 10² × 0.05 = 5 W. Multiplying I × R gives the voltage drop, 0.5 V, not the power.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m012",
+      "questionText": "Which statement comparing a BJT with a MOSFET is NOT correct?",
+      "options": [
+        "A MOSFET is a majority-carrier device, whereas a BJT uses both carrier types",
+        "At the same bias current, a BJT usually has a higher transconductance than a MOSFET",
+        "A BJT has a higher input impedance than a MOSFET",
+        "A MOSFET gate draws practically no DC current"
+      ],
+      "correctIndex": 2,
+      "explanation": "The MOSFET, with its insulated gate, has by far the higher input impedance; the BJT base draws real current. The other three statements are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m013",
+      "questionText": "A load current of 5 A is switched either by a BJT (V_CE(sat) = 0.3 V, needing I_B = 0.25 A at V_BE(sat) = 0.9 V) or by a MOSFET (R_DS(on) = 0.02 Ω, negligible gate current). By how much does the BJT's total on-state loss (collector plus base) exceed the MOSFET's?",
+      "options": [
+        "1.0 W",
+        "1.725 W",
+        "0.5 W",
+        "1.225 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "BJT: 0.3 × 5 + 0.9 × 0.25 = 1.5 + 0.225 = 1.725 W. MOSFET: 5² × 0.02 = 0.5 W. Difference = 1.725 − 0.5 = 1.225 W (ignoring the base drive gives 1.0 W).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m014",
+      "questionText": "On a rectifier diode data sheet, the rating V_RRM denotes the:",
+      "options": [
+        "Maximum repetitive peak reverse voltage the diode can withstand",
+        "Forward voltage drop at rated current",
+        "Reverse recovery time",
+        "Maximum non-repetitive surge forward current"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_RRM is the repetitive peak reverse voltage, the data-sheet form of the peak inverse voltage (PIV) rating. Forward drop is V_F, recovery time is t_rr and surge current is I_FSM.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m015",
+      "questionText": "A rectifier diode in a half-wave circuit is fed directly from a 230 V (rms) sinusoidal supply. Allowing a safety factor of 1.5 on the peak inverse voltage, the minimum V_RRM rating to select is about:",
+      "options": [
+        "345 V",
+        "325 V",
+        "488 V",
+        "976 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Peak inverse voltage = V_m = 230√2 = 325 V; with the safety factor 1.5 × 325 = 488 V. Forgetting √2 gives 345 V; using 2V_m (centre-tapped full-wave) gives 976 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m016",
+      "questionText": "For a given BJT, how does the collector-emitter breakdown rating V_CEO (base open) compare with the collector-base rating V_CBO (emitter open)?",
+      "options": [
+        "V_CEO is higher than V_CBO",
+        "V_CEO is lower than V_CBO",
+        "They are always equal",
+        "V_CEO is zero because the base is open"
+      ],
+      "correctIndex": 1,
+      "explanation": "With the base open, the collector-base leakage acts as base current and is multiplied by β, so avalanche breakdown sets in at a lower voltage. Data sheets therefore always show V_CEO below V_CBO.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m017",
+      "questionText": "A BJT data sheet quotes a transition frequency f_T = 300 MHz and a low-frequency β of 150. The β cut-off frequency f_β, at which β has fallen by 3 dB, is about:",
+      "options": [
+        "300 MHz",
+        "2 MHz",
+        "45 GHz",
+        "0.5 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_T ≈ β₀ f_β, so f_β = f_T/β₀ = 300 MHz/150 = 2 MHz. Multiplying instead of dividing gives 45 GHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m018",
+      "questionText": "The 'absolute maximum ratings' listed on a transistor data sheet are best described as:",
+      "options": [
+        "Typical values at which the device should normally be operated",
+        "Guaranteed minimum performance figures at 25 °C",
+        "Limits that must never be exceeded, even momentarily; they are not recommended operating conditions",
+        "Values measured at the point of highest efficiency"
+      ],
+      "correctIndex": 2,
+      "explanation": "Absolute maximum ratings are stress limits beyond which damage may occur; a good design keeps well inside them. Typical and guaranteed performance figures appear separately under electrical characteristics.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m019",
+      "questionText": "A BJT has f_T = 300 MHz and a low-frequency β of 150. At a signal frequency of 10 MHz, well above its β cut-off, the magnitude of its common-emitter current gain is approximately:",
+      "options": [
+        "30",
+        "150",
+        "3000",
+        "2"
+      ],
+      "correctIndex": 0,
+      "explanation": "Above f_β the gain falls in inverse proportion to frequency, |β| ≈ f_T/f = 300/10 = 30. (The exact value 150/√(1 + 5²) = 29.4 confirms this.)",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m020",
+      "questionText": "Which pairing of a device with its principal application is INCORRECT?",
+      "options": [
+        "Varactor diode – electronic tuning",
+        "Tunnel diode – negative-resistance oscillator",
+        "Schottky diode – fast, low-drop rectification",
+        "Photodiode – emitting light for displays"
+      ],
+      "correctIndex": 3,
+      "explanation": "A photodiode detects light: it is reverse-biased and its current rises with illumination. Light emission is the job of an LED. The other three pairings are correct.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m021",
+      "questionText": "At a bias current of 1 mA, a BJT (V_T = 26 mV) is compared with a MOSFET in saturation that follows the square law and operates at an overdrive voltage V_GS − V_th = 0.2 V. The ratio g_m(BJT)/g_m(MOSFET) is about:",
+      "options": [
+        "7.7",
+        "1.0",
+        "0.26",
+        "3.85"
+      ],
+      "correctIndex": 3,
+      "explanation": "BJT: g_m = I_C/V_T = 1 mA/26 mV = 38.5 mA/V. MOSFET: g_m = 2I_D/(V_GS − V_th) = 2 × 1/0.2 = 10 mA/V. Ratio = 38.5/10 = 3.85 (dropping the factor 2 gives 7.7).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m022",
+      "questionText": "The transition frequency f_T quoted on a BJT data sheet is the frequency at which:",
+      "options": [
+        "The common-base gain α falls to 0.707 of its low-frequency value",
+        "The common-emitter short-circuit current gain falls to 1",
+        "The voltage gain of any amplifier falls by 3 dB",
+        "The transistor stops conducting altogether"
+      ],
+      "correctIndex": 1,
+      "explanation": "f_T is the unity-gain frequency of the short-circuit CE current gain, and f_T ≈ β₀ f_β. The frequency at which α falls by 3 dB is a different figure, f_α.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m023",
+      "questionText": "A red LED has V_F = 2 V at its rated forward current I_F = 15 mA. The series resistor needed to run it at rated current from a 5 V supply is:",
+      "options": [
+        "200 Ω",
+        "333 Ω",
+        "133 Ω",
+        "467 Ω"
+      ],
+      "correctIndex": 0,
+      "explanation": "R = (V_S − V_F)/I_F = (5 − 2)/0.015 = 200 Ω. Ignoring V_F gives 333 Ω; using V_F alone gives 133 Ω.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m024",
+      "questionText": "On a power MOSFET data sheet, R_DS(on) is:",
+      "options": [
+        "The DC resistance of the gate input",
+        "The resistance of the body diode when reverse-biased",
+        "The drain-source resistance when the device is fully turned on at a specified V_GS",
+        "The drain-source resistance with V_GS = 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "R_DS(on) is the on-state drain-source resistance at a stated V_GS (for example 10 V) and drain current; it sets the conduction loss I²R_DS(on). With V_GS = 0 an enhancement MOSFET is off.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m025",
+      "questionText": "A 5.1 V Zener diode has a power rating of 500 mW. The maximum Zener current it can safely carry is about:",
+      "options": [
+        "9.8 mA",
+        "98 mA",
+        "2.55 A",
+        "196 mA"
+      ],
+      "correctIndex": 1,
+      "explanation": "I_Z(max) = P_Z/V_Z = 0.5/5.1 = 0.098 A = 98 mA. Multiplying P by V gives the meaningless 2.55.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m026",
+      "questionText": "The parameter V_GS(th) on an enhancement MOSFET data sheet specifies:",
+      "options": [
+        "The maximum gate-source voltage before oxide breakdown",
+        "The gate-source voltage that gives the lowest R_DS(on)",
+        "The gate-source voltage at which the drain current reaches a small specified value, marking the start of conduction",
+        "The drain-source breakdown voltage"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_GS(th) is measured as the V_GS that gives a small drain current such as 250 µA. The oxide limit is V_GS(max), and full enhancement needs V_GS well above V_GS(th).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m027",
+      "questionText": "A silicon diode's reverse leakage current is 10 nA at 25 °C. Using the rule that leakage current doubles for every 10 °C rise, the leakage at 75 °C is:",
+      "options": [
+        "50 nA",
+        "160 nA",
+        "500 nA",
+        "320 nA"
+      ],
+      "correctIndex": 3,
+      "explanation": "A 50 °C rise is five doublings: I_R = 10 × 2^5 = 320 nA. Multiplying by 5 instead of 2^5 gives 50 nA.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m028",
+      "questionText": "Which device is the basic building block of almost all present-day microprocessors and memory chips?",
+      "options": [
+        "The MOSFET, used in CMOS circuits",
+        "The germanium point-contact diode",
+        "The silicon-controlled rectifier",
+        "The tunnel diode"
+      ],
+      "correctIndex": 0,
+      "explanation": "CMOS logic, built from complementary n- and p-channel MOSFETs, dominates digital ICs because of its very low static power and high packing density.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m029",
+      "questionText": "A silicon BJT has V_BE = 0.70 V at 25 °C for a fixed collector current. Taking a temperature coefficient of −2 mV/°C, its V_BE at 100 °C is:",
+      "options": [
+        "0.85 V",
+        "0.50 V",
+        "0.55 V",
+        "0.625 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "ΔV_BE = −2 mV/°C × (100 − 25) °C = −150 mV, so V_BE = 0.70 − 0.15 = 0.55 V. Adding instead of subtracting gives 0.85 V; using a 100 °C rise gives 0.50 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m030",
+      "questionText": "MOSFETs must be handled with anti-static precautions mainly because:",
+      "options": [
+        "The very thin gate oxide can be punctured by static voltages far above its V_GS rating (typically about ±20 V)",
+        "Static charge forward-biases the drain-source junction permanently",
+        "Static charge permanently changes the doping of the channel",
+        "The body diode stores static charge and later discharges into the load"
+      ],
+      "correctIndex": 0,
+      "explanation": "The gate oxide is only tens of nanometres thick, so a few tens of volts can rupture it, while static discharges from handling reach thousands of volts. The damage is permanent.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m031",
+      "questionText": "A MOSFET has R_DS(on) = 0.04 Ω at 25 °C, and its data sheet shows R_DS(on) rising by a factor of 1.6 at a junction temperature of 125 °C. At 8 A drain current, the conduction loss at 125 °C is about:",
+      "options": [
+        "2.56 W",
+        "4.1 W",
+        "0.51 W",
+        "1.6 W"
+      ],
+      "correctIndex": 1,
+      "explanation": "R_DS(on) at 125 °C = 1.6 × 0.04 = 0.064 Ω; P = 8² × 0.064 = 4.1 W. The 25 °C value gives 2.56 W and dividing by 1.6 gives 1.6 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m032",
+      "questionText": "An IGBT (insulated-gate bipolar transistor) combines:",
+      "options": [
+        "The current drive of a BJT with the zero stored charge of a Schottky diode",
+        "Two pn diodes connected back to back",
+        "A JFET input with a four-layer thyristor latch that cannot be turned off",
+        "The insulated-gate voltage drive of a MOSFET with the low on-state voltage of a bipolar output at high current"
+      ],
+      "correctIndex": 3,
+      "explanation": "An IGBT has a MOSFET-style insulated gate (easy voltage drive, negligible gate current) controlling a bipolar conduction path, giving a low forward drop at high current. It is widely used in inverters and motor drives.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m033",
+      "questionText": "A transistor has P_D(max) = 250 mW at its operating temperature. Which operating point (V_CE, I_C) keeps the collector dissipation within this rating?",
+      "options": [
+        "10 V, 30 mA",
+        "12 V, 25 mA",
+        "8 V, 35 mA",
+        "5 V, 40 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "Collector dissipation ≈ V_CE I_C: 5 × 40 = 200 mW (within rating), while 10 × 30 = 300 mW, 12 × 25 = 300 mW and 8 × 35 = 280 mW all exceed 250 mW.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m034",
+      "questionText": "For a 48 V DC-DC converter switching at 500 kHz, the most suitable switching device is usually a:",
+      "options": [
+        "Silicon-controlled rectifier",
+        "Power MOSFET",
+        "Germanium BJT",
+        "Tunnel diode"
+      ],
+      "correctIndex": 1,
+      "explanation": "A power MOSFET is a majority-carrier device with no storage time and needs only a voltage gate drive, so it can switch at hundreds of kilohertz. An SCR cannot be turned off from its gate and is far too slow.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m035",
+      "questionText": "The storage time that slows the turn-off of a saturated BJT switch is caused by:",
+      "options": [
+        "Charging of the gate-oxide capacitance",
+        "Majority carriers trapped in the emitter contact",
+        "Excess minority carriers stored in the base that must be removed before the collector current can fall",
+        "The thermal time constant of the heat sink"
+      ],
+      "correctIndex": 2,
+      "explanation": "In saturation both junctions are forward-biased and excess minority charge builds up in the base; until it is swept out or recombines the transistor stays on. MOSFETs have no such stored charge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m036",
+      "questionText": "A transistor is rated 1.2 W at 25 °C and derated at 8 mW/°C above 25 °C. If it operates at V_CE = 10 V in a 60 °C ambient, the maximum allowable collector current is:",
+      "options": [
+        "92 mA",
+        "120 mA",
+        "72 mA",
+        "9.2 mA"
+      ],
+      "correctIndex": 0,
+      "explanation": "P_D(60 °C) = 1.2 − 0.008 × (60 − 25) = 1.2 − 0.28 = 0.92 W; I_C = 0.92/10 = 92 mA. Without derating, 120 mA; derating over the full 60 °C gives 72 mA.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m037",
+      "questionText": "Which data-sheet parameter best indicates how quickly a rectifier diode can change from conducting to blocking?",
+      "options": [
+        "Average forward current I_F(AV)",
+        "Reverse recovery time t_rr",
+        "Repetitive peak reverse voltage V_RRM",
+        "Non-repetitive surge current I_FSM"
+      ],
+      "correctIndex": 1,
+      "explanation": "t_rr is the time taken to remove the stored charge after the diode is reverse-biased. Fast-recovery and Schottky diodes are chosen for high-frequency rectification because of their small t_rr.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m038",
+      "questionText": "A rectifier diode with a forward drop of about 1 V carries an average forward current of 2 A. Its approximate power dissipation is:",
+      "options": [
+        "0.5 W",
+        "1 W",
+        "2 W",
+        "4 W"
+      ],
+      "correctIndex": 2,
+      "explanation": "Diode loss ≈ V_F × I_F(AV) = 1 × 2 = 2 W. This is why rectifiers carrying several amperes need a heat sink.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m039",
+      "questionText": "Which statement about the JFET is correct?",
+      "options": [
+        "Its gate is a reverse-biased pn junction and it operates only in depletion mode",
+        "Its gate is insulated from the channel by an oxide layer",
+        "It is normally off at V_GS = 0",
+        "It is a bipolar, minority-carrier device"
+      ],
+      "correctIndex": 0,
+      "explanation": "The JFET gate-channel junction is kept reverse-biased; V_GS = 0 gives the maximum current I_DSS and making V_GS more negative (n-channel) narrows the channel. An oxide-insulated gate belongs to the MOSFET.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m040",
+      "questionText": "A power MOSFET has a total gate charge Q_g = 20 nC. When it is switched on and off at 100 kHz, the average current the gate driver must supply is:",
+      "options": [
+        "20 mA",
+        "0.2 mA",
+        "200 mA",
+        "2 mA"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each cycle the driver delivers Q_g, so I_avg = Q_g × f = 20 × 10^-9 × 10^5 = 2 × 10^-3 A = 2 mA. The DC gate current is negligible, but switching still needs this charge.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m041",
+      "questionText": "The safe operating area (SOA) of a power BJT is bounded by the maximum collector current, the maximum V_CE, the maximum power dissipation and:",
+      "options": [
+        "The threshold voltage",
+        "Second breakdown",
+        "Gate-oxide rupture",
+        "The reverse recovery time"
+      ],
+      "correctIndex": 1,
+      "explanation": "Second breakdown is a localised current crowding and hot-spot failure at high V_CE that limits the BJT SOA below the power-dissipation line. Threshold voltage and gate oxide apply to MOSFETs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m042",
+      "questionText": "As the junction temperature of silicon devices rises, which of the following changes is NOT correct?",
+      "options": [
+        "The forward voltage of a diode at fixed current decreases",
+        "The reverse leakage current of a diode increases",
+        "The R_DS(on) of a MOSFET decreases",
+        "The V_BE of a BJT at fixed collector current decreases"
+      ],
+      "correctIndex": 2,
+      "explanation": "R_DS(on) increases with temperature because carrier mobility falls. The other three statements are correct: forward drops fall by about 2 mV/°C and leakage roughly doubles every 10 °C.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m043",
+      "questionText": "A MOSFET switches a 5 A load from a 48 V supply at 100 kHz. The combined rise and fall time is 100 ns. Using P_sw ≈ ½ V I (t_r + t_f) f, the switching loss is about:",
+      "options": [
+        "2.4 W",
+        "0.6 W",
+        "12 W",
+        "1.2 W"
+      ],
+      "correctIndex": 3,
+      "explanation": "P_sw = 0.5 × 48 × 5 × 100 × 10^-9 × 10^5 = 0.5 × 240 × 0.01 = 1.2 W. Leaving out the factor ½ gives 2.4 W.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_t4_m044",
+      "questionText": "Which of these devices is normally OFF, conducting only after its gate-source voltage exceeds a threshold?",
+      "options": [
+        "Enhancement-mode MOSFET",
+        "Depletion-mode MOSFET",
+        "n-channel JFET",
+        "p-channel JFET"
+      ],
+      "correctIndex": 0,
+      "explanation": "An enhancement MOSFET has no channel until V_GS exceeds V_GS(th). Depletion MOSFETs and JFETs of either polarity have a channel at V_GS = 0 and are normally on.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_t4_m045",
+      "questionText": "A transistor data sheet gives h_FE as minimum 100 and maximum 300 at I_C = 10 mA. A good bias design should:",
+      "options": [
+        "Assume β is exactly 200, the average of the limits",
+        "Assume β = 300, because that is the rated value",
+        "Work correctly for any β in that range, so the Q-point must not depend strongly on β",
+        "Ignore β, because it has no effect on the collector current in any circuit"
+      ],
+      "correctIndex": 2,
+      "explanation": "h_FE varies widely between samples and with temperature, so the data sheet gives a spread. Stable bias circuits such as voltage-divider bias with an emitter resistor make the Q-point nearly independent of β.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_t4_m046",
+      "questionText": "The junction-to-ambient thermal resistance θ_JA of a device, in °C/W, tells you:",
+      "options": [
+        "The maximum power the device can dissipate",
+        "The temperature at which the device fails",
+        "How much the device current rises for each degree of temperature",
+        "How many degrees the junction rises above ambient for each watt dissipated"
+      ],
+      "correctIndex": 3,
+      "explanation": "θ_JA is the temperature rise per watt: T_J − T_A = P θ_JA. A lower θ_JA, achieved with a bigger package or a heat sink, lets the device dissipate more power.",
+      "difficulty": "easy"
+    }
+  ]
+}

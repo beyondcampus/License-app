@@ -1,0 +1,696 @@
+{
+  "topicId": "ch4_i33",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: MESI, Lock Traffic and Bus Contention"
+    },
+    {
+      "type": "paragraph",
+      "text": "MESI is the write-invalidate snooping protocol used with write-back caches in many bus-based multiprocessors; every cache line carries one of four states. Modified (M) means the line is valid only in this cache and has been written, so main memory is stale and this cache must supply or write back the data before anyone else uses it. Exclusive (E) means only this cache holds the line and it equals memory; Shared (S) means other caches may also hold it and all copies equal memory; Invalid (I) means the line holds nothing usable. The E state is what MESI adds to a three-state MSI protocol: a processor that reads private data and later writes it moves E to M silently, with no bus transaction."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "State",
+          "Own processor reads or writes",
+          "Another cache read-misses (snooped BusRd)",
+          "Another cache wants to write (snooped RWITM or invalidate)"
+        ],
+        [
+          "M",
+          "Read or write hit; stays M, no bus traffic",
+          "Supplies the line and writes it back to memory; goes to S",
+          "Writes the line back to memory; goes to I"
+        ],
+        [
+          "E",
+          "Read hit stays E; write hit goes to M with no bus traffic",
+          "Goes to S",
+          "Goes to I"
+        ],
+        [
+          "S",
+          "Read hit stays S; write hit sends an invalidate and goes to M",
+          "Stays S",
+          "Goes to I"
+        ],
+        [
+          "I",
+          "Read miss: BusRd, loads E if no other cache has the line, else S. Write miss: RWITM, loads M",
+          "Not affected",
+          "Not affected"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: MESI trace, three write-back caches, X starts in memory only\nStep Access       Bus action                          P1 P2 P3\n1    P1 reads X   BusRd, no other copy                E  I  I\n2    P2 reads X   BusRd, P1 E -> S                    S  S  I\n3    P1 writes X  Invalidate, P2 S -> I               M  I  I\n4    P3 reads X   BusRd, P1 writes X back, M -> S     S  I  S\n5    P2 writes X  RWITM, P1 and P3 S -> I             I  M  I\n6    P2 reads X   Hit, no bus action                  I  M  I\nBus transactions = 3 BusRd + 1 invalidate + 1 RWITM = 5\nWrite-backs = 1 (step 4); memory is stale again after step 5"
+    },
+    {
+      "type": "paragraph",
+      "text": "Write-update protocols such as Dragon and Firefly keep every copy valid by broadcasting each written word, so a consumer that reads right after a write hits in its own cache; but a processor that writes the same line many times sends one broadcast per write even when nobody reads in between. Write-invalidate pays one invalidation for the first write and then writes locally, while every other processor that later reads the line takes a miss. Because runs of writes to the same line without intervening reads by others are common, most commercial processors use write-invalidate (MESI and variants such as MOESI and MESIF). False sharing is its pathological case: two processors write different words that happen to lie in one line, so the line ping-pongs between their caches although no data is really shared, and padding the variables into separate lines cures it."
+    },
+    {
+      "type": "bulletList",
+      "text": "Spin locks and atomic primitives on a snooping bus:",
+      "items": [
+        "Plain test-and-set spinning: every retry is an atomic read-modify-write that needs the line in the Modified state, so each attempt is a bus transaction; k waiters retrying every t seconds cause k/t transactions per second while the lock stays busy, slowing even the lock holder's own memory traffic.",
+        "Test-and-test-and-set: a waiter first reads the lock with an ordinary load; after one read miss it spins on its Shared cached copy with no bus traffic and issues test-and-set only when it sees 0. The release write invalidates all copies and causes one short burst of misses.",
+        "Exponential backoff: after a failed attempt a waiter delays for a growing random time before retrying, trading a little latency for much less contention.",
+        "Compare-and-swap CAS(addr, expected, new): writes new only if M[addr] equals expected and always returns the old value, so a failed CAS leaves memory unchanged and tells the caller what it found.",
+        "Fetch-and-add FAA(addr, k): returns the old value and adds k indivisibly; n processors each doing FAA(c, 1) receive n different values, the basis of ticket locks and barrier counters."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: how many processors can one shared bus carry?\nEach processor: 10^8 memory references/s, hit ratio 0.97 in its private cache\nEvery miss holds the bus for 40 ns (address plus block transfer)\nBus requests per processor = 10^8 x (1 - 0.97) = 3 x 10^6 per second\nBus share per processor    = 3 x 10^6 x 40 ns = 0.12 (12 % of bus time)\nSaturation: N x 0.12 <= 1  ->  N <= 8.33, so at most 8 processors\nWith 6 processors U = 6 x 0.12 = 0.72; waiting time rises steeply as U -> 1"
+    },
+    {
+      "type": "formula",
+      "latex": "U = N\\,r\\,t_{b} \\le 1 \\quad\\Rightarrow\\quad N_{max} = \\lfloor 1/(r\\,t_{b}) \\rfloor",
+      "plainText": "Bus utilisation U = N × r × t_b must stay ≤ 1, so N_max = floor(1 / (r × t_b)); r = bus transactions per second per processor, t_b = bus time per transaction"
+    },
+    {
+      "type": "paragraph",
+      "text": "A directory protocol replaces broadcasting with bookkeeping. In a full-map directory every memory block has an entry with one presence bit per processor and a dirty bit, plus a state such as Uncached, Shared or Exclusive; on a write the home node sends invalidations only to the processors whose bits are set and records the writer as the owner. Because the entry grows with N, large machines use limited-pointer directories that store a few processor numbers of log2 N bits each, or chain the sharers in a linked list kept in the caches, as the SCI standard does."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Full map: } N + 1 \\text{ bits per block},\\quad \\text{overhead} = \\frac{N + 1}{8B}",
+      "plainText": "Full-map directory: N presence bits + 1 dirty bit per memory block of B bytes; storage overhead = (N + 1)/(8B)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: size of a full-map directory\nMemory 1 GiB = 2^30 bytes, block B = 64 bytes, N = 32 processors\nBlocks          = 2^30 / 2^6 = 2^24 = 16,777,216\nBits per entry  = 32 presence bits + 1 dirty bit = 33\nDirectory size  = 33 x 2^24 bits = 33 x 2^21 bytes = 66 MiB\nOverhead        = 33 / (64 x 8) = 6.4 % of main memory\nLimited pointers (4 x log2 32 + 1 = 21 bits) would need 42 MiB"
+    },
+    {
+      "type": "examTip",
+      "text": "Common slips in these problems: an E line changes to M on a local write without any bus transaction, but an S line must first broadcast an invalidate; a read miss loads E only when no other cache holds the line; a snooped read of an M line forces a write-back and leaves both copies Shared. When sizing a directory, remember the dirty bit and convert bits to bytes."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i33_m001",
+      "questionText": "In a shared-memory multiprocessor, a sending processor places a request for another processor in a reserved area of common memory, with status bits showing whether the area holds a message and for which processor it is meant. What is this area called?",
+      "options": [
+        "A directory entry",
+        "A write buffer",
+        "A translation lookaside buffer",
+        "A mailbox"
+      ],
+      "correctIndex": 3,
+      "explanation": "Mano calls this memory area a mailbox: the sender writes the message and the status bits, and the receiver checks it by polling or after an interprocessor interrupt. A directory entry records cached copies of a block, not messages.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m002",
+      "questionText": "A processor has just left a message in the mailbox of processor P3 and wants P3 to handle it immediately rather than at its next periodic check of the mailbox. What should it use?",
+      "options": [
+        "A DMA transfer from its own cache to P3's cache",
+        "An interprocessor interrupt directed to P3",
+        "A bus request at the highest arbitration priority",
+        "A cache flush of the mailbox line"
+      ],
+      "correctIndex": 1,
+      "explanation": "An interprocessor interrupt forces the target processor to run a handler at once, so it need not poll its mailbox; bus arbitration only decides who uses the bus next.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m003",
+      "questionText": "Which is an advantage of communicating through shared memory rather than by message passing?",
+      "options": [
+        "Processors exchange data with ordinary load and store instructions, without packaging and routing messages",
+        "No synchronization between the processors is ever needed",
+        "It scales more easily to thousands of processors",
+        "Each processor can keep all of its data private"
+      ],
+      "correctIndex": 0,
+      "explanation": "Shared variables are read and written directly, which is fast and simple to program. The price is the need for locks and cache coherence and limited scalability, where message passing over a network is stronger.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m004",
+      "questionText": "In which multiprocessor operating-system organisation does one designated processor always execute the operating-system functions, while the others only run user programs and must ask it for OS services?",
+      "options": [
+        "Separate operating system for each processor",
+        "Master-slave configuration",
+        "Distributed (floating) operating system",
+        "Time-sharing configuration"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mano lists three organisations: master-slave (one processor runs the OS), separate OS (each processor has its own copy, suited to loosely coupled systems) and distributed OS, where OS routines float from processor to processor but each function runs on only one at a time.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m005",
+      "questionText": "A node of a message-passing multiprocessor sends a 4,000-byte message to a neighbour. The software start-up time is 20 µs and the link bandwidth is 50 MB/s (1 MB = 10^6 bytes). How long does the transfer take?",
+      "options": [
+        "80 µs",
+        "660 µs",
+        "100 µs",
+        "96.3 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "T = t_startup + L/B = 20 µs + 4,000 B / (50 × 10^6 B/s) = 20 + 80 = 100 µs. Leaving out the start-up gives 80 µs, and misreading 50 MB/s as 50 Mbit/s gives 20 + 640 = 660 µs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m006",
+      "questionText": "A 2,000-byte message crosses 4 links (hops) of a message-passing network, each with a bandwidth of 100 MB/s (1 MB = 10^6 bytes); ignore start-up time. With store-and-forward routing each node receives the whole message before forwarding it; with cut-through routing only a header delay of 0.2 µs is added per hop. What are the two transfer times?",
+      "options": [
+        "80 µs with store-and-forward, 20.8 µs with cut-through",
+        "20 µs with store-and-forward, 20.8 µs with cut-through",
+        "80 µs with store-and-forward, 80.8 µs with cut-through",
+        "640 µs with store-and-forward, 160.8 µs with cut-through"
+      ],
+      "correctIndex": 0,
+      "explanation": "One link transmission takes 2,000 / 10^8 = 20 µs. Store-and-forward repeats it on every link: 4 × 20 = 80 µs; cut-through pipelines the message through the nodes: 20 + 4 × 0.2 = 20.8 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m007",
+      "questionText": "Two processors update the same shared variable with separate load, modify and store instructions, and the final value depends on how their instructions happen to interleave in time. What is this situation called?",
+      "options": [
+        "A deadlock",
+        "A capacity miss",
+        "Priority inversion",
+        "A race condition"
+      ],
+      "correctIndex": 3,
+      "explanation": "When the outcome of unsynchronised read-modify-write sequences depends on timing it is a race condition; putting the update in a critical section protected by a lock removes it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m008",
+      "questionText": "A shared counter holds 5. Processors P1 and P2 each execute the sequence LOAD R, count; ADD R, 1; STORE count, R exactly once, without any lock. Which final values of count are possible?",
+      "options": [
+        "7 only",
+        "5, 6 or 7",
+        "6 or 7",
+        "6 only"
+      ],
+      "correctIndex": 2,
+      "explanation": "If the two sequences do not overlap the result is 7; if both load 5 before either stores, both store 6 and one increment is lost. The value cannot stay 5 because at least one store of 6 or 7 always happens.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m009",
+      "questionText": "Processor P1 executes Mano's test-and-set instruction TSL SEM, which leaves the tested (old) value of SEM in processor register R, while SEM = 0 (Mano's convention: 0 = resource free, 1 = busy). What are SEM and R afterwards, and what does P1 do?",
+      "options": [
+        "SEM = 1, R = 0; P1 enters the critical section",
+        "SEM = 1, R = 1; P1 waits and retries",
+        "SEM = 0, R = 1; P1 enters the critical section",
+        "SEM = 0, R = 0; P1 waits and retries"
+      ],
+      "correctIndex": 0,
+      "explanation": "TSL performs R ← M[SEM] and M[SEM] ← 1 in one locked operation, so R receives the old value 0 and SEM becomes 1. R = 0 tells P1 that the resource was free and now belongs to it, so it enters the critical section; R = 1 would mean another processor holds it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m010",
+      "questionText": "In Mano's description of semaphores in a multiprocessor, what is the hardware lock?",
+      "options": [
+        "A processor-generated signal that prevents other processors from using the system bus while it is active",
+        "A bit in each cache line that stops the line from being replaced",
+        "A key register that must match before a processor may write to memory",
+        "A watchdog timer that aborts a critical section that runs too long"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hardware lock is asserted while the test-and-set instruction executes, so no other processor can take the bus between the read and the write of the semaphore.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m011",
+      "questionText": "A counting semaphore S with initial value 2 guards two identical printers. wait(S) decrements S and blocks the caller if the result is negative; signal(S) increments S and wakes one blocked process if the result is 0 or less, so a negative S equals minus the number of blocked processes. The processes perform, in order: wait, wait, wait, wait, signal, wait, signal. What is S at the end, and how many processes are blocked?",
+      "options": [
+        "S = 0, no process blocked",
+        "S = −1, one process blocked",
+        "S = −2, two processes blocked",
+        "S = 1, no process blocked"
+      ],
+      "correctIndex": 1,
+      "explanation": "S goes 2 → 1 → 0 → −1 → −2 (two blocked), then signal gives −1 (one woken), wait gives −2 and the last signal gives −1. One process is still waiting for a printer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m012",
+      "questionText": "The atomic instruction CAS(addr, expected, new) writes new into M[addr] only if M[addr] equals expected, and always returns the old value of M[addr]. M[addr] = 7 and a processor executes CAS(addr, 5, 9). What happens?",
+      "options": [
+        "It returns 5 and M[addr] becomes 9",
+        "It returns 7 and M[addr] stays 7, so the update has failed",
+        "It returns 7 and M[addr] becomes 9",
+        "It returns 9 and M[addr] becomes 5"
+      ],
+      "correctIndex": 1,
+      "explanation": "The comparison 7 = 5 fails, so memory is not changed and the caller receives the current value 7; it would normally retry with 7 as the new expected value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m013",
+      "questionText": "A shared counter c = 10. Three processors each execute the atomic fetch-and-add FAA(c, 1), which returns the old value of c and adds 1 to it. Which outcome is guaranteed?",
+      "options": [
+        "All three receive 10 and c ends at 11",
+        "All three receive 10 and c ends at 13",
+        "The processors receive 10, 11 and 12 in some order, and c ends at 13",
+        "The values received depend on timing, and c may end at 11, 12 or 13"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each FAA is indivisible, so the three updates are serialised: every caller receives a different old value and no increment is lost, whatever the order.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m014",
+      "questionText": "Which synchronization mechanism makes each processor wait at a given point of a parallel program until every participating processor has reached that point?",
+      "options": [
+        "A barrier",
+        "A binary semaphore guarding a critical section",
+        "A mailbox",
+        "Daisy-chain arbitration"
+      ],
+      "correctIndex": 0,
+      "explanation": "A barrier is usually a shared counter incremented atomically by each arrival plus a release flag set when the count reaches the number of processors; it separates phases of a parallel algorithm.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m015",
+      "questionText": "With fixed-priority daisy-chain bus arbitration, the processor at the far end of the chain may wait indefinitely because processors nearer the arbiter keep requesting the bus. What is this problem called?",
+      "options": [
+        "Deadlock",
+        "A race condition",
+        "False sharing",
+        "Starvation"
+      ],
+      "correctIndex": 3,
+      "explanation": "No rule forbids the low-priority unit from using the bus, yet it is postponed indefinitely: that is starvation. Dynamic schemes such as the rotating daisy chain, LRU or FIFO arbitration prevent it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m016",
+      "questionText": "Processor A holds lock L1 and waits for L2, while processor B holds L2 and waits for L1. Which rule, applied to all code, prevents this situation?",
+      "options": [
+        "Every processor releases its lock as soon as it is granted the bus",
+        "Locks are implemented with test-and-test-and-set instead of test-and-set",
+        "Every processor acquires the locks in one fixed global order, for example L1 before L2",
+        "Each processor waits with exponential backoff before retrying"
+      ],
+      "correctIndex": 2,
+      "explanation": "A fixed acquisition order makes circular wait impossible, and circular wait is one of the four conditions needed for deadlock. The spin-lock refinements only reduce bus traffic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m017",
+      "questionText": "Why does a test-and-test-and-set spin lock produce far less bus traffic than one that simply repeats the test-and-set instruction?",
+      "options": [
+        "It locks the bus for the whole time the lock is held, so no other traffic can occur",
+        "It keeps the lock in a processor register instead of memory",
+        "Waiting processors spin by reading their cached Shared copy of the lock and attempt the atomic test-and-set only when they see it free",
+        "It lets several processors enter the critical section together, so fewer have to wait"
+      ],
+      "correctIndex": 2,
+      "explanation": "Every test-and-set is a read-modify-write that needs exclusive ownership of the line, so repeating it keeps generating bus transactions. Ordinary reads hit in the local cache until the holder's release write invalidates the copies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m018",
+      "questionText": "Processor P0 holds a spin lock for 2 µs while 4 other processors wait for it. With plain test-and-set, each waiter retries every 100 ns and every retry is one bus transaction. With test-and-test-and-set, each waiter takes one read miss to load the lock line and then spins in its own cache. How many bus transactions do the waiters cause while P0 holds the lock?",
+      "options": [
+        "80 with test-and-set, 4 with test-and-test-and-set",
+        "20 with test-and-set, 1 with test-and-test-and-set",
+        "80 with test-and-set, 0 with test-and-test-and-set",
+        "100 with test-and-set, 5 with test-and-test-and-set"
+      ],
+      "correctIndex": 0,
+      "explanation": "Test-and-set: 2 µs / 100 ns = 20 retries per waiter, 4 × 20 = 80 transactions. Test-and-test-and-set: one read miss per waiter, 4 transactions, then local cache hits until the release.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m019",
+      "questionText": "Each iteration of a parallel loop spends 40 µs on private work and then 10 µs in a critical section protected by one lock. Ignoring lock overhead, what is the maximum total throughput with any number of processors, and at how many processors is that bound first reached?",
+      "options": [
+        "100,000 iterations/s, first reached with 5 processors",
+        "20,000 iterations/s, first reached with 1 processor",
+        "100,000 iterations/s, first reached with 4 processors",
+        "25,000 iterations/s, first reached with 4 processors"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only one processor can be in the critical section at a time, so at most 1 / 10 µs = 100,000 iterations/s. One processor alone completes 1 / 50 µs = 20,000 iterations/s, so 100,000 / 20,000 = 5 processors saturate the lock.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m020",
+      "questionText": "A job takes 800 ms on one processor. On 8 processors the work divides perfectly, but lock and barrier waiting adds 20 ms. Using S = T1 / (T1/N + T_sync), what is the speed-up?",
+      "options": [
+        "8.00",
+        "6.67",
+        "7.80",
+        "40.0"
+      ],
+      "correctIndex": 1,
+      "explanation": "S = 800 / (800/8 + 20) = 800 / 120 = 6.67. Ignoring T_sync gives the ideal 8, and 8 × 800/820 = 7.80 wrongly adds the overhead to the one-processor time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m021",
+      "questionText": "Eight processors share a bus under time-slice arbitration, with 50 ns slots given in a fixed round-robin order whether or not a processor needs the bus. A processor needs the bus immediately after its own slot has ended. How long must it wait for its next slot to begin?",
+      "options": [
+        "400 ns",
+        "350 ns",
+        "50 ns",
+        "6.25 ns"
+      ],
+      "correctIndex": 1,
+      "explanation": "The slots of the other seven processors come first, each 50 ns long even if they are idle: 7 × 50 = 350 ns. 400 ns is the full round including its own slot.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m022",
+      "questionText": "Four processors are connected in a rotating daisy chain in the order P0 → P1 → P2 → P3 → back to P0. P1 has just released the bus, and P0 and P3 now request it at the same time. Which processor gets the bus, and which processor has the lowest priority in this arbitration?",
+      "options": [
+        "P0 gets the bus; P3 has the lowest priority",
+        "P0 gets the bus; P1 has the lowest priority",
+        "P3 gets the bus; P0 has the lowest priority",
+        "P3 gets the bus; P1 has the lowest priority"
+      ],
+      "correctIndex": 3,
+      "explanation": "In a rotating daisy chain the priority order starts at the unit after the last bus master: P2, P3, P0, P1. P2 is not requesting, so P3 wins, and P1, which just used the bus, is last; a fixed daisy chain would have chosen P0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m023",
+      "questionText": "Six processors share a bus. Each generates 2.5 × 10^6 bus transactions per second, and every transaction occupies the bus for 40 ns. What is the bus utilisation?",
+      "options": [
+        "60 %",
+        "10 %",
+        "6 %",
+        "30 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "One processor uses 2.5 × 10^6 × 40 × 10^-9 = 0.10 of the bus time, so six use 6 × 0.10 = 0.60, that is 60 %.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m024",
+      "questionText": "Each processor in a bus-based multiprocessor keeps the shared bus busy 8 % of the time when running alone. Ignoring queueing effects, what is the largest number of processors whose total bus demand does not exceed 100 %?",
+      "options": [
+        "13",
+        "8",
+        "6",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "N × 0.08 ≤ 1 gives N ≤ 12.5, so 12 processors (96 %); a 13th would demand 104 % of the bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m025",
+      "questionText": "Each processor issues 2 × 10^8 memory references per second, and 98.5 % of them hit in its private cache. Every miss occupies the shared bus for 25 ns. What fraction of bus time does one processor use, and what is the largest number of processors whose total demand does not exceed the bus capacity?",
+      "options": [
+        "1.5 % per processor; at most 66 processors",
+        "7.5 % per processor; at most 14 processors",
+        "15 % per processor; at most 6 processors",
+        "7.5 % per processor; at most 13 processors"
+      ],
+      "correctIndex": 3,
+      "explanation": "Misses = 2 × 10^8 × 0.015 = 3 × 10^6 per second; bus share = 3 × 10^6 × 25 ns = 0.075. Then N ≤ 1/0.075 = 13.3, so 13 processors; 14 would need 105 % of the bus.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m026",
+      "questionText": "In each bus cycle, each of 4 processors independently requests the bus with probability 0.3. What is the probability that two or more processors request in the same cycle, so that arbitration must make at least one of them wait?",
+      "options": [
+        "0.760",
+        "0.348",
+        "0.412",
+        "0.265"
+      ],
+      "correctIndex": 1,
+      "explanation": "P(no request) = 0.7^4 = 0.2401 and P(exactly one) = 4 × 0.3 × 0.7^3 = 0.4116, so P(two or more) = 1 − 0.2401 − 0.4116 = 0.348. 0.760 is the probability of at least one request.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m027",
+      "questionText": "In the MESI protocol, which state means that the line is valid only in this cache and has been written, so the copy in main memory is out of date?",
+      "options": [
+        "Modified",
+        "Exclusive",
+        "Shared",
+        "Invalid"
+      ],
+      "correctIndex": 0,
+      "explanation": "Modified means dirty and exclusive: the cache must write the line back, or supply it, before anyone else uses it. An Exclusive line is also the only cached copy, but it still equals memory.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m028",
+      "questionText": "Under MESI, processor P1 read-misses on block X and no other cache holds X. In which state is X loaded into P1's cache?",
+      "options": [
+        "Shared",
+        "Modified",
+        "Exclusive",
+        "Invalid"
+      ],
+      "correctIndex": 2,
+      "explanation": "No other cache responds to the snoop, so this is the only cached copy and it equals memory: Exclusive. If another cache had held X, both copies would end up Shared.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m029",
+      "questionText": "Which MESI state change takes place without any transaction on the shared bus?",
+      "options": [
+        "Shared to Modified when the local processor writes the line",
+        "Exclusive to Modified when the local processor writes the line",
+        "Invalid to Exclusive when the local processor reads the line",
+        "Invalid to Modified when the local processor writes the line"
+      ],
+      "correctIndex": 1,
+      "explanation": "A line in E is known to be the only cached copy, so the write needs nobody's permission. S to M must broadcast an invalidate, and both transitions out of I need a bus read (BusRd or read-with-intent-to-modify).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m030",
+      "questionText": "Cache C2 holds block X in the Modified state. Processor P1 then read-misses on X. With the MESI protocol as described by Stallings, what happens?",
+      "options": [
+        "C2 supplies X and writes it back to memory, then changes to Shared; P1 loads X as Shared",
+        "C2 keeps X as Modified and P1 reads the stale value from memory",
+        "C2 invalidates its copy and P1 loads X as Exclusive",
+        "C2 changes to Exclusive and P1 loads X as Modified"
+      ],
+      "correctIndex": 0,
+      "explanation": "The snooping C2 must not let P1 read stale memory, so it provides the dirty line, memory is updated, and both caches end with clean Shared copies.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m031",
+      "questionText": "Caches C1 and C3 hold block Y in the Shared state. Processor P2, whose cache does not contain Y, writes to Y. Under MESI, what are the states of Y in C1, C2 and C3 afterwards?",
+      "options": [
+        "S, M, S",
+        "S, S, S",
+        "I, M, I",
+        "I, E, I"
+      ],
+      "correctIndex": 2,
+      "explanation": "P2's write miss issues a read-with-intent-to-modify; C1 and C3 snoop it and invalidate their copies, and P2 loads the line and writes it, so only C2 holds Y, in Modified.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m032",
+      "questionText": "Three processors have write-back MESI caches, and block X is initially only in memory. The accesses are: P1 reads X, P2 reads X, P3 writes X, P1 reads X. What are the final states of X in the caches of P1, P2 and P3? Assume Stallings' MESI rules: a read miss loads E only if no other cache holds the block, otherwise S; a cache that snoops another processor's read of its M block writes it back to memory and changes to S; a snooped read-with-intent-to-modify or invalidate makes every other copy I, an M copy being written back first.",
+      "options": [
+        "S, S, M",
+        "E, I, M",
+        "S, I, S",
+        "S, I, M"
+      ],
+      "correctIndex": 2,
+      "explanation": "P1 loads E; P2's read makes both S; P3's write miss (RWITM) invalidates P1 and P2 and leaves P3 in M; P1's read miss makes P3 write X back and drop to S, and P1 loads S.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m033",
+      "questionText": "Two processors have write-back MESI caches, and block A is initially only in memory. The accesses are: P1 reads A, P1 writes A, P1 writes A, P2 reads A, P2 writes A. Counting each read miss (BusRd), read-with-intent-to-modify and invalidate as one bus transaction, and write-backs separately, how many bus transactions and write-backs occur? Assume Stallings' MESI rules: a read miss loads E only if no other cache holds the block, otherwise S; a cache that snoops another processor's read of its M block writes it back to memory and changes to S; a snooped read-with-intent-to-modify or invalidate makes every other copy I, an M copy being written back first.",
+      "options": [
+        "4 bus transactions and 1 write-back",
+        "5 bus transactions and no write-back",
+        "3 bus transactions and 2 write-backs",
+        "3 bus transactions and 1 write-back"
+      ],
+      "correctIndex": 3,
+      "explanation": "P1's read is a BusRd (E); its two writes are silent (E to M, then an M hit); P2's read is a BusRd that makes P1 write back and go to S; P2's write is an invalidate (S to M). That is 3 transactions and 1 write-back.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m034",
+      "questionText": "Three processors have write-back MESI caches, and block X is initially only in memory. The accesses are: P1 writes X, P2 reads X, P3 reads X, P3 writes X, P1 reads X, P2 writes X. Counting each BusRd, read-with-intent-to-modify and invalidate as one bus transaction, how many bus transactions and write-backs occur, and what is the final state of X in P2's cache? Assume Stallings' MESI rules: a read miss loads E only if no other cache holds the block, otherwise S; a cache that snoops another processor's read of its M block writes it back to memory and changes to S; a snooped read-with-intent-to-modify or invalidate makes every other copy I, an M copy being written back first.",
+      "options": [
+        "6 bus transactions, 1 write-back; P2 holds X as Modified",
+        "6 bus transactions, 2 write-backs; P2 holds X as Modified",
+        "5 bus transactions, 2 write-backs; P2 holds X as Exclusive",
+        "6 bus transactions, 3 write-backs; P2 holds X as Shared"
+      ],
+      "correctIndex": 1,
+      "explanation": "Steps: RWITM (P1 M); BusRd with P1 writing back (P1, P2 S); BusRd (all S); invalidate (P3 M); BusRd with P3 writing back (P1, P3 S); RWITM (P2 M, others I). Every access uses the bus once, giving 6 transactions and 2 write-backs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m035",
+      "questionText": "Three processors have write-back MESI caches, and block X is initially only in memory. The accesses are: P2 reads X, P1 reads X, P2 writes X, P2 writes X, P3 writes X, P1 reads X, P3 reads X. What are the final states of X in P1, P2 and P3, and how many times is X written back to memory? Assume Stallings' MESI rules: a read miss loads E only if no other cache holds the block, otherwise S; a cache that snoops another processor's read of its M block writes it back to memory and changes to S; a snooped read-with-intent-to-modify or invalidate makes every other copy I, an M copy being written back first.",
+      "options": [
+        "S, I, S; 2 write-backs",
+        "S, I, S; 1 write-back",
+        "S, I, M; 1 write-back",
+        "E, I, S; 2 write-backs"
+      ],
+      "correctIndex": 0,
+      "explanation": "P2 E; P1 read makes both S; P2's first write invalidates P1 (P2 M) and the second hits; P3's write miss makes P2 write back and go to I (P3 M); P1's read makes P3 write back and both become S; P3's read hits. Final S, I, S with 2 write-backs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m036",
+      "questionText": "Under a write-update (write-broadcast) coherence protocol, what happens when a processor writes to a line that other caches also hold?",
+      "options": [
+        "An invalidation is broadcast and every other copy is discarded",
+        "The new data is broadcast on the bus and every cache holding the line updates its copy",
+        "Only the writer's copy changes; the others keep the old value until the next context switch",
+        "The writer stalls until every other cache has evicted the line"
+      ],
+      "correctIndex": 1,
+      "explanation": "Write-update keeps all copies valid by sending the written word to them. Write-invalidate, as in MESI, instead removes the other copies so that the writer holds the only one.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m037",
+      "questionText": "For which access pattern does a write-invalidate protocol generate much less bus traffic than a write-update protocol?",
+      "options": [
+        "One processor writes a value once and several processors read it immediately afterwards",
+        "One processor writes the same block many times before any other processor reads it",
+        "Several processors only read a block that nobody ever writes",
+        "Each processor uses only data that no other processor ever caches"
+      ],
+      "correctIndex": 1,
+      "explanation": "Write-invalidate pays one invalidation and then writes locally, whereas write-update broadcasts every write. For write-once, read-by-many data write-update does better, and in the last two cases neither protocol generates coherence traffic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m038",
+      "questionText": "Block Z is held in the Shared state by the caches of P1, P2 and P3. P1 then writes Z six times in a row, after which P2 and P3 each read Z once. Count one bus transaction for each invalidation, each update broadcast and each read miss (a write-back that services a miss is part of that miss). How many bus transactions does a write-invalidate protocol need, compared with a write-update protocol?",
+      "options": [
+        "Write-invalidate 1, write-update 6",
+        "Write-invalidate 6, write-update 3",
+        "Write-invalidate 3, write-update 8",
+        "Write-invalidate 3, write-update 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "Write-invalidate: one invalidation on the first write, five local hits, then read misses by P2 and P3, giving 3. Write-update: six update broadcasts, after which both reads hit, giving 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m039",
+      "questionText": "Processors P1 and P2 repeatedly update two different variables, a and b, that lie in the same 64-byte cache block. Their MESI caches show heavy invalidation traffic although no data is actually shared. What is the problem, and what is a remedy?",
+      "options": [
+        "True sharing; protect a and b with one common lock",
+        "Capacity misses; double the cache size",
+        "Deadlock; acquire the locks in a fixed order",
+        "False sharing; place a and b in different cache blocks, for example by padding"
+      ],
+      "correctIndex": 3,
+      "explanation": "Coherence works on whole blocks, so each write to a invalidates P2's copy of the block that also holds b, and vice versa. Separating the variables into different blocks stops the ping-pong.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m040",
+      "questionText": "In the software coherence scheme that uses a centralised global table set up by the compiler (Mano), each memory block is marked read-only (RO) or read-write (RW). Which rule applies?",
+      "options": [
+        "RO blocks may be copied into all caches, but an RW block may be in only one cache",
+        "RW blocks may be copied into all caches, but an RO block may be in only one cache",
+        "Both RO and RW blocks may be in every cache, and the table is consulted only on a write",
+        "Neither RO nor RW blocks may be cached; the table replaces the caches"
+      ],
+      "correctIndex": 0,
+      "explanation": "Copies of read-only data can never disagree, so they may be cached everywhere; allowing each writable block in only one cache means it can never have two different cached values.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m041",
+      "questionText": "A 256-processor NUMA machine connects its nodes through a point-to-point switching network with no shared bus. Which cache coherence approach is appropriate?",
+      "options": [
+        "A snoopy write-invalidate protocol",
+        "A snoopy write-update protocol",
+        "Write-through caches with no coherence mechanism",
+        "A directory-based protocol"
+      ],
+      "correctIndex": 3,
+      "explanation": "Snooping needs a broadcast medium that every cache can watch. Without a bus, and at this scale, a directory records the sharers of each block and sends invalidations only to them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i33_m042",
+      "questionText": "Which statement about snoopy cache coherence is NOT correct?",
+      "options": [
+        "Every cache controller must observe every transaction on the shared bus",
+        "It is well suited to a small bus-based symmetric multiprocessor",
+        "It scales easily to hundreds of processors because invalidations are sent only to the caches that hold the block",
+        "MESI is an example of a snoopy write-invalidate protocol"
+      ],
+      "correctIndex": 2,
+      "explanation": "Snooping broadcasts every coherence transaction to all caches, so bus bandwidth and snoop load limit it to modest processor counts. Sending invalidations only to the sharers is what a directory does.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m043",
+      "questionText": "In a 32-processor system with a full-map directory, block B is cached in the Shared state by P4, P9 and P20. P7 now writes B. To how many caches must the directory send invalidation messages?",
+      "options": [
+        "31",
+        "3",
+        "4",
+        "32"
+      ],
+      "correctIndex": 1,
+      "explanation": "The presence bits identify exactly the three sharers, P4, P9 and P20, so three invalidations are sent. A snooping bus would instead broadcast to all 31 other caches.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m044",
+      "questionText": "A full-map directory keeps one presence bit per processor and one dirty bit for every memory block. For 16 processors and 32-byte blocks, how much storage does the directory add, as a percentage of main-memory capacity?",
+      "options": [
+        "6.25 %",
+        "53.1 %",
+        "6.64 %",
+        "3.32 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each entry has 16 + 1 = 17 bits for 32 × 8 = 256 data bits, so the overhead is 17/256 = 6.64 %. Forgetting the dirty bit gives 6.25 %, and comparing bits with bytes gives 53.1 %.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i33_m045",
+      "questionText": "A NUMA machine has 64 processors and 4 GiB of main memory with 128-byte blocks. A full-map directory stores 64 presence bits and 1 dirty bit for every block. How much storage does the directory need (1 MiB = 2^20 bytes)?",
+      "options": [
+        "256 MiB",
+        "520 MiB",
+        "2,080 MiB",
+        "260 MiB"
+      ],
+      "correctIndex": 3,
+      "explanation": "Blocks = 2^32 / 2^7 = 2^25; directory = 65 × 2^25 bits = 65 × 2^22 bytes = 260 MiB, about 6.3 % of memory. Without the dirty bit it would be 256 MiB, and 2,080 is the size in mebibits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i33_m046",
+      "questionText": "A 256-processor system compares a full-map directory (one presence bit per processor plus a dirty bit) with a limited-pointer directory that stores up to 4 processor numbers plus a dirty bit for each block. How many bits does each entry need, and how much smaller is the limited-pointer entry?",
+      "options": [
+        "256 bits versus 32 bits, exactly 87.5 % smaller",
+        "257 bits versus 1,025 bits, about four times larger",
+        "257 bits versus 33 bits, about 87 % smaller",
+        "257 bits versus 9 bits, about 96 % smaller"
+      ],
+      "correctIndex": 2,
+      "explanation": "Full map: 256 + 1 = 257 bits. Limited pointer: 4 × log2 256 + 1 = 4 × 8 + 1 = 33 bits, so the entry is 1 − 33/257 = 87 % smaller.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,718 @@
+{
+  "topicId": "ch1_i52",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Deriving and Designing RC Oscillators"
+    },
+    {
+      "type": "paragraph",
+      "text": "The numbers 1/(2πRC√6) and 29 come from analysing the three-section high-pass ladder (series C, shunt R) with ordinary circuit laws. Writing α = 1/(ωRC) and solving the ladder from the output back to the input gives the transfer ratio below. Oscillation needs the network output to be exactly 180° from its input, which means the ratio must be a negative real number, so its imaginary part must vanish: 6α − α³ = 0, giving α² = 6 and ω = 1/(RC√6). Substituting α² = 6 into the real part gives 1 − 30 = −29, so the network returns −1/29 of its input and the amplifier must supply a gain of at least 29."
+    },
+    {
+      "type": "formula",
+      "latex": "\\beta = \\frac{1}{1 - 5\\alpha^2 - j(6\\alpha - \\alpha^3)},\\quad \\alpha = \\frac{1}{\\omega RC}",
+      "plainText": "β = 1 / (1 − 5α² − j(6α − α³)), where α = 1/(ωRC)"
+    },
+    {
+      "type": "paragraph",
+      "text": "Two variations are worth knowing. If the sections are low-pass (series R, shunt C) the same algebra holds with α replaced by ωRC, so the frequency becomes √6/(2πRC) while the attenuation is still 1/29. If each section is isolated by a buffer, the sections no longer load one another: each simply gives 60°, which happens when ωRC = 1/√3, and each attenuates by cos 60° = 0.5, so the network passes 1/8 and a gain of only 8 is needed. The loading between sections is what makes the unbuffered ladder so lossy."
+    },
+    {
+      "type": "formula",
+      "latex": "\\beta_{Wien} = \\frac{1}{3 + j\\left(\\omega RC - \\frac{1}{\\omega RC}\\right)}",
+      "plainText": "β(Wien) = 1 / (3 + j(ωRC − 1/(ωRC)))"
+    },
+    {
+      "type": "paragraph",
+      "text": "For the Wien lead-lag network with equal parts, the imaginary term vanishes only when ωRC = 1, which gives f = 1/(2πRC) and β = 1/3. Below this frequency the network leads, above it the network lags, and at every other frequency |β| is less than 1/3, which is what makes the network frequency-selective. With unequal arms (series R_s, C_s; parallel R_p, C_p) the network still has 0° at f = 1/(2π√(R_sC_sR_pC_p)), but its attenuation becomes 1/(1 + R_s/R_p + C_p/C_s), so the amplifier gain must rise to match."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: op-amp phase-shift oscillator for 800 Hz\nChoose C = 10 nF in each section.\nR = 1/(2π f C √6) = 1/(2π × 800 × 10^-8 × 2.449)\n  = 8.12 kΩ  ->  nearest standard value 8.2 kΩ\nActual f = 1/(2π × 8200 × 10^-8 × 2.449) ≈ 792 Hz\nThe inverting amplifier's input resistor is the third R (8.2 kΩ,\nreturned to the virtual earth), so gain = R_f/R ≥ 29:\nR_f ≥ 29 × 8.2 kΩ = 237.8 kΩ  ->  use about 250 kΩ for start-up"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: Wien network with unequal capacitors\nR_s = R_p = 10 kΩ, C_s = 10 nF, C_p = 20 nF\nf = 1/(2π √(R_s C_s R_p C_p))\n  = 1/(2π √(10^4 × 10^-8 × 10^4 × 2×10^-8))\n  = 1/(2π × 1.414 × 10^-4) ≈ 1.125 kHz\nAttenuation = 1/(1 + R_s/R_p + C_p/C_s) = 1/(1 + 1 + 2) = 1/4\nRequired gain A = 4 = 1 + R_f/R_1  ->  R_f = 3 R_1"
+    },
+    {
+      "type": "paragraph",
+      "text": "The twin-T oscillator uses a notch network made of two T sections in parallel: one T has two series resistors R with a shunt capacitor 2C, the other has two series capacitors C with a shunt resistor R/2. At f = 1/(2πRC) the two paths cancel and the output of the network is zero. Placed in the negative-feedback path of an amplifier, the twin-T removes negative feedback only at the notch frequency, so a modest positive feedback path makes the loop gain exceed unity there and nowhere else, giving a sharply selective audio oscillator."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Network",
+          "Oscillation frequency",
+          "Minimum amplifier gain"
+        ],
+        [
+          "3 high-pass RC sections (series C)",
+          "1/(2πRC√6)",
+          "29, inverting"
+        ],
+        [
+          "3 low-pass RC sections (series R)",
+          "√6/(2πRC)",
+          "29, inverting"
+        ],
+        [
+          "3 buffered high-pass RC sections (series C), 60° each",
+          "1/(2π√3·RC)",
+          "8, inverting"
+        ],
+        [
+          "Transistor version, k = R_C/R",
+          "1/(2πRC√(6 + 4k))",
+          "h_fe ≥ 23 + 29/k + 4k (min 44.5 at k ≈ 2.7)"
+        ],
+        [
+          "Wien, equal R and C",
+          "1/(2πRC)",
+          "3, non-inverting"
+        ],
+        [
+          "Wien, unequal arms",
+          "1/(2π√(R_sC_sR_pC_p))",
+          "1 + R_s/R_p + C_p/C_s"
+        ],
+        [
+          "Twin-T (in negative feedback)",
+          "1/(2πRC)",
+          "Set by the positive-feedback divider"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in RC oscillator calculations:",
+      "items": [
+        "Putting √6 in the Wien bridge formula, or leaving it out of the phase-shift formula.",
+        "Writing the Wien condition as R_f = 3R_1; the gain is 1 + R_f/R_1 = 3, so R_f = 2R_1.",
+        "Using 6 instead of √6, which makes the phase-shift frequency 2.45 times too low.",
+        "Forgetting that frequency varies as 1/(RC): doubling both R and C divides f by four.",
+        "For a FET or transistor stage, ignoring r_d or R_C loading, which raises the gain actually needed."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Quick checks: with the same R and C, a Wien bridge runs √6 ≈ 2.45 times faster than a phase-shift oscillator. The gain numbers 3 and 29 are independent of the R and C values, so they can be used without any calculation."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i52_m001",
+      "questionText": "In a three-section RC phase-shift oscillator with identical sections, the phase shift contributed by each RC section at the oscillation frequency is:",
+      "options": [
+        "60°",
+        "90°",
+        "45°",
+        "180°"
+      ],
+      "correctIndex": 0,
+      "explanation": "The network must give 180° in total, and three identical sections share it, so each gives 60° (an ideal single section can never reach 90°).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m002",
+      "questionText": "The amplifier used in an RC phase-shift oscillator must provide a phase shift of:",
+      "options": [
+        "0° (non-inverting amplifier)",
+        "180° (inverting amplifier)",
+        "90°",
+        "60°"
+      ],
+      "correctIndex": 1,
+      "explanation": "The RC network gives 180°, so the amplifier must be inverting and add another 180° to make the loop 360°.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m003",
+      "questionText": "For an RC phase-shift oscillator with three identical RC sections, the minimum voltage gain of the amplifier is:",
+      "options": [
+        "29",
+        "3",
+        "1/29",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "The network attenuates the signal to 1/29 at the oscillation frequency, so |A| ≥ 29 gives |Aβ| ≥ 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m004",
+      "questionText": "The voltage gain of the amplifier in a Wien bridge oscillator must be:",
+      "options": [
+        "29",
+        "1/3",
+        "1",
+        "3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The lead-lag network passes 1/3 of the output at f0, so a gain of 3 makes the loop gain exactly 1.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m005",
+      "questionText": "RC oscillators are mainly used to generate sine waves in the:",
+      "options": [
+        "Microwave range",
+        "Audio-frequency range",
+        "VHF range",
+        "Range of hundreds of MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "RC oscillators work well from a few hertz to about 1 MHz; above that, stray capacitance and amplifier limits favour LC and crystal oscillators.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m006",
+      "questionText": "The amplifier in a Wien bridge oscillator is a:",
+      "options": [
+        "Inverting amplifier",
+        "Differentiator",
+        "Non-inverting amplifier",
+        "Unity-gain inverting buffer"
+      ],
+      "correctIndex": 2,
+      "explanation": "The lead-lag network gives 0° at f0, so the amplifier must also give 0° (non-inverting) for a 360° loop.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m007",
+      "questionText": "At the oscillation frequency of a Wien bridge oscillator, the phase shift of the lead-lag network is:",
+      "options": [
+        "0°",
+        "90°",
+        "180°",
+        "−90°"
+      ],
+      "correctIndex": 0,
+      "explanation": "The lead of the series R-C arm exactly cancels the lag of the parallel R-C arm at f = 1/(2πRC), giving 0°.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m008",
+      "questionText": "At the oscillation frequency, the output of the Wien bridge lead-lag network (with equal R and C) is what fraction of its input?",
+      "options": [
+        "1/29",
+        "1/3",
+        "1/2",
+        "1"
+      ],
+      "correctIndex": 1,
+      "explanation": "With ωRC = 1 the transfer ratio 1/(3 + j(ωRC − 1/(ωRC))) reduces to 1/3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m009",
+      "questionText": "RC oscillators are preferred to LC oscillators at low (audio) frequencies mainly because:",
+      "options": [
+        "The inductors needed would be large, heavy and lossy",
+        "RC networks have a higher Q than LC tanks",
+        "RC oscillators are more stable than crystal oscillators",
+        "RC oscillators need no amplifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "At low frequencies f = 1/(2π√(LC)) would demand very large inductors; resistors and capacitors of suitable values are small and cheap.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m010",
+      "questionText": "The twin-T network used in a twin-T oscillator behaves as a:",
+      "options": [
+        "Notch (band-stop) filter with zero output at f0",
+        "Band-pass filter with maximum output at f0",
+        "Low-pass filter",
+        "All-pass filter with 180° shift"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two T paths cancel at f0 = 1/(2πRC), so the network output is zero at that frequency and rises on either side: a notch filter.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m011",
+      "questionText": "In a twin-T oscillator, the twin-T network is connected in:",
+      "options": [
+        "The positive-feedback path, to provide 180°",
+        "Series with the DC supply",
+        "Parallel with the load as a filter",
+        "The negative-feedback path, so that negative feedback is minimum at f0"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because the twin-T rejects f0, negative feedback through it vanishes at f0; a small positive feedback then gives loop gain above 1 only at that frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m012",
+      "questionText": "A twin-T network uses two series resistors R in one T and two series capacitors C in the other. The shunt elements of the two T sections are:",
+      "options": [
+        "A capacitor C/2 and a resistor 2R",
+        "A capacitor C and a resistor R",
+        "A capacitor 2C and a resistor R/2",
+        "A capacitor 2C and a resistor 2R"
+      ],
+      "correctIndex": 2,
+      "explanation": "The R-R T needs a shunt capacitor of 2C and the C-C T needs a shunt resistor of R/2 for a perfect null at f0 = 1/(2πRC).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m013",
+      "questionText": "A twin-T oscillator uses R = 15 kΩ and C = 10 nF in its twin-T network. The oscillation frequency is approximately:",
+      "options": [
+        "1.06 kHz",
+        "433 Hz",
+        "6.67 kHz",
+        "2.12 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "f0 = 1/(2πRC) = 1/(2π × 15 × 10^3 × 10 × 10^-9) = 1/(9.42 × 10^-4) ≈ 1.06 kHz. Using 1/(RC) without 2π gives 6.67 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m014",
+      "questionText": "An RC phase-shift oscillator uses R = 4.7 kΩ and C = 22 nF in each of its three sections. Its frequency of oscillation is approximately:",
+      "options": [
+        "1.54 kHz",
+        "628 Hz",
+        "3.77 kHz",
+        "257 Hz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = 1/(2πRC√6) = 1/(2π × 4700 × 22 × 10^-9 × 2.449) ≈ 628 Hz. Leaving out √6 gives 1.54 kHz; dividing by 6 instead of √6 gives 257 Hz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m015",
+      "questionText": "An RC phase-shift oscillator must run at 1 kHz with R = 10 kΩ in each section. The capacitance needed in each section is about:",
+      "options": [
+        "15.9 nF",
+        "6.50 nF",
+        "2.65 nF",
+        "39.0 nF"
+      ],
+      "correctIndex": 1,
+      "explanation": "C = 1/(2πfR√6) = 1/(2π × 1000 × 10^4 × 2.449) ≈ 6.50 nF. Without √6 the result would be 15.9 nF (the Wien value).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m016",
+      "questionText": "A Wien bridge oscillator has R = 33 kΩ and C = 4.7 nF in both arms of its lead-lag network. Its frequency is approximately:",
+      "options": [
+        "1.03 kHz",
+        "419 Hz",
+        "6.45 kHz",
+        "2.05 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "f = 1/(2πRC) = 1/(2π × 33 × 10^3 × 4.7 × 10^-9) = 1/(9.75 × 10^-4) ≈ 1.03 kHz. Adding √6 wrongly gives 419 Hz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m017",
+      "questionText": "A Wien bridge oscillator is to run at 5 kHz using R = 3.3 kΩ in both arms. The capacitor value required is about:",
+      "options": [
+        "3.94 nF",
+        "9.65 nF",
+        "60.6 nF",
+        "4.82 nF"
+      ],
+      "correctIndex": 1,
+      "explanation": "C = 1/(2πfR) = 1/(2π × 5000 × 3300) ≈ 9.65 nF. Omitting 2π gives 60.6 nF; dividing by √6 gives 3.94 nF.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m018",
+      "questionText": "In an op-amp Wien bridge oscillator, the resistor from the inverting input to ground is R_1 = 4.7 kΩ. The minimum value of the feedback resistor R_f for sustained oscillation is:",
+      "options": [
+        "14.1 kΩ",
+        "4.7 kΩ",
+        "136 kΩ",
+        "9.4 kΩ"
+      ],
+      "correctIndex": 3,
+      "explanation": "The gain 1 + R_f/R_1 must equal 3, so R_f = 2R_1 = 2 × 4.7 kΩ = 9.4 kΩ. Taking R_f = 3R_1 (14.1 kΩ) would give a gain of 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m019",
+      "questionText": "An op-amp RC phase-shift oscillator uses R = 12 kΩ in each section; the third R also serves as the input resistor of the inverting amplifier. The minimum feedback resistor R_f is:",
+      "options": [
+        "36 kΩ",
+        "24 kΩ",
+        "348 kΩ",
+        "414 Ω"
+      ],
+      "correctIndex": 2,
+      "explanation": "The inverting gain R_f/R must be at least 29, so R_f ≥ 29 × 12 kΩ = 348 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m020",
+      "questionText": "The minimum amplifier gain of a three-section RC phase-shift oscillator, expressed in decibels, is about:",
+      "options": [
+        "14.6 dB",
+        "29.2 dB",
+        "9.54 dB",
+        "1.46 dB"
+      ],
+      "correctIndex": 1,
+      "explanation": "20 log10(29) = 20 × 1.462 ≈ 29.2 dB. Using 10 log gives 14.6 dB, and 9.54 dB is 20 log10(3), the Wien bridge value.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m021",
+      "questionText": "An op-amp Wien bridge oscillator has R_f = 18 kΩ and R_1 = 10 kΩ. The amplifier gain and the circuit's behaviour are:",
+      "options": [
+        "Gain 1.8; the oscillations die out",
+        "Gain 2.8; a steady sine wave is produced",
+        "Gain 2.8; the output is clipped",
+        "Gain 2.8; the oscillations die out"
+      ],
+      "correctIndex": 3,
+      "explanation": "A = 1 + R_f/R_1 = 1 + 18/10 = 2.8. Since 2.8 × 1/3 = 0.93 is less than 1, the loop gain is below unity and no sustained oscillation occurs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m022",
+      "questionText": "A Wien bridge oscillator has R = 10 kΩ and C = 1.5 nF in its lead-lag network, R_f = 25 kΩ and R_1 = 10 kΩ, with no amplitude-stabilising element. The frequency and the nature of the output are:",
+      "options": [
+        "10.6 kHz; the oscillations die out",
+        "4.33 kHz; the amplitude grows until the op-amp clips",
+        "10.6 kHz; a pure sine wave with no limiting",
+        "10.6 kHz; the amplitude grows until the op-amp clips"
+      ],
+      "correctIndex": 3,
+      "explanation": "f = 1/(2π × 10^4 × 1.5 × 10^-9) ≈ 10.6 kHz. The gain is 1 + 25/10 = 3.5, so the loop gain is 3.5/3 ≈ 1.17 > 1 and the amplitude grows until the op-amp saturates, distorting the sine wave.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m023",
+      "questionText": "A Wien bridge oscillator and an RC phase-shift oscillator use the same R and C values. The ratio f(Wien)/f(phase-shift) is about:",
+      "options": [
+        "6",
+        "9.67",
+        "2.45",
+        "0.408"
+      ],
+      "correctIndex": 2,
+      "explanation": "f(Wien) = 1/(2πRC) and f(phase-shift) = 1/(2πRC√6), so the ratio is √6 ≈ 2.45.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m024",
+      "questionText": "If both R and C in the lead-lag network of a Wien bridge oscillator are doubled, the frequency of oscillation becomes:",
+      "options": [
+        "Half the original",
+        "Four times the original",
+        "Unchanged",
+        "One quarter of the original"
+      ],
+      "correctIndex": 3,
+      "explanation": "f = 1/(2πRC); doubling both R and C multiplies RC by 4, so f falls to one quarter.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m025",
+      "questionText": "A Wien network has R_s = R_p = 10 kΩ, series capacitor C_s = 10 nF and parallel capacitor C_p = 40 nF. The oscillation frequency and the minimum amplifier gain are:",
+      "options": [
+        "796 Hz; gain 3",
+        "1.59 kHz; gain 6",
+        "796 Hz; gain 6",
+        "398 Hz; gain 6"
+      ],
+      "correctIndex": 2,
+      "explanation": "f = 1/(2π√(R_sC_sR_pC_p)) = 1/(2π × 10^4 × √(4 × 10^-16)) = 1/(2π × 2 × 10^-4) ≈ 796 Hz. Gain = 1 + R_s/R_p + C_p/C_s = 1 + 1 + 4 = 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m026",
+      "questionText": "A Wien network uses equal capacitors but unequal resistors: R_s = 20 kΩ in the series arm and R_p = 5 kΩ in the parallel arm. In the op-amp non-inverting amplifier, the minimum ratio R_f/R_1 is:",
+      "options": [
+        "2",
+        "6",
+        "5",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "Required gain = 1 + R_s/R_p + C_p/C_s = 1 + 4 + 1 = 6, and 1 + R_f/R_1 = 6 gives R_f/R_1 = 5. The value 2 applies only to equal arms.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m027",
+      "questionText": "A transistor RC phase-shift oscillator has R = 10 kΩ, C = 10 nF and collector resistor R_C = 5 kΩ. Using f = 1/(2πRC√(6 + 4R_C/R)), its frequency is about:",
+      "options": [
+        "650 Hz",
+        "503 Hz",
+        "1.59 kHz",
+        "563 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "R_C/R = 0.5, so √(6 + 4 × 0.5) = √8 = 2.828 and f = 1/(2π × 10^4 × 10^-8 × 2.828) ≈ 563 Hz. Ignoring the loading (√6) would give 650 Hz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m028",
+      "questionText": "For a transistor RC phase-shift oscillator the current gain must satisfy h_fe ≥ 23 + 29(R/R_C) + 4(R_C/R). If R_C = R, the minimum h_fe is:",
+      "options": [
+        "29",
+        "44.5",
+        "56",
+        "23"
+      ],
+      "correctIndex": 2,
+      "explanation": "With R_C/R = 1: h_fe ≥ 23 + 29 + 4 = 56. The value 44.5 is the lowest possible minimum, reached only when R_C/R ≈ 2.7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m029",
+      "questionText": "In the transistor RC phase-shift oscillator, h_fe ≥ 23 + 29(R/R_C) + 4(R_C/R). The smallest h_fe that can sustain oscillation, obtained by choosing the best R_C/R, is about:",
+      "options": [
+        "29",
+        "56",
+        "23",
+        "44.5"
+      ],
+      "correctIndex": 3,
+      "explanation": "Minimising 23 + 29/k + 4k gives k = √(29/4) ≈ 2.69, and then h_fe = 23 + 10.77 + 10.77 ≈ 44.5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m030",
+      "questionText": "A FET RC phase-shift oscillator uses a FET with g_m = 4 mS and a very large r_d. The minimum drain resistor R_D is:",
+      "options": [
+        "7.25 kΩ",
+        "725 Ω",
+        "750 Ω",
+        "72.5 kΩ"
+      ],
+      "correctIndex": 0,
+      "explanation": "The gain |A| = g_m R_D must be at least 29, so R_D ≥ 29/(4 × 10^-3 S) = 7.25 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m031",
+      "questionText": "A FET RC phase-shift oscillator uses a FET with g_m = 5 mS and r_d = 40 kΩ. The minimum drain resistor R_D, taking r_d into account, is about:",
+      "options": [
+        "5.80 kΩ",
+        "6.78 kΩ",
+        "5.07 kΩ",
+        "45.8 kΩ"
+      ],
+      "correctIndex": 1,
+      "explanation": "Need g_m(R_D || r_d) ≥ 29, so R_D || r_d ≥ 29/5 mS = 5.8 kΩ. Then 1/R_D = 1/5.8 kΩ − 1/40 kΩ, giving R_D ≈ 6.78 kΩ. Ignoring r_d gives 5.8 kΩ.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m032",
+      "questionText": "A Wien bridge oscillator has an output of 6 V peak. The peak voltage fed back by the lead-lag network to the non-inverting input is:",
+      "options": [
+        "6 V",
+        "18 V",
+        "2 V",
+        "0.207 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "At f0 the lead-lag network passes 1/3 of the output: 6 V/3 = 2 V, and the amplifier gain of 3 restores it to 6 V.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m033",
+      "questionText": "An op-amp RC phase-shift oscillator produces an output of 14.5 V peak-to-peak. The peak-to-peak signal at the output of the three-section RC network is:",
+      "options": [
+        "4.83 V",
+        "0.5 V",
+        "14.5 V",
+        "0.25 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "The network attenuates by 29, so the signal returned is 14.5/29 = 0.5 V peak-to-peak (and 180° out of phase with the output).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m034",
+      "questionText": "Which statement about the RC phase-shift oscillator is NOT correct?",
+      "options": [
+        "Its frequency is easily varied over a wide range with a single potentiometer",
+        "It needs an amplifier gain of at least 29",
+        "Its three RC sections together give 180° of phase shift",
+        "It uses an inverting amplifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "Changing the frequency requires changing all three R or C values together, so the phase-shift oscillator is normally used at a fixed frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m035",
+      "questionText": "Which statement about the Wien bridge oscillator is correct?",
+      "options": [
+        "It uses only negative feedback",
+        "It uses both positive feedback and negative feedback",
+        "It needs an amplifier gain of at least 29",
+        "It needs an inverting amplifier"
+      ],
+      "correctIndex": 1,
+      "explanation": "The lead-lag network provides positive feedback at f0, while the R_f-R_1 divider provides negative feedback that sets the gain to 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m036",
+      "questionText": "A tungsten lamp is used as R_1 in a Wien bridge oscillator. As the output amplitude increases, the lamp resistance:",
+      "options": [
+        "Increases, which reduces the amplifier gain",
+        "Decreases, which increases the amplifier gain",
+        "Stays constant",
+        "Falls to zero"
+      ],
+      "correctIndex": 0,
+      "explanation": "A tungsten filament has a positive temperature coefficient; more current heats it, R_1 rises and the gain 1 + R_f/R_1 falls, stabilising the amplitude.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m037",
+      "questionText": "An NTC thermistor is used to stabilise the amplitude of a Wien bridge oscillator. It should be placed in the:",
+      "options": [
+        "R_1 position (inverting input to ground)",
+        "Series arm of the lead-lag network",
+        "Parallel arm of the lead-lag network",
+        "Feedback resistor (R_f) position"
+      ],
+      "correctIndex": 3,
+      "explanation": "An NTC thermistor's resistance falls as it heats with rising output; in the R_f position this lowers 1 + R_f/R_1 and so reduces the gain. In the R_1 position it would increase the gain and make things worse.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m038",
+      "questionText": "Two back-to-back diodes are connected across part of the feedback resistor R_f of a Wien bridge oscillator. Their purpose is to:",
+      "options": [
+        "Rectify the output into DC",
+        "Raise the oscillation frequency",
+        "Conduct at large amplitudes, lowering the effective R_f and the gain",
+        "Provide 180° of phase shift"
+      ],
+      "correctIndex": 2,
+      "explanation": "At small amplitude the diodes are off and the gain is a little above 3 for start-up; at large amplitude they conduct, shunt part of R_f and bring the gain back to 3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m039",
+      "questionText": "The frequency of a laboratory Wien bridge oscillator is usually varied by:",
+      "options": [
+        "Changing R_1 only",
+        "Ganged variable capacitors or resistors in both arms of the lead-lag network",
+        "Changing R_f only",
+        "Changing the supply voltage"
+      ],
+      "correctIndex": 1,
+      "explanation": "Both arms must change together to keep equal R and C, so a dual (ganged) capacitor or potentiometer is used; R_f and R_1 only set the gain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m040",
+      "questionText": "An RC phase-shift oscillator cannot be built with only two RC sections because:",
+      "options": [
+        "Two sections approach 180° only as their attenuation becomes infinite",
+        "Two sections give 360° of phase shift",
+        "Two sections give no attenuation",
+        "Two sections can produce only a square wave"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each RC section gives less than 90°, so two sections reach 180° only in the limit where the output falls to zero; three (or more) sections are needed for a finite gain.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m041",
+      "questionText": "A phase-shift oscillator uses three identical low-pass RC sections (series R, shunt C) instead of high-pass sections. Its frequency of oscillation is:",
+      "options": [
+        "1/(2πRC√6)",
+        "1/(2πRC)",
+        "6/(2πRC)",
+        "√6/(2πRC)"
+      ],
+      "correctIndex": 3,
+      "explanation": "For the low-pass ladder the imaginary part of the transfer ratio vanishes when (ωRC)² = 6, so f = √6/(2πRC); the attenuation is still 1/29.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m042",
+      "questionText": "A phase-shift oscillator uses three identical RC high-pass sections, each isolated from the next by a unity-gain buffer so there is no loading. At the oscillation frequency, the minimum amplifier gain is:",
+      "options": [
+        "8",
+        "29",
+        "27",
+        "3"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each isolated section must give 60°, and at that frequency its gain is cos 60° = 0.5, so the network passes 0.5³ = 1/8 and the amplifier needs |A| ≥ 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m043",
+      "questionText": "An RC phase-shift oscillator is required to run at 1.2 kHz with C = 10 nF in each section. The resistance needed in each section is about:",
+      "options": [
+        "13.3 kΩ",
+        "32.5 kΩ",
+        "5.41 kΩ",
+        "2.21 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "R = 1/(2πfC√6) = 1/(2π × 1200 × 10^-8 × 2.449) ≈ 5.41 kΩ. Leaving out √6 gives 13.3 kΩ.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m044",
+      "questionText": "A Wien bridge oscillator uses C = 10 nF in both arms and a ganged potentiometer that sets both resistors anywhere from 1 kΩ to 10 kΩ. The frequency range covered is about:",
+      "options": [
+        "650 Hz to 6.50 kHz",
+        "159 Hz to 1.59 kHz",
+        "1.59 kHz to 15.9 kHz",
+        "15.9 kHz to 159 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "f = 1/(2πRC): with R = 10 kΩ, f = 1/(2π × 10^4 × 10^-8) ≈ 1.59 kHz; with R = 1 kΩ, f ≈ 15.9 kHz.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i52_m045",
+      "questionText": "Which oscillator gives the lowest distortion and is the usual choice for a variable-frequency audio test oscillator?",
+      "options": [
+        "RC phase-shift oscillator",
+        "Wien bridge oscillator",
+        "Hartley oscillator",
+        "UJT relaxation oscillator"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Wien bridge, with its gain set by negative feedback and amplitude control, gives a very pure sine wave and is easily tuned with ganged components.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i52_m046",
+      "questionText": "An RC phase-shift oscillator with identical sections has an amplifier gain of only 25. The circuit will:",
+      "options": [
+        "Oscillate at a higher frequency",
+        "Oscillate normally with a pure sine wave",
+        "Produce a square wave",
+        "Not sustain oscillation, because the loop gain is 25/29, less than 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "The network passes 1/29 at the only frequency with the correct phase, so the loop gain is 25/29 ≈ 0.86 and any oscillation dies out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i52_m047",
+      "questionText": "A twin-T oscillator is to work at 400 Hz with R = 20 kΩ in the series arms of the resistive T. The series capacitor C, the shunt capacitor and the shunt resistor are:",
+      "options": [
+        "C = 19.9 nF, shunt capacitor 9.95 nF, shunt resistor 40 kΩ",
+        "C = 8.12 nF, shunt capacitor 16.2 nF, shunt resistor 10 kΩ",
+        "C = 19.9 nF, shunt capacitor 39.8 nF, shunt resistor 10 kΩ",
+        "C = 19.9 nF, shunt capacitor 39.8 nF, shunt resistor 40 kΩ"
+      ],
+      "correctIndex": 2,
+      "explanation": "C = 1/(2πf0R) = 1/(2π × 400 × 2 × 10^4) ≈ 19.9 nF. The resistive T has a shunt capacitor 2C = 39.8 nF and the capacitive T a shunt resistor R/2 = 10 kΩ.",
+      "difficulty": "hard"
+    }
+  ]
+}

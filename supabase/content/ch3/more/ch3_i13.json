@@ -1,0 +1,728 @@
+{
+  "topicId": "ch3_i13",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Tracing Loops, switch Internals and Jumps"
+    },
+    {
+      "type": "paragraph",
+      "text": "Every for loop can be rewritten as a while loop: for (init; cond; update) body behaves like init; while (cond) { body update; }. The only difference is continue, which still runs the update in the for form but would skip it in the while form. To predict output, trace the loop in a table with one column per variable plus the condition, add a row for every test, and stop at the first row whose condition is false. The values in that row are the values the program sees after the loop."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Loop header",
+          "Iterations",
+          "Example"
+        ],
+        [
+          "for (i = 0; i < n; i++)",
+          "n",
+          "n = 10: 10 times"
+        ],
+        [
+          "for (i = 0; i <= n; i++)",
+          "n + 1",
+          "n = 10: 11 times"
+        ],
+        [
+          "for (i = a; i <= b; i += s), a <= b",
+          "floor((b - a)/s) + 1",
+          "0 to 20 step 3: 7 times"
+        ],
+        [
+          "for (i = 1; i <= n; i *= 2)",
+          "floor(log2 n) + 1",
+          "n = 100: 7 times"
+        ],
+        [
+          "for (i = n; i > 0; i /= 2)",
+          "floor(log2 n) + 1",
+          "n = 50: 6 times"
+        ],
+        [
+          "while (n--), n starting at k >= 0",
+          "k (n ends at -1)",
+          "k = 3: 3 times"
+        ],
+        [
+          "j = 1..i inside i = 1..n",
+          "n(n + 1)/2",
+          "n = 6: 21 times"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{for}(i=n;\\ i>0;\\ i \\mathrel{/}= 2): \\lfloor \\log_2 n \\rfloor + 1 \\text{ iterations}",
+      "plainText": "for (i = n; i > 0; i /= 2) runs floor(log2 n) + 1 times (n = 50 gives 6)"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    for (int i = 1; i <= 4; i++) {\n        for (int j = 1; j <= i; j++)\n            printf(\"%d\", j % 2);\n        printf(\"\\n\");\n    }\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n1\n10\n101\n1010\n\nTrace (the inner loop runs j = 1..i and prints j % 2):\ni = 1: j = 1          -> 1\ni = 2: j = 1, 2       -> 1 0\ni = 3: j = 1, 2, 3    -> 1 0 1\ni = 4: j = 1, 2, 3, 4 -> 1 0 1 0\nInner iterations: 1 + 2 + 3 + 4 = 10 = 4 x 5 / 2"
+    },
+    {
+      "type": "bulletList",
+      "text": "switch details beyond the basic rules:",
+      "items": [
+        "The integer promotions are applied to the controlling expression, so a char or short is compared as an int; labels may be constant expressions such as 'a' + 1 or 2 * 3.",
+        "Two labels that evaluate to the same value, such as case 4: and case 2 * 2:, are a compile error even though they are written differently.",
+        "Labels may be written in any order and default may sit anywhere; if default is not last and has no break, control falls into the case written after it.",
+        "Statements placed after the opening brace but before the first case label are never executed.",
+        "A break inside a switch leaves only the switch; a continue inside a switch that is inside a loop continues that loop.",
+        "Compilers often turn a dense set of case values into a jump table, which is why a switch can be faster than a long else-if ladder."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdio.h>\nint main(void) {\n    const char *s = \"loop\";\n    int i = 0, v = 0, c = 0;\n    do {\n        switch (s[i]) {\n            case 'a': case 'e': case 'i': case 'o': case 'u':\n                v++; break;\n            default: c++;\n        }\n    } while (s[++i] != '\\0');\n    printf(\"%d %d\\n\", v, c);\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\n2 2\n\nTrace:\ni = 0: s[0] = 'l' -> default, c = 1; s[1] = 'o' is not '\\0', repeat\ni = 1: s[1] = 'o' -> vowel,   v = 1; s[2] = 'o', repeat\ni = 2: s[2] = 'o' -> vowel,   v = 2; s[3] = 'p', repeat\ni = 3: s[3] = 'p' -> default, c = 2; s[4] = '\\0', stop\nThe five stacked labels share one body, and break stops the fall into default."
+    },
+    {
+      "type": "bulletList",
+      "text": "More loop traps worth tracing carefully:",
+      "items": [
+        "while (n--) tests the old value, so it runs n times and leaves n at -1; while (--n) tests the new value, runs n - 1 times (for n >= 1) and leaves n at 0.",
+        "A comma inside a condition, as in i < 3, j < 5, evaluates both tests but uses only the last one (j < 5).",
+        "In a while or do-while loop, a continue placed before the update skips that update, so the loop may never end; in a for loop the update still runs.",
+        "while (i++ < 3) increments i even on the failing test: starting from 0, the body runs 3 times and i ends at 4.",
+        "Changing the counter inside the body adds to the header's step: for (i = 0; i < 10; i++) { i++; } advances by 2 per pass and runs 5 times.",
+        "goto can jump backward to build a loop, but only within one function; it can never jump into another function."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Statement",
+          "Scope affected",
+          "Control goes to"
+        ],
+        [
+          "break",
+          "Innermost enclosing loop or switch",
+          "The first statement after that loop or switch"
+        ],
+        [
+          "continue",
+          "Innermost enclosing loop (never a switch on its own)",
+          "The update of a for loop, or the test of a while or do-while"
+        ],
+        [
+          "goto label",
+          "Any nesting depth within the same function",
+          "The labelled statement, forward or backward"
+        ],
+        [
+          "return",
+          "The whole function",
+          "The caller, together with the returned value"
+        ]
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For loop-output questions, list the counter values until the first one that fails the test, and remember that side effects in that failing test (such as n--) still happen. For switch questions, mark the entry label first, then read straight down until a break or the closing brace, ignoring the other labels on the way."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i13_m001",
+      "questionText": "What is the output of the following fragment?\nint m = 65;\nif (m >= 80)\n    printf(\"A\");\nelse if (m >= 60)\n    printf(\"B\");\nelse if (m >= 40)\n    printf(\"C\");\nelse\n    printf(\"F\");",
+      "options": [
+        "A",
+        "BC",
+        "C",
+        "B"
+      ],
+      "correctIndex": 3,
+      "explanation": "An else-if ladder tests its conditions from the top and runs only the first branch whose condition is true. 65 >= 80 is false and 65 >= 60 is true, so B is printed and the remaining tests are skipped.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m002",
+      "questionText": "What is the output of the following fragment?\nchar g = 'B';\nswitch (g) {\n    case 'A': printf(\"Excellent\"); break;\n    case 'B':\n    case 'C': printf(\"Good\"); break;\n    default: printf(\"Fail\");\n}",
+      "options": [
+        "Good",
+        "Excellent",
+        "GoodFail",
+        "Fail"
+      ],
+      "correctIndex": 0,
+      "explanation": "Control jumps to case 'B', which has no statements of its own, so it falls into case 'C' and prints Good. The break then leaves the switch before default is reached.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m003",
+      "questionText": "What is the output of the following fragment?\nint s = 0;\nfor (int i = 1; i <= 10; i += 2)\n    s += i;\nprintf(\"%d\", s);",
+      "options": [
+        "30",
+        "55",
+        "25",
+        "36"
+      ],
+      "correctIndex": 2,
+      "explanation": "i takes the values 1, 3, 5, 7, 9 (the next value 11 fails i <= 10), so s = 1 + 3 + 5 + 7 + 9 = 25.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m004",
+      "questionText": "What is the output of the following fragment?\nint n = 0;\ndo {\n    printf(\"%d\", n);\n    n += 2;\n} while (n < 5);",
+      "options": [
+        "0246",
+        "024",
+        "24",
+        "02"
+      ],
+      "correctIndex": 1,
+      "explanation": "The body prints n and then adds 2, so it prints 0, 2 and 4. After printing 4, n becomes 6 and the test 6 < 5 is false, so the loop stops.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m005",
+      "questionText": "What is the output of the following fragment?\nint c = 0;\nfor (int i = 0; i < 4; i++)\n    for (int j = 0; j < 3; j++)\n        c++;\nprintf(\"%d\", c);",
+      "options": [
+        "7",
+        "16",
+        "20",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "The inner loop runs 3 times for each of the 4 outer iterations, so c++ executes 4 x 3 = 12 times.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m006",
+      "questionText": "What is the output of the following fragment?\nfor (int i = 1; i <= 4; i++) {\n    for (int j = 1; j <= i; j++)\n        printf(\"%d\", i);\n    printf(\"|\");\n}",
+      "options": [
+        "1|22|333|4444|",
+        "1|12|123|1234|",
+        "1111|222|33|4|",
+        "1|22|333|"
+      ],
+      "correctIndex": 0,
+      "explanation": "Row i prints the digit i exactly i times (the inner loop runs for j = 1 to i) and then a bar, giving 1|, 22|, 333| and 4444|.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m007",
+      "questionText": "What is the output of the following fragment? (Look carefully at which if the else belongs to.)\nint a = -2, b = 4;\nif (a > 0)\n    if (b > 0)\n        printf(\"X\");\nelse\n    printf(\"Y\");\nprintf(\"Z\");",
+      "options": [
+        "YZ",
+        "Z",
+        "XZ",
+        "XYZ"
+      ],
+      "correctIndex": 1,
+      "explanation": "An else pairs with the nearest unmatched if, here if (b > 0), whatever the indentation suggests. Since a > 0 is false, the whole inner if-else is skipped and only Z is printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m008",
+      "questionText": "What is the output of the following fragment?\nint x = 5;\nif (x = 0)\n    printf(\"zero \");\nelse\n    printf(\"nonzero \");\nprintf(\"%d\", x);",
+      "options": [
+        "zero 0",
+        "nonzero 5",
+        "nonzero 0",
+        "zero 5"
+      ],
+      "correctIndex": 2,
+      "explanation": "x = 0 is an assignment, not a comparison: it stores 0 in x and the condition has the value 0 (false). So the else branch runs, and then x, which is now 0, is printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m009",
+      "questionText": "What is the output of the following fragment?\nint x = 3;\nif (x > 5);\n    printf(\"big \");\nprintf(\"%d\", x);",
+      "options": [
+        "3",
+        "3 big",
+        "big 3",
+        "Compile error: an if cannot end with a semicolon"
+      ],
+      "correctIndex": 2,
+      "explanation": "The semicolon right after if (x > 5) is an empty statement that forms the whole body of the if. The printf(\"big \") after it is an ordinary statement, so it always runs, and then 3 is printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m010",
+      "questionText": "What is the output of the following fragment?\nint n = 5;\nswitch (n) {\n    case 1: printf(\"1\");\n    default: printf(\"D\");\n    case 2: printf(\"2\"); break;\n    case 3: printf(\"3\");\n}",
+      "options": [
+        "D",
+        "D23",
+        "12",
+        "D2"
+      ],
+      "correctIndex": 3,
+      "explanation": "No case matches 5, so control goes to default wherever it is written. There is no break after default, so execution falls through into case 2, prints 2 and then breaks, giving D2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m011",
+      "questionText": "What is the output of the following fragment?\nint i = 10, c = 0;\nwhile (i > 0) {\n    i -= 3;\n    c++;\n}\nprintf(\"%d %d\", c, i);",
+      "options": [
+        "4 -2",
+        "3 1",
+        "4 1",
+        "3 -2"
+      ],
+      "correctIndex": 0,
+      "explanation": "i goes 10 -> 7 -> 4 -> 1 -> -2, one step per iteration. After the 4th iteration i = -2 fails the test i > 0, so c = 4 and i = -2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m012",
+      "questionText": "What is the output of the following fragment?\nint a = 5, b = 5;\nwhile (a < 5)\n    a++;\ndo\n    b++;\nwhile (b < 5);\nprintf(\"%d %d\", a, b);",
+      "options": [
+        "5 5",
+        "5 6",
+        "6 6",
+        "6 5"
+      ],
+      "correctIndex": 1,
+      "explanation": "The while loop tests first: 5 < 5 is false, so its body never runs and a stays 5. The do-while runs its body once before testing, so b becomes 6, and then 6 < 5 ends it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m013",
+      "questionText": "What is the output of the following fragment?\nint i, s = 0;\nfor (i = 1; i <= 5; i++);\n    s += i;\nprintf(\"%d %d\", i, s);",
+      "options": [
+        "6 15",
+        "5 15",
+        "5 5",
+        "6 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "The semicolon after the for header makes an empty loop body, so the loop only counts i up to 6. The indented s += i is outside the loop and runs once with i = 6, giving s = 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m014",
+      "questionText": "What is the output of the following fragment?\nint c = 0;\nfor (int i = 1; i <= 100; i *= 3)\n    c++;\nprintf(\"%d\", c);",
+      "options": [
+        "4",
+        "33",
+        "5",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "i takes the values 1, 3, 9, 27 and 81; the next value 243 fails i <= 100. That is 5 iterations, i.e. floor(log3 100) + 1 = 4 + 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m015",
+      "questionText": "What is the output of the following fragment?\nint c = 0;\nfor (int i = 1; i <= 5; i++)\n    for (int j = i; j <= 5; j++)\n        c++;\nprintf(\"%d\", c);",
+      "options": [
+        "15",
+        "25",
+        "10",
+        "20"
+      ],
+      "correctIndex": 0,
+      "explanation": "For i = 1 to 5 the inner loop runs 5, 4, 3, 2 and 1 times, so c = 5 + 4 + 3 + 2 + 1 = 5 x 6 / 2 = 15.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m016",
+      "questionText": "What is the output of the following fragment?\nint i = 0;\nwhile (i < 5) {\n    i++;\n    if (i % 2)\n        continue;\n    printf(\"%d\", i);\n}",
+      "options": [
+        "135",
+        "24",
+        "024",
+        "12345"
+      ],
+      "correctIndex": 1,
+      "explanation": "i is incremented first, so the rest of the body sees i = 1 to 5. For odd i, i % 2 is 1 and continue jumps back to the test, skipping printf, so only the even values 2 and 4 are printed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m017",
+      "questionText": "What is the output of the following fragment?\nint i, j, c = 0;\nfor (i = 0, j = 10; i < j; i += 2, j -= 2)\n    c++;\nprintf(\"%d %d %d\", c, i, j);",
+      "options": [
+        "5 10 0",
+        "3 6 4",
+        "3 4 6",
+        "2 4 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "The comma operator lets the header initialise and update two variables. The pairs (i, j) = (0, 10), (2, 8) and (4, 6) each give one iteration; then (6, 4) fails i < j, so c = 3, i = 6 and j = 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m018",
+      "questionText": "What is the output of the following fragment?\nint n = 1230, r = 0;\nwhile (n != 0) {\n    r = r * 10 + n % 10;\n    n /= 10;\n}\nprintf(\"%d\", r);",
+      "options": [
+        "0321",
+        "3210",
+        "1230",
+        "321"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each pass moves the last digit of n onto the end of r: the four passes (n = 1230, 123, 12, 1) give r = 0, 3, 32, 321. The first digit taken is 0, which leaves r = 0, so the leading zero disappears and %d prints 321.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m019",
+      "questionText": "What is the output of the following fragment?\nfor (int i = 0; i < 3; i++) {\n    switch (i) {\n        case 1: break;\n        default: printf(\"%d\", i);\n    }\n}",
+      "options": [
+        "02",
+        "0",
+        "012",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "A break inside a switch leaves only the switch, not the loop around it. For i = 1 the break skips printf but the loop carries on, so default prints 0 and 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m020",
+      "questionText": "What is the output of the following fragment?\nint s = 0;\nfor (int i = 1; i <= 10; i++) {\n    if (i % 3 == 0)\n        continue;\n    if (i > 7)\n        break;\n    s += i;\n}\nprintf(\"%d\", s);",
+      "options": [
+        "37",
+        "28",
+        "19",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "Multiples of 3 are skipped by continue, and the loop stops at the first other value above 7 (i = 8). So s = 1 + 2 + 4 + 5 + 7 = 19.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m021",
+      "questionText": "How many times does the body of the following loop execute?\nfor (int i = 5; i <= 100; i += 7)\n    printf(\"*\");",
+      "options": [
+        "14",
+        "13",
+        "15",
+        "95"
+      ],
+      "correctIndex": 0,
+      "explanation": "i runs 5, 12, 19, ..., 96, and the next value 103 exceeds 100. The count is floor((100 - 5)/7) + 1 = 13 + 1 = 14.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m022",
+      "questionText": "What happens when the following fragment is compiled as C11 and run? No other variable named i is declared.\nfor (int i = 0; i < 3; i++)\n    printf(\"%d\", i);\nprintf(\"%d\", i);",
+      "options": [
+        "It prints 0123",
+        "Compile error: i is not in scope after the loop",
+        "It prints 0122",
+        "It prints 012 followed by a garbage value"
+      ],
+      "correctIndex": 1,
+      "explanation": "A variable declared in the initialisation part of a for loop (allowed since C99) exists only inside that loop. Using i after the loop is an undeclared-identifier error, so the program does not compile.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m023",
+      "questionText": "What is the output of the following fragment?\nint s = 0;\nfor (int i = 0; i < 4; i++) {\n    switch (i) {\n        case 0: s += 1;\n        case 1: s += 2; break;\n        case 2: s += 3;\n        default: s += 4;\n    }\n}\nprintf(\"%d\", s);",
+      "options": [
+        "10",
+        "12",
+        "3",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "With fall-through: i = 0 runs case 0 and case 1 (s = 3); i = 1 runs case 1 (s = 5); i = 2 runs case 2 and default (s = 12); i = 3 matches no case and runs default (s = 16). The break leaves only the switch, not the loop.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m024",
+      "questionText": "What is the output of the following fragment?\nint a = 4, b = 4, x = 0, y = 0;\nwhile (a--)\n    x++;\nwhile (--b)\n    y++;\nprintf(\"%d %d %d %d\", x, y, a, b);",
+      "options": [
+        "4 4 0 0",
+        "3 3 -1 0",
+        "4 3 -1 0",
+        "4 3 0 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "while (a--) tests the old value: 4, 3, 2, 1 are true and 0 is false, so x = 4, and that final test still decrements a to -1. while (--b) tests the new value: 3, 2, 1 are true and 0 stops it, so y = 3 and b = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m025",
+      "questionText": "What is the output of the following fragment?\nint c = 0;\nfor (int i = 0; i < 5; i++)\n    for (int j = 0; j < i; j += 2)\n        c++;\nprintf(\"%d\", c);",
+      "options": [
+        "10",
+        "4",
+        "15",
+        "6"
+      ],
+      "correctIndex": 3,
+      "explanation": "For i = 0 to 4 the inner loop visits j = (none), (0), (0), (0, 2) and (0, 2), so it runs 0 + 1 + 1 + 2 + 2 = 6 times; in general ceil(i/2) times for each i.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m026",
+      "questionText": "The following fragment prints Floyd's triangle. What is printed on the 4th line?\nint k = 1;\nfor (int i = 1; i <= 5; i++) {\n    for (int j = 1; j <= i; j++)\n        printf(\"%d \", k++);\n    printf(\"\\n\");\n}",
+      "options": [
+        "4 5 6 7",
+        "7 8 9 10",
+        "1 2 3 4",
+        "11 12 13 14"
+      ],
+      "correctIndex": 1,
+      "explanation": "Line i prints i consecutive values of k. Lines 1 to 3 use 1 + 2 + 3 = 6 numbers, so line 4 starts at 7 and prints four values: 7 8 9 10.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m027",
+      "questionText": "What is the behaviour of the following fragment?\nint i = 0;\nwhile (i < 5) {\n    if (i == 2)\n        continue;\n    printf(\"%d\\n\", i);\n    i++;\n}",
+      "options": [
+        "It prints the lines 0, 1, 3 and 4",
+        "It prints the lines 0, 1, 2, 3 and 4",
+        "It prints the lines 0 and 1, then loops forever without printing more",
+        "It prints the lines 0 and 1, then ends normally"
+      ],
+      "correctIndex": 2,
+      "explanation": "When i becomes 2, continue jumps straight back to the test i < 5 and skips the i++ at the bottom of the body. i stays 2 for ever, so after printing 0 and 1 the loop never ends; in a for loop the update would still have run.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m028",
+      "questionText": "What is the output of the following fragment?\nfor (int i = 0; i < 3; i++)\n    for (int j = 0; j < 3; j++) {\n        if (i * j == 2)\n            goto done;\n        printf(\"%d%d,\", i, j);\n    }\ndone:\nprintf(\"X\");",
+      "options": [
+        "00,01,02,10,11,X",
+        "00,01,02,10,11,20,X",
+        "00,01,02,10,11,12,X",
+        "00,01,02,X"
+      ],
+      "correctIndex": 0,
+      "explanation": "The pairs are printed in order until i * j first equals 2, at i = 1, j = 2. goto leaves both loops at once, unlike break, which would exit only the inner loop and let i = 2 continue, so X follows 11 directly.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m029",
+      "questionText": "What is the output of the following fragment?\nint i, j;\nfor (i = 0, j = 0; i < 3, j < 5; i++, j++)\n    ;\nprintf(\"%d %d\", i, j);",
+      "options": [
+        "3 3",
+        "3 5",
+        "5 5",
+        "5 3"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the condition i < 3, j < 5 the comma operator evaluates i < 3, discards the result and uses j < 5 as the value. The loop therefore runs while j < 5, i.e. 5 times, leaving i = j = 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m030",
+      "questionText": "What is the output of the following fragment?\nint count = 0;\nfor (int n = 2; n <= 20; n++) {\n    int d;\n    for (d = 2; d * d <= n; d++)\n        if (n % d == 0)\n            break;\n    if (d * d > n)\n        count++;\n}\nprintf(\"%d\", count);",
+      "options": [
+        "9",
+        "8",
+        "7",
+        "19"
+      ],
+      "correctIndex": 1,
+      "explanation": "The inner loop looks for a divisor up to the square root of n; if it finishes without a break, d * d > n holds and n is prime. The primes from 2 to 20 are 2, 3, 5, 7, 11, 13, 17 and 19, so count = 8.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m031",
+      "questionText": "What is the output of the following fragment?\nint s = 0;\nfor (int i = 0; i < 5; i++) {\n    switch (i % 2) {\n        case 0: s += i; continue;\n        case 1: s += 10;\n    }\n    s++;\n}\nprintf(\"%d\", s);",
+      "options": [
+        "28",
+        "31",
+        "26",
+        "30"
+      ],
+      "correctIndex": 0,
+      "explanation": "A continue inside a switch that sits in a loop continues the loop, skipping s++. Even i add i and continue (0, 2, 4); odd i add 10 and then reach s++ (11 each for i = 1 and 3). Total = 0 + 11 + 2 + 11 + 4 = 28.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i13_m032",
+      "questionText": "Which statement skips the remaining statements of the current loop iteration and goes on with the next iteration?",
+      "options": [
+        "break",
+        "goto",
+        "return",
+        "continue"
+      ],
+      "correctIndex": 3,
+      "explanation": "continue abandons only the rest of the current pass; the loop then goes on with its update (for) or its test (while and do-while). break leaves the loop entirely and return leaves the whole function.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m033",
+      "questionText": "In the loop for (initialisation; condition; update) statement, which part is executed exactly once?",
+      "options": [
+        "The condition",
+        "The initialisation",
+        "The update",
+        "The loop body"
+      ],
+      "correctIndex": 1,
+      "explanation": "The initialisation runs once, before the first test. The condition is evaluated before every iteration (and once more when it fails), the update after every iteration, and the body once per iteration.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m034",
+      "questionText": "In a switch statement that has no default label, what happens when the value of the expression matches none of the case labels?",
+      "options": [
+        "The first case is executed",
+        "The last case is executed",
+        "The whole switch body is skipped and execution continues after the switch",
+        "A run-time error occurs"
+      ],
+      "correctIndex": 2,
+      "explanation": "default is optional. Without it, a value that matches no case label makes nothing inside the switch run; control passes to the statement after the closing brace.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m035",
+      "questionText": "Which loops of C are entry-controlled, i.e. test their condition before executing the body?",
+      "options": [
+        "while and for",
+        "do-while and for",
+        "while and do-while",
+        "Only do-while"
+      ],
+      "correctIndex": 0,
+      "explanation": "while and for evaluate the condition before each iteration, so their body may run zero times. do-while is exit-controlled: it tests after the body, so its body always runs at least once.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m036",
+      "questionText": "Which of the following ends the whole program immediately, even when it is executed inside a function called from main?",
+      "options": [
+        "return 0;",
+        "break;",
+        "continue;",
+        "exit(0);"
+      ],
+      "correctIndex": 3,
+      "explanation": "exit(), declared in stdlib.h, terminates the program from any function after flushing the output streams. return leaves only the current function, and break and continue affect only the innermost loop or switch.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m037",
+      "questionText": "Which of the following is a syntactically correct do-while loop in C (i is an int)?",
+      "options": [
+        "do { i++; } while (i < 5);",
+        "do { i++; } while (i < 5)",
+        "do while (i < 5) { i++; }",
+        "do (i < 5) { i++; } while;"
+      ],
+      "correctIndex": 0,
+      "explanation": "A do-while loop has the form do statement while (expression); and, unlike while and for, it must end with a semicolon after the closing parenthesis. The condition always comes after the body.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m038",
+      "questionText": "int x = 1;\nWhich statement, written directly inside main and not inside any loop or switch, causes a compile error?",
+      "options": [
+        "if (x) x++;",
+        "if (x) goto end;   (with a label end: later in main)",
+        "if (x) return 0;",
+        "if (x) break;"
+      ],
+      "correctIndex": 3,
+      "explanation": "break is allowed only inside a loop or a switch; an if statement is neither, so the compiler rejects it. goto to a label in the same function and return are legal anywhere in main.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i13_m039",
+      "questionText": "When a continue statement is executed inside a for loop, where does control go next?",
+      "options": [
+        "Directly to the condition test, skipping the update",
+        "To the update expression, and then to the condition test",
+        "Back to the initialisation expression",
+        "To the first statement after the loop"
+      ],
+      "correctIndex": 1,
+      "explanation": "In a for loop continue jumps to the end of the body, so the update (such as i++) still runs before the condition is tested. In while and do-while loops it goes straight to the condition, which is why a continue placed before a manual update can cause an infinite loop.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m040",
+      "questionText": "In nested if statements written without braces, how does the compiler decide which if an else belongs to?",
+      "options": [
+        "It pairs the else with the outermost if",
+        "It uses the indentation of the else",
+        "It pairs the else with the nearest preceding if that does not already have an else",
+        "It reports an ambiguity error and refuses to compile"
+      ],
+      "correctIndex": 2,
+      "explanation": "This is the dangling-else rule: an else always binds to the closest unmatched if in the same block. Indentation is ignored, so braces are needed to attach an else to an outer if.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m041",
+      "questionText": "int x = 10;\nWhich case label, used inside switch (x), causes a compile error in C?",
+      "options": [
+        "case 'y':",
+        "case \"yes\":",
+        "case 2 * 5:",
+        "case MAX:   (after #define MAX 10)"
+      ],
+      "correctIndex": 1,
+      "explanation": "A case label must be an integer constant expression. Character constants, arithmetic on constants and macros that expand to integers all qualify, but a string literal is an array, not an integer constant.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m042",
+      "questionText": "Which statement about goto in C is correct?",
+      "options": [
+        "It can jump to a label in any function of the program",
+        "It can only jump forward, never backward",
+        "The target label must be declared before it is used, like a variable",
+        "It can transfer control only to a label in the same function"
+      ],
+      "correctIndex": 3,
+      "explanation": "Labels have function scope, so goto may jump forward or backward within the function but never into another function. A label is just an identifier followed by a colon and needs no declaration; it may appear after the goto that uses it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m043",
+      "questionText": "Which statement about the switch statement is NOT correct?",
+      "options": [
+        "The default label must be the last label in the switch",
+        "The controlling expression may have type char",
+        "Two case labels in the same switch cannot have the same value",
+        "When a matching case has no break, execution falls through into the next case"
+      ],
+      "correctIndex": 0,
+      "explanation": "default may appear anywhere inside the switch; putting it last is only a convention, and if it is not last and has no break, control falls through into the case written after it. The other three statements are standard rules.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m044",
+      "questionText": "Which of the following tests cannot be written directly as a C switch statement and needs an if-else ladder instead?",
+      "options": [
+        "Choosing an action for menu options 1 to 4 stored in an int",
+        "Counting vowels by examining a char variable",
+        "Checking whether a double temperature t lies between 20.5 and 30.0",
+        "Handling each value of an enum type"
+      ],
+      "correctIndex": 2,
+      "explanation": "switch compares a value of integer type for equality with constant labels. It cannot test ranges or floating-point values, so a condition such as t >= 20.5 && t <= 30.0 needs if-else.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i13_m045",
+      "questionText": "A loop is written as for (i = 0; ; i++). What does the missing condition mean?",
+      "options": [
+        "It is treated as always false, so the body never runs",
+        "It is treated as always true, so the loop runs until a break, return or goto leaves it",
+        "It is a compile error; only the initialisation and update may be omitted",
+        "The loop body runs exactly once, like a do-while"
+      ],
+      "correctIndex": 1,
+      "explanation": "Any of the three parts of a for header may be left out. An omitted condition is replaced by a non-zero constant, so for (;;) and for (i = 0; ; i++) are infinite loops unless a jump statement ends them.",
+      "difficulty": "medium"
+    }
+  ]
+}

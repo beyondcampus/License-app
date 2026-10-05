@@ -1,0 +1,727 @@
+{
+  "topicId": "ch4_t4",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Cost Models, Market Windows and Technology Choices"
+    },
+    {
+      "type": "paragraph",
+      "text": "The simplified time-to-market model draws revenue against time as a triangle. An on-time product's revenue rises linearly from launch at time 0 to a peak at W and falls back to zero at 2W, so with a rise of one unit per unit time its area is (1/2)(2W)(W) = W². A product launched D late climbs at the same rate, must peak at the same time W because the market does not wait for it, and still dies at 2W, so its triangle has base 2W − D and height W − D. The fraction of revenue lost is the difference of the two areas divided by W², which simplifies to D(3W − D)/(2W²)."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{Loss} = \\frac{W^{2} - \\frac{1}{2}(2W - D)(W - D)}{W^{2}} = \\frac{D(3W - D)}{2W^{2}}",
+      "plainText": "Loss fraction = [W^2 − (1/2)(2W − D)(W − D)] / W^2 = D(3W − D) / (2W^2); 2W = market window, D = delay"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: revenue lost by a late launch\nMarket window 2W = 20 months (W = 10); on-time revenue $8.0 million\nDelay D = 3 months\nLoss = D(3W - D) / (2W^2) = 3 x (30 - 3) / (2 x 100) = 81 / 200 = 0.405\nRevenue lost = 0.405 x $8.0 million = $3.24 million (naive 3/20 = 15 % is far too low)\nLargest delay for a loss of at most 20 %:  D(30 - D) <= 0.20 x 200 = 40\nD^2 - 30D + 40 >= 0  ->  D <= (30 - sqrt(900 - 160)) / 2 = (30 - 27.20) / 2\nD <= 1.40 months: about six weeks late already costs a fifth of the revenue"
+    },
+    {
+      "type": "paragraph",
+      "text": "Total cost = NRE + unit cost × N and per-product cost = NRE/N + unit cost, where N is the production volume. For two technologies where NRE1 is lower than NRE2 but unit cost u1 is higher than u2, the total costs are equal at the break-even volume N_be = (NRE2 − NRE1)/(u1 − u2); below N_be the low-NRE choice is cheaper and above it the low-unit-cost choice wins. As N grows the per-product cost falls towards the unit cost, which is why full-custom or standard-cell silicon pays off only for high-volume products, while FPGAs and off-the-shelf processors suit small runs."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{be} = \\frac{\\text{NRE}_{2} - \\text{NRE}_{1}}{u_{1} - u_{2}}",
+      "plainText": "Break-even volume N_be = (NRE2 − NRE1) / (u1 − u2), where u1 and u2 are the unit costs and NRE1 < NRE2"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: choosing among three technologies\nOption             NRE        Unit cost\nA  FPGA            $5,000     $40\nB  gate array      $45,000    $15\nC  standard cell   $250,000   $5\nA = B at (45,000 - 5,000) / (40 - 15)    = 1,600 units\nB = C at (250,000 - 45,000) / (15 - 5)   = 20,500 units\nCheapest: A below 1,600 units, B from 1,600 to 20,500, C above 20,500\nAt N = 10,000: A $405,000 ($40.50 each), B $195,000 ($19.50), C $300,000 ($30.00)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "IC technology",
+          "What the designer creates",
+          "NRE and time-to-market",
+          "Unit cost, size, speed, power"
+        ],
+        [
+          "Full-custom VLSI",
+          "Every mask layer: transistor sizing, placement and wiring optimised for this design",
+          "Very high NRE; months to years",
+          "Lowest unit cost at high volume; smallest, fastest, lowest power"
+        ],
+        [
+          "Semi-custom: standard cell",
+          "Pre-designed library cells placed and routed by tools; all masks are still made for the design",
+          "High NRE; many weeks to months",
+          "Low unit cost at volume; good size, speed and power"
+        ],
+        [
+          "Semi-custom: gate array",
+          "Only the metal interconnect layers over a prefabricated array of transistors",
+          "Moderate NRE; a few weeks",
+          "Low to moderate unit cost; unused gates waste area"
+        ],
+        [
+          "PLD (SPLD, CPLD, FPGA)",
+          "No masks: programmable connections are set on a finished, purchased chip",
+          "Very low NRE; hours to days",
+          "Highest unit cost; larger, slower and more power-hungry"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Design technology and designer productivity:",
+      "items": [
+        "Compilation and synthesis automate the move down the abstraction levels: behavioural (high-level) synthesis turns a sequential program into a datapath and controller, RT synthesis turns FSMs and register transfers into gates and flip-flops, logic synthesis optimises the gate network, and a compiler turns C into machine code.",
+        "Libraries and IP cores bring in pre-designed, pre-verified blocks such as a UART, a USB controller or a whole processor core, so they need not be designed again.",
+        "Test and verification (simulation, co-simulation of hardware and software, formal checks, FPGA prototypes) catch errors at each level and avoid costly iterations late in the flow.",
+        "Productivity gap: IC capacity has grown about 58 % per year while designer productivity grew about 21 % per year (SEMATECH figures quoted by Vahid), so the transistors available outrun what teams can design.",
+        "Mythical man-month: adding designers adds communication overhead; beyond some team size each extra person lowers total output and the project finishes later."
+      ]
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Criterion",
+          "Classes",
+          "Examples"
+        ],
+        [
+          "Complexity (Raj Kamal)",
+          "Small, medium and sophisticated scale",
+          "Toy car; network router; smartphone"
+        ],
+        [
+          "Function and operating context",
+          "Stand-alone, real-time, networked, mobile",
+          "Microwave oven; flight control; IP camera; smart watch"
+        ],
+        [
+          "Consequence of a missed deadline",
+          "Hard (failure), firm (late result useless but harmless), soft (quality degrades)",
+          "Airbag; a sensor reading discarded when late; video player"
+        ],
+        [
+          "What starts the processing",
+          "Event-triggered (interrupts on input changes) or time-triggered (fixed timer ticks)",
+          "Keypad controller; engine ECU sampling every 5 ms"
+        ],
+        [
+          "Interaction with the environment",
+          "Reactive (continuous, at the environment's pace) or transformational (input, compute, stop)",
+          "Cruise control; one-shot image compression"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: latency, throughput and power\nCamera: one image takes 0.4 s end to end -> latency 0.4 s, throughput 2.5 images/s\nTwo equal pipelined stages of 0.2 s: throughput 5 images/s, latency still 0.4 s\nDynamic power P = aCV^2f; supply lowered from 5.0 V to 3.3 V, same C and f\nP_new / P_old = (3.3 / 5.0)^2 = 0.4356  ->  56.4 % less dynamic power\nAlso halving f: P ratio = 0.4356 x 0.5 = 0.218, but the task takes twice as long\nEnergy per task = P x t is proportional to V^2 only: 0.4356 of the original either way"
+    },
+    {
+      "type": "examTip",
+      "text": "Common slips: W is half the market window, not the whole window; the loss formula gives a fraction, so multiply by 100 for a percentage and by the on-time revenue for money. Per-product cost includes NRE/N while unit cost does not, and pipelining raises throughput but does not shorten the latency of a single task."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t4_m001",
+      "questionText": "A digital camera runs the same fixed firmware for its whole life and never runs programs installed by the user. Which characteristic of embedded systems does this illustrate?",
+      "options": [
+        "Tightly constrained",
+        "Single-functioned",
+        "Reactive and real-time",
+        "Networked"
+      ],
+      "correctIndex": 1,
+      "explanation": "Vahid lists three characteristics: single-functioned (one program executed repeatedly), tightly constrained (hard limits on cost, size, power and performance) and reactive/real-time. Running one fixed program is the first.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m002",
+      "questionText": "A car's cruise controller continuously reads the vehicle speed and adjusts the throttle at the pace set by the road and the driver, for as long as it is switched on. Which term describes this behaviour?",
+      "options": [
+        "Reactive",
+        "Transformational",
+        "Batch processing",
+        "Single-purpose datapath"
+      ],
+      "correctIndex": 0,
+      "explanation": "A reactive system keeps interacting with its environment and must respond to changes when they occur; a transformational program reads its input, computes a result and stops.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m003",
+      "questionText": "An IP security camera streams its video over the Internet to a monitoring server and can be configured from a web browser. In the functional classification of embedded systems (stand-alone, real-time, networked, mobile), which class does it belong to?",
+      "options": [
+        "Stand-alone embedded system",
+        "Networked embedded system",
+        "Mobile embedded system",
+        "Small-scale embedded system"
+      ],
+      "correctIndex": 1,
+      "explanation": "A networked embedded system is connected to a LAN, WAN or the Internet and often acts as a client or server; a stand-alone system works on its own, and small-scale is a complexity class, not a functional one.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m004",
+      "questionText": "Which statement about real-time embedded systems is NOT correct?",
+      "options": [
+        "A late result from a hard real-time system counts as a failure even if its value is correct",
+        "A soft real-time system tolerates occasional deadline misses with degraded quality",
+        "Correctness depends on both the logical result and the time at which it is produced",
+        "A hard real-time system is one that must run at a very high clock frequency"
+      ],
+      "correctIndex": 3,
+      "explanation": "Hard versus soft is about the consequence of missing a deadline, not about speed: a pacemaker with millisecond deadlines on a slow microcontroller is hard real-time.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m005",
+      "questionText": "An engine-control unit samples its sensors and runs its control tasks every 5 ms on a timer tick, regardless of when the inputs change. How is it classified by the way its processing is started?",
+      "options": [
+        "Time-triggered",
+        "Event-triggered",
+        "Transformational",
+        "Stand-alone batch"
+      ],
+      "correctIndex": 0,
+      "explanation": "A time-triggered system acts at fixed, pre-planned instants driven by a clock; an event-triggered system acts when an interrupt signals a change such as a key press.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m006",
+      "questionText": "An electronic toy is built around a single 8-bit microcontroller with a few kilobytes of memory and is programmed in C without an operating system. How does Raj Kamal classify it?",
+      "options": [
+        "Medium-scale embedded system",
+        "Sophisticated embedded system",
+        "Distributed real-time system",
+        "Small-scale embedded system"
+      ],
+      "correctIndex": 3,
+      "explanation": "Small-scale systems use one 8- or 16-bit microcontroller with little hardware and software complexity, are often battery operated, and are programmed with an editor, assembler or C compiler.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m007",
+      "questionText": "A network router uses a single 32-bit RISC processor, several megabytes of memory and an RTOS, needs no hardware-software co-design, and is developed with an IDE, a simulator and a debugger. How does Raj Kamal classify it?",
+      "options": [
+        "Small-scale embedded system",
+        "Sophisticated embedded system",
+        "Stand-alone non-real-time system",
+        "Medium-scale embedded system"
+      ],
+      "correctIndex": 3,
+      "explanation": "Medium-scale systems use one or a few 16- or 32-bit microcontrollers, DSPs or RISC processors, have noticeable hardware and software complexity, and rely on an RTOS and tools such as simulators, debuggers and IDEs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m008",
+      "questionText": "Which feature marks a sophisticated embedded system in Raj Kamal's classification?",
+      "options": [
+        "A single 8-bit microcontroller and no operating system",
+        "Battery operation with a few kilobytes of RAM",
+        "Enormous hardware and software complexity needing hardware-software co-design, often with configurable processors or programmable logic",
+        "Programming only in assembly language with a cross-assembler"
+      ],
+      "correctIndex": 2,
+      "explanation": "Sophisticated systems, such as smartphones or real-time video systems, combine scalable or configurable processors, FPGAs and large software stacks, and may even need tools that are not readily available.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m009",
+      "questionText": "Which design metric is the time needed to build a working version of the system, possibly bigger or more expensive than the final product, in order to verify and refine its functionality?",
+      "options": [
+        "Time-to-market",
+        "Time-to-prototype",
+        "NRE cost",
+        "Maintainability"
+      ],
+      "correctIndex": 1,
+      "explanation": "Vahid separates time-to-prototype (a working but not final version) from time-to-market (the product can be released and sold).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m010",
+      "questionText": "In embedded-system design, what does the metric flexibility mean?",
+      "options": [
+        "The ability to keep working when a component fails",
+        "The ability to change the system's functionality without incurring a heavy NRE cost",
+        "The number of different products that can share one circuit board",
+        "The ease of fitting the device into a small enclosure"
+      ],
+      "correctIndex": 1,
+      "explanation": "Software on a processor is flexible because new functions only need new code; a hard-wired single-purpose circuit must be redesigned and refabricated, which is costly.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m011",
+      "questionText": "Which design metric describes how easily the system can be modified after its initial release, especially by designers who did not originally design it?",
+      "options": [
+        "Flexibility",
+        "Time-to-prototype",
+        "Correctness",
+        "Maintainability"
+      ],
+      "correctIndex": 3,
+      "explanation": "This is Vahid's definition of maintainability. Flexibility concerns changing the functionality without a heavy NRE cost, and correctness is confidence that the functionality was implemented as specified.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m012",
+      "questionText": "Which design metric expresses the probability that the system will not cause harm?",
+      "options": [
+        "Safety",
+        "Correctness",
+        "Maintainability",
+        "Performance"
+      ],
+      "correctIndex": 0,
+      "explanation": "Safety is about never causing harm, which is critical for pacemakers and brake controllers; correctness only asks whether the system does what was specified.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m013",
+      "questionText": "How is the size design metric usually expressed for the software and the hardware parts of an embedded system?",
+      "options": [
+        "Bytes for software; gates or transistors for hardware",
+        "Lines of code for hardware; gates for software",
+        "Watts for software; square millimetres for hardware",
+        "Instructions per second for software; bytes for hardware"
+      ],
+      "correctIndex": 0,
+      "explanation": "Vahid measures software size in bytes of program and data memory and hardware size in gates or transistors (or silicon area).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m014",
+      "questionText": "In the performance metric of an embedded system, what is throughput?",
+      "options": [
+        "The time from the start of one task to its end",
+        "The ratio of the execution times of two processors",
+        "The number of tasks completed per unit time",
+        "The time needed to build a prototype"
+      ],
+      "correctIndex": 2,
+      "explanation": "Latency is the time for one task and throughput is tasks per unit time; the ratio of execution times is speedup. Pipelining can raise throughput without reducing latency.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m015",
+      "questionText": "A camera processes one image in 0.5 s from start to finish. The processing is split into two pipelined stages of 0.25 s each (ignore pipeline register delays). What are the new steady-state throughput and the latency per image?",
+      "options": [
+        "4 images/s; 0.25 s",
+        "4 images/s; 0.5 s",
+        "2 images/s; 0.25 s",
+        "2 images/s; 0.5 s"
+      ],
+      "correctIndex": 1,
+      "explanation": "With two stages a new image can enter every 0.25 s, so throughput = 1/0.25 = 4 images/s, but each image still passes through both stages, so latency stays 0.25 + 0.25 = 0.5 s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m016",
+      "questionText": "A sensor is sampled every 2 ms, and processing each sample takes 60,000 clock cycles. What is the minimum clock frequency that finishes each sample before the next one arrives?",
+      "options": [
+        "30 kHz",
+        "30 MHz",
+        "120 MHz",
+        "3 MHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = cycles / deadline = 60,000 / (2 × 10^-3 s) = 3 × 10^7 Hz = 30 MHz. Forgetting that 2 ms is 2 × 10^-3 s gives 30 kHz.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m017",
+      "questionText": "A control loop must process 800 samples per second, each needing 25,000 clock cycles, and a design rule limits the processor load from this loop to 50 % to leave time for other tasks. What is the minimum clock frequency?",
+      "options": [
+        "20 MHz",
+        "10 MHz",
+        "40 MHz",
+        "80 MHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "Required rate = 800 × 25,000 = 2 × 10^7 cycles/s. This may be only 50 % of the clock, so f = 2 × 10^7 / 0.5 = 40 MHz; 20 MHz would load the processor fully.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m018",
+      "questionText": "A CMOS microcontroller's supply voltage is lowered from 3.3 V to 1.8 V while its switched capacitance, activity and clock frequency stay the same. By about how much does its dynamic power fall?",
+      "options": [
+        "About 70 %",
+        "About 45 %",
+        "About 30 %",
+        "About 84 %"
+      ],
+      "correctIndex": 0,
+      "explanation": "P is proportional to V², so P_new/P_old = (1.8/3.3)² = 0.298 and the power falls by about 70 %. 45 % assumes P proportional to V, and 30 % is the fraction that remains.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m019",
+      "questionText": "A processor at 1.2 V and 200 MHz dissipates 150 mW of dynamic power and completes a task in 10 ms. It is switched to 0.9 V and 100 MHz; capacitance and activity are unchanged and the task needs the same number of cycles. What are the new dynamic power and the dynamic energy per task?",
+      "options": [
+        "42.2 mW and 0.42 mJ",
+        "56.3 mW and 1.13 mJ",
+        "42.2 mW and 0.84 mJ",
+        "84.4 mW and 1.69 mJ"
+      ],
+      "correctIndex": 2,
+      "explanation": "P = 150 × (0.9/1.2)² × (100/200) = 42.2 mW. The task now takes 20 ms, so E = 42.2 mW × 20 ms = 0.84 mJ, compared with 1.5 mJ before.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m020",
+      "questionText": "A battery-powered sensor node draws 30 mA when active and 0.2 mA when asleep, and it is active 10 % of the time. How long will a 1,200 mAh battery last, assuming its full capacity is usable?",
+      "options": [
+        "40 hours",
+        "400 hours",
+        "About 377 hours",
+        "About 79 hours"
+      ],
+      "correctIndex": 2,
+      "explanation": "Average current = 0.1 × 30 + 0.9 × 0.2 = 3.18 mA, so life = 1,200 mAh / 3.18 mA = 377 h (about 15.7 days). Ignoring the sleep current gives 400 h.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m021",
+      "questionText": "Replacing software running on a general-purpose processor with a custom single-purpose hardware implementation of the same function typically has which effect?",
+      "options": [
+        "It improves performance and power but increases NRE cost and reduces flexibility",
+        "It reduces NRE cost and improves flexibility",
+        "It leaves all design metrics unchanged",
+        "It increases power consumption but shortens time-to-market"
+      ],
+      "correctIndex": 0,
+      "explanation": "Design metrics compete: custom hardware removes unneeded circuitry, so it is faster and more power-efficient, but it must be designed and fabricated (NRE, time) and cannot be reprogrammed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m022",
+      "questionText": "A design has an NRE cost of $50,000 and a unit cost of $12. What is the per-product cost when 10,000 units are made?",
+      "options": [
+        "$12.00",
+        "$17.00",
+        "$5.00",
+        "$62.00"
+      ],
+      "correctIndex": 1,
+      "explanation": "Per-product cost = NRE/N + unit cost = 50,000/10,000 + 12 = 5 + 12 = $17.00.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m023",
+      "questionText": "Technology A has an NRE cost of $10,000 and a unit cost of $25; technology B has an NRE cost of $70,000 and a unit cost of $10. At what production volume do the two cost the same in total, with B cheaper beyond it?",
+      "options": [
+        "2,800 units",
+        "6,000 units",
+        "4,000 units",
+        "2,400 units"
+      ],
+      "correctIndex": 2,
+      "explanation": "10,000 + 25N = 70,000 + 10N gives N = 60,000 / 15 = 4,000 units; above that B's lower unit cost outweighs its extra NRE.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m024",
+      "questionText": "A custom chip has an NRE cost of $200,000 and a unit cost of $4. What minimum production volume brings the per-product cost down to $6 or less?",
+      "options": [
+        "33,333 units",
+        "50,000 units",
+        "20,000 units",
+        "100,000 units"
+      ],
+      "correctIndex": 3,
+      "explanation": "200,000/N + 4 ≤ 6 requires 200,000/N ≤ 2, so N ≥ 100,000 units. Dividing the NRE by the target price instead gives 33,333.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m025",
+      "questionText": "A device sells for $50 and 8,000 units are expected to sell. Option X uses an FPGA with NRE $10,000 and unit cost $35; option Y uses an ASIC with NRE $250,000 and unit cost $15. Which option gives more profit, and by how much?",
+      "options": [
+        "Option Y (ASIC), by $160,000",
+        "Option X (FPGA), by $240,000",
+        "Option X (FPGA), by $80,000",
+        "Option Y (ASIC), by $80,000"
+      ],
+      "correctIndex": 2,
+      "explanation": "Profit = N(price − unit cost) − NRE: X = 8,000 × 15 − 10,000 = $110,000 and Y = 8,000 × 35 − 250,000 = $30,000, so X is ahead by $80,000. Ignoring NRE would wrongly favour Y by $160,000; Y only wins above (250,000 − 10,000)/(35 − 15) = 12,000 units.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m026",
+      "questionText": "Option A has NRE $20,000 and unit cost $50, option B has NRE $100,000 and unit cost $30, and option C has NRE $500,000 and unit cost $10. Over what range of production volumes is option B the cheapest of the three?",
+      "options": [
+        "Between 4,000 and 12,000 units",
+        "Above 20,000 units",
+        "Between 2,000 and 10,000 units",
+        "Between 4,000 and 20,000 units"
+      ],
+      "correctIndex": 3,
+      "explanation": "A = B at 80,000/20 = 4,000 units and B = C at 400,000/20 = 20,000 units, so B is cheapest between them. The A = C point (12,000) does not matter because B is lower than both there.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m027",
+      "questionText": "Which assumption is built into the simplified triangular revenue model used for time-to-market?",
+      "options": [
+        "A late product sells for exactly as long as an on-time product, so its whole revenue curve is simply shifted later by the delay",
+        "Revenue is constant over the window, so the loss is proportional to the delay",
+        "The market window starts when the product is launched, whenever that is",
+        "A late product's revenue rises at the same rate as an on-time product's, peaks at the same time W, and the market window still ends at 2W"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because the late product must peak at W and die at 2W, its triangle is both shorter and lower, which is why the loss D(3W − D)/(2W²) grows much faster than the delay itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m028",
+      "questionText": "A product has a 20-month market window (W = 10 months) and launches 2 months late. By the triangular revenue model, what percentage of the on-time revenue does it still earn?",
+      "options": [
+        "90 %",
+        "80 %",
+        "72 %",
+        "28 %"
+      ],
+      "correctIndex": 2,
+      "explanation": "Loss = 2 × (30 − 2) / (2 × 100) = 56/200 = 0.28, so it keeps 1 − 0.28 = 72 % of the on-time revenue. 28 % is the part lost, not the part earned.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m029",
+      "questionText": "A gadget would earn $8 million over a 52-week market window if launched on time. It launches 6 weeks late. Using the triangular revenue model, how much revenue is lost?",
+      "options": [
+        "About $0.92 million",
+        "About $1.85 million",
+        "About $5.44 million",
+        "About $2.56 million"
+      ],
+      "correctIndex": 3,
+      "explanation": "W = 26 weeks, so loss = 6 × (78 − 6) / (2 × 26²) = 432/1,352 = 0.320, and 0.320 × $8 million = $2.56 million. $5.44 million is what the product still earns.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m030",
+      "questionText": "A product has a 24-month market window (W = 12 months). By the triangular revenue model, what is the longest launch delay that keeps the revenue loss at or below 25 %?",
+      "options": [
+        "About 2.1 months",
+        "About 4.3 months",
+        "3.0 months",
+        "6.0 months"
+      ],
+      "correctIndex": 0,
+      "explanation": "D(36 − D)/288 ≤ 0.25 gives D² − 36D + 72 ≥ 0, so D ≤ 18 − √252 = 2.1 months. Using W = 24 by mistake gives 4.3 months, and 25 % of the window (6 months) assumes a linear loss.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m031",
+      "questionText": "Product X has a 16-month market window and launches 1 month late; product Y has a 48-month market window and launches 3 months late. Using the triangular revenue model, which statement is correct?",
+      "options": [
+        "Both lose the same fraction of revenue, 6.25 % (delay divided by window)",
+        "Y loses three times the fraction that X loses because its delay is three times longer",
+        "X loses more because its window is shorter",
+        "Both lose the same fraction of revenue, about 18.0 %"
+      ],
+      "correctIndex": 3,
+      "explanation": "The loss D(3W − D)/(2W²) depends only on D/W, which is 1/8 for both (W = 8 and W = 24). Loss = (1/8)(3 − 1/8)/2 = 0.180 for each; 6.25 % wrongly treats the loss as linear.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m032",
+      "questionText": "A product would earn $2,000,000 if launched on time into a 24-month market window (W = 12 months). Design A uses an off-the-shelf processor, is ready on time and costs $600,000 in total. Design B uses a custom chip, is 2 months late and costs $350,000 in total. Treating these costs as fixed and using the triangular revenue model, which design earns more profit, and by how much?",
+      "options": [
+        "Design A, by about $222,000",
+        "Design B, by $250,000",
+        "Design B, by about $83,000",
+        "Design A, by about $472,000"
+      ],
+      "correctIndex": 0,
+      "explanation": "B loses 2 × (36 − 2)/288 = 23.6 % of revenue: profit = 2,000,000 × 0.764 − 350,000 = $1,177,778, against A's 2,000,000 − 600,000 = $1,400,000. A is ahead by about $222,000; ignoring the delay would wrongly favour B by $250,000.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t4_m033",
+      "questionText": "Which processor technology implements one fixed function in a custom datapath and controller and has no program memory?",
+      "options": [
+        "General-purpose processor",
+        "Application-specific instruction-set processor (ASIP)",
+        "Digital signal processor",
+        "Single-purpose processor"
+      ],
+      "correctIndex": 3,
+      "explanation": "A single-purpose processor is a digital circuit built for one algorithm, so there is no program to store. A DSP is an ASIP: it still fetches instructions from a program memory.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m034",
+      "questionText": "Which statement about processor technologies is correct?",
+      "options": [
+        "A single-purpose processor gives the best performance, size and power for its one task but has high NRE cost and no flexibility",
+        "A general-purpose processor has the highest NRE cost because its datapath is designed for each product",
+        "An ASIP has no program memory, so its instructions are hard-wired",
+        "A single-purpose processor has the shortest time-to-market of the three"
+      ],
+      "correctIndex": 0,
+      "explanation": "General-purpose processors are bought off the shelf (low NRE, short time-to-market, high flexibility); ASIPs keep a program memory with a tuned datapath; single-purpose hardware trades NRE and flexibility for speed, size and power.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m035",
+      "questionText": "A low-volume product must reach the market quickly and may need feature changes after release. Which processor technology is usually the best choice?",
+      "options": [
+        "A single-purpose processor in full-custom VLSI",
+        "A single-purpose processor in a standard-cell ASIC",
+        "A general-purpose processor running software",
+        "A newly designed ASIP with its own compiler"
+      ],
+      "correctIndex": 2,
+      "explanation": "An off-the-shelf processor needs almost no hardware NRE, is available immediately and can be updated by changing software; the other options need chip design time and NRE that low volume cannot repay.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m036",
+      "questionText": "In which IC technology are all layers of the chip already fabricated, so that the designer implements the function by programming connections on a purchased chip?",
+      "options": [
+        "Full-custom VLSI",
+        "Programmable logic device, such as an FPGA",
+        "Semi-custom standard-cell ASIC",
+        "Semi-custom gate-array ASIC"
+      ],
+      "correctIndex": 1,
+      "explanation": "A PLD needs no masks at all. A gate array still needs custom metal interconnect layers, and standard-cell and full-custom designs need a full mask set.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m037",
+      "questionText": "Which description fits a (masked) gate-array ASIC?",
+      "options": [
+        "Every mask layer, including transistor sizes, is drawn specifically for the design",
+        "Arrays of transistors are prefabricated on the wafer and the designer specifies only the metal interconnect layers",
+        "Pre-designed logic cells are placed and routed, and all mask layers are made specifically for the design",
+        "Programmable switches on a finished chip are set by the user in the field"
+      ],
+      "correctIndex": 1,
+      "explanation": "The other descriptions are full-custom, standard-cell and FPGA respectively. Because only the wiring masks are custom, a gate array has lower NRE and a shorter turnaround than a standard-cell design.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m038",
+      "questionText": "Arrange these IC technologies in order of decreasing NRE cost: full-custom, FPGA, standard-cell ASIC, gate-array ASIC.",
+      "options": [
+        "Full-custom > gate array > standard cell > FPGA",
+        "Standard cell > full-custom > FPGA > gate array",
+        "Full-custom > standard cell > gate array > FPGA",
+        "FPGA > gate array > standard cell > full-custom"
+      ],
+      "correctIndex": 2,
+      "explanation": "The more layers that must be designed and masked for the product, the higher the NRE: full-custom designs everything, standard cell needs all masks from library cells, a gate array only the metal layers, and an FPGA none.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m039",
+      "questionText": "Which statement about processor technology and IC technology is correct?",
+      "options": [
+        "A general-purpose processor can be built only in full-custom VLSI",
+        "They are independent: a general-purpose, single-purpose or ASIP design can each be implemented in full-custom, semi-custom or PLD technology",
+        "A single-purpose processor can be implemented only on an FPGA",
+        "An ASIP must always be implemented as a gate array"
+      ],
+      "correctIndex": 1,
+      "explanation": "Vahid stresses that the two choices are orthogonal: for example a soft-core processor runs on an FPGA, while a single-purpose circuit may be a standard-cell ASIC.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m040",
+      "questionText": "In Vahid's framework, what name is given to the tools and methods used to convert the designer's concept of the desired functionality into an implementation, such as compilers, synthesis tools, libraries and verification tools?",
+      "options": [
+        "Design technology",
+        "Processor technology",
+        "IC technology",
+        "Network technology"
+      ],
+      "correctIndex": 0,
+      "explanation": "Processor technology is the architecture of the computation engine, IC technology is how it is put on silicon, and design technology is how the design is carried out.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m041",
+      "questionText": "A team drops a pre-designed and pre-verified UART core into its system-on-chip instead of designing one itself. Which aspect of design technology is this?",
+      "options": [
+        "Libraries / intellectual property (IP) cores",
+        "Compilation / synthesis",
+        "Test / verification",
+        "Full-custom IC technology"
+      ],
+      "correctIndex": 0,
+      "explanation": "Libraries and IP bring an existing implementation from a lower abstraction level into the design, saving design and verification time; synthesis would generate a new implementation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m042",
+      "questionText": "What is the name for converting a sequential program (a behavioural description) automatically into a custom datapath and controller?",
+      "options": [
+        "Logic synthesis",
+        "Behavioural (high-level) synthesis",
+        "Compilation to machine code",
+        "Physical placement and routing"
+      ],
+      "correctIndex": 1,
+      "explanation": "Behavioural synthesis produces a register-transfer design from an algorithm; logic synthesis then optimises the gate-level network, and placement and routing lay it out.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m043",
+      "questionText": "As quoted by Vahid and Givargis, what does Moore's law predict about the number of transistors that can be placed on an IC?",
+      "options": [
+        "It doubles roughly every 5 years",
+        "It grows by about 21 % per year",
+        "It doubles roughly every 18 months",
+        "It doubles every time the clock frequency doubles"
+      ],
+      "correctIndex": 2,
+      "explanation": "Vahid uses the 18-month doubling of IC capacity; about 21 % per year is the growth of designer productivity, which is what creates the productivity gap.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t4_m044",
+      "questionText": "If IC transistor capacity doubles every 18 months, by what factor does it grow in 6 years?",
+      "options": [
+        "4",
+        "8",
+        "64",
+        "16"
+      ],
+      "correctIndex": 3,
+      "explanation": "6 years = 72 months = 72/18 = 4 doublings, so the factor is 2^4 = 16. Four is the number of doublings, and 64 would need a doubling every 12 months.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m045",
+      "questionText": "Suppose IC capacity grows 58 % per year while designer productivity grows 21 % per year. By roughly what factor does the ratio of available transistors to what a fixed-size team can design grow over 5 years?",
+      "options": [
+        "About 1.9",
+        "About 3.8",
+        "About 9.8",
+        "About 2.6"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ratio grows by 1.58/1.21 = 1.306 per year, so over 5 years (1.306)^5 = 3.8. 9.8 is capacity growth alone (1.58^5) and 2.6 is productivity growth alone (1.21^5).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t4_m046",
+      "questionText": "A 1,000,000-transistor design is to be done by a team. A designer working alone produces 5,000 transistors per month, and every additional team member lowers each designer's monthly output by 100 transistors because of communication overhead. How long does the project take with 40 designers, compared with 20 designers?",
+      "options": [
+        "About 22.7 months, slower than the 16.1 months taken by 20 designers",
+        "5.0 months, twice as fast as the 10.0 months taken by 20 designers",
+        "25.0 months, slower than the 16.7 months taken by 20 designers",
+        "About 16.1 months, the same as with 20 designers"
+      ],
+      "correctIndex": 0,
+      "explanation": "With 40 designers each produces 5,000 − 39 × 100 = 1,100 transistors/month, 44,000 in total, so 1,000,000/44,000 = 22.7 months; 20 designers produce 20 × 3,100 = 62,000 per month and finish in 16.1 months. The 5.0 and 10.0 month figures ignore the overhead.",
+      "difficulty": "hard"
+    }
+  ]
+}

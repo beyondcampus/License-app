@@ -1,0 +1,699 @@
+{
+  "topicId": "ch4_i42",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Inside a General-Purpose Processor"
+    },
+    {
+      "type": "paragraph",
+      "text": "Vahid and Givargis build a general-purpose processor as if it were a single-purpose processor whose one job is to execute instructions. Its controller is an FSMD with a Fetch state (IR ← M[PC], PC ← PC + 1), a Decode state that branches on the opcode, and one or more execute states for each instruction, all returning to Fetch; the control unit holds the PC and IR, while the datapath holds a register file and an ALU connected to memory. Because each state lasts one clock cycle, an instruction takes as many cycles as the states it visits, and the clock period must cover the slowest register-to-register path in any state, which is usually the memory access."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Instruction",
+          "16-bit encoding",
+          "Operation"
+        ],
+        [
+          "MOV Rn, direct",
+          "0000 | Rn | direct (8 bits)",
+          "Rn ← M[direct]"
+        ],
+        [
+          "MOV direct, Rn",
+          "0001 | Rn | direct (8 bits)",
+          "M[direct] ← Rn"
+        ],
+        [
+          "MOV @Rn, Rm",
+          "0010 | Rn | Rm | unused",
+          "M[Rn] ← Rm"
+        ],
+        [
+          "MOV Rn, #imm",
+          "0011 | Rn | imm (8 bits)",
+          "Rn ← imm"
+        ],
+        [
+          "ADD Rn, Rm",
+          "0100 | Rn | Rm | unused",
+          "Rn ← Rn + Rm"
+        ],
+        [
+          "SUB Rn, Rm",
+          "0101 | Rn | Rm | unused",
+          "Rn ← Rn − Rm"
+        ],
+        [
+          "JZ Rn, rel",
+          "0110 | Rn | rel (8 bits)",
+          "If Rn = 0 then PC ← PC + rel"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: total = 10 + 9 + ... + 1 on the simple instruction set\n0       MOV R0, #0     ; total = 0\n1       MOV R1, #10    ; i = 10\n2       MOV R2, #1     ; constant 1\n3       MOV R3, #0     ; constant 0\n4 Loop: JZ  R1, Next   ; leave when i = 0\n5       ADD R0, R1     ; total += i\n6       SUB R1, R2     ; i--\n7       JZ  R3, Loop   ; always jumps, since R3 = 0\nExecuted: 4 MOV + 11 x JZ R1 + 10 x (ADD, SUB, JZ R3) = 45 instructions\nAt 3 cycles each (Fetch, Decode, one execute state) = 135 cycles\nAt 50 MHz: 135 x 20 ns = 2.7 µs, and R0 = 55"
+    },
+    {
+      "type": "paragraph",
+      "text": "An issue width w sets the best-case CPI at 1/w, but real code rarely reaches it: an instruction cannot issue in the same cycle as one it depends on, so superscalar hardware checks register dependences every cycle, and an in-order core issues only the older instruction of a dependent pair. A VLIW processor moves that work to the compiler, which fills each long word with independent operations and pads the empty slots with NOPs; the hardware is simpler and uses less power, but the code grows and binaries are tied to one machine's slot count and latencies. Branches hurt every pipeline: without prediction, a taken branch resolved at the end of stage s discards the s − 1 instructions fetched behind it."
+    },
+    {
+      "type": "formula",
+      "latex": "N_{cycles} = (k - 1) + \\left\\lceil \\frac{N}{w} \\right\\rceil",
+      "plainText": "Cycles for N independent instructions on a w-issue, k-stage pipeline = (k − 1) + ceil(N / w); w = 1 gives the scalar pipeline"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 40 independent instructions, 5 stages (k = 5)\nNon-pipelined, 1 cycle per stage : 40 x 5          = 200 cycles\nScalar pipeline                  : (5 - 1) + 40    = 44 cycles\n2-issue superscalar              : (5 - 1) + 40/2  = 24 cycles\nOne taken branch resolved in stage 4 (scalar): 44 + 3 = 47 cycles\nVLIW, 4 slots x 32 bits, 14 operations packed into 5 words:\n  slots = 20, NOPs = 20 - 14 = 6 (30 %)\n  code  = 5 x 16 bytes = 80 bytes, against 14 x 4 = 56 bytes on a scalar RISC"
+    },
+    {
+      "type": "paragraph",
+      "text": "To the programmer memory is an array of bytes, but three details decide whether code is correct and fast. Byte order: a little-endian processor (x86, most ARM systems) stores the least significant byte of a word at the lowest address and a big-endian one the most significant byte, which matters whenever words are read through byte pointers or sent over a link. Alignment: compilers pad structures so that each field sits at a multiple of its own size, so a peripheral register's offset in a struct overlay is counted in bytes, including padding. Locality: the cache is invisible to the instruction set, yet a loop that walks a row-major array column by column can need a new cache block on every access, while the row-by-row loop misses only once per block."
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#include <stdint.h>\ntypedef struct {\n    volatile uint32_t CTRL;   /* offset 0x00 */\n    volatile uint16_t CNT;    /* offset 0x04 */\n    uint16_t          RSV0;   /* offset 0x06, padding */\n    volatile uint32_t LOAD;   /* offset 0x08 */\n    volatile uint8_t  FLAG;   /* offset 0x0C, sizeof = 16 */\n} TMR_Type;\n#define TMR0 ((TMR_Type *)0x40000400u)\n/* TMR0->LOAD = 999u; writes the word at 0x40000408 */"
+    },
+    {
+      "type": "paragraph",
+      "text": "A typical assembler makes two passes: pass 1 steps a location counter through the source, adding each instruction's size and entering every label's address in a symbol table, and pass 2 emits the machine code, now able to fill in forward references. Object files are relocatable, so the linker places each section at its final address (rounding up for alignment), adds that base to every relocatable reference and writes an image such as ELF or Intel HEX, whose records end in a checksum that the device programmer verifies. An ISS gives full controllability and observability but runs slowly and without the real environment, whereas an in-circuit emulator or on-chip debug logic reached over JTAG or SWD runs the real chip at full speed; software breakpoints patch a break instruction into writable memory, so code in ROM needs hardware breakpoint comparators."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: choosing a processor (all candidates share one ISA)\nWorkload: 0.9 M instructions every 10 ms, processor load at most 75 %\nRequired rate = 0.9 M / 10 ms = 90 MIPS; 90 / 0.75 = 120 MIPS\nX: 300 MHz, CPI 2.0 -> 150 MIPS  meets, $4.20\nY: 200 MHz, CPI 1.5 -> 133 MIPS  meets, $3.10\nZ: 250 MHz, CPI 2.5 -> 100 MIPS  fails despite its clock\nChoose Y, the cheapest candidate that meets the requirement\nAcross different ISAs use benchmarks instead of native MIPS:\nDMIPS = Dhrystones per second / 1757, e.g. 1,405,600 / 1757 = 800 DMIPS"
+    },
+    {
+      "type": "warning",
+      "text": "Common slips: a loop that runs n times executes its exit test n + 1 times; the k − 1 fill cycles are added once, not divided by the issue width; NOP slots of a VLIW word still occupy program memory; a memory-mapped register's address is base plus its byte offset including padding, not base plus its field number; an n-bit program counter that addresses instruction words reaches 2^n words, i.e. 2^n times the word size in bytes; and native MIPS figures compare fairly only between processors with the same instruction set."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i42_m001",
+      "questionText": "In Vahid and Givargis's model of a general-purpose processor, which of these components belongs to the control unit rather than to the datapath?",
+      "options": [
+        "The arithmetic logic unit (ALU)",
+        "The general-purpose register file",
+        "The instruction register (IR)",
+        "The multiplexers that route operands to the ALU"
+      ],
+      "correctIndex": 2,
+      "explanation": "The control unit contains the controller, the program counter and the instruction register; the ALU, the registers and their routing multiplexers form the datapath that the controller drives.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m002",
+      "questionText": "A microcontroller is described as an 8-bit processor. What does '8-bit' normally refer to?",
+      "options": [
+        "The width of its datapath: its ALU, data registers and internal data bus handle 8 bits at a time",
+        "The width of its address bus, so it can address only 256 bytes",
+        "The number of general-purpose registers it contains",
+        "The length of every one of its instructions"
+      ],
+      "correctIndex": 0,
+      "explanation": "An N-bit processor has an N-bit datapath (ALU, registers and buses). The address bus is usually wider (the 8-bit 8051 and 8085 use 16-bit addresses), and instructions may be one to several bytes long.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m003",
+      "questionText": "In a general-purpose processor, what does the size (number of bits) of the program counter determine?",
+      "options": [
+        "The width of the ALU and the data registers",
+        "The number of instructions that can be in the pipeline at once",
+        "The maximum clock frequency of the processor",
+        "How large an address space instructions can be fetched from"
+      ],
+      "correctIndex": 3,
+      "explanation": "The PC holds instruction addresses, so an n-bit PC can reach 2^n instruction locations; the datapath width and the clock frequency are set by other parts of the design.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m004",
+      "questionText": "According to Vahid and Givargis, the clock period of a general-purpose processor must be at least as long as:",
+      "options": [
+        "The sum of the delays of all the stages an instruction passes through",
+        "The longest register-to-register delay anywhere in the processor, which is often a memory access",
+        "The average of all the register-to-register delays in the processor",
+        "The shortest register-to-register delay, so that fast operations are not slowed down"
+      ],
+      "correctIndex": 1,
+      "explanation": "Every register must capture a settled value at each clock edge, so the slowest register-to-register path (commonly a memory read) sets the minimum clock period and hence the maximum clock frequency.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m005",
+      "questionText": "Which statement about the datapath and the control unit of a general-purpose processor is NOT correct?",
+      "options": [
+        "The controller sets the datapath's control inputs, such as multiplexer selects, register load enables and the ALU function",
+        "The datapath holds the program counter and decodes the opcode of each instruction",
+        "The datapath sends status signals, such as the ALU's zero flag, back to the controller for conditional branches",
+        "A load copies a word from memory into a datapath register, and a store copies a register into memory"
+      ],
+      "correctIndex": 1,
+      "explanation": "The program counter, the instruction register and opcode decoding belong to the control unit; the datapath only stores and transforms data under the controller's direction.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m006",
+      "questionText": "A simple processor has 16-bit instructions: bits 15–12 are the opcode, bits 11–8 name register Rn, and bits 7–0 hold a direct address or an immediate constant. Opcode 0001 is MOV direct, Rn (M[direct] ← Rn) and opcode 0011 is MOV Rn, #imm (Rn ← imm). What happens when the two instruction words 3105H and then 1120H are executed?",
+      "options": [
+        "R1 is loaded with the contents of address 05H, and then that value is stored at address 20H",
+        "R1 is loaded with 5, and then R1 is loaded with the contents of address 20H",
+        "R5 is loaded with 1, and then 1 is stored at address 20H",
+        "R1 is loaded with 5, and then 5 is stored at memory address 20H"
+      ],
+      "correctIndex": 3,
+      "explanation": "3105H = 0011 0001 0000 0101 is MOV R1, #5, so R1 = 5; 1120H = 0001 0001 0010 0000 is MOV 20H, R1, so M[20H] = 5.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m007",
+      "questionText": "A processor provides MOV Rn, #imm (Rn ← imm), MOV Rn, direct (Rn ← M[direct]), MOV direct, Rn (M[direct] ← Rn), MOV @Rn, Rm (M[Rn] ← Rm) and ADD Rn, Rm (Rn ← Rn + Rm). The program below runs with M[5] = 9 and every other memory word 0 (all addresses and values decimal). What are M[20] and M[21] afterwards?\n\nMOV R0, #20\nMOV R1, 5\nMOV R2, #3\nADD R1, R2\nMOV @R0, R1\nMOV 21, R0",
+      "options": [
+        "M[20] = 12 and M[21] = 20",
+        "M[20] = 8 and M[21] = 20",
+        "M[20] = 12 and M[21] = 0",
+        "M[20] = 20 and M[21] = 12"
+      ],
+      "correctIndex": 0,
+      "explanation": "R0 = 20, R1 = M[5] = 9, R2 = 3, then R1 = 9 + 3 = 12; MOV @R0, R1 stores 12 at the address held in R0 (20), and MOV 21, R0 stores R0 = 20 at address 21. Reading MOV R1, 5 as an immediate would give 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m008",
+      "questionText": "The program below uses MOV Rn, #imm (Rn ← imm), ADD Rn, Rm (Rn ← Rn + Rm), SUB Rn, Rm (Rn ← Rn − Rm) and JZ Rn, label (jump to label when Rn = 0). Counting from the first MOV and not counting the instruction at Next, how many instructions are executed, and what does R0 hold on reaching Next?\n\n      MOV R0, #0\n      MOV R1, #6\n      MOV R2, #1\n      MOV R3, #0\nLoop: JZ  R1, Next\n      ADD R0, R1\n      SUB R1, R2\n      JZ  R3, Loop\nNext: ...",
+      "options": [
+        "28 instructions; R0 = 21",
+        "24 instructions; R0 = 21",
+        "29 instructions; R0 = 21",
+        "25 instructions; R0 = 15"
+      ],
+      "correctIndex": 2,
+      "explanation": "4 MOVs + the loop test JZ R1 executed 7 times (6 passes plus the exit) + 6 × (ADD, SUB, JZ R3) = 4 + 7 + 18 = 29 instructions, and R0 = 6 + 5 + 4 + 3 + 2 + 1 = 21.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m009",
+      "questionText": "The program below (MOV Rn, #imm loads a constant, ADD/SUB Rn, Rm put Rn + Rm or Rn − Rm into Rn, and JZ Rn, label jumps when Rn = 0) runs on a non-pipelined processor. Every instruction needs 1 fetch cycle and 1 decode cycle; after that, MOV Rn, #imm and JZ need 1 execute cycle, while ADD and SUB need 2. With a 25 MHz clock, how many clock cycles and how much time does the program take up to reaching Next?\n\n      MOV R0, #0\n      MOV R1, #10\n      MOV R2, #1\n      MOV R3, #0\nLoop: JZ  R1, Next\n      ADD R0, R1\n      SUB R1, R2\n      JZ  R3, Loop\nNext: ...",
+      "options": [
+        "135 cycles; 5.4 µs",
+        "155 cycles; 6.2 µs",
+        "152 cycles; 6.08 µs",
+        "225 cycles; 9.0 µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "45 instructions execute: 4 MOV and 21 JZ (11 + 10) at 3 cycles = 75 cycles, plus 10 ADD and 10 SUB at 4 cycles = 80 cycles, total 155 × 40 ns = 6.2 µs. Charging every instruction 3 cycles gives 135, and forgetting the final JZ gives 152.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m010",
+      "questionText": "In which step of the instruction cycle does the processor copy the instruction addressed by the PC into the instruction register and advance the PC to the next sequential instruction?",
+      "options": [
+        "Decode",
+        "Fetch operands",
+        "Store results",
+        "Fetch"
+      ],
+      "correctIndex": 3,
+      "explanation": "Fetch performs IR ← M[PC] and PC ← PC + 1; decode then works out the operation, and only a branch later overwrites the PC.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m011",
+      "questionText": "Instructions pass through five stages (fetch, decode, fetch operands, execute, store results), one clock cycle each, in a pipeline that keeps fetching sequentially. The 3rd instruction is a taken branch whose outcome is known at the end of its execute stage; the instructions fetched after it are then discarded, and fetching restarts at the target in the next cycle. If 8 instructions complete in total (3 up to and including the branch, then 5 from the target) and there are no other stalls, how many clock cycles does the sequence take?",
+      "options": [
+        "15",
+        "12",
+        "16",
+        "40"
+      ],
+      "correctIndex": 0,
+      "explanation": "The branch is fetched in cycle 3 and resolved at the end of cycle 6, so the target is fetched in cycle 7 and the 5th target instruction, fetched in cycle 11, finishes in cycle 15. The 3 discarded fetches add 3 cycles to the ideal 5 + 8 − 1 = 12; without pipelining 8 × 5 = 40 cycles would be needed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m012",
+      "questionText": "A 2-issue superscalar processor has 5-stage pipelines and runs 100 mutually independent instructions, issuing two in every cycle with no stalls. How many clock cycles pass from the first fetch until the last instruction completes?",
+      "options": [
+        "50",
+        "55",
+        "54",
+        "104"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cycles = (k − 1) + N / w = 4 + 100 / 2 = 54. A single-issue pipeline needs 4 + 100 = 104, and 50 forgets the 4 fill cycles.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m013",
+      "questionText": "A VLIW processor fetches 128-bit instruction words, each holding four 32-bit operation slots. Because of data dependences, the compiler schedules a loop body of 18 operations into 7 instruction words and fills the unused slots with NOPs. What fraction of the slots are NOPs, and how many bytes of program memory does the loop body occupy?",
+      "options": [
+        "35.7 % of the slots; 72 bytes",
+        "35.7 % of the slots; 112 bytes",
+        "55.6 % of the slots; 112 bytes",
+        "55.6 % of the slots; 28 bytes"
+      ],
+      "correctIndex": 1,
+      "explanation": "7 words × 4 slots = 28 slots, of which 28 − 18 = 10 are NOPs (10 / 28 = 35.7 %); the code takes 7 × 128 bits = 7 × 16 = 112 bytes, against 18 × 4 = 72 bytes for a scalar RISC with 32-bit instructions.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m014",
+      "questionText": "Which of the following is a recognised disadvantage of VLIW processors compared with superscalar processors?",
+      "options": [
+        "They need complex hardware to detect dependences and schedule instructions at run time",
+        "They can never complete more than one operation per clock cycle",
+        "They cannot run programs written in a high-level language",
+        "Code is usually larger because unused slots hold NOPs, and programs generally must be recompiled when the number or latency of the functional units changes"
+      ],
+      "correctIndex": 3,
+      "explanation": "VLIW scheduling is static: the compiler fixes which operations share a word, so the hardware stays simple, but NOP padding enlarges the code and the schedule is tied to one implementation. Run-time dependence checking is the cost paid by superscalar designs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m015",
+      "questionText": "Which statement about a superscalar processor is correct?",
+      "options": [
+        "Its hardware checks dependences at run time and issues several independent instructions per clock to parallel units, so the average CPI can fall below 1",
+        "Its compiler must pack parallel operations into one long instruction word before they can execute together",
+        "Programs must be rewritten in a special parallel instruction set before more than one ALU can be used",
+        "Its best possible CPI is 1, as in any pipelined processor"
+      ],
+      "correctIndex": 0,
+      "explanation": "A superscalar core finds instruction-level parallelism dynamically and runs ordinary binaries of its ISA; packing by the compiler describes VLIW, and issuing w instructions per cycle allows a CPI as low as 1/w.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m016",
+      "questionText": "A 2-issue in-order superscalar processor issues at most two instructions per cycle, strictly in program order (ADD R1, R2, R3 means R1 ← R2 + R3). A result can be used only by instructions issued in a later cycle than its producer, and if the older instruction of a candidate pair can issue but the younger cannot, only the older one issues. How many issue cycles does this sequence need?\n\nI1: ADD R1, R2, R3\nI2: SUB R4, R1, R5\nI3: AND R6, R7, R8\nI4: OR  R9, R6, R2\nI5: XOR R10, R11, R12\nI6: ADD R13, R10, R4",
+      "options": [
+        "3",
+        "5",
+        "4",
+        "6"
+      ],
+      "correctIndex": 2,
+      "explanation": "Cycle 1: I1 alone (I2 needs R1); cycle 2: I2 and I3; cycle 3: I4 and I5; cycle 4: I6, which needs R10 from I5. Ignoring the dependences would give 3 cycles, and single issue 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m017",
+      "questionText": "Which statement about the Princeton (von Neumann) memory architecture is correct?",
+      "options": [
+        "Instructions and data are kept in separate memories with separate address spaces and buses",
+        "Instructions and data share one memory and one bus, so an instruction fetch and a data access cannot take place in the same memory cycle",
+        "It is chosen mainly in DSPs so that an instruction and two operands can be fetched in one cycle",
+        "It prevents a program from reading constant tables stored alongside its code"
+      ],
+      "correctIndex": 1,
+      "explanation": "Princeton uses a single memory space for program and data, which is simple and flexible but makes fetches and data accesses take turns; separate memories and buses define the Harvard architecture used in many DSPs and microcontrollers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m018",
+      "questionText": "Assume C11 on a little-endian processor such as x86 or a typical ARM Cortex-M. What does this program print?\n\n#include <stdio.h>\n#include <stdint.h>\nint main(void) {\n    uint32_t x = 0x12345678u;\n    uint8_t *p = (uint8_t *)&x;\n    printf(\"%02X %02X\\n\", p[0], p[3]);\n    return 0;\n}",
+      "options": [
+        "12 78",
+        "78 56",
+        "87 21",
+        "78 12"
+      ],
+      "correctIndex": 3,
+      "explanation": "A little-endian processor stores the least significant byte at the lowest address, so the bytes of x in memory are 78, 56, 34, 12; p[0] = 78 and p[3] = 12. A big-endian processor would print 12 78.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m019",
+      "questionText": "The array int a[128][128] (4-byte int, stored row-major, starting on a cache-block boundary) is summed once by loop A, for (i…) for (j…) sum += a[i][j];, and once by loop B, which swaps the loops so that j is outer and i inner. The data cache is 8 KB (1 KB = 1024 bytes), direct-mapped, with 32-byte blocks; it is empty at the start of each loop, and only the array accesses use it. What are the miss rates of loops A and B?",
+      "options": [
+        "12.5 % for A and 100 % for B",
+        "12.5 % for both",
+        "100 % for A and 12.5 % for B",
+        "3.1 % for A and 100 % for B"
+      ],
+      "correctIndex": 0,
+      "explanation": "Loop A reads consecutive ints, so each 32-byte block gives 1 miss and 7 hits (1/8 = 12.5 %). Loop B strides 128 × 4 = 512 bytes, so every access needs a different block, and the 128 blocks of a column map onto only 16 of the 256 lines, evicting one another before the next column reuses them: every access misses.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m020",
+      "questionText": "From the programmer's point of view, which statement about a processor's data cache is correct?",
+      "options": [
+        "The program must execute a special instruction to copy each variable into the cache before using it",
+        "The cache has its own addresses, and each load chooses whether to address the cache or main memory",
+        "Ordinary loads and stores use the cache automatically, code with good locality runs faster, and memory-mapped peripheral registers are normally placed in a non-cacheable region",
+        "Reading a cached status register of a peripheral always returns the device's latest status"
+      ],
+      "correctIndex": 2,
+      "explanation": "A cache is transparent to the instruction set: it keeps copies of recently used main-memory blocks without being addressed directly. A cached device register could return a stale copy, so I/O regions are marked non-cacheable.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m021",
+      "questionText": "A Harvard-architecture microcontroller has a 16-bit program counter that addresses program memory in 16-bit instruction words, and its data memory uses 16-bit byte addresses. What are the largest program memory, in bytes, and the largest data memory it can address (1 KB = 1024 bytes)?",
+      "options": [
+        "64 KB of program memory and 64 KB of data memory",
+        "128 KB of program memory and 64 KB of data memory",
+        "64 KB in total, shared by program and data",
+        "128 KB of program memory and 128 KB of data memory"
+      ],
+      "correctIndex": 1,
+      "explanation": "The PC reaches 2^16 = 65,536 words of 2 bytes = 128 KB of program memory, while the separate data space has 2^16 byte addresses = 64 KB. Taking the PC as a byte address gives 64 KB, and a shared space is the Princeton view.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m022",
+      "questionText": "A compiler for a processor offering immediate, register-direct, register-indirect, direct and memory-indirect addressing translates the C constructs below. Which pairing of C construct and addressing mode is correct?",
+      "options": [
+        "x = 5; with the constant 5 placed in the instruction — direct addressing",
+        "y = *p; with the pointer p held in register R2 — immediate addressing",
+        "z = a + b; with a, b and z all held in registers — memory-indirect addressing",
+        "Reading a global variable whose fixed address is known at link time — direct addressing"
+      ],
+      "correctIndex": 3,
+      "explanation": "A constant inside the instruction is immediate, *p through a register is register-indirect, and operands already in registers use register-direct addressing; a variable at a fixed address named in the instruction uses direct addressing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m023",
+      "questionText": "An 8-bit processor provides ADD (add two bytes) and ADC (add two bytes plus the carry flag). What is the minimum number of add instructions needed to add two 32-bit unsigned integers stored as bytes in memory?",
+      "options": [
+        "4",
+        "1",
+        "2",
+        "8"
+      ],
+      "correctIndex": 0,
+      "explanation": "32 / 8 = 4 byte additions: ADD for the least significant byte, then three ADCs that each add in the carry from the byte below.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m024",
+      "questionText": "Assume C11 with uint16_t aligned on 2 bytes and uint32_t on 4 bytes. A UART's registers are accessed through the structure overlay below. At which address does the statement UART1->BRR = 0x0683; write?\n\ntypedef struct {\n    volatile uint32_t CR;\n    volatile uint32_t SR;\n    volatile uint16_t DR;\n    uint16_t          RSV;\n    volatile uint32_t BRR;\n} UART_Type;\n#define UART1 ((UART_Type *)0x40011000u)",
+      "options": [
+        "0x4001100A",
+        "0x40011003",
+        "0x4001100C",
+        "0x40011010"
+      ],
+      "correctIndex": 2,
+      "explanation": "Offsets are in bytes: CR 0x0, SR 0x4, DR 0x8 (2 bytes), RSV 0xA (2 bytes), BRR 0xC, so the write goes to 0x40011000 + 0xC = 0x4001100C. Counting fields gives 0x40011003, and leaving out RSV gives 0x4001100A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m025",
+      "questionText": "In the 8086 the interrupt vector table occupies the lowest 1 KB of memory, and each interrupt type n has a 4-byte entry (offset word, then segment word). At which physical addresses is the vector for type 21H stored?",
+      "options": [
+        "00021H–00024H",
+        "00084H–00087H",
+        "00042H–00045H",
+        "00108H–0010BH"
+      ],
+      "correctIndex": 1,
+      "explanation": "The entry for type n starts at 4 × n = 4 × 21H = 84H, so bytes 00084H–00087H hold the ISR's offset (IP) and segment (CS).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m026",
+      "questionText": "Why does an interrupt service routine end with a return-from-interrupt instruction (IRET on the 8086, RETI on the 8051) rather than an ordinary subroutine return?",
+      "options": [
+        "It also restores state that interrupt entry saved or changed besides the return address, such as the flags on the 8086 or the interrupt-in-progress priority logic on the 8051",
+        "An ordinary return instruction cannot pop an address from the stack",
+        "It is shorter, so it saves program memory in every ISR",
+        "It automatically clears the peripheral's interrupt request flag, so the ISR never needs to do so"
+      ],
+      "correctIndex": 0,
+      "explanation": "Interrupt entry saves more than the PC (the 8086 pushes the flags) or changes processor state (the 8051 marks a priority level as in service), and only the return-from-interrupt instruction undoes it; RET would leave the flags or the priority logic wrong.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m027",
+      "questionText": "On a typical microcontroller, a timer overflow sets the timer's maskable interrupt flag. Which conditions must all hold for this event to run the timer's interrupt service routine?",
+      "options": [
+        "Interrupts are enabled globally, because the global enable automatically enables every source",
+        "The timer's own source is enabled; the global enable affects only non-maskable interrupts",
+        "None, because a flag set by hardware always forces a jump to the ISR",
+        "An ISR is provided at the timer's vector, that interrupt source is enabled (unmasked), and interrupts are enabled globally"
+      ],
+      "correctIndex": 3,
+      "explanation": "A maskable interrupt passes two gates: the source's own enable or mask bit (ET0 on the 8051, its NVIC enable bit on a Cortex-M) and the global enable (EA on the 8051, PRIMASK clear on a Cortex-M); the vector then supplies the ISR address. With either gate closed the flag simply stays set until polled or enabled.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m028",
+      "questionText": "Which of these jobs is done by an operating system rather than by a development tool?",
+      "options": [
+        "Resolving references between object files and fixing their final addresses",
+        "Translating assembly mnemonics into machine code",
+        "Sharing processor time among several tasks and managing memory and devices for them at run time",
+        "Writing the executable image into the target's flash memory"
+      ],
+      "correctIndex": 2,
+      "explanation": "Scheduling and resource management happen at run time and belong to the OS; the other jobs are done before the program runs, by the linker, the assembler and the device programmer.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m029",
+      "questionText": "Many small microcontroller-based products run their program directly on the hardware, with no operating system. What is the usual reason?",
+      "options": [
+        "A processor without an operating system cannot respond to interrupts",
+        "The product performs one fixed job that a main loop plus interrupt service routines can handle, so an OS would only add memory, CPU-time and complexity costs",
+        "C compilers can only generate code for processors that run an operating system",
+        "An operating system can only run on a processor with a Harvard architecture"
+      ],
+      "correctIndex": 1,
+      "explanation": "An OS pays off when many tasks must share the processor or rich services such as files and networking are needed; a single-function device with a few kilobytes of RAM is usually simpler and more predictable as a super-loop with ISRs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m030",
+      "questionText": "A compiler runs on a PC (the development processor) but produces machine code for an ARM microcontroller (the target processor). What is it called?",
+      "options": [
+        "A cross-compiler",
+        "A native compiler",
+        "An interpreter",
+        "A decompiler"
+      ],
+      "correctIndex": 0,
+      "explanation": "A cross-compiler generates code for a processor other than the one it runs on; embedded tool chains (cross-assembler, cross-compiler and linker) all work this way.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m031",
+      "questionText": "An 8085 assembler processes the program below; the instruction sizes are given in the comments. JNZ has the opcode C2H followed by a 16-bit address stored low byte first. What address does the assembler give LOOP, and which three bytes does it emit for JNZ LOOP?\n\n        ORG  0200H\nSTART:  MVI  A, 05H     ; 2 bytes\n        LXI  H, 2050H   ; 3 bytes\nLOOP:   MOV  M, A       ; 1 byte\n        INX  H          ; 1 byte\n        DCR  A          ; 1 byte\n        JNZ  LOOP       ; 3 bytes\n        HLT             ; 1 byte",
+      "options": [
+        "LOOP = 0205H; C2H 02H 05H",
+        "LOOP = 0202H; C2H 02H 02H",
+        "LOOP = 0206H; C2H 06H 02H",
+        "LOOP = 0205H; C2H 05H 02H"
+      ],
+      "correctIndex": 3,
+      "explanation": "The location counter starts at 0200H and advances by 2 and then 3 bytes, so LOOP = 0205H; JNZ LOOP is emitted as C2H, then the low byte 05H and the high byte 02H. Counting one location per instruction would wrongly give 0202H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m032",
+      "questionText": "Why does a typical assembler make two passes over the source program?",
+      "options": [
+        "Pass 1 assigns an address to every label and builds the symbol table, so that pass 2 can generate code even for forward references to labels defined later",
+        "Pass 1 checks the syntax and pass 2 optimises the code for speed",
+        "Pass 1 generates code for the host and pass 2 generates code for the target processor",
+        "Pass 1 links the library routines and pass 2 loads the program into memory"
+      ],
+      "correctIndex": 0,
+      "explanation": "An instruction such as JMP DONE may appear before DONE is defined; stepping the location counter through the whole source first gives every label an address, which pass 2 then substitutes into the machine code.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m033",
+      "questionText": "Object files A.o and B.o are linked, in that order, into flash starting at 0x08000000, with B's code section placed directly after A's. A's code section is 0x1A2 bytes long, every code section must start on a 4-byte boundary, and function g is at offset 0x30 inside B's code section. What final address does the linker assign to g when it resolves A's call to g?",
+      "options": [
+        "0x080001D2",
+        "0x08000030",
+        "0x080001D4",
+        "0x080001A4"
+      ],
+      "correctIndex": 2,
+      "explanation": "B starts at 0x08000000 + 0x1A2 = 0x080001A2 rounded up to a multiple of 4, i.e. 0x080001A4, so g is at 0x080001A4 + 0x30 = 0x080001D4. Ignoring alignment gives 0x080001D2, and 0x08000030 is the unrelocated offset.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m034",
+      "questionText": "Which statement about an instruction-set simulator (ISS) is NOT correct?",
+      "options": [
+        "It lets the programmer inspect and change any register or memory location and stop anywhere, giving excellent controllability and observability",
+        "It tests the program at full speed against the product's real sensors and actuators",
+        "It runs on the development computer, so software can be tested before the target hardware exists",
+        "It usually executes the program far more slowly than the real processor would"
+      ],
+      "correctIndex": 1,
+      "explanation": "An ISS is a host program that models the target, so it is slow and has no real I/O environment; full-speed testing with the real hardware needs an emulator, on-chip debug or the target board itself.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m035",
+      "questionText": "A debugger sets a software breakpoint by overwriting the instruction at the breakpoint address with a special break (trap) instruction. Why can this method not be used for code executing from mask-programmed ROM?",
+      "options": [
+        "ROM is too slow to supply a break instruction within one fetch cycle",
+        "Break instructions may only be executed in supervisor mode",
+        "Code stored in ROM cannot contain branch or trap instructions",
+        "The break instruction has to be written into program memory, which ROM does not allow, so hardware breakpoint comparators that match the fetch address are used instead"
+      ],
+      "correctIndex": 3,
+      "explanation": "A software breakpoint changes memory contents, which needs writable program memory (RAM, or flash reprogrammed by the debugger); on-chip debug logic offers a few hardware breakpoints that compare the PC with set addresses without modifying the code.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m036",
+      "questionText": "Which tool writes the final linked binary image into the target's EPROM or flash chip, often before the chip is fitted to the board?",
+      "options": [
+        "A linker",
+        "An instruction-set simulator",
+        "A device programmer",
+        "A profiler"
+      ],
+      "correctIndex": 2,
+      "explanation": "The device programmer (or an in-system programming interface) loads the executable image into non-volatile memory; the linker only creates the image, and the ISS only runs it on the host.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m037",
+      "questionText": "An Intel HEX data record has the form :LL AAAA TT DD… CC, where LL is the byte count, AAAA the load address, TT the record type and CC the two's complement of the 8-bit sum of all bytes from LL to the last data byte. Which checksum ends the record that loads the two bytes 3EH and 05H at address 0100H (type 00)?",
+      "options": [
+        "BAH",
+        "46H",
+        "B9H",
+        "BBH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Sum = 02H + 01H + 00H + 00H + 3EH + 05H = 46H, and its two's complement is 100H − 46H = BAH. 46H is the raw sum, B9H its one's complement, and BBH results from leaving out the address bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m038",
+      "questionText": "An instruction-set simulator executes 2 million target instructions per second on the host. A test program executes 600 million instructions; the real target runs at 100 MHz with an average CPI of 1.5 on this program. How long does the ISS run take, and how many times slower is it than the real target?",
+      "options": [
+        "300 s; 50 times slower",
+        "450 s; 50 times slower",
+        "300 s; 75 times slower",
+        "300 s; about 33 times slower"
+      ],
+      "correctIndex": 3,
+      "explanation": "ISS time = 600 × 10^6 / (2 × 10^6 per s) = 300 s; target time = 600 × 10^6 × 1.5 / 100 MHz = 9 s, so the ISS is 300 / 9 ≈ 33.3 times slower. Ignoring the CPI would give 6 s on the target and a ratio of 50.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m039",
+      "questionText": "Many modern microcontrollers contain on-chip debug logic reached through a JTAG or SWD port. What does this provide compared with a traditional in-circuit emulator?",
+      "options": [
+        "A software model of the processor on the host, so code can run before any hardware exists",
+        "Halting, breakpoints, single-stepping and register and memory access on the production chip itself through a few pins, without substituting special emulation hardware for the processor",
+        "Automatic translation of C source into optimised assembly language",
+        "A higher clock frequency during normal operation of the product"
+      ],
+      "correctIndex": 1,
+      "explanation": "The debug unit is built into every chip and driven by a cheap probe, giving most ICE features in the real circuit at full speed; a software model on the host is an ISS.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m040",
+      "questionText": "Which tool combines separately compiled object files with library routines, resolves the references between them and fixes final memory addresses to produce one executable image?",
+      "options": [
+        "Assembler",
+        "Linker",
+        "Debugger",
+        "Profiler"
+      ],
+      "correctIndex": 1,
+      "explanation": "The linker (with a locator for embedded targets) merges object files and libraries and relocates them to their final addresses; the assembler only produces the individual object files.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m041",
+      "questionText": "What does a profiler tell an embedded programmer?",
+      "options": [
+        "Whether the program's syntax conforms to the C standard",
+        "The final address the linker assigned to every function",
+        "How much execution time, or how many executions, each function or loop accounts for, showing where optimisation will pay off",
+        "The exact electrical waveforms on the processor's pins"
+      ],
+      "correctIndex": 2,
+      "explanation": "Profiling measures where run time is actually spent, so optimisation effort or hardware acceleration goes to the hot spots; the linker's map file lists addresses, and a logic analyser shows waveforms.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m042",
+      "questionText": "A processor clocked at 300 MHz completes 1,054,200 Dhrystone iterations per second. Taking the VAX 11/780's 1757 Dhrystones per second as 1 MIPS, what are its Dhrystone MIPS rating and its DMIPS per MHz?",
+      "options": [
+        "600 DMIPS; 2.0 DMIPS/MHz",
+        "1054 DMIPS; 3.5 DMIPS/MHz",
+        "600 DMIPS; 0.5 DMIPS/MHz",
+        "3514 DMIPS; 11.7 DMIPS/MHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "DMIPS = 1,054,200 / 1757 = 600, and 600 / 300 MHz = 2.0 DMIPS/MHz. Dividing by 1000 instead of 1757 would give 1054.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m043",
+      "questionText": "Which benchmark suite was created by an industry consortium specifically to compare embedded processors on application-like workloads such as automotive, networking and consumer tasks?",
+      "options": [
+        "Dhrystone",
+        "LINPACK",
+        "Whetstone",
+        "EEMBC"
+      ],
+      "correctIndex": 3,
+      "explanation": "EEMBC (the Embedded Microprocessor Benchmark Consortium) publishes suites drawn from embedded application areas; Dhrystone and Whetstone are single synthetic programs, and LINPACK measures floating-point linear algebra.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i42_m044",
+      "questionText": "An embedded controller must execute 1.2 million instructions in every 20 ms frame, and the processor may be at most 70 % loaded. Four candidates implement the same instruction set, so the instruction count is the same on each. Which is the cheapest candidate that meets the requirement?",
+      "options": [
+        "Candidate A: 80 MIPS, $3.00",
+        "Candidate B: 100 MIPS, $5.00",
+        "Candidate C: 90 MIPS, $3.50",
+        "Candidate D: 150 MIPS, $4.00"
+      ],
+      "correctIndex": 2,
+      "explanation": "Required rate = 1.2 × 10^6 / 0.02 s = 60 MIPS, and at 70 % load the processor needs 60 / 0.7 = 85.7 MIPS. A (80 MIPS) fails, and of B, C and D, C is the cheapest; ignoring the load limit would wrongly pick A.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i42_m045",
+      "questionText": "Processors A and B implement the same instruction set, and a program compiles to the same instructions for both. A runs at 100 MHz with an average CPI of 1.25 on the program; B runs at 150 MHz with an average CPI of 2.0. Which runs the program faster?",
+      "options": [
+        "A, by about 1.07 times",
+        "B, by 1.5 times",
+        "B, by about 1.07 times",
+        "They are equally fast"
+      ],
+      "correctIndex": 0,
+      "explanation": "A delivers 100 / 1.25 = 80 MIPS and B 150 / 2.0 = 75 MIPS; with equal instruction counts A is 80 / 75 = 1.07 times faster, so clock frequency alone does not decide performance.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i42_m046",
+      "questionText": "Which processor is the best fit for a smart-home display that runs Linux with a graphical user interface, Wi-Fi networking and downloadable applications?",
+      "options": [
+        "An 8-bit microcontroller with 2 KB of on-chip SRAM",
+        "A 32- or 64-bit application processor with an MMU and external DRAM, such as a Cortex-A class core",
+        "A fixed-point DSP optimised for multiply-accumulate operations",
+        "A custom single-purpose processor designed for the display"
+      ],
+      "correctIndex": 1,
+      "explanation": "Linux with downloadable applications needs virtual memory (an MMU), a large RAM and a fast general-purpose core; small MCUs, DSPs and single-purpose hardware lack those resources or the flexibility.",
+      "difficulty": "easy"
+    }
+  ]
+}

@@ -1,0 +1,734 @@
+{
+  "topicId": "ch2_i51",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Handshake Modes, Port Addressing and Display Interfacing"
+    },
+    {
+      "type": "paragraph",
+      "text": "In mode 1 each handshaken port borrows three Port C lines: a strobe or acknowledge input, a buffer-full output and an interrupt request. Which lines are borrowed depends on the direction, so the spare Port C lines change too. Each port also has an internal interrupt-enable flip-flop (INTE) that is not a real pin; it is set or cleared with a BSR word naming a particular Port C bit. INTR goes high only when INTE is set and the handshake says a byte is waiting to be read or the output buffer is empty."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Function",
+          "Port A mode-1 input",
+          "Port A mode-1 output",
+          "Port B mode 1 (in / out)"
+        ],
+        [
+          "Strobe or acknowledge",
+          "PC4 = STB",
+          "PC6 = ACK",
+          "PC2 = STB / ACK"
+        ],
+        [
+          "Buffer flag",
+          "PC5 = IBF",
+          "PC7 = OBF",
+          "PC1 = IBF / OBF"
+        ],
+        [
+          "Interrupt request",
+          "PC3 = INTR",
+          "PC3 = INTR",
+          "PC0 = INTR"
+        ],
+        [
+          "INTE set by BSR on",
+          "PC4",
+          "PC6",
+          "PC2"
+        ],
+        [
+          "Spare Port C lines",
+          "PC6, PC7",
+          "PC4, PC5",
+          "None of PC0–PC2 (all three used)"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "CW = 80_H + 20_H M_A + 10_H A + 08_H C_U + 04_H M_B + 02_H B + 01_H C_L",
+      "plainText": "CW = 80H + 20H (A in mode 1) + 10H (A in) + 08H (C upper in) + 04H (B in mode 1) + 02H (B in) + 01H (C lower in); mode 2 for A uses 40H instead of 20H"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: Port A mode-1 input, Port B mode-0 output,\nspare PC6 and PC7 outputs, PC0-PC2 inputs\nD7 = 1        I/O mode\nD6 D5 = 01    Group A mode 1\nD4 = 1        Port A input\nD3 = 0        PC6, PC7 output (PC3-PC5 are handshake lines)\nD2 = 0        Group B mode 0\nD1 = 0        Port B output\nD0 = 1        PC0-PC2 input\nCW = 1011 0001 = B1H"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 8085 port addresses for an 8255\nCS active when A7 A6 A5 A4 A3 A2 = 1 1 1 1 0 0; A1 A0 to the 8255\nA1 A0 = 00 -> 1111 0000 = F0H  Port A\nA1 A0 = 01 -> 1111 0001 = F1H  Port B\nA1 A0 = 10 -> 1111 0010 = F2H  Port C\nA1 A0 = 11 -> 1111 0011 = F3H  Control register\nIf A2 were left undecoded, F4H-F7H would select the same four registers"
+    },
+    {
+      "type": "code",
+      "language": "x86asm",
+      "text": "; 8085: 8255 at 40H-43H, common-cathode digit on Port A, driver enable on PC0\n        MVI  A, 80H      ; all ports output, mode 0\n        OUT  43H         ; control register\n        MVI  A, 6DH      ; segments a, c, d, f, g -> digit 5\n        OUT  40H         ; send pattern to Port A\n        MVI  A, 01H      ; BSR word: set PC0 (digit enable)\n        OUT  43H         ; BSR words also go to the control register\n        HLT"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Digit",
+          "Common-cathode code",
+          "Digit",
+          "Common-cathode code"
+        ],
+        [
+          "0",
+          "3FH",
+          "5",
+          "6DH"
+        ],
+        [
+          "1",
+          "06H",
+          "6",
+          "7DH"
+        ],
+        [
+          "2",
+          "5BH",
+          "7",
+          "07H"
+        ],
+        [
+          "3",
+          "4FH",
+          "8",
+          "7FH"
+        ],
+        [
+          "4",
+          "66H",
+          "9",
+          "6FH"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "The codes above assume segment a on D0 through g on D6 with the decimal point on D7, and a 1 lighting a segment. For a common-anode display the segment lights when its line is 0, so each code is complemented (digit 1 becomes F9H). A port pin cannot supply much current, so each LED or segment needs a series resistor, R = (V_supply − V_LED) / I, and often a transistor driver. Switches are read through pull-up resistors so that an open switch reads 1 and a closed one reads 0, and the program debounces them with a delay of about 10–20 ms."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes when programming the 8255:",
+      "items": [
+        "Writing a BSR word to the Port C address instead of the control register.",
+        "Using 1 for output: in the 8255 control word 1 means input.",
+        "Forgetting that D7 = 0 makes the byte a BSR word, not a mode word.",
+        "Using 80H, 81H, 82H, 83H for the four registers on an 8086 whose 8255 is wired to A2 A1; the registers are then 80H, 82H, 84H, 86H.",
+        "Assuming the ports are outputs after reset; they are all inputs until a control word is written."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any control word question, write the eight bit positions D7 to D0 first, fill D7 = 1 (or 0 for BSR), then fill each field from the requirement and convert the two nibbles to hex. For a decoding question, do the reverse and check D7 before reading anything else."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch2_i51_m001",
+      "questionText": "An 8255 must be set to mode 0 with Port A output, Port B output, Port C upper input and Port C lower input. The control word is:",
+      "options": [
+        "92H",
+        "89H",
+        "88H",
+        "99H"
+      ],
+      "correctIndex": 1,
+      "explanation": "D7 = 1, D6 D5 = 00, D4 = 0 (A out), D3 = 1 (C upper in), D2 = 0, D1 = 0 (B out), D0 = 1 (C lower in): 1000 1001 = 89H. 92H results from taking 0 as input and 1 as output.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m002",
+      "questionText": "Which mode-0 control word makes 8255 Port A an input, Port B an output, Port C upper an output and Port C lower an input?",
+      "options": [
+        "8AH",
+        "90H",
+        "93H",
+        "91H"
+      ],
+      "correctIndex": 3,
+      "explanation": "Start from 80H and add 10H for Port A input and 01H for Port C lower input: 80H + 10H + 01H = 91H (1001 0001). 93H would also make Port B an input.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m003",
+      "questionText": "The control word 92H is written to an 8255. How are the ports configured?",
+      "options": [
+        "Mode 0: Port A input, Port B input, Port C (both halves) output",
+        "Mode 0: Port A output, Port B output, Port C (both halves) input",
+        "Mode 0: Port A input, Port C upper input, Port B output, Port C lower output",
+        "BSR mode: bit PC1 is reset"
+      ],
+      "correctIndex": 0,
+      "explanation": "92H = 1001 0010: D7 = 1 (I/O mode), D6 D5 = 00 and D2 = 0 (mode 0), D4 = 1 (A in), D3 = 0 (C upper out), D1 = 1 (B in), D0 = 0 (C lower out). D7 = 1 rules out BSR mode.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m004",
+      "questionText": "An 8085 program writes 83H to the 8255 control register. Which configuration results?",
+      "options": [
+        "Port A input, Port C upper input, Port B output, Port C lower output (all mode 0)",
+        "Port A output, Port B output, Port C input (all mode 0)",
+        "Port A output, Port C upper output, Port B input, Port C lower input (all mode 0)",
+        "Port A output in mode 1, Port B input in mode 1"
+      ],
+      "correctIndex": 2,
+      "explanation": "83H = 1000 0011: D6 D5 = 00 and D2 = 0 give mode 0; D4 = 0 and D3 = 0 make Port A and Port C upper outputs; D1 = 1 and D0 = 1 make Port B and Port C lower inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m005",
+      "questionText": "Which BSR control word resets bit PC7 of an 8255 to 0?",
+      "options": [
+        "0FH",
+        "07H",
+        "8EH",
+        "0EH"
+      ],
+      "correctIndex": 3,
+      "explanation": "D7 = 0 (BSR), D3 D2 D1 = 111 (PC7), D0 = 0 (reset): 0000 1110 = 0EH. 0FH would set PC7, and 8EH has D7 = 1, which is an I/O-mode word.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m006",
+      "questionText": "Which control word sets bit PC0 of an 8255 using the BSR mode?",
+      "options": [
+        "00H",
+        "01H",
+        "81H",
+        "10H"
+      ],
+      "correctIndex": 1,
+      "explanation": "Bit number 000 in D3 D2 D1 and D0 = 1 (set) with D7 = 0 give 0000 0001 = 01H. 00H resets PC0, and 81H is an I/O-mode word.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m007",
+      "questionText": "The byte 0BH is written to the control register of an 8255. What does it do?",
+      "options": [
+        "Resets PC5 to 0",
+        "Sets PC3 to 1",
+        "Sets PC5 to 1",
+        "Makes Port B an input in mode 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "0BH = 0000 1011: D7 = 0 so it is a BSR word; D3 D2 D1 = 101 = bit 5, and D0 = 1 means set. Reading D2 D1 D0 = 011 as the bit number wrongly gives PC3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m008",
+      "questionText": "PC2 of an 8255 is at 0 and must give a single positive (0 → 1 → 0) pulse using BSR mode. Which two control words, written in order to the control register, do this?",
+      "options": [
+        "05H, then 04H",
+        "04H, then 05H",
+        "04H, then 02H",
+        "85H, then 84H"
+      ],
+      "correctIndex": 0,
+      "explanation": "Set PC2 = 2 × 2 + 1 = 05H, then reset PC2 = 2 × 2 + 0 = 04H. The reverse order gives a negative pulse, and 85H/84H have D7 = 1, so they would reconfigure the ports instead.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m009",
+      "questionText": "An 8255 is programmed for Port A in mode 1 as input and Port B in mode 1 as output. The spare lines PC6 and PC7 are outputs, and unused bits are taken as 0. The control word is:",
+      "options": [
+        "B6H",
+        "B4H",
+        "A4H",
+        "34H"
+      ],
+      "correctIndex": 1,
+      "explanation": "D7 = 1, D6 D5 = 01 (A mode 1), D4 = 1 (A in), D3 = 0 (PC6, PC7 out), D2 = 1 (B mode 1), D1 = 0 (B out), D0 = 0 (don't care): 1011 0100 = B4H.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m010",
+      "questionText": "Port A of an 8255 is used in mode 1 as an output, Port B in mode 0 as an input, the spare upper lines PC4 and PC5 as inputs, and PC0 to PC2 as outputs. The control word is:",
+      "options": [
+        "BAH",
+        "A2H",
+        "8AH",
+        "AAH"
+      ],
+      "correctIndex": 3,
+      "explanation": "D7 = 1, D6 D5 = 01 (A mode 1), D4 = 0 (A out), D3 = 1 (PC4, PC5 in), D2 = 0 (B mode 0), D1 = 1 (B in), D0 = 0 (PC0–PC2 out): 1010 1010 = AAH. 8AH would leave Port A in mode 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m011",
+      "questionText": "Port A of an 8255 is to work in mode 2, Port B in mode 0 as an output, and PC0 to PC2 as outputs. Taking don't-care bits as 0, the control word is:",
+      "options": [
+        "C0H",
+        "A0H",
+        "40H",
+        "C2H"
+      ],
+      "correctIndex": 0,
+      "explanation": "D7 = 1, D6 D5 = 10 (mode 2), D4 and D3 are don't care in mode 2 (0), D2 = 0 (B mode 0), D1 = 0 (B out), D0 = 0 (PC0–PC2 out): 1100 0000 = C0H. A0H selects mode 1, and 40H has D7 = 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m012",
+      "questionText": "An 8255 receives the control word B6H. Which configuration does it select?",
+      "options": [
+        "Port A: mode 1 input; Port B: mode 1 output",
+        "Port A: mode 2; Port B: mode 1 input",
+        "Port A: mode 1 input; Port B: mode 1 input",
+        "Port A: mode 1 output; Port B: mode 0 input"
+      ],
+      "correctIndex": 2,
+      "explanation": "B6H = 1011 0110: D6 D5 = 01 (A mode 1), D4 = 1 (A in), D3 = 0 (spare PC6, PC7 out), D2 = 1 (B mode 1), D1 = 1 (B in). Mode 2 would need D6 = 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m013",
+      "questionText": "Port A of an 8255 is in mode 1 as an output. Its interrupt-enable flip-flop INTE A is controlled by PC6. Which BSR word enables the Port A interrupt?",
+      "options": [
+        "09H",
+        "0CH",
+        "0BH",
+        "0DH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Enable = set PC6: D3 D2 D1 = 110, D0 = 1 gives 0000 1101 = 0DH. 09H sets PC4, which is INTE A only when Port A is a mode-1 input; 0CH resets PC6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m014",
+      "questionText": "In an 8085 system the 8255 chip select is active when A7 A6 A5 A4 A3 A2 = 0 0 1 0 0 0, and A1 A0 connect to the 8255's A1 A0. What is the address of its control register?",
+      "options": [
+        "20H",
+        "23H",
+        "08H",
+        "0BH"
+      ],
+      "correctIndex": 1,
+      "explanation": "Base = 0010 0000 = 20H (Port A), so Port B = 21H, Port C = 22H and the control register (A1 A0 = 11) = 23H. 08H and 0BH come from forgetting that the pattern sits above A1 A0.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m015",
+      "questionText": "An 8255 is selected when A7 to A2 are all 1 (8085, I/O-mapped). What is the port address of Port C?",
+      "options": [
+        "FCH",
+        "FDH",
+        "FEH",
+        "FFH"
+      ],
+      "correctIndex": 2,
+      "explanation": "Base = 1111 1100 = FCH. A1 A0 = 00, 01, 10, 11 give Port A FCH, Port B FDH, Port C FEH and the control register FFH.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m016",
+      "questionText": "On an 8086, an 8255 sits on the low data byte. CPU lines A2 A1 drive the 8255's A1 A0, and CS is active when A7 to A3 = 1 0 0 0 0 and A0 = 0. What is the control register address?",
+      "options": [
+        "86H",
+        "83H",
+        "87H",
+        "06H"
+      ],
+      "correctIndex": 0,
+      "explanation": "The registers are at even addresses: Port A = 80H, Port B = 82H, Port C = 84H, control = 86H. 83H assumes 8085-style wiring with A1 A0, and 87H is odd, which is on the high data byte.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m017",
+      "questionText": "An 8255 in an 8085 system is selected whenever A7 = 1; A6 to A2 are not decoded and A1 A0 go to the chip. How many different port addresses will access Port A?",
+      "options": [
+        "1",
+        "32",
+        "5",
+        "128"
+      ],
+      "correctIndex": 1,
+      "explanation": "Port A needs A7 = 1 and A1 A0 = 00; the five undecoded lines A6–A2 can take any value, so 2^5 = 32 addresses. 128 is the total number of addresses that select the chip, covering all four registers.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m018",
+      "questionText": "A common-cathode seven-segment display is driven from an 8255 port with segment a on D0, b on D1, … g on D6 and the decimal point on D7 (a 1 lights a segment). What byte displays the digit 3?",
+      "options": [
+        "B0H",
+        "F2H",
+        "5BH",
+        "4FH"
+      ],
+      "correctIndex": 3,
+      "explanation": "Digit 3 lights a, b, c, d, g = bits 0, 1, 2, 3, 6 = 0100 1111 = 4FH. B0H is the common-anode code, F2H reverses the bit order, and 5BH is the digit 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m019",
+      "questionText": "A common-anode seven-segment display (a segment lights when its line is 0) is driven with a on D0 … g on D6 and the decimal point on D7 kept off. The byte for the digit 1 is:",
+      "options": [
+        "F9H",
+        "06H",
+        "60H",
+        "9FH"
+      ],
+      "correctIndex": 0,
+      "explanation": "Digit 1 lights b and c; the common-cathode code is 06H, and inverting every bit for common anode gives F9H (1111 1001), with dp = 1 so it stays off. 06H is the common-cathode pattern.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m020",
+      "questionText": "Eight LEDs are connected to Port B (PB0–PB7) of an 8255 with their anodes to +5 V through resistors, so an LED lights when its port bit is 0. Which byte lights only the LEDs on PB0 and PB7?",
+      "options": [
+        "81H",
+        "7FH",
+        "7EH",
+        "FEH"
+      ],
+      "correctIndex": 2,
+      "explanation": "PB0 and PB7 must be 0 and the rest 1: 0111 1110 = 7EH. 81H would light the other six LEDs, 7FH lights only PB7 and FEH lights only PB0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m021",
+      "questionText": "Eight switches are connected to Port A of an 8255, each with a pull-up resistor, so a closed switch reads 0. If only the switches on PA2 and PA5 are closed, IN from Port A returns:",
+      "options": [
+        "24H",
+        "BDH",
+        "42H",
+        "DBH"
+      ],
+      "correctIndex": 3,
+      "explanation": "All bits are 1 except PA5 and PA2: 1101 1011 = DBH. 24H is the active-high reading (1 = closed), and BDH or 42H mark PA6 and PA1 instead of PA5 and PA2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m022",
+      "questionText": "An 8085 has an 8255 at 80H–83H configured with Port A as input and Port B as output. Port A pins carry 3CH. What does Port B output after IN 80H / CMA / OUT 81H?",
+      "options": [
+        "3CH",
+        "C3H",
+        "C4H",
+        "FFH"
+      ],
+      "correctIndex": 1,
+      "explanation": "IN 80H loads A = 3CH; CMA forms the 1's complement, A = C3H; OUT 81H sends it to Port B. C4H would be the 2's complement (CMA does not add 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m023",
+      "questionText": "Port A of an 8255 works in mode 2 and Port B in mode 0. How many Port C lines remain available for general-purpose I/O?",
+      "options": [
+        "5",
+        "4",
+        "3",
+        "0"
+      ],
+      "correctIndex": 2,
+      "explanation": "Mode 2 uses PC3 to PC7 (INTRA, STBA, IBFA, ACKA, OBFA) for Port A handshaking, leaving PC0, PC1, PC2: 3 lines. 5 is the number of lines used, not left.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m024",
+      "questionText": "Port A of an 8255 is a mode-1 input and Port B is in mode 1. Which Port C lines are still free for general I/O?",
+      "options": [
+        "2: PC6 and PC7",
+        "3: PC0 to PC2",
+        "5: PC3 to PC7",
+        "0: all Port C lines are used"
+      ],
+      "correctIndex": 0,
+      "explanation": "Port A mode-1 input uses PC3 (INTRA), PC4 (STBA) and PC5 (IBFA); Port B mode 1 uses PC0 to PC2. That leaves PC6 and PC7, so the answer is 2: PC6 and PC7.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m025",
+      "questionText": "Each 8255 occupies four consecutive port addresses. With full decoding, at most how many 8255 chips fit in the 8085's 256-address I/O space?",
+      "options": [
+        "256",
+        "64",
+        "85",
+        "32"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each chip needs 4 addresses (A1 A0), so 256 / 4 = 64 chips. 85 results from dividing by 3 ports and ignoring the control register address.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m026",
+      "questionText": "An 8085 system uses three 8255 chips. How many programmable I/O lines are available in total?",
+      "options": [
+        "24",
+        "9",
+        "48",
+        "72"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each 8255 has 3 ports × 8 bits = 24 lines, so 3 × 24 = 72 lines. 9 is the number of ports.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m027",
+      "questionText": "A matrix keyboard is scanned through an 8255, with 8 port lines driving the rows and 8 port lines reading the columns. How many keys can it support?",
+      "options": [
+        "64",
+        "16",
+        "256",
+        "32"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each key sits at one row–column crossing: 8 × 8 = 64 keys. 16 is only the number of port lines used.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m028",
+      "questionText": "Six seven-segment digits (8 segment lines each, including the decimal point) are multiplexed from an 8255: the segment lines are shared and each digit has its own select line, with no decoder. How many port lines are needed?",
+      "options": [
+        "48",
+        "12",
+        "14",
+        "16"
+      ],
+      "correctIndex": 2,
+      "explanation": "Shared segments use 8 lines and the digit selects use 6, so 8 + 6 = 14 lines. Driving each digit separately would need 6 × 8 = 48 lines.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m029",
+      "questionText": "A four-digit multiplexed display driven by an 8255 is refreshed so that the whole display is scanned 50 times per second, each digit being lit for an equal share of each scan. How long is each digit lit per scan?",
+      "options": [
+        "20 ms",
+        "2.5 ms",
+        "12.5 ms",
+        "5 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "One full scan takes 1 / 50 Hz = 20 ms; shared among 4 digits, each is lit for 20 / 4 = 5 ms. 20 ms is the whole scan time, not one digit's share.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch2_i51_m030",
+      "questionText": "An LED is driven from a 5 V port output (assume 5 V when high) and needs 10 mA with a forward drop of 2 V. What series resistor is required?",
+      "options": [
+        "500 Ω",
+        "300 Ω",
+        "200 Ω",
+        "30 Ω"
+      ],
+      "correctIndex": 1,
+      "explanation": "R = (V_supply − V_LED) / I = (5 − 2) V / 0.010 A = 300 Ω. 500 Ω ignores the LED drop, and 200 Ω uses the LED voltage alone.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m031",
+      "questionText": "When an 8085 executes IN 40H, what appears on its address lines during the I/O read machine cycle?",
+      "options": [
+        "40H appears only on AD7–AD0, while A15–A8 are 00H",
+        "40H appears only on A15–A8, while AD7–AD0 carry the data from the start",
+        "The port address 40H appears on both A15–A8 and AD7–AD0",
+        "All address lines are tri-stated because I/O uses the data bus only"
+      ],
+      "correctIndex": 2,
+      "explanation": "For IN and OUT the 8085 duplicates the 8-bit port address onto the high-order and low-order address buses, so the decoder may use either half. Data follows later on AD7–AD0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m032",
+      "questionText": "On an 8086, what does IN AX, 60H do?",
+      "options": [
+        "Reads port 60H into AL and port 61H into AH",
+        "Reads port 60H into both AL and AH",
+        "Reads port 60H into AH and port 61H into AL",
+        "Reads memory location 60H into AX"
+      ],
+      "correctIndex": 0,
+      "explanation": "A word input reads two consecutive ports, the lower address into AL and the next into AH, matching the 8086 little-endian convention. IN always addresses I/O space, never memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m033",
+      "questionText": "In the fixed-port form of the 8086 IN and OUT instructions (port number in the instruction), which port addresses can be used?",
+      "options": [
+        "0000H to FFFFH",
+        "00H to FFH",
+        "00000H to FFFFFH",
+        "00H to 7FH"
+      ],
+      "correctIndex": 1,
+      "explanation": "The fixed form carries an 8-bit port number, so only ports 00H–FFH can be reached. Ports above FFH need the variable form with the address in DX.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m034",
+      "questionText": "What is the state of the 8255 ports immediately after its RESET input is activated?",
+      "options": [
+        "All three ports are outputs in mode 0",
+        "Port A is in mode 2 and the others are inputs",
+        "Ports keep the configuration last programmed",
+        "All three ports are inputs in mode 0"
+      ],
+      "correctIndex": 3,
+      "explanation": "RESET clears the control register and makes all 24 lines inputs in mode 0, which is the safe state for external hardware. The program must then write a new control word.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m035",
+      "questionText": "With CS = 0, which 8255A operation is NOT allowed?",
+      "options": [
+        "RD = 0 with A1 A0 = 11 (reading the control register)",
+        "WR = 0 with A1 A0 = 11 (writing a control word)",
+        "RD = 0 with A1 A0 = 10 (reading Port C)",
+        "WR = 0 with A1 A0 = 00 (writing Port A)"
+      ],
+      "correctIndex": 0,
+      "explanation": "The control register is write-only, so a read with A1 A0 = 11 is an illegal condition. Writing the control register and reading or writing the ports are normal operations.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m036",
+      "questionText": "Group A of the 8255 consists of:",
+      "options": [
+        "Port A and the lower half of Port C (PC3–PC0)",
+        "Port A and Port B",
+        "Port A and the upper half of Port C (PC7–PC4)",
+        "Port A only"
+      ],
+      "correctIndex": 2,
+      "explanation": "Group A = Port A + Port C upper and Group B = Port B + Port C lower; each group has its own mode control. This is why the control word has separate direction bits for the two halves of Port C.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m037",
+      "questionText": "In 8255 mode 1 input, which signal does the peripheral pulse low to load data into the Port A input latch?",
+      "options": [
+        "IBF (input buffer full)",
+        "ACK (acknowledge)",
+        "INTR (interrupt request)",
+        "STB (strobe)"
+      ],
+      "correctIndex": 3,
+      "explanation": "The peripheral asserts STB to latch its data. The 8255 answers with IBF, and INTR can then interrupt the CPU; ACK belongs to output handshaking.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m038",
+      "questionText": "In 8255 mode 1 input, what does an active IBF signal tell the peripheral?",
+      "options": [
+        "The CPU has written new data for the peripheral",
+        "Data has been latched into the port and the CPU has not yet read it",
+        "The peripheral must send its next byte immediately",
+        "The port is configured for bidirectional operation"
+      ],
+      "correctIndex": 1,
+      "explanation": "IBF (input buffer full) goes active after STB latches data and clears when the CPU reads the port, so the peripheral waits before sending another byte. \"New data written\" describes OBF.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m039",
+      "questionText": "In 8255 mode 1 output, when does OBF become active (low)?",
+      "options": [
+        "When the peripheral pulses ACK after taking the data",
+        "When the CPU reads the input latch",
+        "When the CPU writes a byte to the output port, telling the peripheral that data is ready",
+        "When the port is reset"
+      ],
+      "correctIndex": 2,
+      "explanation": "OBF goes low at the end of the CPU write and goes high again when the peripheral answers with ACK. So OBF means \"new data for you\" and ACK means \"taken\".",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m040",
+      "questionText": "In 8255 mode 1 output, the ACK signal is:",
+      "options": [
+        "Sent by the peripheral to show it has accepted the data",
+        "Sent by the 8255 to show the CPU has written data",
+        "Sent by the CPU to clear the interrupt",
+        "Generated internally to latch input data"
+      ],
+      "correctIndex": 0,
+      "explanation": "ACK (acknowledge) is an input to the 8255 driven by the peripheral after it takes the byte; it clears OBF. The 8255 itself produces OBF and INTR.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m041",
+      "questionText": "Which statement about 8255 mode 0 is correct?",
+      "options": [
+        "Inputs are latched by a strobe, but outputs are not latched",
+        "Outputs are latched, but inputs are not latched",
+        "Every port transfer uses a handshake on Port C",
+        "Only Port A can be used in mode 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mode 0 is simple I/O: data written to an output port stays on its pins, while an input port simply passes the current pin levels when read. No handshake is used, and all ports and both Port C halves can be in mode 0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m042",
+      "questionText": "Which 8255 mode is NOT available for Port B?",
+      "options": [
+        "Mode 0",
+        "Mode 1",
+        "Mode 0 with Port B as output",
+        "Mode 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "Port B supports mode 0 (simple I/O) and mode 1 (strobed I/O). Mode 2, the bidirectional bus mode, exists only for Port A because it needs five Port C handshake lines.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m043",
+      "questionText": "An 8255 has CS = 0, RD = 0, WR = 1, A1 = 0 and A0 = 1. What operation takes place?",
+      "options": [
+        "The CPU reads Port B",
+        "The CPU writes Port B",
+        "The CPU reads Port A",
+        "The CPU writes the control register"
+      ],
+      "correctIndex": 0,
+      "explanation": "A1 A0 = 01 selects Port B, and RD = 0 with WR = 1 is a read. Port A would need A1 A0 = 00 and the control register 11.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m044",
+      "questionText": "Which statement about the 8255 BSR mode is correct?",
+      "options": [
+        "The BSR word is written to the Port C address",
+        "It sets or resets one bit of any port",
+        "It sets or resets one Port C bit without changing the configuration of Ports A, B and C",
+        "It requires D7 = 1 in the control word"
+      ],
+      "correctIndex": 2,
+      "explanation": "A BSR word has D7 = 0, is written to the control register address, and affects only the one Port C bit it names. Ports A and B cannot be bit-addressed this way.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch2_i51_m045",
+      "questionText": "What is the main purpose of handshaking in a parallel interface?",
+      "options": [
+        "To convert parallel data into serial form",
+        "To increase the number of I/O lines",
+        "To provide error correction for each byte",
+        "To synchronise data transfer between a fast CPU and a slower peripheral"
+      ],
+      "correctIndex": 3,
+      "explanation": "Handshake signals such as STB/IBF and OBF/ACK tell each side when data is valid and when it has been taken, so neither side loses or overwrites data. They do not convert, add lines or correct errors.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch2_i51_m046",
+      "questionText": "A push-button switch read through an 8255 port gives several 0/1 changes for one press. What is the standard software remedy?",
+      "options": [
+        "Read the switch as fast as possible and count every change as a press",
+        "After detecting a change, wait about 10–20 ms and read the switch again before accepting it",
+        "Program the port in mode 2 so that the switch is handshaken",
+        "Connect the switch to the control register instead of a port"
+      ],
+      "correctIndex": 1,
+      "explanation": "Mechanical contacts bounce for a few milliseconds, so a debounce delay lets them settle before the reading is accepted. Hardware debouncing with a latch or RC circuit is the other option.",
+      "difficulty": "medium"
+    }
+  ]
+}

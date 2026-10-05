@@ -1,0 +1,691 @@
+{
+  "topicId": "ch3_i62",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: What Happens After throw"
+    },
+    {
+      "type": "paragraph",
+      "text": "When a throw expression runs, its operand is copied (or moved) into a special exception object whose type is the static type of the expression, so throwing a Base& that refers to a Derived object throws a Base. The run-time system then searches outward for a handler: first the catch clauses of the innermost enclosing try block, then those of the try blocks in each calling function in turn. Before the chosen handler runs, every automatic object created since that try block was entered is destroyed in reverse order of construction, innermost function first; this is stack unwinding. The exception object itself lives until the last handler dealing with it exits without rethrowing."
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nusing namespace std;\nstruct Log {\n    char n;\n    Log(char c) : n(c) { cout << \"+\" << n << \" \"; }\n    ~Log() { cout << \"-\" << n << \" \"; }\n};\nvoid inner() { Log c('c'); throw 42; }\nvoid middle() { Log b('b'); inner(); cout << \"never \"; }\nint main() {\n    Log a('a');\n    try { middle(); }\n    catch (int e) { cout << \"caught \" << e << \" \"; }\n    cout << \"end \";\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: +a +b +c -c -b caught 42 end -a\n\nline 11  a is constructed in main: +a\nline 12  main calls middle(); on line 9 it constructs b: +b and calls inner()\nline 8   inner() constructs c: +c, then throws 42\nunwind   inner() is left early, c is destroyed: -c\nunwind   middle() is left early, \"never\" is skipped, b is destroyed: -b\nline 13  catch (int e) in main receives 42: caught 42\nline 14  execution resumes after the handler: end\nexit     main returns and a is destroyed last: -a"
+    },
+    {
+      "type": "paragraph",
+      "text": "An object counts as constructed only when its constructor finishes. If a constructor throws, the destructor of that object is not called, but every base-class subobject and data member that was already fully constructed is destroyed in reverse order, and memory obtained by new for the object is freed automatically. Raw resources acquired inside the constructor body are not released, which is another reason to hold them in members such as vector or unique_ptr. Destructors are implicitly noexcept since C++11, so a throw that escapes a destructor calls std::terminate(), and when no handler exists at all it is implementation-defined whether any unwinding happens before terminate()."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Handler form",
+          "Copies the object?",
+          "Keeps dynamic type?",
+          "Remarks"
+        ],
+        [
+          "catch (T e)",
+          "Yes",
+          "No, a derived object is sliced",
+          "Changes to e are lost on throw;"
+        ],
+        [
+          "catch (T &e)",
+          "No",
+          "Yes",
+          "Changes to e survive a throw; rethrow"
+        ],
+        [
+          "catch (const T &e)",
+          "No",
+          "Yes",
+          "Usual choice for class types"
+        ],
+        [
+          "catch (T *p)",
+          "Only the pointer",
+          "Yes, through virtual calls",
+          "Needs throw new T (or the address of a static object, never a local); the handler must delete a new object"
+        ],
+        [
+          "catch (...)",
+          "No",
+          "Object cannot be accessed",
+          "Must be last; use throw; to pass it on"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\n#include <stdexcept>\n#include <string>\nusing namespace std;\nstruct FileError : runtime_error { FileError(const string &m) : runtime_error(m) {} };\nvoid load(int how) {\n    try { throw FileError(\"missing\"); }\n    catch (runtime_error &e) { if (how == 0) throw; else throw e; }\n}\nint main() {\n    for (int how = 0; how < 2; how++)\n        try { load(how); }\n        catch (FileError &e) { cout << \"FileError: \" << e.what() << \"\\n\"; }\n        catch (runtime_error &e) { cout << \"runtime_error: \" << e.what() << \"\\n\"; }\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output:\nFileError: missing\nruntime_error: missing\n\nhow = 0  throw; rethrows the original FileError object\n         the first handler, catch (FileError &), matches\nhow = 1  throw e; copies e, whose static type is runtime_error\n         the copy is a plain runtime_error: the FileError part is sliced off\n         catch (FileError &) is skipped, catch (runtime_error &) matches\nwhat()   still returns \"missing\", stored in the runtime_error part"
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{catch}(B\\&) \\text{ takes throw } D \\iff D = B \\text{ or } B \\text{ public base of } D",
+      "plainText": "A handler for B (by value or reference) accepts a thrown D only when D is B itself or B is an unambiguous public base class of D; no int/char/double conversions and no user-defined conversions are applied (pointer handlers also accept derived-to-base pointer conversions)."
+    },
+    {
+      "type": "bulletList",
+      "text": "Mistakes that change the output or break the program:",
+      "items": [
+        "Writing catch (Base &) before catch (Derived &): the derived handler can never run.",
+        "Catching class exceptions by value: the copy is sliced and a virtual what() reports the base version.",
+        "Rethrowing with throw e; instead of throw;: it throws a copy of the static type, not the original object.",
+        "Expecting catch (int) to take a char, a short or a double: exception matching applies no arithmetic conversions.",
+        "Expecting the statements after the throw, or later in the try block, to run once the handler finishes.",
+        "Releasing resources with delete or fclose after code that may throw: unwinding skips them, so use RAII objects.",
+        "Letting an exception escape a destructor or a noexcept function: std::terminate() is called."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Library code describes its behaviour under exceptions with three levels of guarantee. The basic guarantee promises no leaks and objects left in a valid but unspecified state; the strong guarantee promises that an operation either succeeds completely or has no effect at all, as vector::push_back does; the no-throw guarantee promises that the operation never throws, which is exactly what noexcept declares. This is why noexcept matters in practice: when a vector reallocates, it moves its elements only if the element type's move constructor is noexcept (or the type cannot be copied), otherwise it copies them so that push_back can keep its strong guarantee."
+    },
+    {
+      "type": "examTip",
+      "text": "To trace an exception question: (1) print everything up to the throw; (2) skip the rest of the try block and of every function being left; (3) run the destructors of their local objects, newest first and innermost function first; (4) pick the first handler, in written order, whose type matches; (5) continue after that try-catch, or keep unwinding if the handler rethrows."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_i62_m001",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    cout << \"A\";\n    try {\n        cout << \"B\";\n        throw 5;\n        cout << \"C\";\n    } catch (int e) {\n        cout << e;\n    }\n    cout << \"D\";\n}",
+      "options": [
+        "ABC5D",
+        "AB5D",
+        "AB5",
+        "ABCD"
+      ],
+      "correctIndex": 1,
+      "explanation": "throw 5 leaves the try block at once, so \"C\" is skipped. The int handler prints 5, and execution then continues after the handler, printing D.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m002",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    cout << \"T\";\n} catch (...) {\n    cout << \"C\";\n}\ncout << \"E\";",
+      "options": [
+        "TE",
+        "TCE",
+        "CE",
+        "T"
+      ],
+      "correctIndex": 0,
+      "explanation": "The try block finishes without throwing, so its handlers, even the catch-all, are skipped and execution continues with the statement after them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m003",
+      "questionText": "When a catch block finishes normally (without throwing again), where does execution continue?",
+      "options": [
+        "At the statement immediately after the throw that raised the exception",
+        "At the beginning of the try block, which is executed again",
+        "At the first statement after the last catch block of that try-catch construct",
+        "Nowhere: the program always ends once an exception has been handled"
+      ],
+      "correctIndex": 2,
+      "explanation": "C++ uses the termination model: the code after the throw point is abandoned, and once a handler completes, control passes to the statement following the whole try-catch sequence.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m004",
+      "questionText": "Which header declares std::runtime_error, std::logic_error and std::out_of_range?",
+      "options": [
+        "<exception>",
+        "<except>",
+        "<error>",
+        "<stdexcept>"
+      ],
+      "correctIndex": 3,
+      "explanation": "<stdexcept> holds the standard error classes derived from logic_error and runtime_error. <exception> declares the base class std::exception and functions such as terminate() and set_terminate(), but not these derived error classes.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m005",
+      "questionText": "What does the virtual member function what() of std::exception return?",
+      "options": [
+        "An int error code identifying the exception",
+        "The line number at which the exception was thrown",
+        "A C-style string (const char*) describing the exception",
+        "A bool telling whether the exception has already been handled"
+      ],
+      "correctIndex": 2,
+      "explanation": "what() is declared as virtual const char* what() const noexcept; derived classes such as runtime_error return the message that was passed to their constructor.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m006",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    throw 'x';\n} catch (int n) {\n    cout << \"int \" << n;\n} catch (char c) {\n    cout << \"char \" << c;\n}",
+      "options": [
+        "int 120",
+        "char 120",
+        "int x",
+        "char x"
+      ],
+      "correctIndex": 3,
+      "explanation": "Handler matching does not apply the usual arithmetic promotions, so the char 'x' is not caught by catch (int). The char handler matches exactly and prints the character itself.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m007",
+      "questionText": "In standard C++, what does an ordinary new expression such as new int[n] do when it cannot obtain the requested memory?",
+      "options": [
+        "It returns nullptr, which the program must test",
+        "It throws std::bad_alloc",
+        "It throws std::out_of_range",
+        "It returns a pointer to a zero-sized block"
+      ],
+      "correctIndex": 1,
+      "explanation": "Ordinary new reports failure by throwing std::bad_alloc (declared in <new>). Only the nothrow form, new (nothrow) T, returns nullptr instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m008",
+      "questionText": "Which class is the common base of all the exception classes thrown by the C++ standard library?",
+      "options": [
+        "std::exception",
+        "std::runtime_error",
+        "std::logic_error",
+        "std::error"
+      ],
+      "correctIndex": 0,
+      "explanation": "std::exception is the root of the hierarchy: logic_error, runtime_error, bad_alloc, bad_cast and the others all derive from it, so catch (const exception &e) catches any of them.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m009",
+      "questionText": "Where must a catch (...) handler be placed among the handlers of a try block?",
+      "options": [
+        "Before all the other handlers",
+        "After all the other handlers, as the last one",
+        "Anywhere, because the order of handlers does not matter",
+        "Only in main(), never inside other functions"
+      ],
+      "correctIndex": 1,
+      "explanation": "Handlers are tried in the order written and catch (...) matches every exception, so a handler after it could never run; the language therefore requires catch (...) to be the last handler.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m010",
+      "questionText": "What happens when this program runs?\n\n#include <iostream>\nusing namespace std;\nint main() {\n    cout << \"start\" << endl;\n    throw 1;\n    cout << \"end\" << endl;\n}",
+      "options": [
+        "start is printed, then std::terminate() ends the program abnormally because no handler catches the int",
+        "start and end are both printed, because an exception thrown outside a try block is ignored",
+        "Nothing is printed: the program does not compile because throw appears outside a try block",
+        "start is printed and the program ends normally, returning 1 from main"
+      ],
+      "correctIndex": 0,
+      "explanation": "throw is legal anywhere, but the search for a handler leaves main without finding one, so std::terminate() is called, which by default calls abort(). endl has already flushed start to the screen.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m011",
+      "questionText": "Which statement about the type of the object thrown by a throw expression is correct?",
+      "options": [
+        "It must be an object of a class derived from std::exception",
+        "It must be an int error code",
+        "It can be of almost any type: a built-in type such as int, a pointer such as const char*, or a class object",
+        "It must be a string literal describing the error"
+      ],
+      "correctIndex": 2,
+      "explanation": "throw 5, throw \"text\" and throw MyError() are all legal. Deriving exception classes from std::exception is only a good convention, because it lets callers catch everything through one base class.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m012",
+      "questionText": "What must immediately follow a try block in C++?",
+      "options": [
+        "A finally block",
+        "An else block",
+        "Nothing, because catch handlers are optional",
+        "One or more catch handlers"
+      ],
+      "correctIndex": 3,
+      "explanation": "A try block is always followed directly by at least one catch clause. C++ has no finally keyword; clean-up is done by destructors (RAII) instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m013",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nvoid check(int x) {\n    if (x < 0) throw x;\n    cout << \"ok\" << x << \" \";\n}\nint main() {\n    try {\n        check(2);\n        check(-3);\n        check(4);\n    } catch (int v) {\n        cout << \"neg\" << v;\n    }\n}",
+      "options": [
+        "ok2 neg-3 ok4",
+        "ok2 neg-3",
+        "ok2 ok4 neg-3",
+        "neg-3"
+      ],
+      "correctIndex": 1,
+      "explanation": "check(2) prints ok2. check(-3) throws before printing, so the rest of the try block, including check(4), is skipped and the handler prints neg-3.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_i62_m014",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\nusing namespace std;\nint main() {\n    try {\n        throw out_of_range(\"bad index\");\n    } catch (const logic_error &e) {\n        cout << \"logic \";\n    } catch (const out_of_range &e) {\n        cout << \"range \";\n    } catch (...) {\n        cout << \"all \";\n    }\n    cout << \"end\";\n}",
+      "options": [
+        "logic end",
+        "range end",
+        "logic range all end",
+        "all end"
+      ],
+      "correctIndex": 0,
+      "explanation": "out_of_range derives from logic_error, and handlers are tested in the order written, so the first handler already matches and only it runs. The out_of_range handler is unreachable; it should have been written first.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m015",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Base { virtual const char *name() const { return \"Base\"; } };\nstruct Derived : Base { const char *name() const override { return \"Derived\"; } };\nint main() {\n    try { throw Derived(); }\n    catch (Base b) { cout << b.name() << \" \"; }\n    try { throw Derived(); }\n    catch (Base &b) { cout << b.name(); }\n}",
+      "options": [
+        "Derived Derived",
+        "Base Base",
+        "Base Derived",
+        "Derived Base"
+      ],
+      "correctIndex": 2,
+      "explanation": "catch (Base b) copies only the Base part of the Derived object into b (slicing), so the virtual call gives Base. catch (Base &b) binds to the exception object itself, whose dynamic type is Derived.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m016",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct T {\n    char c;\n    T(char x) : c(x) { cout << \"+\" << c; }\n    ~T() { cout << \"-\" << c; }\n};\nvoid f() { T a('a'); throw 1; }\nint main() {\n    try { T b('b'); f(); }\n    catch (int) { cout << \" caught\"; }\n}",
+      "options": [
+        "+b+a caught-a-b",
+        "+b+a-b-a caught",
+        "+b+a caught",
+        "+b+a-a-b caught"
+      ],
+      "correctIndex": 3,
+      "explanation": "b and then a are constructed. The throw unwinds f, destroying a, and then leaves the try block, destroying b; the handler runs only after all these locals have been destroyed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m017",
+      "questionText": "Why is catch (const MyError &e) usually preferred to catch (MyError e)?",
+      "options": [
+        "Catching a class type by value is a compile error",
+        "A reference handler skips stack unwinding and is therefore faster",
+        "Only a reference handler can catch an object of a class derived from MyError",
+        "It avoids copying the exception object and avoids slicing, so virtual functions such as what() use the thrown object's real type"
+      ],
+      "correctIndex": 3,
+      "explanation": "A by-value handler copy-initialises a new MyError from the exception, slicing off any derived part. A reference binds to the exception object itself. Catching by value is legal and does match derived classes, only in sliced form.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m018",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    throw 2.5;\n} catch (int i) {\n    cout << \"int\";\n} catch (float f) {\n    cout << \"float\";\n} catch (...) {\n    cout << \"other\";\n}",
+      "options": [
+        "float",
+        "int",
+        "other",
+        "Nothing is printed; the program terminates"
+      ],
+      "correctIndex": 2,
+      "explanation": "The literal 2.5 has type double. Handlers do not apply standard conversions such as double to float or double to int, so neither typed handler matches and catch (...) takes the exception.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m019",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    try {\n        throw \"oops\";\n    } catch (int) {\n        cout << \"inner \";\n    }\n    cout << \"after \";\n} catch (const char *m) {\n    cout << \"outer \" << m;\n}",
+      "options": [
+        "outer oops",
+        "after outer oops",
+        "inner outer oops",
+        "inner after"
+      ],
+      "correctIndex": 0,
+      "explanation": "The string literal is thrown as a const char*, which the inner catch (int) cannot take, so the exception leaves the inner try-catch and \"after \" is skipped as well. The outer handler receives the pointer and prints outer oops.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m020",
+      "questionText": "What does this fragment print? Assume <iostream> is included and using namespace std; is in effect.\n\ntry {\n    try {\n        throw 1;\n    } catch (int) {\n        cout << \"A\";\n        throw 2.0;\n    } catch (double) {\n        cout << \"B\";\n    }\n} catch (double) {\n    cout << \"C\";\n}",
+      "options": [
+        "AB",
+        "AC",
+        "ABC",
+        "A"
+      ],
+      "correctIndex": 1,
+      "explanation": "An exception thrown inside a handler is not caught by the other handlers of the same try block; the search starts from the enclosing try. So the inner int handler prints A and the outer double handler prints C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m021",
+      "questionText": "What happens if the statement throw; (with no operand) is executed when no exception is currently being handled?",
+      "options": [
+        "The code fails to compile, because throw; is allowed only inside a catch block",
+        "std::terminate() is called",
+        "Nothing: the statement is ignored",
+        "The most recently handled exception is thrown again"
+      ],
+      "correctIndex": 1,
+      "explanation": "throw; rethrows the exception currently being handled. It is syntactically legal anywhere, but if no exception is being handled when it runs, the program calls std::terminate().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m022",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <exception>\nusing namespace std;\nclass MyErr : public exception {\npublic:\n    const char *what() const noexcept override { return \"MyErr!\"; }\n};\nint main() {\n    try {\n        throw MyErr();\n    } catch (const exception &e) {\n        cout << e.what();\n    }\n}",
+      "options": [
+        "std::exception",
+        "Nothing is printed, because catch (const exception &) does not match a MyErr",
+        "The program does not compile, because what() cannot be overridden",
+        "MyErr!"
+      ],
+      "correctIndex": 3,
+      "explanation": "MyErr derives publicly from std::exception, so the base-class reference handler catches it, and because what() is virtual the call reaches MyErr::what().",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m023",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nvoid a() noexcept {}\nvoid b() {}\nvoid c() noexcept(false) {}\nint main() {\n    cout << noexcept(a()) << noexcept(b()) << noexcept(c());\n}",
+      "options": [
+        "100",
+        "111",
+        "110",
+        "000"
+      ],
+      "correctIndex": 0,
+      "explanation": "The noexcept operator is evaluated at compile time from the declarations only: a() is declared noexcept (true, 1), b() has no specification and so may throw (false, 0), and noexcept(false) states explicitly that c() may throw (0).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m024",
+      "questionText": "What happens when this program runs?\n\n#include <iostream>\nusing namespace std;\nvoid f() noexcept { throw 1; }\nint main() {\n    try {\n        f();\n    } catch (int) {\n        cout << \"caught\" << endl;\n    }\n    cout << \"end\" << endl;\n}",
+      "options": [
+        "caught and end are printed",
+        "Only end is printed",
+        "std::terminate() is called, so neither caught nor end is printed",
+        "It does not compile, because a noexcept function cannot contain a throw"
+      ],
+      "correctIndex": 2,
+      "explanation": "An exception that tries to leave a noexcept function makes the program call std::terminate() at once; it never reaches the caller's handler. The code compiles (a compiler may only warn).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m025",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint f(int x) {\n    try {\n        if (x > 5) throw x;\n        return x;\n    } catch (int v) {\n        return -v;\n    }\n}\nint main() {\n    cout << f(3) << \" \" << f(8);\n}",
+      "options": [
+        "3 8",
+        "-3 -8",
+        "3 -8",
+        "3 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "f(3) does not throw and returns 3. In f(8), throw 8 passes the value to the handler parameter v, and the handler's return statement returns -8 to main.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m026",
+      "questionText": "Which of these situations does NOT lead to std::terminate() being called?",
+      "options": [
+        "An exception that escapes from a function declared noexcept",
+        "An exception that propagates out of main() with no matching handler",
+        "A destructor that throws while the stack is being unwound for another exception",
+        "An exception that is caught by a catch (...) handler in main()"
+      ],
+      "correctIndex": 3,
+      "explanation": "catch (...) matches every exception, so the program simply continues after that handler. The other three are the classic causes of terminate(): an exception leaving a noexcept function, no handler at all, and a second exception during unwinding.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m027",
+      "questionText": "std::out_of_range, which vector::at() throws for a bad index, is derived directly from which class?",
+      "options": [
+        "std::runtime_error",
+        "std::logic_error",
+        "std::range_error",
+        "std::bad_alloc"
+      ],
+      "correctIndex": 1,
+      "explanation": "out_of_range is a logic_error (the mistake could in principle be detected before running the program), alongside invalid_argument, domain_error and length_error. range_error is a runtime_error meant for arithmetic results out of range.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m028",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\nusing namespace std;\nint main() {\n    try {\n        throw runtime_error(\"disk full\");\n    } catch (const logic_error &e) {\n        cout << \"L:\" << e.what();\n    } catch (const exception &e) {\n        cout << \"E:\" << e.what();\n    }\n}",
+      "options": [
+        "E:disk full",
+        "L:disk full",
+        "E:std::exception",
+        "E:runtime_error"
+      ],
+      "correctIndex": 0,
+      "explanation": "runtime_error is not derived from logic_error, so the first handler is skipped. The second binds a reference to the runtime_error object, and the virtual what() returns the message passed to its constructor.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m029",
+      "questionText": "What does this fragment print? Assume <iostream>, <vector> and <stdexcept> are included and using namespace std; is in effect.\n\nvector<int> v(3);\nint n = 0;\nfor (int i = 0; i <= 3; i++) {\n    try {\n        v.at(i) = i;\n        n++;\n    } catch (const out_of_range &) {\n        n += 10;\n    }\n}\ncout << n << \" \" << v[2];",
+      "options": [
+        "4 2",
+        "3 2",
+        "14 2",
+        "13 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "v has valid indices 0 to 2, so three assignments succeed and n becomes 3. For i = 3, at() throws before n++ runs, and the handler adds 10, giving 13; v[2] was set to 2.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m030",
+      "questionText": "Under C++17, what happens to a declaration such as void f() throw(int); ?",
+      "options": [
+        "It compiles, and any exception thrown by f is converted to int",
+        "It is ill-formed: dynamic exception specifications were removed in C++17, and noexcept is used instead",
+        "It compiles, and throwing any type other than int calls std::unexpected()",
+        "It compiles, and the compiler checks the body of f to make sure it throws only int"
+      ],
+      "correctIndex": 1,
+      "explanation": "throw(type-list) specifications were deprecated in C++11 and removed in C++17, so a C++17 compiler rejects them. In C++03 a violation called std::unexpected(); today a function states only whether it can throw, using noexcept.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m031",
+      "questionText": "Under the C++03 standard, a function declared as void g() throw(int) threw a double. What did the run-time system do?",
+      "options": [
+        "It converted the double to int so that the caller could catch it",
+        "It let the double propagate to the caller, because the specification was only documentation",
+        "It called std::unexpected(), whose default behaviour is to call std::terminate()",
+        "Nothing: such code was rejected at compile time"
+      ],
+      "correctIndex": 2,
+      "explanation": "A dynamic exception specification was enforced at run time: throwing an unlisted type called unexpected(), whose default handler calls terminate(). set_unexpected() could install a replacement handler, for example one that throws an allowed type.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m032",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <exception>\n#include <cstdlib>\nusing namespace std;\nvoid myHandler() {\n    cout << \"custom\";\n    exit(0);\n}\nint main() {\n    set_terminate(myHandler);\n    cout << \"go \";\n    throw 3.0;\n}",
+      "options": [
+        "go custom",
+        "go",
+        "custom",
+        "go terminate called"
+      ],
+      "correctIndex": 0,
+      "explanation": "No handler matches the double, so std::terminate() calls the handler installed with set_terminate(). It prints custom and ends the program with exit(0), which flushes the output; a terminate handler must end the program rather than return.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m033",
+      "questionText": "Inside a catch (...) handler, how can the program make use of the exception that was caught?",
+      "options": [
+        "Through an implicit variable named e",
+        "By calling what() directly, since every exception has it",
+        "Through the this pointer of the handler",
+        "It cannot name the object, but it can rethrow it unchanged with throw;"
+      ],
+      "correctIndex": 3,
+      "explanation": "catch (...) has no parameter, so the object is not accessible by name (and it may not even be a class type with what()). The usual pattern is local clean-up followed by throw; to pass the same exception on to an outer handler.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m034",
+      "questionText": "Consider this fragment:\n\nvoid step();                 // may throw\nvoid process() {\n    int *buf = new int[100];\n    step();\n    delete[] buf;\n}\n\nWhat goes wrong if step() throws an exception?",
+      "options": [
+        "The delete[] is skipped, so the array leaks; holding it in a vector<int> or unique_ptr<int[]> fixes this",
+        "Stack unwinding calls delete[] on buf automatically",
+        "The program always terminates, because process() has no try block",
+        "Nothing, because the memory is released as soon as process() is left"
+      ],
+      "correctIndex": 0,
+      "explanation": "Unwinding destroys local objects, but buf is a raw pointer and destroying a pointer does not free what it points to. RAII types such as vector or unique_ptr free the memory in their destructors, which do run during unwinding.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m035",
+      "questionText": "What does this fragment print? Assume <iostream> and <string> are included and using namespace std; is in effect.\n\ntry {\n    throw \"abc\";\n} catch (const string &s) {\n    cout << \"string\";\n} catch (const char *p) {\n    cout << \"pointer \" << p;\n}",
+      "options": [
+        "string",
+        "Nothing is printed; the program terminates",
+        "pointer abc",
+        "pointer a"
+      ],
+      "correctIndex": 2,
+      "explanation": "A thrown string literal decays to const char*. Handlers never apply user-defined conversions such as the string constructor, so catch (const string &) is skipped and the pointer handler prints abc.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m036",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nclass DivError {\npublic:\n    int num, den;\n    DivError(int n, int d) : num(n), den(d) {}\n};\nint divide(int a, int b) {\n    if (b == 0) throw DivError(a, b);\n    return a / b;\n}\nint main() {\n    try { cout << divide(7, 2) << \" \"; cout << divide(9, 0); }\n    catch (const DivError &e) { cout << e.num << \"/\" << e.den; }\n}",
+      "options": [
+        "3.5 9/0",
+        "3 9/0",
+        "9/0",
+        "3 0"
+      ],
+      "correctIndex": 1,
+      "explanation": "divide(7, 2) uses integer division and returns 3. divide(9, 0) throws a DivError built from its arguments, nothing more is printed from the try block, and the handler reads the stored values back, printing 9/0.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_i62_m037",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct B { virtual void who() const { cout << \"B\"; } };\nstruct D : B { void who() const override { cout << \"D\"; } };\nvoid f(int mode) {\n    try { throw D(); }\n    catch (B &e) { if (mode) throw; else throw e; }\n}\nint main() {\n    for (int m = 0; m < 2; m++) {\n        try { f(m); }\n        catch (B &e) { e.who(); }\n    }\n}",
+      "options": [
+        "DD",
+        "BB",
+        "DB",
+        "BD"
+      ],
+      "correctIndex": 3,
+      "explanation": "For m = 0, throw e creates a new exception by copying e, and the copy has e's static type B (the D part is sliced off). For m = 1, throw; rethrows the original D object, so the virtual call prints D.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m038",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct Err { int code; Err(int c) : code(c) {} };\nint main() {\n    int sum = 0;\n    for (int i = 1; i <= 5; i++) {\n        try {\n            if (i % 2 == 0) throw Err(i * 10);\n            sum += i;\n        } catch (const Err &e) {\n            sum += e.code;\n        }\n    }\n    cout << sum;\n}",
+      "options": [
+        "69",
+        "9",
+        "60",
+        "15"
+      ],
+      "correctIndex": 0,
+      "explanation": "Odd i are added normally: 1 + 3 + 5 = 9. Even i throw an Err carrying i × 10, and the handler adds 20 + 40 = 60 instead; the try is inside the loop, so the loop continues. Total 9 + 60 = 69.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m039",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct M {\n    M() { cout << \"M+\"; }\n    ~M() { cout << \"M-\"; }\n};\nstruct X {\n    M m;\n    X() { cout << \"X+\"; throw 1; }\n    ~X() { cout << \"X-\"; }\n};\nint main() {\n    try { X x; }\n    catch (int) { cout << \"caught\"; }\n}",
+      "options": [
+        "M+X+X-M-caught",
+        "M+X+caught",
+        "M+X+M-caught",
+        "M+X+M-X-caught"
+      ],
+      "correctIndex": 2,
+      "explanation": "Member m is constructed before the body of X's constructor runs. The body throws, so x is never fully constructed and ~X() is not called, but the already constructed member m is destroyed before the handler runs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m040",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct G {\n    const char *n;\n    G(const char *s) : n(s) {}\n    ~G() { cout << n; }\n};\nvoid c() { G g(\"c\"); throw 'x'; }\nvoid b() { G g(\"b\"); c(); cout << \"B\"; }\nvoid a() {\n    G g(\"a\");\n    try { b(); } catch (char) { cout << \"h\"; }\n    cout << \"A\";\n}\nint main() { a(); cout << \"M\"; }",
+      "options": [
+        "bchAaM",
+        "cbhAaM",
+        "hcbAaM",
+        "cBbhAaM"
+      ],
+      "correctIndex": 1,
+      "explanation": "The throw in c() unwinds c and b, destroying their locals (printing c, then b) and skipping \"B\". The handler in a() prints h, a() continues with A, its local g prints a when a() returns, and finally main prints M.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m041",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct A {};\nstruct B : A {};\nstruct C : B {};\nvoid t(int k) { if (k == 0) throw A(); if (k == 1) throw B(); throw C(); }\nint main() {\n    for (int k = 0; k < 3; k++) {\n        try { t(k); }\n        catch (C &) { cout << \"C\"; }\n        catch (A &) { cout << \"A\"; }\n        catch (B &) { cout << \"B\"; }\n    }\n}",
+      "options": [
+        "ABC",
+        "AAC",
+        "ACB",
+        "AAA"
+      ],
+      "correctIndex": 1,
+      "explanation": "k = 0 throws an A, which only catch (A &) matches. k = 1 throws a B: catch (C &) does not match, but catch (A &) does because B is derived from A, so the later B handler is never reached. k = 2 throws a C, caught by the first handler.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m042",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nstruct L { char c; L(char x) : c(x) {} ~L() { cout << c; } };\nvoid f() {\n    L x('1');\n    try { L y('2'); throw 0; }\n    catch (int) { cout << \"c\"; throw; }\n}\nint main() {\n    try { L z('3'); f(); }\n    catch (int) { cout << \"m\"; }\n}",
+      "options": [
+        "c213m",
+        "2c1m3",
+        "21c3m",
+        "2c13m"
+      ],
+      "correctIndex": 3,
+      "explanation": "y is destroyed as the throw leaves the inner try (2), then f's handler prints c and rethrows. The rethrow unwinds f, destroying x (1), then leaves main's try block, destroying z (3), and main's handler prints m.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m043",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint dtors = 0;\nstruct D { ~D() { dtors++; } };\nvoid rec(int n) {\n    D d;\n    if (n == 0) throw n;\n    rec(n - 1);\n}\nint main() {\n    try { rec(4); }\n    catch (int) { cout << dtors; }\n}",
+      "options": [
+        "5",
+        "4",
+        "0",
+        "1"
+      ],
+      "correctIndex": 0,
+      "explanation": "rec(4), rec(3), rec(2), rec(1) and rec(0) are all active when the throw happens, each with its own D object: 5 objects. Stack unwinding destroys all five before the handler in main runs, so dtors is 5.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m044",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\n#include <stdexcept>\n#include <string>\nusing namespace std;\nstruct AppError : runtime_error {\n    int code;\n    AppError(const string &m, int c) : runtime_error(m), code(c) {}\n};\nint main() {\n    try {\n        try { throw AppError(\"no file\", 404); }\n        catch (const runtime_error &e) { cout << e.what() << \" \"; throw; }\n    } catch (const AppError &e) { cout << e.code; }\n    catch (const exception &e) { cout << \"generic\"; }\n}",
+      "options": [
+        "no file generic",
+        "404",
+        "no file 404",
+        "no file"
+      ],
+      "correctIndex": 2,
+      "explanation": "The inner handler catches through a reference to the base runtime_error, prints the message and rethrows with throw;, which passes on the original AppError object. The outer AppError handler therefore matches and prints its code, 404.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_i62_m045",
+      "questionText": "What is the output of this program?\n\n#include <iostream>\nusing namespace std;\nint hits = 0;\nvoid level(int n) {\n    try {\n        if (n == 0) throw 1;\n        level(n - 1);\n    } catch (int &e) { hits++; e *= 2; throw; }\n}\nint main() {\n    try { level(2); }\n    catch (int e) { cout << hits << \" \" << e; }\n}",
+      "options": [
+        "3 8",
+        "1 2",
+        "3 1",
+        "2 4"
+      ],
+      "correctIndex": 0,
+      "explanation": "The exception thrown in level(0) is caught in turn by the handlers of level(0), level(1) and level(2); each doubles the same object through the reference and rethrows it with throw;. So hits = 3 and the value is 1 × 2 × 2 × 2 = 8 when main catches it.",
+      "difficulty": "hard"
+    }
+  ]
+}

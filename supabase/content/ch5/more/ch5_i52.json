@@ -1,0 +1,525 @@
+{
+  "topicId": "ch5_i52",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Electronic Mail"
+    },
+    {
+      "type": "bulletList",
+      "text": "Your notes on e-mail, cleaned up and corrected:",
+      "items": [
+        "SMTP only sends: the client pushes outgoing mail to its own server, and that server pushes it on to the recipient's server. SMTP is never used to read a mailbox.",
+        "In step 2 of the sending sequence the client submits mail on port 587 (STARTTLS plus login) or 465 (implicit TLS), not on port 25; port 25 is for server-to-server relay and many ISPs block it for home users.",
+        "Step 3 needs DNS: the sending server looks up the MX record of the recipient's domain to find the server to deliver to.",
+        "Step 4 is done by the Mail Delivery Agent (MDA), which files the message into the recipient's mailbox.",
+        "POP3 (port 110, or 995 with TLS) downloads mail to one device. Deleting the server copy is the usual default, but most clients offer 'leave a copy on the server'.",
+        "IMAP (port 143, or 993 with TLS) keeps mail, folders and read/unread flags on the server, so every device sees the same mailbox. In short: POP3 = download (and usually delete), IMAP = keep on the server and synchronise."
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "S: 220 mail.b.com ESMTP ready\nC: EHLO mail.a.com\nS: 250-mail.b.com Hello mail.a.com\nS: 250-STARTTLS\nS: 250 SIZE 26214400\nC: MAIL FROM:<alice@a.com>          S: 250 OK\nC: RCPT TO:<bob@b.com>              S: 250 OK\nC: RCPT TO:<bobb@b.com>             S: 550 No such user here\nC: DATA                             S: 354 End data with <CRLF>.<CRLF>\nC: From: alice@a.com, To: bob@b.com, Subject: Hi, blank line, body\nC: .                                S: 250 OK, queued as 4F2A1\nC: QUIT                             S: 221 Bye"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Code",
+          "Meaning",
+          "Sender's action"
+        ],
+        [
+          "220",
+          "Service ready (greeting)",
+          "Continue with EHLO"
+        ],
+        [
+          "250",
+          "Requested action completed",
+          "Go on to the next command"
+        ],
+        [
+          "354",
+          "Start mail input",
+          "Send the message and end it with a line holding only a dot"
+        ],
+        [
+          "421",
+          "Service not available, closing the channel",
+          "Retry later (transient)"
+        ],
+        [
+          "450 / 451",
+          "Mailbox busy / local processing error",
+          "Keep the message queued and retry (transient)"
+        ],
+        [
+          "550",
+          "Mailbox unavailable, e.g. no such user",
+          "Bounce to the sender (permanent)"
+        ],
+        [
+          "221",
+          "Closing the connection",
+          "The session ends after QUIT"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "SMTP keeps the envelope separate from the content. MAIL FROM and RCPT TO form the envelope that MTAs use for routing and for bounces, while From:, To:, Cc: and Subject: are header lines inside DATA that are shown to the reader, and the two need not agree. A Bcc recipient gets its own RCPT TO but is removed from the header, which is how it stays hidden. Because a line holding only a dot ends DATA, the client doubles any leading dot in the body (dot-stuffing) and the server removes the extra dot again."
+    },
+    {
+      "type": "bulletList",
+      "text": "Inside POP3 and IMAP sessions:",
+      "items": [
+        "POP3 moves through the AUTHORIZATION state (USER, PASS), the TRANSACTION state (STAT, LIST, RETR n, DELE n, RSET, and the optional TOP n k that returns the headers plus k body lines) and the UPDATE state entered by QUIT; replies are +OK or -ERR, and messages marked with DELE are removed only in UPDATE.",
+        "IMAP commands carry a tag that the server repeats in its final reply, for example a1 LOGIN, a2 SELECT INBOX, a3 FETCH 5 (BODY[HEADER]), a4 STORE 5 +FLAGS (\\Seen), a5 LOGOUT.",
+        "IMAP flags include \\Seen, \\Answered, \\Flagged and \\Deleted; EXPUNGE permanently removes the messages marked \\Deleted from the selected mailbox.",
+        "IMAP IDLE keeps a mailbox selected so that the server can push new-mail notices at once instead of the client polling."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "L = C + 2\\lceil C/76 \\rceil, \\qquad C = 4\\lceil n/3 \\rceil",
+      "plainText": "Encoded size with CRLF after every 76-character line: L = C + 2 x ceiling(C / 76), where C = 4 x ceiling(n / 3) for n input bytes"
+    },
+    {
+      "type": "formula",
+      "latex": "p = (3 - n \\bmod 3) \\bmod 3",
+      "plainText": "Number of '=' padding characters p = (3 - n mod 3) mod 3, i.e. 0, 2 or 1 when n mod 3 is 0, 1 or 2"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: base64 of \"Man\" (bytes 0x4D 0x61 0x6E)\nBits:   01001101 01100001 01101110\n6-bit:  010011 010110 000101 101110 = 19, 22, 5, 46\nChars:  T      W      F      u       -> \"TWFu\" (3 bytes become 4 characters)\n\"Ma\" -> \"TWE=\" (one '=' pad)      \"M\" -> \"TQ==\" (two '=' pads)\nWorked example 2: a 1000-byte attachment\nC = 4 x ceil(1000 / 3) = 4 x 334 = 1336 characters; 1000 mod 3 = 1, so it ends in \"==\"\nLines = ceil(1336 / 76) = 18, so L = 1336 + 2 x 18 = 1372 bytes (about 37 % larger)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Mechanism",
+          "Published in DNS",
+          "What the receiver checks"
+        ],
+        [
+          "SPF",
+          "TXT record at the domain, e.g. v=spf1 ip4:203.0.113.0/24 -all",
+          "Is the connecting server's IP allowed to send for the MAIL FROM domain?"
+        ],
+        [
+          "DKIM",
+          "Public key in a TXT record at selector._domainkey.domain",
+          "Does the DKIM-Signature over the headers and body verify?"
+        ],
+        [
+          "DMARC",
+          "TXT record at _dmarc.domain, e.g. v=DMARC1; p=reject",
+          "Does SPF or DKIM pass for the visible From: domain, and what to do if not"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: SMTP is not used to read mail; port 25 is for relay, while 587 and 465 are for submission; TLS on SMTP, POP3 or IMAP protects only one hop, so end-to-end secrecy needs PGP or S/MIME; base64 is an encoding, not encryption; and SPF, DKIM and DMARC authenticate the sending domain but encrypt nothing."
+    },
+    {
+      "type": "examTip",
+      "text": "For base64 questions, work in groups of 3 bytes: size = 4 x ceil(n / 3), the padding is '==' when n mod 3 = 1 and '=' when n mod 3 = 2, and to go backwards from an encoded size limit multiply by 3/4."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i52_m001",
+      "questionText": "A mail client both sends and reads e-mail. For which tasks is SMTP used?",
+      "options": [
+        "Only downloading new mail from the user's mailbox to the client",
+        "Both sending mail and reading the user's mailbox",
+        "Submitting the user's outgoing mail to the mail server and relaying it between mail servers, but not reading the user's mailbox",
+        "Only relaying between mail servers; clients submit their mail with IMAP"
+      ],
+      "correctIndex": 2,
+      "explanation": "SMTP is a push protocol: the client pushes outgoing mail to its server (submission on port 587) and servers push it on to the recipient's server (port 25). Reading one's own mailbox uses a pull protocol: POP3, IMAP, or HTTPS for webmail.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m002",
+      "questionText": "Which pair of TCP ports does IMAP use, first without TLS and then with implicit TLS (IMAPS)?",
+      "options": [
+        "143 and 993",
+        "110 and 995",
+        "143 and 995",
+        "25 and 465"
+      ],
+      "correctIndex": 0,
+      "explanation": "IMAP listens on port 143 (often upgraded with STARTTLS) and on port 993 for IMAP over implicit TLS. 110 and 995 are the POP3 equivalents, and 25 and 465 belong to SMTP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m003",
+      "questionText": "Which of these is a protocol for retrieving (downloading) e-mail from a mailbox on a mail server?",
+      "options": [
+        "SMTP",
+        "ARP",
+        "FTP",
+        "POP3"
+      ],
+      "correctIndex": 3,
+      "explanation": "POP3 (Post Office Protocol version 3, port 110) lets a mail client download messages from its mailbox; IMAP is the other common retrieval protocol. SMTP sends mail, ARP maps IP addresses to MAC addresses and FTP transfers files.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m004",
+      "questionText": "Which pair of standards protects an e-mail message end to end, encrypting and signing the message itself so that even the mail servers it passes through cannot read it or change it undetected?",
+      "options": [
+        "STARTTLS and SMTPS",
+        "PGP and S/MIME",
+        "SPF and DKIM",
+        "POP3S and IMAPS"
+      ],
+      "correctIndex": 1,
+      "explanation": "PGP and S/MIME encrypt the message for the recipient and sign it with the sender's key, so the protection stays with the message. STARTTLS, SMTPS, POP3S and IMAPS protect only each hop between machines, and SPF and DKIM authenticate the sending domain without encrypting anything.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m005",
+      "questionText": "Which option correctly matches each program to its role in the e-mail system?",
+      "options": [
+        "Thunderbird: MTA; Postfix: MDA; Dovecot LDA: MUA",
+        "Thunderbird: MDA; Postfix: MUA; Dovecot LDA: MTA",
+        "Thunderbird: MUA; Postfix: MTA; Dovecot LDA: MDA",
+        "Thunderbird: MUA; Postfix: MDA; Dovecot LDA: MTA"
+      ],
+      "correctIndex": 2,
+      "explanation": "Thunderbird is a Mail User Agent that the user reads and writes mail with; Postfix is a Mail Transfer Agent that relays mail between servers with SMTP; and Dovecot's LDA is a Mail Delivery Agent that files arriving mail into the mailbox.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m006",
+      "questionText": "Many ISPs block outgoing connections to TCP port 25 from home broadband customers. Why do they do this, and how can their customers still send e-mail from a mail client?",
+      "options": [
+        "To stop home PCs from receiving mail directly; customers must read their mail with IMAP instead",
+        "Because port 25 uses UDP, which home routers cannot translate; customers switch to a TCP port",
+        "To stop spam from infected home PCs; customers can then send mail only through webmail, because mail clients can no longer send",
+        "To stop malware-infected home PCs from delivering spam straight to other mail servers; customers submit mail with authentication to their provider's submission service, which relays it on port 25"
+      ],
+      "correctIndex": 3,
+      "explanation": "Port 25 is the server-to-server relay port, so blocking it from residential addresses stops botnets from sending spam directly. Mail clients authenticate to their provider's submission service (port 587 with STARTTLS or 465 with implicit TLS), and only the provider's MTA talks to other servers on port 25.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m007",
+      "questionText": "A mail client's account settings show: incoming server port 995 and outgoing server port 465, both using TLS from the moment the connection opens. Which protocols does the client use?",
+      "options": [
+        "POP3 over implicit TLS to read mail, and SMTP submission over implicit TLS to send it",
+        "IMAP over implicit TLS to read mail, and SMTP submission over implicit TLS to send it",
+        "POP3 over implicit TLS to read mail, and unencrypted SMTP relay to send it",
+        "IMAP with STARTTLS to read mail, and SMTP with STARTTLS to send it"
+      ],
+      "correctIndex": 0,
+      "explanation": "995 is POP3 over TLS (IMAP over TLS would be 993), and 465 is message submission with implicit TLS (RFC 8314). STARTTLS is used on the plain ports 110, 143 and 587, and server-to-server relay uses port 25 (with opportunistic STARTTLS when both servers support it).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m008",
+      "questionText": "In which order does an SMTP client issue these commands to send one message?",
+      "options": [
+        "MAIL FROM, EHLO, DATA, RCPT TO, QUIT",
+        "EHLO, MAIL FROM, RCPT TO, DATA, QUIT",
+        "EHLO, RCPT TO, MAIL FROM, DATA, QUIT",
+        "EHLO, DATA, MAIL FROM, RCPT TO, QUIT"
+      ],
+      "correctIndex": 1,
+      "explanation": "The client first greets the server (EHLO, or HELO in basic SMTP), then gives the envelope sender with MAIL FROM and one RCPT TO per recipient, sends the content after DATA ending with a lone dot, and closes with QUIT.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m009",
+      "questionText": "While delivering one message, a sending MTA receives the reply 450 (mailbox temporarily unavailable, try again later) for bob@b.com and 550 (mailbox unavailable, no such user) for bobb@b.com. What does it do?",
+      "options": [
+        "Bounces both copies to the sender immediately",
+        "Retries both copies until they are delivered",
+        "Retries bobb@b.com later and bounces Bob's copy at once",
+        "Keeps Bob's copy queued and retries later, but returns a bounce (non-delivery report) to the sender for bobb@b.com at once"
+      ],
+      "correctIndex": 3,
+      "explanation": "4xx SMTP replies are transient failures, so the MTA keeps the message queued and retries, typically for several days, before giving up. 5xx replies are permanent, so it generates the bounce straight away.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m010",
+      "questionText": "Alice sends one message with To: bob@b.com, carol@b.com, Cc: dave@b.com and Bcc: erin@b.com. Her server delivers it to mail.b.com in a single SMTP session. How many RCPT TO commands are sent, and does Bob's copy show Erin's address?",
+      "options": [
+        "3; no, because Bcc copies are always sent in a separate SMTP session",
+        "4; yes, because every copy carries the full To, Cc and Bcc header lines",
+        "4; no, because a Bcc recipient appears in the envelope (RCPT TO) but not in the delivered header",
+        "1; no, because the receiving server reads the To and Cc lines to find the recipients"
+      ],
+      "correctIndex": 2,
+      "explanation": "Delivery follows the envelope: one RCPT TO per recipient (bob, carol, dave and erin, so 4) and then one DATA. The Bcc line is removed from the header before sending, so no recipient sees Erin's address.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m011",
+      "questionText": "How does the SMTP envelope (MAIL FROM and RCPT TO) differ from the message's From: and To: header lines?",
+      "options": [
+        "MTAs route the message and send bounces using the envelope, while the header lines are part of the content shown to the reader, so the two need not match",
+        "They are always identical, and a server rejects any message in which they differ",
+        "The header lines are used for routing, and the envelope is only displayed to the reader",
+        "The envelope is encrypted by SMTP, while the header lines travel in plain text"
+      ],
+      "correctIndex": 0,
+      "explanation": "The envelope is exchanged as SMTP commands, while the headers travel inside DATA. Because a sender can write any address in From:, forged senders are easy, which is what SPF, DKIM and DMARC try to detect.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m012",
+      "questionText": "The body of a message being sent by SMTP contains a line consisting of a single dot. How does the client send that line so that the server does not end the message early?",
+      "options": [
+        "It silently drops the line",
+        "It sends the line as two dots, and the receiving server removes the extra leading dot",
+        "It sends the whole body base64-encoded as a single MIME part",
+        "It sends RSET and starts the mail transaction again"
+      ],
+      "correctIndex": 1,
+      "explanation": "A line holding only '.' ends the DATA section, so SMTP uses dot-stuffing (RFC 5321): the client adds a dot to every line that starts with a dot and the server strips it off. The recipient therefore sees the original line.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m013",
+      "questionText": "Which POP3 command downloads message number 2 from the mailbox?",
+      "options": [
+        "FETCH 2 BODY[]",
+        "GET 2",
+        "DATA 2",
+        "RETR 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "POP3 uses short commands such as USER, PASS, STAT, LIST, RETR, DELE and QUIT, and answers +OK or -ERR. FETCH belongs to IMAP, GET to HTTP and DATA to SMTP.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m014",
+      "questionText": "In a POP3 session the client sends DELE 3 and receives +OK, and then the connection drops before the client sends QUIT. What happens to message 3?",
+      "options": [
+        "It is deleted at the moment DELE 3 is acknowledged with +OK",
+        "It is moved to a Trash folder on the server",
+        "It stays on the server, because deletions are carried out only in the UPDATE state that begins after QUIT",
+        "It is deleted from the mailbox but kept in the server's backup copy"
+      ],
+      "correctIndex": 2,
+      "explanation": "A POP3 session passes through the AUTHORIZATION, TRANSACTION and UPDATE states. DELE only marks a message; the marks are applied when QUIT moves the session into UPDATE, so a session that ends without QUIT (or after RSET) leaves every message in place.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m015",
+      "questionText": "Which capability does IMAP offer that POP3 does not?",
+      "options": [
+        "Server-side folders and message flags, and fetching a single MIME part (such as one attachment) without downloading the whole message",
+        "Encrypting the session with TLS",
+        "Logging in with a user name and password",
+        "Downloading complete messages to the client"
+      ],
+      "correctIndex": 0,
+      "explanation": "IMAP treats the server as the master copy: folders, flags such as Seen and Flagged, server-side search and fetching of individual MIME parts all work there. POP3 sees a single inbox (its optional TOP command can return the headers but not a chosen part), while both protocols support TLS, password login and whole-message download.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m016",
+      "questionText": "An IMAP client sends these commands:\na1 LOGIN bob secret\na2 SELECT INBOX\na3 FETCH 5 (BODY[HEADER])\na4 STORE 5 +FLAGS (\\Deleted)\na5 EXPUNGE\nWhat has happened to message 5 by the end of the session?",
+      "options": [
+        "The whole message was downloaded and deleted from the client only",
+        "Its headers were read, it was flagged for deletion and it was then permanently removed from the INBOX",
+        "It was moved into a folder named Deleted",
+        "It was forwarded to another user"
+      ],
+      "correctIndex": 1,
+      "explanation": "FETCH 5 (BODY[HEADER]) returns only the header section, STORE +FLAGS (\\Deleted) marks the message, and EXPUNGE permanently removes every message marked \\Deleted from the selected mailbox. Each command carries a tag (a1, a2, ...) that the server repeats in its reply.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m017",
+      "questionText": "How can an IMAP client be told about new mail immediately, without polling the server every few minutes?",
+      "options": [
+        "It sends RCPT TO with its own address",
+        "It sends the POP3 command UIDL in a loop",
+        "It issues the IDLE command, keeping the connection open so that the server can push notices of new messages",
+        "It publishes an MX record pointing at itself"
+      ],
+      "correctIndex": 2,
+      "explanation": "IMAP IDLE (RFC 2177) keeps a selected mailbox open; the server sends untagged EXISTS responses as mail arrives, and the client ends the wait with DONE. RCPT TO and MX records belong to delivery, and UIDL still needs polling.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m018",
+      "questionText": "Why can a JPEG photo not be placed directly, as raw bytes, in the body of a classic SMTP message?",
+      "options": [
+        "SMTP limits every message to 64 KB",
+        "SMTP runs over UDP, which loses large messages",
+        "JPEG files must be encrypted before any network transfer",
+        "Classic SMTP carries only 7-bit ASCII text in lines of limited length, so binary data must first be encoded, for example with base64"
+      ],
+      "correctIndex": 3,
+      "explanation": "SMTP was designed for 7-bit US-ASCII lines of at most 1000 characters, so arbitrary bytes would be damaged or rejected. MIME adds Content-Type and Content-Transfer-Encoding headers so that the image can travel as base64 text.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m019",
+      "questionText": "Which MIME header tells the receiving mail client that the message has several parts, such as a text body and an attached PDF?",
+      "options": [
+        "Content-Type: multipart/mixed; boundary=\"XyZ\"",
+        "Content-Transfer-Encoding: base64",
+        "MIME-Version: 1.0",
+        "Content-Disposition: inline"
+      ],
+      "correctIndex": 0,
+      "explanation": "A multipart Content-Type declares several body parts separated by the boundary string, each with its own headers. Content-Transfer-Encoding says how one part is encoded, MIME-Version marks the message as MIME, and Content-Disposition says whether a part is shown inline or as an attachment.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m020",
+      "questionText": "A newsletter carries the same content twice, as a text/plain part and a text/html part, so that each mail client displays the best version it supports. Which Content-Type encloses the two parts?",
+      "options": [
+        "multipart/mixed",
+        "multipart/related",
+        "multipart/alternative",
+        "message/rfc822"
+      ],
+      "correctIndex": 2,
+      "explanation": "In multipart/alternative every part is a version of the same content, from simplest to richest, and the client shows the richest one it can display. multipart/mixed holds independent parts such as attachments, multipart/related ties an HTML part to its inline images, and message/rfc822 encloses a whole forwarded message.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m021",
+      "questionText": "A 100-byte binary attachment is base64-encoded. Ignoring line breaks, how many characters does the encoding contain, and how many of them are '=' padding characters?",
+      "options": [
+        "134 characters, no padding",
+        "136 characters, 2 of them '='",
+        "136 characters, 1 of them '='",
+        "133 characters, no padding"
+      ],
+      "correctIndex": 1,
+      "explanation": "Output = 4 x ceil(100 / 3) = 4 x 34 = 136 characters. Since 100 = 33 x 3 + 1, the last group holds a single byte, which becomes two data characters followed by '=='.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m022",
+      "questionText": "What is the base64 encoding of the two ASCII characters Hi (bytes 0x48 0x69)?",
+      "options": [
+        "SGk",
+        "SGk==",
+        "SGkA",
+        "SGk="
+      ],
+      "correctIndex": 3,
+      "explanation": "The 16 bits 01001000 01101001 are padded with two zero bits and split into the 6-bit groups 010010, 000110 and 100100 = 18, 6 and 36, which are S, G and k. Only 2 bytes of the 3-byte group were present, so one '=' completes the 4-character block.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m023",
+      "questionText": "A 5700-byte file is base64-encoded and split into lines of 76 characters, each line (including the last) followed by CRLF. What is the total size of the encoded data?",
+      "options": [
+        "7800 bytes",
+        "7600 bytes",
+        "7700 bytes",
+        "11,400 bytes"
+      ],
+      "correctIndex": 0,
+      "explanation": "Characters = 4 x ceil(5700 / 3) = 7600, which fill 7600 / 76 = 100 lines; each line adds 2 bytes of CRLF, so the total is 7600 + 200 = 7800 bytes, about 37% more than the original.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m024",
+      "questionText": "A mail provider limits each message to 25 MB after encoding. Ignoring headers and line breaks, what is the largest binary file that can be sent as a base64 attachment?",
+      "options": [
+        "33.33 MB",
+        "18.75 MB",
+        "25 MB",
+        "16.75 MB"
+      ],
+      "correctIndex": 1,
+      "explanation": "Base64 turns every 3 bytes into 4 characters, so the raw file can be at most 25 x 3 / 4 = 18.75 MB. Multiplying by 4/3 instead gives 33.33 MB, and simply taking 33% off the limit gives 16.75 MB.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m025",
+      "questionText": "In quoted-printable Content-Transfer-Encoding, how is the byte 0xE9 (the letter é in ISO-8859-1) written?",
+      "options": [
+        "%E9",
+        "\\xE9",
+        "&#233;",
+        "=E9"
+      ],
+      "correctIndex": 3,
+      "explanation": "Quoted-printable leaves most printable ASCII characters unchanged and writes any other byte as '=' followed by two hexadecimal digits, so 0xE9 becomes =E9. %E9 is URL percent-encoding, \\xE9 is a programming-language escape and &#233; is an HTML character reference.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m026",
+      "questionText": "Which statement about MIME is NOT correct?",
+      "options": [
+        "The header MIME-Version: 1.0 marks a message as using MIME",
+        "Quoted-printable suits text that is mostly ASCII with a few special characters",
+        "Base64 encoding keeps an attachment confidential, because it cannot be decoded without a key",
+        "In a multipart message the parts are separated by a boundary string declared in Content-Type"
+      ],
+      "correctIndex": 2,
+      "explanation": "Base64 is a public, reversible encoding that anyone can decode, so confidentiality needs TLS, PGP or S/MIME. The other three statements are true.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i52_m027",
+      "questionText": "What does a domain's SPF record, published in DNS, let a receiving mail server check?",
+      "options": [
+        "Whether the message body has been changed since the sending domain signed it",
+        "Whether the IP address of the connecting server is authorised to send mail for the domain used in the envelope sender (MAIL FROM)",
+        "Which host accepts incoming mail for the domain",
+        "Whether the recipient's mailbox exists before the message is sent"
+      ],
+      "correctIndex": 1,
+      "explanation": "An SPF TXT record such as v=spf1 ip4:203.0.113.0/24 include:_spf.example.net -all lists the permitted senders, and the receiver compares the connecting IP address with it. Body signatures are DKIM's job, and the host that accepts incoming mail is named by the MX record.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m028",
+      "questionText": "How does DKIM let a receiving server verify a message?",
+      "options": [
+        "The sending domain signs selected header fields and the body with its private key, and the receiver checks the signature with the public key published in a DNS TXT record at selector._domainkey.domain",
+        "The sender encrypts the message with the recipient's public key, so only the recipient can decrypt it",
+        "The receiver compares the connecting server's IP address with a list of permitted senders in DNS",
+        "The receiver opens a second SMTP connection to the sending server and asks it to confirm the message"
+      ],
+      "correctIndex": 0,
+      "explanation": "A DKIM-Signature header names the signing domain (d=) and selector (s=); the receiver fetches the key from DNS and verifies the signature, showing that the message passed through that domain unchanged. Checking the connecting IP is SPF, and encrypting for the recipient is PGP or S/MIME.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i52_m029",
+      "questionText": "A domain publishes the DNS record v=DMARC1; p=reject; rua=mailto:dmarc@example.com. A message with From: ceo@example.com arrives, and neither SPF nor DKIM passes in alignment with example.com. What should the receiver do, and what does DMARC add to SPF and DKIM?",
+      "options": [
+        "Deliver it to the inbox, because DMARC only produces reports",
+        "Deliver it to the spam folder, because p=reject means quarantine",
+        "Encrypt it before delivery, because DMARC is an encryption standard",
+        "Reject the message; DMARC ties the SPF and DKIM results to the visible From: domain, states the policy for failures and requests aggregate reports"
+      ],
+      "correctIndex": 3,
+      "explanation": "DMARC passes only if SPF or DKIM passes for a domain aligned with the From: header. With p=reject a failing message should be refused, p=quarantine sends it to spam and p=none only monitors, while rua gives the address for aggregate reports.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i52_m030",
+      "questionText": "A user reads and sends mail through a webmail site in a browser. Which protocols are involved?",
+      "options": [
+        "IMAP between the browser and the webmail server, with no SMTP at all",
+        "POP3 from the browser to download mail, and SMTP from the browser on port 25 to send it",
+        "HTTPS between the browser and the webmail server, and SMTP between the provider's mail servers and other mail servers",
+        "FTP to download each message as a file"
+      ],
+      "correctIndex": 2,
+      "explanation": "With webmail the browser is the user agent and talks HTTP over TLS to the web front end, which reads the mailbox itself. Messages to and from other domains still travel between mail servers by SMTP.",
+      "difficulty": "easy"
+    }
+  ]
+}

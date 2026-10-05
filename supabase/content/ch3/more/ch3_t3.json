@@ -1,0 +1,757 @@
+{
+  "topicId": "ch3_t3",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Overloading, Defaults, References and Namespaces"
+    },
+    {
+      "type": "paragraph",
+      "text": "When a call names an overloaded function, the compiler works in three steps. First it collects the candidates: every function of that name visible at the call. Next it keeps the viable ones, whose parameter count fits the arguments (counting default arguments) and whose parameters can each accept the corresponding argument by some implicit conversion. Finally it ranks each argument's conversion as exact match, promotion or standard conversion; a function wins only if it is at least as good for every argument and strictly better for at least one, and if no function wins the call is ambiguous and does not compile."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Argument",
+          "To int",
+          "To double",
+          "With only f(int) and f(double)"
+        ],
+        [
+          "int, e.g. 5",
+          "Exact match",
+          "Conversion",
+          "f(int)"
+        ],
+        [
+          "char, short or bool",
+          "Promotion",
+          "Conversion",
+          "f(int)"
+        ],
+        [
+          "float, e.g. 2.5f",
+          "Conversion",
+          "Promotion",
+          "f(double)"
+        ],
+        [
+          "double, e.g. 2.5",
+          "Conversion",
+          "Exact match",
+          "f(double)"
+        ],
+        [
+          "long, e.g. 5L",
+          "Conversion",
+          "Conversion",
+          "Ambiguous: compile error"
+        ],
+        [
+          "unsigned int, e.g. 5u",
+          "Conversion",
+          "Conversion",
+          "Ambiguous: compile error"
+        ]
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "f_1 \\succ f_2 \\iff \\forall i: r_i(f_1) \\le r_i(f_2) \\land \\exists j: r_j(f_1) < r_j(f_2)",
+      "plainText": "f1 beats f2 when its conversion rank is no worse for every argument i and strictly better for at least one argument j (rank order: exact match, then promotion, then conversion)"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nint base = 2;\nint scale(int x, int k = base) { return x * k; }\nint &pick(int &a, int &b) { return a > b ? a : b; }\nint main() {\n    int p = 3, q = 7;\n    pick(p, q) = scale(p);\n    base = 10;\n    std::cout << p << \" \" << q << \" \" << scale(1) << \"\\n\";\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 3 6 10\npick(p, q)      3 > 7 is false, so it returns a reference to q\nscale(p)        k takes the default base = 2: 3 * 2 = 6\npick(...) = 6   assigns through the reference: q = 6, p unchanged\nbase = 10       a default is evaluated at every call, not once\nscale(1)        k = base = 10: 1 * 10 = 10"
+    },
+    {
+      "type": "code",
+      "language": "cpp",
+      "text": "#include <iostream>\nnamespace bank { int rate = 5; int interest(int p) { return p * rate / 100; } }\nnamespace loan { int rate = 12; }\nint rate = 1;\nint main() {\n    using bank::interest;\n    int rate = 99;\n    std::cout << interest(200) << \" \" << loan::rate << \" \" << ::rate << \" \" << rate << \"\\n\";\n    return 0;\n}"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Output: 10 12 1 99\ninterest(200)   found through using bank::interest; inside it rate means\n                bank::rate (5), not main's local: 200 * 5 / 100 = 10\nloan::rate      qualified name: 12\n::rate          the global rate: 1\nrate            the local rate of main hides the global one: 99"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Aspect",
+          "malloc / free (C and C++)",
+          "new / delete (C++ only)"
+        ],
+        [
+          "What it is",
+          "Library functions in <stdlib.h> (<cstdlib> in C++)",
+          "Operators built into the language"
+        ],
+        [
+          "Size",
+          "Bytes computed by the programmer: malloc(n * sizeof(T))",
+          "Taken from the type: new T, new T[n]"
+        ],
+        [
+          "Result type",
+          "void *, which C++ requires to be cast",
+          "T *, no cast needed"
+        ],
+        [
+          "On failure",
+          "Returns NULL",
+          "Throws std::bad_alloc (new (std::nothrow) returns nullptr)"
+        ],
+        [
+          "Objects",
+          "No constructor or destructor runs",
+          "Constructor runs on new, destructor on delete"
+        ],
+        [
+          "Initial value",
+          "Indeterminate (calloc gives zero bytes)",
+          "new int(5) gives 5; new int[n]() gives zeros"
+        ],
+        [
+          "Release rule",
+          "free(p) exactly once",
+          "delete p for new, delete[] p for new[]; never mix with free"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "C code that behaves differently or fails in C++:",
+      "items": [
+        "sizeof('A') is sizeof(int) in C, where a character constant has type int, but 1 in C++, where it has type char.",
+        "void * converts implicitly to any object pointer in C, so int *p = malloc(40); compiles; C++ needs a cast such as (int *) or static_cast<int *>.",
+        "int f(); means unspecified parameters in C but no parameters in C++; write int f(void) to mean the same in both.",
+        "char s[3] = \"abc\"; is legal C (the '\\0' is dropped) but an error in C++, where the array must have room for the terminator.",
+        "C++ keywords such as new, delete, class, this, template and namespace are ordinary identifiers in C, so int new = 5; is valid only in C.",
+        "In C++ a struct, union or enum tag is a type name by itself (Point p;), while C needs struct Point p; or a typedef."
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "cin and cout essentials:",
+      "items": [
+        "cout << x uses the insertion operator and cin >> x the extraction operator; each returns the stream itself, which is why calls can be chained: cout << a << b;",
+        "cin >> skips leading white space and stops at the next white space, so it reads one word; std::getline(std::cin, s) reads a whole line.",
+        "If the input cannot be converted (letters typed for an int), cin sets its failbit, the variable receives 0 (since C++11), and later reads do nothing until cin.clear() is called.",
+        "std::endl writes '\\n' and flushes the buffer; '\\n' alone only writes the newline, which is faster when many lines are printed.",
+        "A bool prints as 1 or 0 unless std::boolalpha is used, and a char prints as a character while the same value stored in an int prints as a number."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "Four traps behind many compile-error MCQs: a using-declaration followed by a local variable of the same name in the same block (redeclaration), two using-directives that bring in the same name (ambiguous when used), a default argument repeated in the definition, and an overload set such as f(long) and f(double) called with a plain int (ambiguous). Also remember that ::x always means the global x, never a variable of an enclosing block."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch3_t3_m001",
+      "questionText": "C++ was developed by Bjarne Stroustrup at Bell Labs as an extension of C. What was the language originally called?",
+      "options": [
+        "Objective-C",
+        "C with Classes",
+        "C Plus",
+        "New C"
+      ],
+      "correctIndex": 1,
+      "explanation": "Stroustrup began the work in 1979 under the name C with Classes; it was renamed C++ in 1983, the ++ being C's increment operator. Objective-C is a separate language.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m002",
+      "questionText": "Which of the following keywords exists in C++ but not in standard C?",
+      "options": [
+        "typedef",
+        "struct",
+        "static",
+        "namespace"
+      ],
+      "correctIndex": 3,
+      "explanation": "namespace was added by C++ to group names and avoid clashes between libraries. typedef, struct and static are keywords in both languages.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m003",
+      "questionText": "The file below is compiled once as C (C11) and once as C++ (C++17) on a system where int is 4 bytes. What does it print in each case?\n\n#include <stdio.h>\nint main(void) {\n    printf(\"%zu\", sizeof('A'));\n    return 0;\n}",
+      "options": [
+        "4 in C and 1 in C++",
+        "1 in both languages",
+        "4 in both languages",
+        "1 in C and 4 in C++"
+      ],
+      "correctIndex": 0,
+      "explanation": "In C a character constant such as 'A' has type int, so sizeof('A') = sizeof(int) = 4. In C++ it has type char, so sizeof('A') = 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m004",
+      "questionText": "Each of the following statements is placed inside main() with <stdio.h> and <stdlib.h> included. Which statement compiles as C (C11) but is an error in C++ (C++17)?",
+      "options": [
+        "int *p = (int *)malloc(10 * sizeof(int));",
+        "for (int i = 0; i < 3; i++) printf(\"%d\", i);",
+        "int *p = malloc(10 * sizeof(int));",
+        "const char *s = \"abc\";"
+      ],
+      "correctIndex": 2,
+      "explanation": "C converts the void * returned by malloc to int * implicitly, but C++ allows no implicit conversion from void * to another pointer type, so a cast is needed. The other lines are valid in both languages (C99 and later allow a declaration inside for).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m005",
+      "questionText": "What does an empty parameter list, as in int f();, mean in C++ compared with C (C11)?",
+      "options": [
+        "It means the same in both languages: the function takes no arguments",
+        "In C++ the function may be called with any number of arguments",
+        "It is a syntax error in C++, where void must be written inside the parentheses",
+        "In C++ it declares a function that takes no arguments; in C it leaves the parameters unspecified"
+      ],
+      "correctIndex": 3,
+      "explanation": "In C++ int f(); and int f(void); are identical and mean no parameters. In C before C23, empty parentheses say nothing about the parameters, so calls are not checked; that is why C code writes (void).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m006",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nnamespace A { int x = 1; }\nnamespace B { int x = 2; }\nint x = 3;\nint main() {\n    int x = 4;\n    std::cout << A::x << B::x << ::x << x;\n    return 0;\n}",
+      "options": [
+        "4444",
+        "1244",
+        "1234",
+        "Compile error: x is defined more than once"
+      ],
+      "correctIndex": 2,
+      "explanation": "A::x and B::x are qualified by their namespaces (1 and 2), ::x names the global x (3) and plain x is the local x of main (4). The same name in different scopes does not conflict.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m007",
+      "questionText": "What happens when the following C++ program is compiled and run?\n\n#include <iostream>\nnamespace A { int v = 1; }\nnamespace B { int v = 2; }\nusing namespace A;\nusing namespace B;\nint main() {\n    std::cout << v;\n    return 0;\n}",
+      "options": [
+        "Compile error: the name v is ambiguous",
+        "It prints 1",
+        "It prints 2",
+        "It prints 12"
+      ],
+      "correctIndex": 0,
+      "explanation": "Both using-directives make a name v visible, so the unqualified v could mean A::v or B::v and the compiler reports an ambiguity. The directives themselves are legal; the error appears only when v is used without qualification.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m008",
+      "questionText": "The global scope contains namespace N { int k = 5; } and <iostream> is included. Which of the following bodies of main() fails to compile?",
+      "options": [
+        "using namespace N; int k = 9; std::cout << k;",
+        "using N::k; int k = 9; std::cout << k;",
+        "int k = 9; std::cout << N::k + k;",
+        "using N::k; std::cout << k + 1;"
+      ],
+      "correctIndex": 1,
+      "explanation": "A using-declaration introduces N::k into the block as if it were declared there, so a second k in the same block is a redeclaration error. A using-directive only makes N's names visible as if declared at global scope, so a local k simply hides N::k.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m009",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nnamespace Outer {\n    int f() { return 3; }\n    namespace Inner { int f() { return 7; } }\n}\nnamespace OI = Outer::Inner;\nint main() {\n    std::cout << OI::f() * Outer::f();\n    return 0;\n}",
+      "options": [
+        "9",
+        "49",
+        "Compile error: f is defined twice",
+        "21"
+      ],
+      "correctIndex": 3,
+      "explanation": "OI is an alias for Outer::Inner, so OI::f() returns 7, while Outer::f() is a different function returning 3. Functions in different namespaces do not clash: 7 x 3 = 21.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m010",
+      "questionText": "What is the effect of writing a definition inside an unnamed namespace, as in namespace { int count = 0; } at file scope?",
+      "options": [
+        "count becomes a member of namespace std",
+        "count can be used directly in that source file but is invisible to other translation units (internal linkage)",
+        "count can be reached from other source files only as ::count",
+        "It is a compile error, because every namespace needs a name"
+      ],
+      "correctIndex": 1,
+      "explanation": "The compiler gives an unnamed namespace a unique hidden name plus an implicit using-directive, so its members are used without qualification in that file only. It is the usual C++ alternative to static at file scope in C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m011",
+      "questionText": "What happens when the following C++ program is compiled?\n\n#include <iostream>\nusing std::cout;\nint main() {\n    int n = 0;\n    cin >> n;      // (1)\n    cout << n;     // (2)\n    return 0;\n}",
+      "options": [
+        "Line (1): cin is not declared in this scope",
+        "Line (2): cout is not declared in this scope",
+        "Both line (1) and line (2) are errors",
+        "It compiles; the program reads and prints n"
+      ],
+      "correctIndex": 0,
+      "explanation": "using std::cout; brings in only the name cout, so cout << n compiles but the unqualified cin is not declared. Write std::cin, add using std::cin;, or use a using-directive.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m012",
+      "questionText": "Which operator is used both to reach a global variable hidden by a local variable of the same name and to define a member function outside its class?",
+      "options": [
+        "->",
+        ".",
+        "::",
+        "&"
+      ],
+      "correctIndex": 2,
+      "explanation": "The scope resolution operator :: reaches a hidden global (::x) and qualifies a member defined outside the class (Class::f). The operators -> and . access members through a pointer or an object.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m013",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nint n = 10;\nint main() {\n    int n = 20;\n    {\n        int n = 30;\n        std::cout << n << \" \" << ::n;\n    }\n    std::cout << \" \" << n;\n    return 0;\n}",
+      "options": [
+        "30 10 20",
+        "30 20 20",
+        "30 10 10",
+        "20 10 20"
+      ],
+      "correctIndex": 0,
+      "explanation": "Inside the inner block n is 30, and ::n always names the global n (10), never the n of an enclosing block. After the block ends, the n of main (20) is visible again.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m014",
+      "questionText": "What does the following fragment print? It runs inside main() with <iostream> included.\n\nint a = 5;\nint &r = a;\nr++;\na *= 2;\nstd::cout << a << \" \" << r;",
+      "options": [
+        "10 6",
+        "12 6",
+        "12 12",
+        "6 12"
+      ],
+      "correctIndex": 2,
+      "explanation": "r is another name for a. r++ makes a = 6 and a *= 2 makes it 12; printing a and r shows the same object twice.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m015",
+      "questionText": "What does the following fragment print? It runs inside main() with <iostream> included.\n\nint a = 1, b = 2;\nint &r = a;\nr = b;\nb = 5;\nstd::cout << a << \" \" << b << \" \" << r;",
+      "options": [
+        "1 5 5",
+        "2 5 5",
+        "5 5 5",
+        "2 5 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "A reference cannot be re-seated, so r = b copies the value 2 into a instead of making r refer to b. Changing b to 5 afterwards affects neither a nor r.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m016",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nvoid f(int v, int *p, int &r) {\n    v += 1; *p += 2; r += 3;\n}\nint main() {\n    int a = 0, b = 0, c = 0;\n    f(a, &b, c);\n    std::cout << a << b << c;\n    return 0;\n}",
+      "options": [
+        "123",
+        "023",
+        "020",
+        "003"
+      ],
+      "correctIndex": 1,
+      "explanation": "v is a copy, so a stays 0. The pointer lets f change b through *p (b = 2), and the reference r is another name for c (c = 3).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m017",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nint &counter() {\n    static int c = 0;\n    return ++c;\n}\nint main() {\n    counter() = 10;\n    counter();\n    std::cout << counter();\n    return 0;\n}",
+      "options": [
+        "3",
+        "10",
+        "11",
+        "12"
+      ],
+      "correctIndex": 3,
+      "explanation": "counter returns a reference to the static c. Call 1 makes c = 1 and the assignment through the reference sets c = 10; call 2 makes it 11 and call 3 makes it 12, which is printed.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m018",
+      "questionText": "What does the following fragment print? It runs inside main() with <iostream> included.\n\ndouble d = 3.7;\nconst int &r = d;\nd = 9.9;\nstd::cout << r << \" \" << d;",
+      "options": [
+        "3 9.9",
+        "9 9.9",
+        "3.7 9.9",
+        "Compile error: an int reference cannot refer to a double"
+      ],
+      "correctIndex": 0,
+      "explanation": "A const int& cannot refer to a double directly, so the compiler converts d to a temporary int with value 3 and binds r to that temporary. Changing d later does not touch the temporary, so r stays 3 while d is 9.9.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m019",
+      "questionText": "Which of the following declarations, written inside a function, is illegal in C++?",
+      "options": [
+        "const int &r = 5;",
+        "int x = 1; int *p = &x; int *&rp = p;",
+        "int &r;",
+        "int x = 1; int &r = x; int &s = r;"
+      ],
+      "correctIndex": 2,
+      "explanation": "A reference must be bound when it is declared, so int &r; is an error. A const reference may bind to a literal, a reference to a pointer (int *&) is allowed, and initialising s from r just makes s another alias of x.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m020",
+      "questionText": "Which statement about references in C++ is NOT correct?",
+      "options": [
+        "A reference must be initialised when it is declared",
+        "A reference can later be made to refer to a different variable by assigning to it",
+        "A reference to a non-const int cannot be bound to the literal 5",
+        "Passing a large object by reference avoids copying it"
+      ],
+      "correctIndex": 1,
+      "explanation": "Once bound, a reference stays bound to the same object; assigning to it assigns to that object. The other three statements are true.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m021",
+      "questionText": "Which of the following functions returns a reference that is still valid after the call has returned?",
+      "options": [
+        "int &f() { int n = 5; return n; }",
+        "int &f(int x) { return x; }",
+        "int &f(int &x) { return x; }",
+        "int &f() { int a[3] = {1, 2, 3}; return a[1]; }"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only the reference parameter x refers to an object owned by the caller, which outlives the call. A by-value parameter, a local variable and an element of a local array are all destroyed when f returns, so those references dangle and using them is undefined behaviour.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m022",
+      "questionText": "A function only reads a large std::string argument and must also accept calls such as f(\"abc\"). Which parameter declaration is the best choice?",
+      "options": [
+        "std::string &s",
+        "std::string s",
+        "std::string *s",
+        "const std::string &s"
+      ],
+      "correctIndex": 3,
+      "explanation": "A const reference avoids copying and can bind to the temporary string created from \"abc\". A non-const reference cannot bind to that temporary, pass by value copies the whole string, and a pointer parameter cannot accept f(\"abc\") at all.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m023",
+      "questionText": "What does the statement using namespace std; do in a C++ source file?",
+      "options": [
+        "It lets every name declared in namespace std, such as cout and string, be used without the std:: prefix in that scope",
+        "It includes the header <iostream>, so no #include line is needed",
+        "It creates a new namespace named std for the program's own names",
+        "It makes only cout and cin available without the std:: prefix"
+      ],
+      "correctIndex": 0,
+      "explanation": "A using-directive only affects name lookup; the declarations must still come from headers such as <iostream> or <string>. Bringing in one name is the job of a using-declaration like using std::cout;.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m024",
+      "questionText": "Which pair of function definitions can appear together in one C++ program as valid overloads?",
+      "options": [
+        "int f(int x) { return x; } and double f(int x) { return x; }",
+        "void f(int *p) {} and void f(const int *p) {}",
+        "void f(int x) {} and void f(const int x) {}",
+        "typedef int Num; followed by void f(int x) {} and void f(Num x) {}"
+      ],
+      "correctIndex": 1,
+      "explanation": "int * and const int * are different parameter types, so they overload. A different return type alone is not enough, a top-level const on a by-value parameter does not change the signature, and a typedef is only another name for int.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m025",
+      "questionText": "How does a C++ compiler let several overloaded functions with the same name coexist at link time, and how is this switched off for functions shared with C code?",
+      "options": [
+        "It encodes the parameter types into each function's internal name (name mangling); extern \"C\" turns this off",
+        "It merges all overloads into one function that picks a body at run time; static turns this off",
+        "It appends the return type to each name; inline turns this off",
+        "The linker renames duplicates in order of definition; namespace turns this off"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each overload gets a unique mangled symbol that encodes its parameter types, so the linker sees different names. extern \"C\" gives a function a plain C name, which is why such functions cannot be overloaded.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m026",
+      "questionText": "Only these two overloads of f are declared. Which of the calls f(5), f(5L), f(5.0f) and f('a') fail to compile because they are ambiguous?\n\n#include <iostream>\nvoid f(long x)   { std::cout << \"L\"; }\nvoid f(double x) { std::cout << \"D\"; }",
+      "options": [
+        "Only f(5)",
+        "f(5) and f(5.0f)",
+        "f(5) and f('a')",
+        "None; every call compiles"
+      ],
+      "correctIndex": 2,
+      "explanation": "5L is an exact match for f(long) and 5.0f is promoted to double, so both compile. An int or char argument needs a standard conversion to reach either long or double (not a promotion), so both overloads rank equally and f(5) and f('a') are ambiguous.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m027",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nvoid h(int x)   { std::cout << \"I\"; }\nvoid h(char *p) { std::cout << \"P\"; }\nint main() {\n    h(0);\n    h(nullptr);\n    return 0;\n}",
+      "options": [
+        "II",
+        "PP",
+        "Compile error: h(0) is ambiguous",
+        "IP"
+      ],
+      "correctIndex": 3,
+      "explanation": "0 is an int literal, so h(int) is an exact match, while turning it into a null pointer is only a conversion. nullptr has type std::nullptr_t, which converts to any pointer type but not to int, so h(char *) is chosen.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m028",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nvoid f(int &x)       { std::cout << \"L\"; }\nvoid f(const int &x) { std::cout << \"C\"; }\nint main() {\n    int a = 1;\n    const int b = 2;\n    f(a); f(b); f(a + b);\n    return 0;\n}",
+      "options": [
+        "LLL",
+        "LCC",
+        "LCL",
+        "Compile error: f(a) is ambiguous"
+      ],
+      "correctIndex": 1,
+      "explanation": "For the modifiable a, binding to int& is better than to const int& (less added const), so L. b is const, so only const int& fits (C), and the temporary a + b cannot bind to a non-const reference (C).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m029",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nvoid f(int)    { std::cout << \"I\"; }\nvoid f(char)   { std::cout << \"C\"; }\nvoid f(double) { std::cout << \"D\"; }\nint main() {\n    char c = 'a';\n    short s = 2;\n    f(c + 1); f(s); f(true); f(c);\n    return 0;\n}",
+      "options": [
+        "IIIC",
+        "CIIC",
+        "CCIC",
+        "Compile error: f(s) is ambiguous"
+      ],
+      "correctIndex": 0,
+      "explanation": "c + 1 has type int, an exact match for f(int). short and bool are promoted to int, which beats their conversions to char or double, so both print I. Only f(c) is an exact match for f(char).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m030",
+      "questionText": "Which function declaration is valid in C++?",
+      "options": [
+        "int f(int a = 1, int b);",
+        "int f(int a, int b = 2, int c);",
+        "int f(int a = 1, int b, int c = 3);",
+        "int f(int a, int b = 2, int c = 3);"
+      ],
+      "correctIndex": 3,
+      "explanation": "Once a parameter has a default, every parameter to its right needs one too. Only int f(int a, int b = 2, int c = 3); gives defaults to a trailing run of parameters; each of the others leaves a parameter without a default after one that has it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m031",
+      "questionText": "A function is declared as int f(int a, int b, int c = 0, int d = 0, int e = 0); With how many different numbers of arguments can it be called?",
+      "options": [
+        "3 (with 3, 4 or 5 arguments)",
+        "5 (with 1 to 5 arguments)",
+        "4 (with 2, 3, 4 or 5 arguments)",
+        "6 (with 0 to 5 arguments)"
+      ],
+      "correctIndex": 2,
+      "explanation": "With n = 5 parameters of which k = 3 have defaults, a call may pass from n - k = 2 up to n = 5 arguments. That is 5 - 2 + 1 = 4 different argument counts.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m032",
+      "questionText": "What happens when the following C++ program is compiled and run?\n\n#include <iostream>\nvoid p(int a)            { std::cout << a; }\nvoid p(int a, int b = 0) { std::cout << a + b; }\nint main() {\n    p(1, 2);\n    p(1);\n    return 0;\n}",
+      "options": [
+        "It prints 31",
+        "Compile error: the call p(1) is ambiguous",
+        "It prints 3 only",
+        "Compile error: the two definitions of p conflict"
+      ],
+      "correctIndex": 1,
+      "explanation": "Defining both overloads is legal, and p(1, 2) can only call p(int, int). But p(1) matches p(int) exactly and also p(int, int) using the default b, so neither is better and that call is ambiguous.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m033",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nint g = 1;\nint f(int x = g) { return x * 10; }\nint main() {\n    std::cout << f() << \" \";\n    g = 5;\n    std::cout << f() << \" \" << f(2);\n    return 0;\n}",
+      "options": [
+        "10 10 20",
+        "10 50 50",
+        "10 50 20",
+        "1 5 2"
+      ],
+      "correctIndex": 2,
+      "explanation": "A default argument is evaluated at each call, not fixed when the function is defined. The first f() uses g = 1 (10), after g = 5 the next f() uses 5 (50), and f(2) ignores the default (20).",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m034",
+      "questionText": "The following C++ program is compiled. Which marked line, if any, causes a compile error?\n\n#include <iostream>\nint area(int l, int b = 2);       // (1)\nint area(int l, int b = 2) {      // (2)\n    return l * b;\n}\nint main() {\n    std::cout << area(3);         // (3)\n    return 0;\n}",
+      "options": [
+        "Line (1)",
+        "Line (2)",
+        "Line (3)",
+        "None; the program compiles and prints 6"
+      ],
+      "correctIndex": 1,
+      "explanation": "A default argument may be specified only once in a scope. It is already given in the declaration on line (1), so repeating = 2 in the definition on line (2) is an error; removing it there makes the program print 6.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m035",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nint calc(int a, int b = 2) { return a * b; }\ndouble calc(double a)      { return a / 2; }\nint main() {\n    std::cout << calc(5) << \" \" << calc(5.0) << \" \" << calc(calc(3), 4);\n    return 0;\n}",
+      "options": [
+        "10 2.5 24",
+        "2.5 2.5 24",
+        "10 2.5 12",
+        "Compile error: calc(5) is ambiguous"
+      ],
+      "correctIndex": 0,
+      "explanation": "calc(5): the int argument exactly matches calc(int, int = 2), giving 5 x 2 = 10, while calc(double) would need a conversion. calc(5.0) exactly matches calc(double): 2.5. calc(calc(3), 4) = calc(6, 4) = 24.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m036",
+      "questionText": "Which statement about the inline keyword is correct?",
+      "options": [
+        "It forces the compiler to expand every call, even for recursive functions",
+        "An inline function is not type-checked, just like a macro",
+        "An inline function must be defined in a different source file from its callers",
+        "It is a request that the compiler may ignore, for example for a recursive function"
+      ],
+      "correctIndex": 3,
+      "explanation": "The compiler decides whether to expand a call; it commonly declines for recursion, large bodies or functions whose address is taken. An inline function is a real, type-checked function and is usually defined in a header so its body is visible at every call.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m037",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\nnamespace S { int a = 4; }\nnamespace S { int b = a * 2; }\nint main() {\n    std::cout << S::a + S::b;\n    return 0;\n}",
+      "options": [
+        "4",
+        "8",
+        "12",
+        "Compile error: namespace S is defined twice"
+      ],
+      "correctIndex": 2,
+      "explanation": "A namespace may be reopened: the second block adds b to the same namespace S, and inside it the unqualified a means S::a = 4. So S::b = 8 and the sum is 4 + 8 = 12.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m038",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\n#define CUBE(x) (x * x * x)\ninline int cube(int x) { return x * x * x; }\nint main() {\n    std::cout << CUBE(1 + 1) << \" \" << cube(1 + 1);\n    return 0;\n}",
+      "options": [
+        "4 8",
+        "8 8",
+        "8 4",
+        "6 8"
+      ],
+      "correctIndex": 0,
+      "explanation": "The macro expands textually to (1 + 1 * 1 + 1 * 1 + 1) = 1 + 1 + 1 + 1 = 4, because * binds tighter than +. The inline function receives the value 2 and returns 2 x 2 x 2 = 8.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m039",
+      "questionText": "What is the output of the following C++ program?\n\n#include <iostream>\n#define MAX(a, b) ((a) > (b) ? (a) : (b))\ninline int imax(int a, int b) { return a > b ? a : b; }\nint main() {\n    int i = 5, j = 3, k = 5;\n    int m1 = MAX(i++, j);\n    int m2 = imax(k++, j);\n    std::cout << m1 << \" \" << i << \" \" << m2 << \" \" << k;\n    return 0;\n}",
+      "options": [
+        "5 6 5 6",
+        "6 7 6 7",
+        "5 7 5 6",
+        "6 7 5 6"
+      ],
+      "correctIndex": 3,
+      "explanation": "The macro becomes ((i++) > (j) ? (i++) : (j)): i++ runs in the test (5 > 3, i = 6) and again as the result (m1 = 6, i = 7). The inline function receives the value of k++ once, so m2 = 5 and k = 6.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m040",
+      "questionText": "In the statement std::cout << x;, what is the operator << called, and which header declares cout?",
+      "options": [
+        "The extraction operator; <iostream>",
+        "The insertion operator; <iostream>",
+        "The insertion operator; <stdio.h>",
+        "The extraction operator; <iomanip>"
+      ],
+      "correctIndex": 1,
+      "explanation": "<< inserts data into an output stream and >> extracts data from an input stream. cout, cin, cerr and clog are declared in <iostream>; <stdio.h> belongs to C's printf/scanf family.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m041",
+      "questionText": "The user types two spaces, then Hari, three spaces, Prasad, and presses Enter. What does the following fragment print? It runs inside main() with <iostream> and <string> included.\n\nstd::string a, b;\nstd::cin >> a >> b;\nstd::cout << b << \",\" << a;",
+      "options": [
+        "Hari,Prasad",
+        "Prasad,  Hari",
+        "Hari Prasad,",
+        "Prasad,Hari"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each >> skips leading white space and then reads up to the next white-space character, so a = Hari and b = Prasad with no spaces stored. The chained output prints b first, then the comma, then a.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m042",
+      "questionText": "What does the following fragment print? It runs inside main() with <iostream> included.\n\nchar c = 'A';\nbool ok = 5 > 3;\nstd::cout << 5 + 3 << \" \" << ok << \" \" << c + 1 << \" \" << c;",
+      "options": [
+        "8 true B A",
+        "8 1 66 A",
+        "53 1 66 A",
+        "8 1 B A"
+      ],
+      "correctIndex": 1,
+      "explanation": "+ binds tighter than <<, so 5 + 3 is printed as 8, and a bool prints as 1 unless boolalpha is set. In c + 1 the char is promoted to int, so the result 66 prints as a number, while c on its own prints as the character A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m043",
+      "questionText": "In standard C++, which line correctly includes the header that declares cin and cout?",
+      "options": [
+        "#include <iostream>",
+        "#include <iostream.h>",
+        "#include <stdio.h>",
+        "#include <stream>"
+      ],
+      "correctIndex": 0,
+      "explanation": "Standard C++ headers have no .h suffix, and <iostream> declares cin, cout, cerr and clog inside namespace std. <iostream.h> belongs to pre-standard compilers, and <stdio.h> declares C's printf and scanf.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch3_t3_m044",
+      "questionText": "What does the following fragment print? It runs inside main() with <iostream> included.\n\nint *p = new int(4);\nint *q = new int[4]();\nstd::cout << *p + q[3];\ndelete p;\ndelete[] q;",
+      "options": [
+        "8",
+        "0",
+        "4",
+        "An unpredictable (garbage) value"
+      ],
+      "correctIndex": 2,
+      "explanation": "new int(4) allocates ONE int initialised to 4, while new int[4]() allocates four ints that the empty parentheses set to 0. So *p + q[3] = 4 + 0 = 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch3_t3_m045",
+      "questionText": "What is the output of the following C++ program?\n\n#include <cstdlib>\n#include <iostream>\nstruct T {\n    T()  { std::cout << \"C\"; }\n    ~T() { std::cout << \"D\"; }\n};\nint main() {\n    T *a = new T[2];\n    T *b = static_cast<T *>(std::malloc(sizeof(T)));\n    delete[] a;\n    std::free(b);\n    return 0;\n}",
+      "options": [
+        "CCDD",
+        "CCCDDD",
+        "CCD",
+        "CDCD"
+      ],
+      "correctIndex": 0,
+      "explanation": "new T[2] constructs two objects (CC) and delete[] destroys both (DD). malloc and free only allocate and release raw bytes, so no constructor or destructor runs for b.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch3_t3_m046",
+      "questionText": "What is the result of the statements int *p = (int *)malloc(sizeof(int)); delete p; in a C++ program?",
+      "options": [
+        "It works correctly, because delete simply calls free() internally",
+        "A compile error, because delete cannot be applied to a pointer returned by malloc()",
+        "Undefined behaviour, because memory obtained from malloc() must be released with free()",
+        "The memory is released after the int's destructor has run"
+      ],
+      "correctIndex": 2,
+      "explanation": "The two allocation systems must not be mixed: new pairs with delete (new[] with delete[]) and malloc/calloc/realloc pair with free. The compiler cannot detect the mismatch, so the code compiles but its behaviour is undefined.",
+      "difficulty": "medium"
+    }
+  ]
+}

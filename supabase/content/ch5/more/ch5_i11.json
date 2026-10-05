@@ -1,0 +1,488 @@
+{
+  "topicId": "ch5_i11",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: How Devices Learn, Filter and Forward"
+    },
+    {
+      "type": "bulletList",
+      "text": "A quick picture of each device, with an everyday analogy:",
+      "items": [
+        "Hub (layer 1), the least intelligent device: whatever arrives on one port is repeated out of all the others, like shouting in a room where everyone hears. All ports share one collision domain, so every added station adds congestion, and a hub is never faster than a switch.",
+        "Bridge (layer 2): joins two LAN segments and passes a frame across only when the destination MAC address is on the other side, like a doorkeeper between two rooms who carries a note through only if the addressee is in the other room. Each side becomes its own collision domain.",
+        "Switch (layer 2), a 'smart hub' or multiport bridge: sends each unicast frame only to the port of its destination MAC address, like whispering directly to one person, and lets every port run full-duplex at full speed.",
+        "Router (layer 3): joins different networks and forwards packets by destination IP address, making a path decision for each packet, like a post office sorting mail for different cities.",
+        "Memory line: hub = repeat to all; switch = direct delivery by MAC; router = between networks by IP.",
+        "A home 'Wi-Fi router' is several devices in one box: a router with NAT, a small Ethernet switch, a wireless access point and a DHCP server, and often a DSL, cable or fibre modem too."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A learning switch or bridge runs the same procedure for every frame. It first records the frame's source MAC address against the arrival port, with a timestamp. It then looks up the destination: a broadcast or an unknown unicast is flooded out of every port except the arrival port, a destination learned on the arrival port is filtered (dropped), and any other known destination is forwarded out of just its own port. Entries that are not refreshed within the ageing time (300 s by default in IEEE 802.1D) are deleted, so a station that moves is relearned at its new port."
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Destination of the arriving frame",
+          "Switch or bridge action"
+        ],
+        [
+          "Broadcast FF:FF:FF:FF:FF:FF",
+          "Flood to all ports except the arrival port (within the VLAN)"
+        ],
+        [
+          "Unicast not yet in the MAC table",
+          "Flood to all ports except the arrival port"
+        ],
+        [
+          "Unicast learned on the arrival port",
+          "Filter: discard, the segment already delivered it"
+        ],
+        [
+          "Unicast learned on another port",
+          "Forward out of that one port only"
+        ],
+        [
+          "Any frame failing the FCS check (store-and-forward)",
+          "Discard"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked trace 1: 4-port switch, empty table; A on port 1, B on 2, C on 3, D on 4\nFrame        Learns   Destination known?   Action\n1  A -> B    A = 1    no                   flood to 2, 3, 4\n2  B -> A    B = 2    yes (port 1)         forward to 1\n3  C -> A    C = 3    yes (port 1)         forward to 1\n4  A -> D    (A)      no                   flood to 2, 3, 4\n5  D -> all  D = 4    broadcast            flood to 1, 2, 3\n6  A -> D    (A)      yes (port 4)         forward to 4\nFinal table: A-1, B-2, C-3, D-4; 3 of the 6 frames were flooded"
+    },
+    {
+      "type": "paragraph",
+      "text": "A router treats each packet quite differently. It removes the layer-2 frame, checks the IPv4 header and looks up the destination IP address in its routing table using the longest-prefix match. It then decrements TTL (discarding the packet and sending ICMP Time Exceeded if TTL reaches 0), recomputes the header checksum, uses ARP to find the next hop's MAC address and sends the packet in a brand-new frame. Limited broadcasts (255.255.255.255) are never forwarded, which is why every router interface bounds a broadcast domain."
+    },
+    {
+      "type": "formula",
+      "latex": "d_{sf} = N\\frac{L}{R}, \\quad d_{ct} \\approx \\frac{L}{R} + (N-1)\\frac{h}{R}",
+      "plainText": "Store-and-forward over N links (N - 1 switches): d = N x L/R; cut-through: d is about L/R + (N - 1) x h/R, where h bits are read before forwarding starts (propagation, queueing and processing ignored)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: 1,000-byte frame, 2 switches (3 links), 1 Gbps links\nL/R = 8,000 bits / 10^9 bit/s                 = 8 µs per link\nStore-and-forward: each switch waits for the whole frame\n  d = 3 x 8 µs                                = 24 µs\nCut-through: forward after the 6-byte destination MAC\n  h/R = 48 bits / 10^9 bit/s                   = 0.048 µs per switch\n  d = 8 + 2 x 0.048                            = 8.096 µs\nPropagation, queueing, processing and preamble ignored"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: counting domains with VLANs\n24-port switch: VLAN 10 = ports 1-8, VLAN 20 = 9-16, VLAN 30 = 17-22\nPorts 1-7: one PC each; port 8: a hub with 5 PCs\nPorts 9-16 and 17-22: one PC each; port 23: trunk to a router\nPort 24: unused\nCollision domains = used ports = 7 + 1 (hub segment) + 8 + 6 + 1 = 23\nBroadcast domains = VLANs = 3 (the router routes between them)"
+    },
+    {
+      "type": "bulletList",
+      "text": "Spanning Tree Protocol (IEEE 802.1D) in brief:",
+      "items": [
+        "Every switch has a bridge ID made of a priority (default 32768) followed by its MAC address. The lowest bridge ID wins the root-bridge election, so priority is compared first and the MAC address only breaks ties.",
+        "Each non-root switch chooses one root port, its port with the lowest total path cost to the root; each LAN segment gets one designated port; all remaining ports are blocked.",
+        "Port costs fall with link speed (802.1D-1998 values: 100 for 10 Mbps, 19 for 100 Mbps, 4 for 1 Gbps), so faster paths are preferred.",
+        "Classic STP moves a port through blocking, listening, learning and forwarding, taking 30 to 50 s; Rapid STP (802.1w) converges in a few seconds or less."
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Common mistakes: bridges and switches do not split broadcast domains (only routers or VLANs do); a layer-2 switch forwards by MAC address, never by IP; a repeater regenerates the bit pattern instead of amplifying the analog signal and its noise; a hub is not faster than a switch, because its ports share one half-duplex collision domain; and a basic bridge does not translate between protocols."
+    },
+    {
+      "type": "examTip",
+      "text": "For domain counting, give one collision domain to every link or segment that ends at a switch, bridge or router port (a hub and everything on it is one segment), and one broadcast domain to every router interface or VLAN in use."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch5_i11_m001",
+      "questionText": "Which of these devices works only at the physical layer (layer 1), handling signals without reading any addresses?",
+      "options": [
+        "Router",
+        "Switch",
+        "Bridge",
+        "Hub"
+      ],
+      "correctIndex": 3,
+      "explanation": "A hub only repeats signals (bits) out of every port and never reads addresses, so it is a layer-1 device. Bridges and switches read MAC addresses (layer 2), and routers read IP addresses (layer 3).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m002",
+      "questionText": "A router operates at which layer of the OSI model?",
+      "options": [
+        "Physical layer",
+        "Data link layer",
+        "Network layer",
+        "Transport layer"
+      ],
+      "correctIndex": 2,
+      "explanation": "A router forwards packets by their destination IP (logical) address using a routing table, which is a network-layer (layer 3) function.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m003",
+      "questionText": "What is the main difference between a hub and a switch?",
+      "options": [
+        "A switch sends a unicast frame only out of the port leading to its destination, while a hub repeats it out of every port",
+        "A hub is faster because it does not examine frames",
+        "A switch forwards frames by IP address",
+        "A hub operates at the network layer"
+      ],
+      "correctIndex": 0,
+      "explanation": "A switch learns which MAC address is on which port and delivers each unicast frame only there, whereas a hub repeats every signal to all ports. A hub is not faster: all of its ports share one half-duplex collision domain.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m004",
+      "questionText": "Which device regenerates a weakened signal and retransmits it, extending the length of a LAN segment at the physical layer?",
+      "options": [
+        "Switch",
+        "Repeater",
+        "Router",
+        "Bridge"
+      ],
+      "correctIndex": 1,
+      "explanation": "A repeater receives a weak or noisy signal, regenerates the original bit pattern and sends it on. It works only at layer 1 and does not filter any traffic.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m005",
+      "questionText": "A hub is also known as a:",
+      "options": [
+        "Multiport bridge",
+        "Layer-3 switch",
+        "Multiport repeater",
+        "Gateway"
+      ],
+      "correctIndex": 2,
+      "explanation": "A hub regenerates the incoming signal and repeats it out of every other port, which is what a repeater does, so it is called a multiport repeater. The multiport bridge is the switch.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m006",
+      "questionText": "Which device connects IEEE 802.11 wireless stations to a wired Ethernet LAN?",
+      "options": [
+        "Wireless access point",
+        "Repeater",
+        "Modem",
+        "Hub"
+      ],
+      "correctIndex": 0,
+      "explanation": "An access point is a layer-2 device that bridges frames between the 802.11 wireless cell and the wired Ethernet.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m007",
+      "questionText": "What is the job of a modem?",
+      "options": [
+        "To route packets between networks by IP address",
+        "To learn MAC addresses and forward frames",
+        "To translate domain names into IP addresses",
+        "To convert digital data into analog signals for transmission and back again at the receiver"
+      ],
+      "correctIndex": 3,
+      "explanation": "Modem stands for modulator-demodulator: it modulates digital data onto an analog carrier (telephone line, cable or radio) and demodulates it at the far end. Routing, switching and name resolution are done by other devices and protocols.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m008",
+      "questionText": "A network interface card (NIC) operates at which OSI layers?",
+      "options": [
+        "Network and transport",
+        "Physical and data link",
+        "Data link and network",
+        "Physical only"
+      ],
+      "correctIndex": 1,
+      "explanation": "A NIC drives the medium (layer 1) and builds and checks frames carrying its own 48-bit MAC address (layer 2). IP processing is done by the host's operating system, not by the card.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m009",
+      "questionText": "Which device is typically used to join two LAN segments and filters frames by MAC address, so that local traffic stays on its own segment?",
+      "options": [
+        "Hub",
+        "Repeater",
+        "Bridge",
+        "Router"
+      ],
+      "correctIndex": 2,
+      "explanation": "A bridge learns which MAC addresses are on each side and forwards a frame across only when its destination is on the other segment, splitting the collision domain in two.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch5_i11_m010",
+      "questionText": "Which statement correctly contrasts a layer-2 switch with a router?",
+      "options": [
+        "Switches operate at the network layer, while routers operate at the data link layer",
+        "Routers forward packets using IP addresses, while switches forward frames using MAC addresses",
+        "Switches forward packets between different networks, while routers forward only within a single network",
+        "Routers amplify signals, while switches do not"
+      ],
+      "correctIndex": 1,
+      "explanation": "A layer-2 switch forwards frames inside one LAN using its MAC address table, whereas a router forwards packets between different networks using the destination IP address and its routing table.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m011",
+      "questionText": "Which networking device breaks up collision domains but keeps all of its ports in one broadcast domain (with no VLANs configured)?",
+      "options": [
+        "Switch",
+        "Router",
+        "Hub",
+        "Repeater"
+      ],
+      "correctIndex": 0,
+      "explanation": "Each switch port is its own collision domain, but broadcasts are flooded to every port, so the whole switch is one broadcast domain. A router splits both kinds of domain, while a hub or repeater splits neither.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m012",
+      "questionText": "How does a transparent (learning) switch build its MAC address table?",
+      "options": [
+        "It records the destination MAC address of each frame it forwards",
+        "It sends ARP requests to every host when it starts",
+        "The administrator must enter every address manually",
+        "It records the source MAC address of each incoming frame together with the port it arrived on"
+      ],
+      "correctIndex": 3,
+      "explanation": "Backward learning uses the source address: a frame from MAC X arriving on port p shows that X is reachable through p. A destination address says nothing about where that station is, and ARP is a host protocol for IP-to-MAC mapping.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m013",
+      "questionText": "A switch receives a unicast frame whose destination MAC address is not yet in its MAC address table. What does it do?",
+      "options": [
+        "Discards the frame",
+        "Sends the frame back out of the port it arrived on",
+        "Floods the frame out of every port except the one it arrived on",
+        "Holds the frame until the destination sends a frame of its own"
+      ],
+      "correctIndex": 2,
+      "explanation": "An unknown unicast is flooded to all other ports in the same VLAN. When the destination replies, the switch learns its port, and later frames to it are forwarded only there.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m014",
+      "questionText": "A switch has learned that both the source and the destination MAC addresses of a frame are on port 3, which connects to a hub. What does the switch do when the frame arrives on port 3?",
+      "options": [
+        "Filters (discards) it, because the hub has already delivered it to the destination",
+        "Sends it back out of port 3",
+        "Floods it out of all ports",
+        "Forwards it out of the port that leads to the router"
+      ],
+      "correctIndex": 0,
+      "explanation": "The hub already repeated the frame to every station on that segment, including the destination, so the switch filters it rather than wasting bandwidth on its other links.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m015",
+      "questionText": "A router receives an Ethernet frame carrying an IPv4 packet addressed to the limited broadcast address 255.255.255.255. What does it do?",
+      "options": [
+        "Forwards it out of all its other interfaces",
+        "Processes it itself if it is relevant, but does not forward it to other networks",
+        "Forwards it only along the default route",
+        "Sends it back to the source with an ICMP error"
+      ],
+      "correctIndex": 1,
+      "explanation": "Routers never forward limited broadcasts (RFC 1812), which is why each router interface is the edge of a broadcast domain. The router may still read the packet itself, for example a DHCP request on that segment.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m016",
+      "questionText": "Which switching method receives the entire frame and checks its FCS before forwarding it?",
+      "options": [
+        "Cut-through",
+        "Fragment-free",
+        "Backward learning",
+        "Store-and-forward"
+      ],
+      "correctIndex": 3,
+      "explanation": "Store-and-forward buffers the whole frame and verifies the CRC, so corrupted frames are dropped, at the cost of a delay proportional to frame length. Cut-through forwards after reading the destination MAC address, and fragment-free after the first 64 bytes.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m017",
+      "questionText": "Why does a fragment-free switch wait for the first 64 bytes of a frame before forwarding it?",
+      "options": [
+        "Any collision on a correctly sized Ethernet occurs within the first 64 bytes (the minimum frame size), so a frame that gets that far is not a collision fragment",
+        "The frame check sequence always lies within the first 64 bytes, so errors can be checked early",
+        "The source and destination IP addresses of the packet end at byte 64 of the frame",
+        "The switch needs the first 64 bytes to add or remove an 802.1Q VLAN tag"
+      ],
+      "correctIndex": 0,
+      "explanation": "Collision fragments (runts) are shorter than 64 bytes because, on a correctly sized half-duplex network, any collision happens within the first 512 bit times. Waiting for 64 bytes filters most runts while keeping latency well below store-and-forward.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m018",
+      "questionText": "What problem does the Spanning Tree Protocol (IEEE 802.1D) solve in a switched LAN with redundant links?",
+      "options": [
+        "It encrypts frames sent between switches so that redundant links cannot be tapped",
+        "It assigns IP addresses to the switches so that they can be managed remotely",
+        "It prevents layer-2 loops, which would cause broadcast storms and unstable MAC tables, by blocking redundant ports",
+        "It spreads traffic equally over all the redundant links to add bandwidth"
+      ],
+      "correctIndex": 2,
+      "explanation": "Ethernet frames have no TTL, so a broadcast caught in a loop circulates and multiplies without end. STP builds a loop-free tree by blocking some ports and re-enables them if an active link fails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m019",
+      "questionText": "An administrator splits one 24-port switch into VLAN 10 and VLAN 20. Which statement is correct?",
+      "options": [
+        "Broadcasts still reach all 24 ports, but unicasts are separated",
+        "A broadcast from a VLAN 10 port reaches only VLAN 10 ports, and traffic between the VLANs must pass through a router or layer-3 switch",
+        "Hosts in the two VLANs can exchange frames directly because they share the same switch",
+        "The VLANs reduce the switch to two collision domains"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each VLAN is a separate broadcast domain, so frames never cross between VLANs at layer 2 and inter-VLAN traffic has to be routed. Every port remains its own collision domain.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m020",
+      "questionText": "What distinguishes a layer-3 switch from an ordinary layer-2 switch?",
+      "options": [
+        "It has more ports, but it still forwards every frame by MAC address only",
+        "It works only at the physical layer, regenerating the signal on each port",
+        "It connects only wireless devices, acting as an access point controller",
+        "It can also route packets between VLANs or subnets by IP address, in hardware at switching speed"
+      ],
+      "correctIndex": 3,
+      "explanation": "A layer-3 (multilayer) switch combines MAC-based switching with IP routing, usually in hardware, and is typically used for fast inter-VLAN routing inside a campus network.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m021",
+      "questionText": "Which device can work up to the application layer and translates between networks that use completely different protocol stacks, for example between an e-mail system and an SMS service?",
+      "options": [
+        "Gateway",
+        "Bridge",
+        "Layer-2 switch",
+        "Repeater"
+      ],
+      "correctIndex": 0,
+      "explanation": "A gateway (protocol converter) understands the layers of both stacks and converts messages between them. In TCP/IP, 'default gateway' simply means the router that a host uses to leave its own subnet.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m022",
+      "questionText": "When an IPv4 router forwards a packet (no NAT, no IP options), which header field does it always change?",
+      "options": [
+        "Destination IP address",
+        "Source IP address",
+        "Time to Live (TTL)",
+        "Protocol"
+      ],
+      "correctIndex": 2,
+      "explanation": "The router decrements TTL by 1 (dropping the packet and sending ICMP Time Exceeded if it reaches 0) and so must also recompute the header checksum. Without NAT the addresses and the Protocol field are unchanged.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m023",
+      "questionText": "A typical home 'Wi-Fi router' box supplied by an ISP usually combines which functions?",
+      "options": [
+        "Only a layer-1 hub that repeats signals between the wired devices",
+        "Only a wireless repeater that extends a neighbouring network",
+        "A DNS root server and a mail server for the household",
+        "A router with NAT, a small Ethernet switch, a wireless access point and a DHCP server"
+      ],
+      "correctIndex": 3,
+      "explanation": "The box routes between the home LAN and the ISP (with NAT), switches between its LAN ports, bridges Wi-Fi clients as an access point and hands out addresses by DHCP; many also contain the DSL, cable or fibre modem.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m024",
+      "questionText": "Why is CSMA/CD not needed on a full-duplex link between a host and a switch port?",
+      "options": [
+        "The switch retransmits every frame twice, so collisions do not matter",
+        "Each end has its own path for sending and receiving on a dedicated link, so collisions cannot occur",
+        "Full-duplex links use token passing instead",
+        "The host sends only when the switch polls it"
+      ],
+      "correctIndex": 1,
+      "explanation": "On a point-to-point full-duplex link each direction has its own channel with a single transmitter, so there is no shared medium to collide on. CSMA/CD is needed only on shared half-duplex segments such as a hub.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch5_i11_m025",
+      "questionText": "A router has three interfaces in use. Interface 1 connects to a switch that also has 9 PCs on 9 other ports; interface 2 connects to a hub with 6 PCs; interface 3 connects to a second switch that has 4 PCs and one hub (with 3 PCs) on its other ports. With no VLANs, how many collision domains and broadcast domains are there?",
+      "options": [
+        "15 collision, 3 broadcast",
+        "24 collision, 3 broadcast",
+        "17 collision, 3 broadcast",
+        "17 collision, 1 broadcast"
+      ],
+      "correctIndex": 2,
+      "explanation": "Switch 1 gives 10 (router link + 9 PCs), the hub on interface 2 gives 1, and switch 2 gives 6 (router link + 4 PCs + the hub segment): 10 + 1 + 6 = 17. Each router interface is one broadcast domain, so there are 3.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i11_m026",
+      "questionText": "A 24-port switch has VLAN 10 on ports 1-10 and VLAN 20 on ports 11-20; ports 21-24 are unused, with nothing connected. Ports 1-9 and 11-20 each have one PC, and port 10 connects a hub with 4 PCs. How many collision domains and broadcast domains are there?",
+      "options": [
+        "20 collision, 2 broadcast",
+        "20 collision, 1 broadcast",
+        "24 collision, 2 broadcast",
+        "23 collision, 2 broadcast"
+      ],
+      "correctIndex": 0,
+      "explanation": "Every used switch port is one collision domain: 10 + 10 = 20 (the hub and its 4 PCs share port 10's domain, and the empty ports 21-24 count for nothing). Each VLAN in use is one broadcast domain, so there are 2; 1 would ignore the VLANs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i11_m027",
+      "questionText": "A 4-port switch starts with an empty MAC table; A is on port 1, B on port 2, C on port 3 and D on port 4. The frames sent are: A to B, C to D, B to A, A to D, D to C, A to D. How many of the six frames are flooded, and how many entries does the table hold afterwards (no ageing)?",
+      "options": [
+        "2 flooded, 4 entries",
+        "3 flooded, 3 entries",
+        "4 flooded, 4 entries",
+        "3 flooded, 4 entries"
+      ],
+      "correctIndex": 3,
+      "explanation": "A to B is flooded (B unknown), C to D is flooded (D unknown), B to A is forwarded, A to D is flooded (D still unknown), then D to C teaches D and the last A to D is forwarded: 3 floods. Learning source addresses gives A, C, B and D, so 4 entries.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i11_m028",
+      "questionText": "A 1,250-byte frame travels from host A to host B through 2 store-and-forward switches, and all three links run at 10 Mbps. Ignoring propagation, queueing and processing delays, how long after A starts sending does B receive the last bit (1 Mbps = 10^6 bit/s)?",
+      "options": [
+        "1 ms",
+        "3 ms",
+        "2 ms",
+        "0.375 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "One link takes L/R = 10,000 bits / 10^7 bit/s = 1 ms, and each switch must receive the whole frame before sending it on, so the delay is 3 links x 1 ms = 3 ms. 0.375 ms treats 1,250 bytes as bits.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i11_m029",
+      "questionText": "Host A sends a 1,500-byte frame to host B through 3 switches over 4 links of 100 Mbps. What is the end-to-end delay with store-and-forward switches, and with cut-through switches that start forwarding after reading the 6-byte destination MAC address? Ignore preamble, propagation, queueing and processing (1 Mbps = 10^6 bit/s).",
+      "options": [
+        "480 µs and 121.44 µs",
+        "360 µs and 121.44 µs",
+        "480 µs and 120.48 µs",
+        "60 µs and 15.18 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "L/R = 12,000 / 10^8 = 120 µs, so store-and-forward takes 4 x 120 = 480 µs. Cut-through adds only 48 bits / 10^8 = 0.48 µs per switch: 120 + 3 x 0.48 = 121.44 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch5_i11_m030",
+      "questionText": "Four switches run STP. S1: priority 32768, MAC 00:1A:2B:00:00:01; S2: priority 32768, MAC 00:1A:2B:00:00:05; S3: priority 4096, MAC 00:1A:2B:00:00:09; S4: priority 4096, MAC 00:1A:2B:00:00:07. Which switch becomes the root bridge?",
+      "options": [
+        "S1",
+        "S3",
+        "S4",
+        "S2"
+      ],
+      "correctIndex": 2,
+      "explanation": "The lowest bridge ID wins, and the priority is compared first: S3 and S4 tie at 4096, so the lower MAC address breaks the tie and S4 (...:07) becomes root. S1 has the lowest MAC but a higher priority.",
+      "difficulty": "hard"
+    }
+  ]
+}

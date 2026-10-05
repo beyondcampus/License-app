@@ -1,0 +1,706 @@
+{
+  "topicId": "ch1_i65",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Op-Amp Analysis and Real Limits"
+    },
+    {
+      "type": "paragraph",
+      "text": "Both basic gain formulas come from one KCL equation at the inverting input. In the inverting amplifier that node is a virtual ground, so the input current V_in/R_in has nowhere to go except through R_f, and V_o = −I R_f gives A = −R_f/R_in. In the non-inverting amplifier the node sits at V_in, so the divider R_f, R_1 must satisfy V_o R_1/(R_1 + R_f) = V_in, which gives A = 1 + R_f/R_1. The quantity 1 + R_f/R_1 is called the noise gain: it is the gain seen by anything that appears between the op-amp inputs, and it sets the bandwidth and the output offset of BOTH configurations."
+    },
+    {
+      "type": "formula",
+      "latex": "A_{CL} = \\frac{A_{OL}}{1 + A_{OL}\\beta}, \\qquad \\beta = \\frac{R_1}{R_1 + R_f}",
+      "plainText": "A_CL = A_OL / (1 + A_OL·β), with feedback fraction β = R1 / (R1 + Rf)"
+    },
+    {
+      "type": "paragraph",
+      "text": "The feedback formula shows why the ideal results work: when the loop gain A_OL β is much larger than 1, A_CL tends to 1/β = 1 + R_f/R_1 and the poorly controlled A_OL drops out. With A_OL = 10^5 and a target gain of 100 the actual gain is 99.9, but an op-amp with A_OL = 1000 gives only 90.9. Because the open-loop gain of a compensated op-amp falls at 20 dB per decade above a few hertz, the product of closed-loop gain and bandwidth stays equal to the unity-gain frequency, the gain-bandwidth product (GBW). The gain to use in BW = GBW/gain is the noise gain, so an inverting amplifier with gain −10 has the same bandwidth as a non-inverting amplifier with gain 11."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: inverting amplifier, Rf = 100 kΩ, Rin = 10 kΩ\nop-amp GBW = 1 MHz, input offset voltage Vos = 2 mV\nSignal gain      A = −Rf/Rin = −100/10 = −10\nNoise gain       1 + Rf/Rin = 1 + 10 = 11\nBandwidth        BW = GBW / noise gain = 1 MHz / 11 = 90.9 kHz\nOutput offset    Vos × noise gain = 2 mV × 11 = 22 mV\n(Using 10 instead of 11 gives 100 kHz and 20 mV: a common slip.)"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: slew rate vs bandwidth, SR = 0.5 V/µs, GBW = 1 MHz\nNon-inverting gain 10, wanted output 8 V peak\nSmall-signal bandwidth = 1 MHz / 10 = 100 kHz\nFull-power bandwidth  f = SR/(2π Vp) = 0.5e6/(2π × 8) = 9.95 kHz\nSo an 8 V peak sine is clean only up to about 10 kHz.\nAt 20 kHz the largest clean peak is SR/(2π f)\n  = 0.5e6/(2π × 20 000) = 3.98 V"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 3: integrator, R = 10 kΩ, C = 1 µF, Vsat = ±13 V\nInput: constant +2 V applied at t = 0, capacitor initially uncharged\nCapacitor current  I = Vin/R = 2/10 000 = 0.2 mA (constant)\nOutput slope       dVo/dt = −Vin/(RC) = −2/0.01 = −200 V/s\nTime to saturate   t = 13/200 = 65 ms\nAfter 65 ms the output sticks at −13 V until the input changes."
+    },
+    {
+      "type": "formula",
+      "latex": "CMRR_{dB} = 20\\log_{10}\\frac{A_d}{A_{cm}}, \\qquad V_o = A_d v_d + A_{cm} v_{cm}",
+      "plainText": "CMRR(dB) = 20·log10(Ad/Acm);  Vo = Ad·vd + Acm·vcm, vd = V1 − V2, vcm = (V1 + V2)/2"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Circuit",
+          "Output",
+          "Input resistance"
+        ],
+        [
+          "Inverting",
+          "−(R_f/R_in) V_in",
+          "R_in (virtual ground)"
+        ],
+        [
+          "Non-inverting",
+          "(1 + R_f/R_1) V_in",
+          "Very high (op-amp input)"
+        ],
+        [
+          "Voltage follower",
+          "V_in",
+          "Very high; output resistance near 0"
+        ],
+        [
+          "Summing (inverting)",
+          "−R_f Σ(V_k/R_k)",
+          "R_k for each input"
+        ],
+        [
+          "Difference (matched ratios)",
+          "(R_2/R_1)(V_2 − V_1)",
+          "Unequal at the two inputs"
+        ],
+        [
+          "Integrator",
+          "−(1/RC) ∫ V_in dt",
+          "R; square wave in gives triangle out"
+        ],
+        [
+          "Differentiator",
+          "−RC dV_in/dt",
+          "Falls as 1/(ωC); triangle in gives square out"
+        ]
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A comparator runs open loop, so its output is always at one of the saturation levels and the golden rules do not apply. When the input is noisy and changes slowly, the output may chatter as the input crosses the reference several times. Adding positive feedback (a Schmitt trigger) gives two thresholds: for an inverting Schmitt trigger with R_2 from the output to the + input and R_1 from the + input to ground, the thresholds are ±V_sat R_1/(R_1 + R_2) and the hysteresis is twice that."
+    },
+    {
+      "type": "bulletList",
+      "text": "Common mistakes in op-amp problems:",
+      "items": [
+        "Using R_f/R_in for the bandwidth or offset of an inverting amplifier; the noise gain 1 + R_f/R_in is what counts.",
+        "Forgetting the output clips at ±V_sat: gain × input is only the answer when it lies inside the rails.",
+        "Confusing peak and peak-to-peak in the slew-rate formula f = SR/(2π V_p); V_p is the peak.",
+        "Taking CMRR in dB as 10 log instead of 20 log; it is a voltage-gain ratio.",
+        "Applying the virtual short to a comparator or Schmitt trigger, which have no negative feedback."
+      ]
+    },
+    {
+      "type": "examTip",
+      "text": "For any mixed-input circuit, use superposition: find the output from the inverting input with the other grounded (gain −R_f/R_1), then from the non-inverting input with the first grounded (gain 1 + R_f/R_1 times any divider in front of it), and add."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch1_i65_m001",
+      "questionText": "The output impedance of an ideal op-amp is:",
+      "options": [
+        "Infinite",
+        "About 75 Ω",
+        "Equal to its input impedance",
+        "Zero"
+      ],
+      "correctIndex": 3,
+      "explanation": "An ideal op-amp behaves as a perfect voltage source at its output, so its output impedance is zero; 75 Ω is the typical value for a real 741.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m002",
+      "questionText": "An inverting amplifier has R_in = 5 kΩ and R_f = 50 kΩ. For a DC input of 0.2 V the output voltage is:",
+      "options": [
+        "2 V",
+        "−2.2 V",
+        "−2 V",
+        "2.2 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_o = −(R_f/R_in) V_in = −(50/5) × 0.2 = −2 V. The value 2.2 V would come from wrongly using the non-inverting gain 1 + R_f/R_in = 11.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m003",
+      "questionText": "A non-inverting amplifier uses R_1 = 10 kΩ (inverting input to ground) and R_f = 20 kΩ. With 1.5 V DC at the input the output is:",
+      "options": [
+        "3 V",
+        "4.5 V",
+        "−3 V",
+        "1.5 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "Gain = 1 + R_f/R_1 = 1 + 20/10 = 3, so V_o = 3 × 1.5 = 4.5 V, in phase with the input.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m004",
+      "questionText": "The main use of an op-amp voltage follower is to:",
+      "options": [
+        "Buffer a high-impedance source so it can drive a low-impedance load",
+        "Provide a large voltage gain with phase inversion",
+        "Integrate the input signal with respect to time",
+        "Convert a sine wave into a square wave"
+      ],
+      "correctIndex": 0,
+      "explanation": "The follower has unity gain, very high input impedance and near-zero output impedance, so it isolates a weak source from a heavy load without loading it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m005",
+      "questionText": "An inverting summing amplifier has R_1 = R_2 = R_3 = R_f = 10 kΩ. The inputs are V_1 = 1 V, V_2 = 2 V and V_3 = −0.5 V. The output is:",
+      "options": [
+        "−2.5 V",
+        "2.5 V",
+        "−3.5 V",
+        "−0.83 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_o = −R_f(V_1/R_1 + V_2/R_2 + V_3/R_3) = −(1 + 2 − 0.5) = −2.5 V. Ignoring the sign of V_3 would give −3.5 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m006",
+      "questionText": "A two-input inverting summing amplifier has R_f = 100 kΩ, R_1 = 50 kΩ and R_2 = 25 kΩ. With V_1 = 0.2 V and V_2 = 0.1 V the output is:",
+      "options": [
+        "−0.8 V",
+        "−0.3 V",
+        "0.8 V",
+        "−0.6 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_o = −100k(0.2/50k + 0.1/25k) = −(0.4 + 0.4) = −0.8 V. Simply adding the inputs (−0.3 V) ignores the different weights R_f/R_k.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m007",
+      "questionText": "A difference amplifier uses R_1 = 10 kΩ in both input paths and R_2 = 100 kΩ as the feedback and ground resistors. With V_1 = 1.0 V on the inverting side and V_2 = 1.2 V on the non-inverting side, the output is:",
+      "options": [
+        "22 V",
+        "−2 V",
+        "2 V",
+        "0.2 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_o = (R_2/R_1)(V_2 − V_1) = 10 × (1.2 − 1.0) = 2 V. The common part of the inputs (about 1.1 V) is rejected.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m008",
+      "questionText": "An op-amp integrator has R = 10 kΩ and C = 0.1 µF, with the capacitor initially uncharged. A constant +1 V is applied to the input. The output 1 ms later is:",
+      "options": [
+        "+1 V",
+        "−10 V",
+        "−0.1 V",
+        "−1 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "RC = 10 kΩ × 0.1 µF = 1 ms, so V_o = −(1/RC) V_in t = −(1/0.001) × 1 × 0.001 = −1 V (a negative-going ramp).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m009",
+      "questionText": "An integrator with R = 100 kΩ and C = 1 µF saturates at ±12 V. Starting from 0 V, a constant input of +0.5 V is applied. How long does the output take to reach saturation?",
+      "options": [
+        "0.24 s",
+        "24 s",
+        "1.2 s",
+        "2.4 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "Slope = V_in/RC = 0.5/0.1 = 5 V/s (negative-going). Time to reach −12 V = 12/5 = 2.4 s.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m010",
+      "questionText": "An op-amp differentiator has R = 10 kΩ (feedback) and C = 0.01 µF (input). The input is a ramp rising at 1000 V/s. The output is:",
+      "options": [
+        "−1 V",
+        "−0.1 V",
+        "+0.1 V",
+        "−10 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_o = −RC dV_in/dt = −(10⁴ × 10⁻⁸) × 1000 = −10⁻⁴ × 1000 = −0.1 V, a constant level while the ramp lasts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m011",
+      "questionText": "A differentiator with R = 10 kΩ and C = 10 nF is fed with a symmetrical triangular wave of 2 V peak-to-peak at 1 kHz. The output is a square wave of amplitude:",
+      "options": [
+        "±0.2 V",
+        "±0.8 V",
+        "±4 V",
+        "±0.4 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "Each ramp changes 2 V in half a period (0.5 ms), so |dV/dt| = 4000 V/s. |V_o| = RC × 4000 = 10⁻⁴ × 4000 = 0.4 V, i.e. a ±0.4 V square wave.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m012",
+      "questionText": "The main practical drawback of the basic (uncompensated) op-amp differentiator is that:",
+      "options": [
+        "Its output drifts into saturation because the input offset voltage is integrated",
+        "Its input impedance is zero for DC signals",
+        "Its gain rises with frequency, so high-frequency noise is strongly amplified",
+        "It inverts only signals below a few hertz"
+      ],
+      "correctIndex": 2,
+      "explanation": "The differentiator gain is ωRC, rising 20 dB per decade, so noise and fast spikes dominate and the circuit tends to be unstable; a small resistor in series with C is added in practice. Output drift from offset is the integrator's problem.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m013",
+      "questionText": "In a practical integrator a large resistor is connected in parallel with the feedback capacitor. Its purpose is to:",
+      "options": [
+        "Limit the DC gain so input offset and bias currents cannot slowly drive the output into saturation",
+        "Increase the slope of the output ramp",
+        "Make the circuit behave as a differentiator at high frequencies",
+        "Reduce the input impedance to match the source"
+      ],
+      "correctIndex": 0,
+      "explanation": "At DC the ideal capacitor gives infinite gain, so even a few millivolts of offset ramp the output to a rail. The shunt resistor R_F sets the DC gain to −R_F/R while the circuit still integrates above f = 1/(2πR_F C).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m014",
+      "questionText": "An op-amp has a differential gain of 2 × 10⁵ and a common-mode gain of 2. Its CMRR is:",
+      "options": [
+        "50 dB",
+        "106 dB",
+        "100 dB",
+        "200 dB"
+      ],
+      "correctIndex": 2,
+      "explanation": "CMRR = A_d/A_cm = 2 × 10⁵/2 = 10⁵, and 20 log₁₀(10⁵) = 100 dB. Using 10 log gives the wrong value of 50 dB.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m015",
+      "questionText": "A differential amplifier has differential gain A_d = 1000 and CMRR = 80 dB. The inputs are V_1 = 1.0005 V and V_2 = 0.9995 V. Taking the differential and common-mode contributions as adding, the output magnitude is:",
+      "options": [
+        "1.0 V",
+        "1.1 V",
+        "0.1 V",
+        "1.01 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "v_d = 1 mV and v_cm = 1 V. CMRR = 10⁴, so A_cm = 1000/10⁴ = 0.1. V_o = 1000 × 1 mV + 0.1 × 1 V = 1.0 + 0.1 = 1.1 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m016",
+      "questionText": "The common-mode rejection ratio (CMRR) of an op-amp is defined as the ratio of:",
+      "options": [
+        "Common-mode gain to differential-mode gain",
+        "Differential-mode gain to common-mode gain",
+        "Open-loop gain to closed-loop gain",
+        "Output voltage to supply voltage"
+      ],
+      "correctIndex": 1,
+      "explanation": "CMRR = A_d/A_cm; a large value means the amplifier responds to the difference between its inputs and ignores what is common to both. Ideally it is infinite.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m017",
+      "questionText": "The slew rate of an op-amp is:",
+      "options": [
+        "The frequency at which its open-loop gain falls to unity",
+        "The DC voltage needed between its inputs to make the output zero",
+        "The ratio of output voltage change to supply voltage change",
+        "The maximum rate of change of its output voltage, usually given in V/µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "Slew rate is the fastest the output can change (0.5 V/µs for a 741), set by the current available to charge the internal compensation capacitor. The first option describes the unity-gain frequency (numerically equal to the GBW), and the second the input offset voltage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m018",
+      "questionText": "An audio amplifier must deliver a 20 V peak sine wave at 20 kHz. The minimum slew rate required of its op-amp is about:",
+      "options": [
+        "0.40 V/µs",
+        "2.51 V/µs",
+        "5.03 V/µs",
+        "1.26 V/µs"
+      ],
+      "correctIndex": 1,
+      "explanation": "SR ≥ 2π f V_p = 2π × 20 000 × 20 = 2.51 × 10⁶ V/s = 2.51 V/µs. Using the peak-to-peak value 40 V would double this to 5.03 V/µs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m019",
+      "questionText": "A 741 (GBW = 1 MHz, SR = 0.5 V/µs) is used as a non-inverting amplifier with gain 20 to produce a 5 V peak sine output. The highest frequency at which the output is undistorted is about:",
+      "options": [
+        "50 kHz, set by the gain-bandwidth product",
+        "15.9 kHz, set by the slew rate",
+        "1 MHz, set by the unity-gain frequency",
+        "7.96 kHz, set by the slew rate"
+      ],
+      "correctIndex": 1,
+      "explanation": "Small-signal BW = 1 MHz/20 = 50 kHz, but the full-power limit is SR/(2π V_p) = 0.5 × 10⁶/(2π × 5) = 15.9 kHz. The lower of the two limits applies.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m020",
+      "questionText": "An op-amp with a gain-bandwidth product of 1 MHz is used in a non-inverting amplifier of gain 50. The closed-loop bandwidth is:",
+      "options": [
+        "50 kHz",
+        "1 MHz",
+        "20 kHz",
+        "2 kHz"
+      ],
+      "correctIndex": 2,
+      "explanation": "Gain × bandwidth is constant: BW = GBW/A_CL = 1 MHz/50 = 20 kHz.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m021",
+      "questionText": "A non-inverting amplifier with a gain of 40 dB is to be built with R_1 = 1 kΩ using an op-amp of GBW = 1 MHz. The required R_f and the resulting bandwidth are:",
+      "options": [
+        "R_f = 99 kΩ, BW = 10 kHz",
+        "R_f = 100 kΩ, BW = 10 kHz",
+        "R_f = 99 kΩ, BW = 25 kHz",
+        "R_f = 39 kΩ, BW = 25 kHz"
+      ],
+      "correctIndex": 0,
+      "explanation": "40 dB = 20 log A gives A = 100, so 1 + R_f/1 kΩ = 100 and R_f = 99 kΩ. BW = 1 MHz/100 = 10 kHz. Treating 40 dB as a gain of 40 gives the 39 kΩ and 25 kHz distractors.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m022",
+      "questionText": "An inverting amplifier has R_f = 10 kΩ and R_in = 1 kΩ. Its op-amp has an input offset voltage of 2 mV. With the signal input grounded, the DC error at the output is about:",
+      "options": [
+        "20 mV",
+        "22 mV",
+        "2 mV",
+        "200 mV"
+      ],
+      "correctIndex": 1,
+      "explanation": "The offset voltage appears between the inputs, so it is amplified by the noise gain 1 + R_f/R_in = 11, not by the signal gain 10: error = 2 mV × 11 = 22 mV.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m023",
+      "questionText": "The input offset voltage of an op-amp is the:",
+      "options": [
+        "Voltage at the output when both inputs are connected to the positive supply",
+        "Maximum differential voltage the inputs can withstand",
+        "Average of the voltages at the two input terminals",
+        "DC voltage that must be applied between the inputs to make the output exactly zero"
+      ],
+      "correctIndex": 3,
+      "explanation": "Because the input transistors are never perfectly matched, a small differential DC voltage (1 to 6 mV for a 741) is needed to null the output. The third option (average of the two input voltages) describes the common-mode voltage.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m024",
+      "questionText": "An op-amp used as a comparator saturates at ±10.5 V. A 2 V reference is connected to its inverting input and 1.5 V to its non-inverting input. The output is:",
+      "options": [
+        "+10.5 V",
+        "−0.5 V",
+        "−10.5 V",
+        "0 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "With no feedback the output is A_OL(V+ − V−) limited by saturation. V+ − V− = −0.5 V, so the output sits at −V_sat = −10.5 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m025",
+      "questionText": "A sine wave is applied to the non-inverting input of an open-loop op-amp whose inverting input is grounded. The output is:",
+      "options": [
+        "A sine wave amplified by the open-loop gain",
+        "A square wave that switches between ±V_sat at the zero crossings, in phase with the input",
+        "A triangular wave of the same frequency",
+        "A steady 0 V because the inputs form a virtual short"
+      ],
+      "correctIndex": 1,
+      "explanation": "This is a zero-crossing detector. The huge open-loop gain drives the output to +V_sat whenever the input is positive and to −V_sat when it is negative, producing a square wave.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m026",
+      "questionText": "A three-op-amp instrumentation amplifier has 10 kΩ feedback resistors in each input-stage op-amp, a gain-setting resistor R_G = 1 kΩ between them, and a difference stage with R_2/R_1 = 2. For a differential input of 20 mV, the output voltage is:",
+      "options": [
+        "0.44 V",
+        "0.42 V",
+        "0.84 V",
+        "0.21 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "Input stage gain = 1 + 2R/R_G = 1 + 20 = 21, difference stage gain = 2, so A = 42 and V_o = 42 × 20 mV = 0.84 V. Forgetting the difference stage gives 0.42 V; using 1 + R/R_G gives 0.44 V.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m027",
+      "questionText": "Which of the following is NOT a property of an ideal op-amp?",
+      "options": [
+        "Infinite open-loop voltage gain",
+        "Infinite common-mode rejection ratio",
+        "Zero input offset voltage",
+        "Infinite output impedance"
+      ],
+      "correctIndex": 3,
+      "explanation": "The ideal op-amp has zero output impedance so that its output voltage does not depend on the load. Infinite gain and CMRR and zero offset are all ideal properties.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m028",
+      "questionText": "In an inverting amplifier the non-inverting input is often returned to ground through a resistor equal to R_in ∥ R_f instead of directly. This is done to:",
+      "options": [
+        "Increase the closed-loop voltage gain",
+        "Raise the input impedance seen by the source",
+        "Improve the slew rate of the op-amp",
+        "Cancel the output error produced by the input bias currents"
+      ],
+      "correctIndex": 3,
+      "explanation": "Equal bias currents flowing through equal resistances at both inputs produce equal voltage drops, so their effects cancel at the output. The resistor has no effect on the signal gain or slew rate.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m029",
+      "questionText": "An inverting amplifier uses R_in = 4.7 kΩ and R_f = 47 kΩ. The input resistance seen by the signal source is:",
+      "options": [
+        "4.7 kΩ",
+        "47 kΩ",
+        "51.7 kΩ",
+        "Very high, equal to the op-amp's own input resistance"
+      ],
+      "correctIndex": 0,
+      "explanation": "The inverting input is a virtual ground, so the source sees only R_in between its terminal and 0 V: R_i = V_in/I_in = R_in = 4.7 kΩ.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m030",
+      "questionText": "An inverting amplifier of gain −20 runs from ±15 V supplies and its output saturates at ±13 V. A 1 V peak sine wave is applied. The peak output voltage is:",
+      "options": [
+        "20 V, an undistorted sine",
+        "15 V, clipped at the supply rails",
+        "13 V, with the peaks clipped",
+        "1.3 V, reduced by the supply"
+      ],
+      "correctIndex": 2,
+      "explanation": "The ideal output would be 20 V peak, but the output cannot exceed the saturation level, so it is clipped at about 13 V (below the 15 V rails).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m031",
+      "questionText": "An op-amp has an open-loop gain of 2 × 10⁵ and no feedback. If V+ − V− = 20 µV (and the output is not saturated), the output voltage is:",
+      "options": [
+        "4 V",
+        "0.4 V",
+        "40 V",
+        "10 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_o = A_OL(V+ − V−) = 2 × 10⁵ × 20 × 10⁻⁶ = 4 V. This shows why a few tens of microvolts between the inputs is all a linear op-amp circuit needs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m032",
+      "questionText": "A non-inverting amplifier is designed for an ideal gain of 100 (feedback fraction β = 0.01), but the op-amp's open-loop gain is only 1000. The actual closed-loop gain is about:",
+      "options": [
+        "100",
+        "99.0",
+        "1000",
+        "90.9"
+      ],
+      "correctIndex": 3,
+      "explanation": "A_CL = A_OL/(1 + A_OL β) = 1000/(1 + 10) = 90.9. The ideal result 1/β = 100 is only accurate when the loop gain A_OL β is much greater than 1.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m033",
+      "questionText": "A 5 V source with an internal resistance of 10 kΩ must drive a 100 Ω load. With an ideal voltage follower inserted between them, the load voltage is:",
+      "options": [
+        "5 V",
+        "0.05 V",
+        "2.5 V",
+        "0.5 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "The follower draws no input current, so no voltage is lost in the 10 kΩ source resistance, and its zero output impedance delivers the full 5 V to the load. Direct connection would give only 5 × 100/10 100 ≈ 0.05 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m034",
+      "questionText": "A summing amplifier has three 30 kΩ input resistors and R_f = 10 kΩ. The inputs are 3 V, 6 V and 9 V. The output is:",
+      "options": [
+        "−18 V",
+        "−6 V",
+        "6 V",
+        "−2 V"
+      ],
+      "correctIndex": 1,
+      "explanation": "V_o = −(10/30)(3 + 6 + 9) = −18/3 = −6 V. With R_f = R/n the circuit is an inverting averager: the output is minus the average of the inputs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m035",
+      "questionText": "An op-amp has R_1 = 10 kΩ from input V_1 to the inverting terminal and R_f = 40 kΩ from output to the inverting terminal. Input V_2 is applied directly to the non-inverting terminal. With V_1 = 0.5 V and V_2 = 1 V, the output is:",
+      "options": [
+        "2 V",
+        "7 V",
+        "−2 V",
+        "3 V"
+      ],
+      "correctIndex": 3,
+      "explanation": "By superposition: V_1 alone gives −(40/10) × 0.5 = −2 V; V_2 alone gives (1 + 40/10) × 1 = 5 V. V_o = 5 − 2 = 3 V. The 2 V distractor assumes a balanced difference amplifier, which needs a divider in front of the + input.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch1_i65_m036",
+      "questionText": "A general-purpose op-amp such as the 741 contains a small internal capacitor (about 30 pF) for frequency compensation. Its purpose is to:",
+      "options": [
+        "Increase the slew rate of the op-amp",
+        "Make the op-amp stable with negative feedback by creating a single dominant pole",
+        "Raise the open-loop gain at high frequencies",
+        "Block DC from reaching the output stage"
+      ],
+      "correctIndex": 1,
+      "explanation": "The compensation capacitor makes the open-loop gain roll off at 20 dB/decade from a low dominant-pole frequency, so the loop gain falls below 1 before the phase shift can cause oscillation. It actually limits the slew rate rather than increasing it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m037",
+      "questionText": "An integrator uses R = 10 kΩ and C = 0.1 µF. The frequency at which the magnitude of its gain equals 1 is about:",
+      "options": [
+        "1 kHz",
+        "1.59 kHz",
+        "15.9 Hz",
+        "159 Hz"
+      ],
+      "correctIndex": 3,
+      "explanation": "|A| = 1/(ωRC) = 1 when f = 1/(2πRC) = 1/(2π × 10⁻³) = 159 Hz. Below this frequency the integrator amplifies; above it, it attenuates.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m038",
+      "questionText": "The input stage of a general-purpose op-amp such as the 741 is a:",
+      "options": [
+        "Differential amplifier",
+        "Class B push-pull stage",
+        "Common-base amplifier",
+        "Tuned amplifier"
+      ],
+      "correctIndex": 0,
+      "explanation": "The two inputs drive a differential pair, which amplifies V+ − V− and rejects common-mode signals; later stages add gain and a push-pull output.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m039",
+      "questionText": "Which statement about the virtual short between the inputs of an op-amp is correct?",
+      "options": [
+        "It means the two input terminals are physically connected together",
+        "It holds only while negative feedback keeps the output within its linear range",
+        "It also holds for an open-loop comparator",
+        "It allows a large current to flow from one input to the other"
+      ],
+      "correctIndex": 1,
+      "explanation": "The inputs are at almost the same voltage because the feedback forces the output to a value that makes V+ − V− ≈ 0; no current flows between them. In saturation or without feedback the rule fails.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m040",
+      "questionText": "An op-amp with a slew rate of 13 V/µs must give a 10 V peak sine output. Its full-power bandwidth is about:",
+      "options": [
+        "1.3 MHz",
+        "207 kHz",
+        "414 kHz",
+        "20.7 kHz"
+      ],
+      "correctIndex": 1,
+      "explanation": "f = SR/(2π V_p) = 13 × 10⁶/(2π × 10) ≈ 207 kHz. Faster-slewing FET-input op-amps are chosen when large high-frequency swings are needed.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m041",
+      "questionText": "The output of a voltage follower must step from −5 V to +5 V. If its slew rate is 0.5 V/µs, the transition takes at least:",
+      "options": [
+        "20 µs",
+        "10 µs",
+        "5 µs",
+        "2 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "The output must change by 10 V at no more than 0.5 V/µs: t = 10/0.5 = 20 µs. Using only 5 V of change gives the 10 µs error.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m042",
+      "questionText": "A 3-bit weighted-resistor DAC uses an inverting summing amplifier with R_f = 10 kΩ and input resistors of 10 kΩ (MSB), 20 kΩ and 40 kΩ (LSB). Logic 1 is 5 V and logic 0 is 0 V. For the input code 101 the output is:",
+      "options": [
+        "−8.75 V",
+        "−3.75 V",
+        "−6.25 V",
+        "−5 V"
+      ],
+      "correctIndex": 2,
+      "explanation": "V_o = −10k(5/10k + 0/20k + 5/40k) = −(5 + 0 + 1.25) = −6.25 V. Code 111 would give −8.75 V and code 011 −3.75 V.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m043",
+      "questionText": "An op-amp has a differential gain of 10⁵ and a CMRR of 90 dB. Its common-mode gain is about:",
+      "options": [
+        "3.16",
+        "31.6",
+        "1111",
+        "0.316"
+      ],
+      "correctIndex": 0,
+      "explanation": "CMRR = 10^(90/20) = 31 623, so A_cm = A_d/CMRR = 10⁵/31 623 ≈ 3.16. Dividing by 90 directly (1111) ignores the decibel scale.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m044",
+      "questionText": "A constant positive DC voltage is applied to an ideal op-amp integrator whose capacitor is initially uncharged. The output is:",
+      "options": [
+        "A ramp going negative at a constant rate until the op-amp saturates",
+        "A constant positive voltage",
+        "A ramp going positive until it saturates",
+        "A decaying exponential that settles at 0 V"
+      ],
+      "correctIndex": 0,
+      "explanation": "V_o = −(1/RC)∫V_in dt, so a constant positive input gives a linearly falling output of slope −V_in/RC, ending at −V_sat.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch1_i65_m045",
+      "questionText": "Which statement comparing the inverting and non-inverting amplifiers is correct?",
+      "options": [
+        "The inverting amplifier cannot have a gain magnitude greater than 1",
+        "The non-inverting amplifier's output is 180° out of phase with its input",
+        "The non-inverting amplifier has a much higher input impedance than the inverting amplifier",
+        "Both have an input impedance equal to R_in"
+      ],
+      "correctIndex": 2,
+      "explanation": "The non-inverting input draws almost no current, so its input impedance is essentially that of the op-amp, whereas the inverting amplifier's is only R_in. The inverting amplifier can have any gain magnitude, and the non-inverting output is in phase.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch1_i65_m046",
+      "questionText": "A non-inverting amplifier of gain 11 uses an op-amp with SR = 0.5 V/µs. A 1 V peak, 20 kHz sine is applied. The largest output peak that can be delivered at this frequency without slew distortion is about:",
+      "options": [
+        "11 V, since the gain is 11",
+        "25 V, so the 11 V peak output is undistorted",
+        "3.98 V, so the 11 V peak output is slew-limited",
+        "7.96 V, so the output is slightly distorted"
+      ],
+      "correctIndex": 2,
+      "explanation": "The ideal output needs 2π × 20 000 × 11 = 1.38 V/µs, more than 0.5 V/µs. The largest clean peak is SR/(2π f) = 0.5 × 10⁶/(2π × 20 000) = 3.98 V, so the output becomes triangular. Forgetting the 2π gives 0.5 × 10⁶/20 000 = 25 V, which wrongly suggests no distortion.",
+      "difficulty": "hard"
+    }
+  ]
+}

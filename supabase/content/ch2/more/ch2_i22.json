@@ -1,0 +1,732 @@
+{
+ "topicId": "ch2_i22",
+ "theoryAdd": [
+  {
+   "type": "heading",
+   "text": "Going Deeper: Decoder and Encoder Design"
+  },
+  {
+   "type": "paragraph",
+   "text": "The 74138 has three enable pins: G1 is active-high while G2A and G2B are active-low, so the chip decodes only when G1 = 1 and G2A = G2B = 0. When it is disabled every output stays HIGH. The three enables act as a built-in 3-input AND gate, which is why a 74138 can decode extra address lines or be cascaded into larger decoders with few or no additional gates."
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "G1",
+     "G2A or G2B",
+     "C B A",
+     "Outputs Y7 to Y0"
+    ],
+    [
+     "0",
+     "x",
+     "x x x",
+     "All HIGH (disabled)"
+    ],
+    [
+     "x",
+     "1 (either one)",
+     "x x x",
+     "All HIGH (disabled)"
+    ],
+    [
+     "1",
+     "0 (both)",
+     "0 0 0",
+     "Y0 LOW, others HIGH"
+    ],
+    [
+     "1",
+     "0 (both)",
+     "1 0 1",
+     "Y5 LOW, others HIGH"
+    ],
+    [
+     "1",
+     "0 (both)",
+     "1 1 1",
+     "Y7 LOW, others HIGH"
+    ]
+   ]
+  },
+  {
+   "type": "formula",
+   "latex": "Y_i = \\overline{G_1\\,\\overline{G_{2A}}\\,\\overline{G_{2B}}\\; m_i(C,B,A)} = M_i \\text{ when enabled}",
+   "plainText": "74138: Y_i = NOT(G1 · G2A' · G2B' · m_i); when enabled, Y_i equals maxterm M_i"
+  },
+  {
+   "type": "paragraph",
+   "text": "Because an enabled active-low output equals the complement of a minterm, which is a maxterm, there are two ways to build a function with a 74138. A NAND gate on the outputs of the minterms in F gives the sum of those minterms by De Morgan's theorem. An AND gate on the outputs of the minterms missing from F gives the product of those maxterms, which is the same function. Choose whichever needs fewer gate inputs."
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Example 1: F(A,B,C) = Σm(1,2,3,5,7) with a 74138 (C B A pins = A B C)\nEnabled outputs are active-low: Y_i = m̄_i = M_i\nRoute 1: 5-input NAND of Y1, Y2, Y3, Y5, Y7 -> m1+m2+m3+m5+m7\nRoute 2: F = ΠM(0,4,6) -> 3-input AND of Y0, Y4, Y6\nCheck ABC = 100: Y4 = 0, AND output 0, and m4 is not in F\nCheck ABC = 011: Y0 = Y4 = Y6 = 1, AND output 1, and m3 is in F\nRoute 2 needs 3 gate inputs instead of 5"
+  },
+  {
+   "type": "code",
+   "language": "text",
+   "text": "Example 2: 8085 decoding of 1 KB blocks with a 74138\nC B A = A12 A11 A10, G1 = A13, G2A = A15, G2B = A14\nEnabled only when A15 A14 A13 = 0 0 1\nOutput  A15-A13  A12 A11 A10  range\nY0      0 0 1    0   0   0    2000H–23FFH\nY1      0 0 1    0   0   1    2400H–27FFH\nY5      0 0 1    1   0   1    3400H–37FFH\nY7      0 0 1    1   1   1    3C00H–3FFFH\nBlock size 2^10 = 400H, so Y_i starts at 2000H + i × 400H"
+  },
+  {
+   "type": "table",
+   "rows": [
+    [
+     "D3 D2 D1 D0",
+     "A1 A0",
+     "V"
+    ],
+    [
+     "0 0 0 0",
+     "x x",
+     "0"
+    ],
+    [
+     "0 0 0 1",
+     "0 0",
+     "1"
+    ],
+    [
+     "0 0 1 x",
+     "0 1",
+     "1"
+    ],
+    [
+     "0 1 x x",
+     "1 0",
+     "1"
+    ],
+    [
+     "1 x x x",
+     "1 1",
+     "1"
+    ]
+   ]
+  },
+  {
+   "type": "formula",
+   "latex": "A_1 = D_3 + D_2,\\quad A_0 = D_3 + \\overline{D_2}\\,D_1,\\quad V = D_3+D_2+D_1+D_0",
+   "plainText": "4-to-2 priority encoder (D3 highest): A1 = D3 + D2, A0 = D3 + D2'D1, V = D3 + D2 + D1 + D0"
+  },
+  {
+   "type": "paragraph",
+   "text": "The priority equations come straight from the table with its don't cares. A1 is 1 whenever D3 or D2 is the highest active input. A0 is 1 for D3, or for D1 when D2 is not active; D0 appears only in V. The 74148 applies the same idea to eight active-low inputs and adds cascading pins: EI enables the chip, GS goes LOW when the chip is enabled and at least one input is active, and EO goes LOW when the chip is enabled but no input is active, so EO can enable a lower-priority 74148."
+  },
+  {
+   "type": "bulletList",
+   "text": "Common mistakes with decoders and encoders:",
+   "items": [
+    "ORing active-low decoder outputs; use NAND for the minterms in F, or AND for the missing ones.",
+    "Forgetting that a disabled 74138 holds all outputs HIGH, not LOW.",
+    "Taking the decoder block size from the number of decoder inputs; it is set by the address lines that go to the memory chip itself.",
+    "Giving a priority encoder the OR of all active codes; only the highest-priority input counts.",
+    "Reading a 74148 output as true binary; its inputs and outputs are active-low, so the code is inverted."
+   ]
+  },
+  {
+   "type": "examTip",
+   "text": "For an address-decoding question, write the address in binary, mark which bits go to the decoder, the enables and the chip, then read the range by setting the chip bits to all 0s and all 1s."
+  }
+ ],
+ "questions": [
+  {
+   "id": "q_ch2_i22_m001",
+   "questionText": "A 3-to-8 decoder with active-high outputs is enabled and has inputs A2 A1 A0 = 110. Which output is active?",
+   "options": [
+    "D3",
+    "D1",
+    "D6",
+    "D4"
+   ],
+   "correctIndex": 2,
+   "explanation": "The active output is the one whose index equals the input code: 110₂ = 6, so D6 = 1. Reading A0 as the MSB would give 011₂ = D3.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m002",
+   "questionText": "A 74138 decoder is enabled (G1 = 1, G2A = G2B = 0) and has C B A = 011. The outputs Y7 … Y0 are:",
+   "options": [
+    "11110111",
+    "00001000",
+    "11101111",
+    "11111011"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 74138 has active-low outputs, so only the selected output Y3 goes LOW and the others stay HIGH: Y7…Y0 = 1111 0111. 00001000 would be an active-high decoder.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m003",
+   "questionText": "The 74138 3-to-8 decoder is enabled only when:",
+   "options": [
+    "G1 = 0, G2A = 1 and G2B = 1",
+    "G1 = 1, G2A = 1 and G2B = 1",
+    "Any one of G1, G2A or G2B is asserted",
+    "G1 = 1, G2A = 0 and G2B = 0"
+   ],
+   "correctIndex": 3,
+   "explanation": "G1 is an active-high enable and G2A, G2B are active-low; all three must be asserted together, so the chip decodes only for G1 = 1, G2A = 0, G2B = 0.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m004",
+   "questionText": "A 74138 has G1 = 1, G2A = 1, G2B = 0 and C B A = 010. The outputs Y7 … Y0 are:",
+   "options": [
+    "11111011",
+    "11111111",
+    "00000100",
+    "00000000"
+   ],
+   "correctIndex": 1,
+   "explanation": "G2A = 1 disables the chip (it must be 0), so every output stays at its inactive HIGH level whatever C B A is. 11111011 would be the result if the chip were enabled.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m005",
+   "questionText": "Each output of an enabled n-to-2^n decoder with active-high outputs corresponds to:",
+   "options": [
+    "One minterm of the n input variables",
+    "One maxterm of the n input variables",
+    "One prime implicant of the inputs",
+    "One of the input variables"
+   ],
+   "correctIndex": 0,
+   "explanation": "Output D_i is 1 only for input combination i, which is exactly minterm m_i. That is why a decoder plus OR gates can realise any function in canonical SOP form.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m006",
+   "questionText": "With the enable asserted, the active-low outputs of a 74138 correspond to:",
+   "options": [
+    "The minterms of the inputs",
+    "The prime implicants of the inputs",
+    "The Gray code of the inputs",
+    "The maxterms (complemented minterms) of the inputs"
+   ],
+   "correctIndex": 3,
+   "explanation": "An active-low output Y_i is 0 only for combination i, so Y_i = m̄_i, which is the maxterm M_i. ANDing such outputs gives a product of maxterms.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m007",
+   "questionText": "F(A,B,C) = Σm(0,2,4,6,7) is to be built with a 74138 (active-low outputs) with A, B, C on inputs C, B, A. Which gate connection realises F?",
+   "options": [
+    "A 5-input OR gate on outputs Y0, Y2, Y4, Y6 and Y7",
+    "A 3-input NAND gate on outputs Y1, Y3 and Y5",
+    "A 3-input AND gate on outputs Y1, Y3 and Y5",
+    "A 3-input OR gate on outputs Y1, Y3 and Y5"
+   ],
+   "correctIndex": 2,
+   "explanation": "F = ΠM(1,3,5) and each active-low output Y_i equals M_i, so F = Y1·Y3·Y5. A NAND on Y1, Y3, Y5 would give m1 + m3 + m5 = F̄, and ORing active-low outputs gives a constant 1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m008",
+   "questionText": "A full subtractor computing X − Y − Bin is built from a 3-to-8 decoder (inputs X, Y, Bin with X as MSB, active-high outputs) and OR gates. The borrow output is the OR of decoder outputs:",
+   "options": [
+    "3, 5, 6, 7",
+    "1, 2, 3, 7",
+    "1, 2, 4, 7",
+    "1, 4, 5, 7"
+   ],
+   "correctIndex": 1,
+   "explanation": "A borrow occurs when X < Y + Bin: XYBin = 001, 010, 011 and 111, i.e. Bout = Σm(1,2,3,7). The set 1, 2, 4, 7 is the difference output and 1, 4, 5, 7 treats Y as the minuend.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m009",
+   "questionText": "F(A,B,C,D) = Σm(0,1,2,3,4,5,6,7,8,9,10,11,13,14) is built from a 4-to-16 decoder with active-high outputs. Which single gate realises F?",
+   "options": [
+    "A 2-input OR gate fed by outputs 12 and 15",
+    "A 2-input NOR gate fed by outputs 12 and 15",
+    "A 2-input NAND gate fed by outputs 12 and 15",
+    "A 2-input AND gate fed by outputs 12 and 15"
+   ],
+   "correctIndex": 1,
+   "explanation": "Only m12 and m15 are missing, so F̄ = D12 + D15 and F = NOR(D12, D15), much cheaper than a 14-input OR. The OR gate gives F̄; the AND is always 0 and the NAND always 1, because two decoder outputs are never 1 together.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m010",
+   "questionText": "Two 2-to-4 decoders with active-high enables are combined into a 3-to-8 decoder, with A1 A0 applied to both. The decoder that produces outputs D4 to D7 has its enable connected to:",
+   "options": [
+    "Ā2",
+    "A0",
+    "A2",
+    "A1"
+   ],
+   "correctIndex": 2,
+   "explanation": "D4 to D7 are the codes with A2 = 1, so the upper decoder is enabled by A2 itself and the lower decoder (D0 to D3) by Ā2 through an inverter.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m011",
+   "questionText": "What is the minimum number of 3-to-8 decoders with enable inputs needed to build a 4-to-16 decoder (an inverter may be used)?",
+   "options": [
+    "3",
+    "4",
+    "5",
+    "2"
+   ],
+   "correctIndex": 3,
+   "explanation": "Two 3-to-8 decoders share A2 A1 A0; A3 enables the one for outputs 8–15 and Ā3 the one for outputs 0–7. The enables do the job of the extra decoding stage.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m012",
+   "questionText": "A 6-to-64 decoder is built in two levels from 3-to-8 decoders with enable inputs. How many 3-to-8 decoders are needed?",
+   "options": [
+    "9",
+    "8",
+    "16",
+    "10"
+   ],
+   "correctIndex": 0,
+   "explanation": "The output level needs 64/8 = 8 decoders driven by A2 A1 A0, and one more decoder on A5 A4 A3 produces their 8 enable signals: 8 + 1 = 9.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m013",
+   "questionText": "A decimal-to-BCD encoder has how many output lines?",
+   "options": [
+    "10",
+    "3",
+    "7",
+    "4"
+   ],
+   "correctIndex": 3,
+   "explanation": "It has 10 inputs (digits 0–9) and produces a 4-bit BCD code, since 2^3 = 8 codes are too few for ten digits.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m014",
+   "questionText": "A simple (non-priority) 8-to-3 encoder made of OR gates has inputs D1 and D4 active at the same time. Its output A2 A1 A0 is:",
+   "options": [
+    "100",
+    "001",
+    "101",
+    "000"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each output is an OR of inputs, so the codes are ORed: 001 OR 100 = 101, which wrongly looks like D5. A priority encoder would give 100.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m015",
+   "questionText": "A 4-to-2 priority encoder with a valid output V receives D3 D2 D1 D0 = 0000. The result is:",
+   "options": [
+    "V = 1 with output 00",
+    "V = 0, and the code outputs are don't-care",
+    "V = 1 with output 11",
+    "V = 0 with output 11, which marks D3"
+   ],
+   "correctIndex": 1,
+   "explanation": "No input is active, so the valid output V = OR of all inputs is 0 and the code bits carry no meaning. This is how the circuit tells no input apart from D0 alone (V = 1, code 00).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m016",
+   "questionText": "For a 4-to-2 priority encoder in which D3 has the highest priority, the least significant output A0 is:",
+   "options": [
+    "A0 = D3 + D̄2·D1",
+    "A0 = D3 + D1",
+    "A0 = D3 + D̄2·D̄1",
+    "A0 = D3 + D2·D̄1"
+   ],
+   "correctIndex": 0,
+   "explanation": "A0 must be 1 for codes 11 (D3 active) and 01 (D1 highest, so D3 = D2 = 0). The term D1 needs D̄2, because D2 active gives code 10; with D3 already covered, A0 = D3 + D̄2D1.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m017",
+   "questionText": "An 8-to-3 priority encoder gives priority to the LOWEST-numbered active input. Its inputs are D7 … D0 = 0110 1000. The output A2 A1 A0 is:",
+   "options": [
+    "110",
+    "011",
+    "111",
+    "101"
+   ],
+   "correctIndex": 1,
+   "explanation": "Inputs D6, D5 and D3 are active. With lowest-number priority D3 wins, so the output is 3 = 011. 110 is the answer for highest-number priority and 111 is the OR of all three codes.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m018",
+   "questionText": "A 74148 8-to-3 priority encoder has active-low inputs and outputs, with I7 the highest priority and EI = 0. Its inputs are I7 … I0 = 1101 0111. The outputs A2 A1 A0 are:",
+   "options": [
+    "101",
+    "100",
+    "011",
+    "010"
+   ],
+   "correctIndex": 3,
+   "explanation": "The LOW inputs are I5 and I3, so I5 wins and the code is 5 = 101. The outputs are active-low, so they show the complement: 010. 100 is the complemented code of I3.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m019",
+   "questionText": "In a 74148 priority encoder, the enable output EO is used to:",
+   "options": [
+    "Cascade chips: it goes active when the chip is enabled but none of its inputs is active, enabling a lower-priority 74148",
+    "Show that at least one input is active",
+    "Put the outputs in the high-impedance state",
+    "Reset the encoder outputs to zero"
+   ],
+   "correctIndex": 0,
+   "explanation": "EO is asserted (LOW) only when EI is asserted and no input is active, which passes the enable down to the next, lower-priority chip. The group-select output GS is the one that shows at least one input is active.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m020",
+   "questionText": "Which IC is a 10-line-to-4-line (decimal-to-BCD) priority encoder?",
+   "options": [
+    "74148",
+    "74138",
+    "74147",
+    "7447"
+   ],
+   "correctIndex": 2,
+   "explanation": "The 74147 encodes the highest active of nine active-low decimal inputs into an inverted BCD code (digit 0 is implied when no input is active). The 74148 is 8-to-3, the 74138 a decoder and the 7447 a BCD-to-7-segment decoder.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m021",
+   "questionText": "On a standard 7-segment display, which segments are lit to show the digit 2?",
+   "options": [
+    "a, b, c, d, g",
+    "a, c, d, f, g",
+    "b, c, f, g",
+    "a, b, d, e, g"
+   ],
+   "correctIndex": 3,
+   "explanation": "Digit 2 uses the top (a), upper right (b), middle (g), lower left (e) and bottom (d) segments. a, b, c, d, g is digit 3, a, c, d, f, g is 5 and b, c, f, g is 4.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m022",
+   "questionText": "For BCD digits 0 to 9 on a standard 7-segment display, segment e (lower left) is ON for the digits:",
+   "options": [
+    "0, 2, 3, 8",
+    "0, 2, 6, 8",
+    "2, 6, 8, 9",
+    "0, 4, 6, 8"
+   ],
+   "correctIndex": 1,
+   "explanation": "Segment e is needed only where the lower-left side is drawn: 0, 2, 6 and 8. Digits 3, 4, 5, 7 and 9 use segment c on the right instead.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m023",
+   "questionText": "Segment e of an active-high BCD-to-7-segment decoder is ON for digits 0, 2, 6, 8, and inputs 1010 to 1111 are don't cares. With inputs A B C D (A = MSB), the minimal SOP for e is:",
+   "options": [
+    "B̄D̄ + CD̄",
+    "ĀB̄D̄ + ĀCD̄",
+    "D̄",
+    "B̄D̄ + BC"
+   ],
+   "correctIndex": 0,
+   "explanation": "e = Σm(0,2,6,8) + d(10–15). B̄D̄ covers 0, 2, 8, 10 and CD̄ covers 2, 6, 10, 14, using don't cares 10 and 14. D̄ alone would also light digit 4, and ĀB̄D̄ + ĀCD̄ misses digit 8.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m024",
+   "questionText": "A common-anode 7-segment display is driven by a BCD-to-7-segment decoder with:",
+   "options": [
+    "Active-high outputs, such as the 7448",
+    "Three-state outputs, such as the 74251",
+    "Active-low outputs, such as the 7447",
+    "Priority-encoded outputs, such as the 74148"
+   ],
+   "correctIndex": 2,
+   "explanation": "In a common-anode display all anodes go to +V, so a segment lights when its cathode is pulled LOW; the 7447 has active-low open-collector outputs for this. The 7448 with active-high outputs suits common-cathode displays.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m025",
+   "questionText": "A 7447 (active-low outputs) driving a common-anode display receives BCD 0100. Its outputs a b c d e f g are:",
+   "options": [
+    "0110011",
+    "1001111",
+    "0010010",
+    "1001100"
+   ],
+   "correctIndex": 3,
+   "explanation": "Digit 4 lights b, c, f and g, and on a 7447 a lit segment is driven LOW: a=1, b=0, c=0, d=1, e=1, f=0, g=0. 0110011 is the active-high pattern and 1001111 is digit 1.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m026",
+   "questionText": "Which statement about decoders and encoders is NOT correct?",
+   "options": [
+    "With active-low decoder outputs, an SOP function is formed by ORing the outputs of its minterms",
+    "An enabled n-to-2^n decoder generates all 2^n minterms of its inputs",
+    "A decoder whose enable is used as the data input works as a demultiplexer",
+    "A priority encoder's valid output separates \"no input active\" from \"input 0 active\""
+   ],
+   "correctIndex": 0,
+   "explanation": "Active-low outputs are complemented minterms, so they must be combined with a NAND gate (De Morgan), not an OR gate; ORing them gives a constant 1 when more than one minterm is used. The other three statements are correct.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m027",
+   "questionText": "In an 8085 system, address lines A15 A14 A13 drive inputs C B A of a 74138 whose enables are permanently asserted. Output Y3 selects the address range:",
+   "options": [
+    "3000H–3FFFH",
+    "6000H–7FFFH",
+    "4000H–5FFFH",
+    "0600H–07FFH"
+   ],
+   "correctIndex": 1,
+   "explanation": "Y3 is active for A15 A14 A13 = 011, while A12–A0 can be anything: 0110 0000 0000 0000 = 6000H to 0111 1111 1111 1111 = 7FFFH, an 8 KB block. 4000H–5FFFH is Y2.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m028",
+   "questionText": "An 8085 memory decoder uses a 74138 with C B A = A14 A13 A12, G1 = A15 and G2A = G2B = 0. Output Y5 selects the address range:",
+   "options": [
+    "5000H–5FFFH",
+    "A000H–BFFFH",
+    "D000H–DFFFH",
+    "D000H–D7FFH"
+   ],
+   "correctIndex": 2,
+   "explanation": "Y5 needs A15 = 1 (for G1) and A14 A13 A12 = 101, so the address is 1101 xxxx xxxx xxxx = D000H to DFFFH, a 4 KB block. Ignoring the G1 condition gives 5000H–5FFFH.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m029",
+   "questionText": "In an 8085 system A15 A14 A13 drive inputs C B A of an enabled 74138. When the processor accesses address 2A50H, which output goes LOW?",
+   "options": [
+    "Y2",
+    "Y1",
+    "Y5",
+    "Y4"
+   ],
+   "correctIndex": 1,
+   "explanation": "2A50H = 0010 1010 0101 0000, so A15 A14 A13 = 001 and output Y1 is selected. Taking the top hex digit 2 as the decoder code would wrongly give Y2.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m030",
+   "questionText": "A 2-to-4 decoder with active-high outputs has A on input A1 and B on input A0. Outputs D0 and D3 are ORed. The result is:",
+   "options": [
+    "A ⊕ B (XOR)",
+    "A + B",
+    "A · B",
+    "A ⊙ B (XNOR)"
+   ],
+   "correctIndex": 3,
+   "explanation": "D0 = ĀB̄ and D3 = AB, so D0 + D3 = ĀB̄ + AB, which is 1 when A = B: the XNOR function. ORing D1 and D2 instead would give XOR.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m031",
+   "questionText": "A 2-to-4 decoder (active-high outputs and active-high enable) has A on input A1, B on input A0 and variable C on its enable. With A, B, C in that order (A = MSB), the function F = D1 + D2 is:",
+   "options": [
+    "Σm(1, 2)",
+    "Σm(2, 4)",
+    "Σm(3, 5)",
+    "Σm(1, 2, 5, 6)"
+   ],
+   "correctIndex": 2,
+   "explanation": "Each output is C·m_i(A,B), so F = C(ĀB + AB̄). The true combinations are ABC = 011 and 101, i.e. m3 and m5. Σm(2,4) would be the answer if the enable were active-low.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m032",
+   "questionText": "A 74138 has variables X, Y, Z on inputs C, B, A (X = MSB) and is enabled. Outputs Y1, Y3 and Y4 feed a 3-input NAND gate. The NAND output is:",
+   "options": [
+    "Σm(1, 3, 4)",
+    "ΠM(1, 3, 4)",
+    "Σm(1, 4, 6)",
+    "Σm(0, 2, 5, 6)"
+   ],
+   "correctIndex": 0,
+   "explanation": "The outputs are m̄1, m̄3, m̄4, and NAND(m̄1, m̄3, m̄4) = m1 + m3 + m4 by De Morgan. Σm(1,4,6) comes from reading Z as the MSB.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m033",
+   "questionText": "A 7442 BCD-to-decimal decoder (active-low outputs) receives the invalid input 1100. Its outputs:",
+   "options": [
+    "All ten stay HIGH (inactive)",
+    "Output 4 goes LOW",
+    "Output 2 goes LOW",
+    "Outputs 8 and 4 both go LOW"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 7442 fully decodes the four inputs, so the six non-BCD codes 1010 to 1111 activate none of the ten outputs and all stay HIGH.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m034",
+   "questionText": "To use a 74138 as a 1-to-8 demultiplexer, the data signal should be applied to:",
+   "options": [
+    "Input C, with the select code on G1, G2A and G2B",
+    "The G1 enable only, with C B A all grounded",
+    "One of the active-low enables (G2A or G2B), with the select code on C B A",
+    "All three inputs C, B and A tied together"
+   ],
+   "correctIndex": 2,
+   "explanation": "With data on G2A the chip is enabled only when data = 0, so the selected output equals the data (LOW for 0, HIGH for 1) while all others stay HIGH. The C B A inputs act as the select lines.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m035",
+   "questionText": "A 3-to-8 decoder without an enable, built from basic gates, needs:",
+   "options": [
+    "Three 8-input AND gates and eight inverters",
+    "Eight 3-input OR gates and three inverters",
+    "Eight 2-input AND gates and three inverters",
+    "Eight 3-input AND gates and three inverters"
+   ],
+   "correctIndex": 3,
+   "explanation": "Each of the 8 outputs is a minterm of the 3 inputs, needing one 3-input AND gate, and the three inverters supply the complemented inputs. An enable would make them 4-input AND gates.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m036",
+   "questionText": "In a decimal-to-BCD encoder with inputs D0 to D9, the least significant output A0 equals:",
+   "options": [
+    "D1 + D3 + D5 + D7",
+    "D1 + D3 + D5 + D7 + D9",
+    "D0 + D2 + D4 + D6 + D8",
+    "D8 + D9"
+   ],
+   "correctIndex": 1,
+   "explanation": "A0 is 1 for every odd digit, so it ORs D1, D3, D5, D7 and D9. Leaving out D9 copies the octal encoder, and D8 + D9 is the MSB A3.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m037",
+   "questionText": "In a decimal-to-BCD encoder built from OR gates, input D0 is not connected to any gate because:",
+   "options": [
+    "D0 has the lowest priority",
+    "Its code is 0000, so no output bit needs to be 1",
+    "D0 is not a valid BCD digit",
+    "D0 drives the valid output directly"
+   ],
+   "correctIndex": 1,
+   "explanation": "Every output bit of the code for digit 0 is 0, so D0 does not appear in any OR equation. This is also why a plain encoder cannot tell D0 active from no input active.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m038",
+   "questionText": "A 16-to-4 priority encoder (highest-numbered input has priority) receives the input word D15 … D0 = 0348H. Its output code is:",
+   "options": [
+    "1001",
+    "0011",
+    "1000",
+    "1111"
+   ],
+   "correctIndex": 0,
+   "explanation": "0348H = 0000 0011 0100 1000, so inputs D9, D8, D6 and D3 are active. The highest is D9, giving 9 = 1001. 0011 is the lowest active input and 1111 is the OR of all four codes.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m039",
+   "questionText": "The valid output V of an 8-input priority encoder is logically:",
+   "options": [
+    "The AND of all eight inputs",
+    "Equal to the highest-priority input D7",
+    "The XOR of all eight inputs",
+    "The OR of all eight inputs"
+   ],
+   "correctIndex": 3,
+   "explanation": "V must be 1 whenever at least one input is active and 0 only when all are inactive, which is the OR of all inputs.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m040",
+   "questionText": "Eight 2 KB EPROMs in an 8085 system are selected by one 74138, with the enables driven by A15 and A14 so that the chips cover 0000H–3FFFH. The C B A inputs of the 74138 should be connected to:",
+   "options": [
+    "A15 A14 A13",
+    "A12 A11 A10",
+    "A13 A12 A11",
+    "A10 A9 A8"
+   ],
+   "correctIndex": 2,
+   "explanation": "A 2 KB chip uses 11 address lines, A10–A0, internally. The next three lines, A13 A12 A11, choose among the eight chips, and A15 A14 = 00 enable the decoder.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m041",
+   "questionText": "A 74138 has G1 = 1, G2A = A15, G2B = A14 and C B A = A13 A12 A11 in an 8085 system with 2 KB memory chips. Output Y6 selects the address range:",
+   "options": [
+    "C000H–C7FFH",
+    "3000H–3FFFH",
+    "3000H–37FFH",
+    "1800H–1FFFH"
+   ],
+   "correctIndex": 2,
+   "explanation": "Y6 needs A15 A14 = 00 and A13 A12 A11 = 110, with A10–A0 free: 0011 0000 0000 0000 = 3000H to 0011 0111 1111 1111 = 37FFH. 3000H–3FFFH wrongly assumes a 4 KB block.",
+   "difficulty": "hard"
+  },
+  {
+   "id": "q_ch2_i22_m042",
+   "questionText": "In partial (linear) address decoding:",
+   "options": [
+    "Every memory location has exactly one unique address",
+    "All 16 address lines of the 8085 must go to the decoder",
+    "The data lines are decoded along with the address lines",
+    "Some address lines are not decoded, so each memory location responds to more than one address"
+   ],
+   "correctIndex": 3,
+   "explanation": "Leaving some high-order lines out of the decoder saves hardware, but the ignored lines can take any value, so each location appears at several addresses (foldback or aliasing). Full (absolute) decoding gives unique addresses.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m043",
+   "questionText": "A 2 KB RAM in an 8085 system uses A10–A0 and is selected when A15 = 1; lines A14 to A11 are not decoded. At how many different addresses does each RAM location appear?",
+   "options": [
+    "4",
+    "16",
+    "32",
+    "8"
+   ],
+   "correctIndex": 1,
+   "explanation": "The four ignored lines A14–A11 can take 2^4 = 16 combinations, each giving a different address for the same location (the RAM image repeats 16 times from 8000H to FFFFH).",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m044",
+   "questionText": "Which IC contains two independent 2-to-4 line decoders?",
+   "options": [
+    "74139",
+    "74138",
+    "74154",
+    "74148"
+   ],
+   "correctIndex": 0,
+   "explanation": "The 74139 is a dual 2-to-4 decoder/demultiplexer with separate enables. The 74138 is 3-to-8, the 74154 is 4-to-16 and the 74148 is a priority encoder.",
+   "difficulty": "easy"
+  },
+  {
+   "id": "q_ch2_i22_m045",
+   "questionText": "On a standard 7-segment display (6 and 9 drawn with their tails), which group contains only digits that each light exactly five segments?",
+   "options": [
+    "2, 3, 5",
+    "2, 3, 4",
+    "0, 6, 9",
+    "2, 5, 7"
+   ],
+   "correctIndex": 0,
+   "explanation": "Digit 2 uses a, b, d, e, g; 3 uses a, b, c, d, g; 5 uses a, c, d, f, g, five each. Digit 4 lights four segments, 7 lights three, and 0, 6 and 9 light six.",
+   "difficulty": "medium"
+  },
+  {
+   "id": "q_ch2_i22_m046",
+   "questionText": "A 4-to-16 decoder (active-high outputs) has inputs A B C D with A as MSB. Outputs D5, D7, D13 and D15 are ORed. The simplified function is:",
+   "options": [
+    "B̄D",
+    "BD",
+    "B + D",
+    "ĀBD"
+   ],
+   "correctIndex": 1,
+   "explanation": "5 = 0101, 7 = 0111, 13 = 1101 and 15 = 1111 all have B = 1 and D = 1 while A and C take every value, so the four minterms combine to BD.",
+   "difficulty": "medium"
+  }
+ ]
+}

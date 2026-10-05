@@ -1,0 +1,690 @@
+{
+  "topicId": "ch4_i52",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Semaphore Traces, Deadlock Handling and Driver Design"
+    },
+    {
+      "type": "paragraph",
+      "text": "Textbooks keep semaphore values in two ways. In the RTOS convention the count never goes below zero: a take on a zero count puts the caller in a waiting queue, and a give with tasks waiting hands the unit straight to one of them without changing the count. In the Silberschatz blocking implementation, wait always decrements, so a value of -k means k tasks are waiting, and signal always increments and wakes one task if the result is still 0 or less. Both describe the same behaviour, so always state the convention when you write a trace."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: counting semaphore S = 2, four tasks, FIFO wake-up\nStep       RTOS count  Silberschatz S  Waiting  Holding\nA wait     1           1               -        A\nB wait     0           0               -        A B\nC wait     0           -1              C        A B\nD wait     0           -2              C D      A B\nA signal   0           -1              D        B C\nB signal   0           0               -        C D\nC signal   1           1               -        D\nD signal   2           2               -        -"
+    },
+    {
+      "type": "code",
+      "language": "c",
+      "text": "#define N 8\nstatic item_t buf[N];\nstatic unsigned in = 0, out = 0;          /* next slot to write / to read  */\nstatic sem_t empty, full;                 /* sem_init: empty = N, full = 0 */\nstatic pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;\n\nvoid put(item_t x)\n{\n    sem_wait(&empty);                     /* 1. reserve a free slot        */\n    pthread_mutex_lock(&lock);            /* 2. then lock the index        */\n    buf[in] = x;  in = (in + 1) % N;\n    pthread_mutex_unlock(&lock);\n    sem_post(&full);                      /* 3. announce one more item     */\n}"
+    },
+    {
+      "type": "paragraph",
+      "text": "The order of the two waits in the producer matters. Waiting on empty before taking the lock means a producer that finds the buffer full sleeps without holding the lock, so the consumer can still get in and free a slot; reversing the order lets the producer sleep inside the critical section and deadlocks both tasks. The consumer mirrors the producer with wait(full), lock, remove at out, unlock and post(empty), and between operations empty + full = N."
+    },
+    {
+      "type": "formula",
+      "latex": "\\text{count} = (\\text{head} - \\text{tail} + N) \\bmod N",
+      "plainText": "count = (head - tail + N) mod N, head = next write slot, tail = next read slot; capacity N - 1 when one slot is kept empty"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Strategy",
+          "How it works",
+          "Example and cost"
+        ],
+        [
+          "Prevention",
+          "Design so that one Coffman condition can never hold",
+          "Fixed global lock order, or request everything at once; may waste resources"
+        ],
+        [
+          "Avoidance",
+          "Grant a request only if the system stays in a safe state",
+          "Banker's algorithm; needs every task's maximum claim in advance"
+        ],
+        [
+          "Detection and recovery",
+          "Let deadlock happen, find a cycle in the wait-for graph, then abort or roll back a task",
+          "Periodic graph check; recovery loses work"
+        ],
+        [
+          "Ignore (ostrich)",
+          "Assume deadlock is rare and restart if it happens",
+          "Desktop OSes; a watchdog reset in embedded products"
+        ]
+      ]
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: Banker's algorithm, one resource type, 10 units\nTask  Allocated  Max  Need\nA     3          7    4\nB     2          4    2\nC     2          6    4\nAvailable = 10 - 7 = 3\nB: need 2 <= 3 -> finishes, available 3 + 2 = 5\nA: need 4 <= 5 -> finishes, available 8; C: need 4 <= 8 -> finishes\nSafe sequence B, A, C, so the state is safe\nRequest: A asks for 2 more -> available 1; needs A 2, B 2, C 4\nNo task can finish with 1 unit -> unsafe, so A must wait"
+    },
+    {
+      "type": "bulletList",
+      "text": "Rules for ISRs and deferred work:",
+      "items": [
+        "Acknowledge or clear the interrupt source early; otherwise a level-triggered request fires again as soon as the ISR returns.",
+        "Do only the urgent part (read the data register, time-stamp, move bytes to a buffer) and defer the rest to a task or bottom half.",
+        "Use only non-blocking from-ISR kernel calls to give semaphores, post to queues or set event bits, and request a context switch on exit if a higher-priority task was woken.",
+        "Protect data shared with a task by briefly masking that interrupt inside the task, because the ISR cannot wait for a lock.",
+        "Keep interrupt-disabled sections short: the longest one adds directly to the worst-case latency of every interrupt."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A typical interrupt-driven UART driver keeps a receive ring buffer and a transmit ring buffer. The receive ISR moves each byte from the data register into the RX buffer and gives a semaphore, so read() blocks only when the buffer is empty. write() copies bytes into the TX buffer and enables the transmit-empty interrupt, whose ISR sends one byte per interrupt and disables itself when the buffer runs dry. A polled driver instead checks the status register in a loop or periodic task; it is simpler and more deterministic, but an event can wait up to one full polling period before it is noticed."
+    },
+    {
+      "type": "warning",
+      "text": "Classic synchronisation bugs: taking the lock before the counting semaphore in a producer; giving a mutex from an ISR or from a task that does not own it; using a binary semaphore where several events can arrive before the task runs, so events are lost; leaving the transmit-empty interrupt enabled with nothing to send; and returning from an error path without releasing a lock."
+    },
+    {
+      "type": "examTip",
+      "text": "For any semaphore trace, draw a table with one row per operation and columns for the value, the waiting queue and the holders, and say which convention you use. Check the answer with S = S0 - waits + signals: it always gives the final value in the negative-count convention, and in both conventions when no task is left waiting."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_i52_m001",
+      "questionText": "A correct solution to the critical-section problem must guarantee mutual exclusion, progress and which third property?",
+      "options": [
+        "Pre-emption",
+        "Priority inheritance",
+        "Bounded waiting",
+        "Busy waiting"
+      ],
+      "correctIndex": 2,
+      "explanation": "Bounded waiting limits how many times other tasks may enter their critical sections after a task has asked to enter, so no task waits forever.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m002",
+      "questionText": "On an 8-bit microcontroller, a timer ISR increments a 32-bit tick counter, and a task copies the counter with four separate byte reads. Occasionally the copied value is wrong by about 256. What is the simplest correct fix?",
+      "options": [
+        "Declare the counter volatile and change nothing else",
+        "Disable (mask) the timer interrupt while the task copies the counter, then re-enable it",
+        "Protect the counter with a mutex taken by both the ISR and the task",
+        "Give the timer interrupt a higher priority"
+      ],
+      "correctIndex": 1,
+      "explanation": "The ISR can run between the byte reads, so the task combines bytes from before and after a carry. volatile only forces the reads to happen and an ISR must never take a mutex, whereas a short interrupt-masked copy makes the read atomic.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m003",
+      "questionText": "Two tasks each execute count = count + 1 five times on a shared variable count that starts at 0. Each increment is a separate load, add and store, and the scheduler may switch tasks between any two of these steps. What are the smallest and largest possible final values of count?",
+      "options": [
+        "2 and 10",
+        "5 and 10",
+        "0 and 10",
+        "1 and 10"
+      ],
+      "correctIndex": 0,
+      "explanation": "10 needs no overlap at all. For the minimum, T1 loads 0 and stalls while T2 does four increments, T1 stores 1, then T2 loads 1 and stalls while T1 finishes its last four, and T2 finally stores 2; an exhaustive search of all interleavings confirms that 2 is the least possible value.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m004",
+      "questionText": "Shared variable x starts at 1. Task T1 executes x = x + 1 and task T2 executes x = 2 * x, each compiled as one load followed by one store, with no locking. Which final values of x are possible?",
+      "options": [
+        "2, 3 or 4",
+        "3 or 4 only",
+        "4 only",
+        "2 or 4 only"
+      ],
+      "correctIndex": 0,
+      "explanation": "The serial orders give (1 + 1) x 2 = 4 and 2 x 1 + 1 = 3. If both tasks load 1 before either stores, the last store wins and leaves 2 (from 1 + 1 or from 2 x 1).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m005",
+      "questionText": "On a single-core microcontroller, which of these does NOT by itself protect a critical section shared by two tasks?",
+      "options": [
+        "Disabling interrupts around the access",
+        "Declaring the shared variable volatile",
+        "Taking a mutex around the access in both tasks",
+        "Locking the scheduler around the access when no ISR uses the data"
+      ],
+      "correctIndex": 1,
+      "explanation": "volatile only stops the compiler from caching or removing accesses; it does not make a read-modify-write sequence indivisible. The other three methods stop the other task from running in the middle of the sequence.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m006",
+      "questionText": "Four identical DMA channels are shared by several tasks, and a counting semaphore controls access to them. What should its initial value be?",
+      "options": [
+        "1",
+        "0",
+        "4",
+        "3"
+      ],
+      "correctIndex": 2,
+      "explanation": "A counting semaphore that manages identical resources starts at the number of units; each take reserves one channel and each give returns it.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m007",
+      "questionText": "A counting semaphore starts at 2. In this RTOS the count never goes below 0: a take when the count is 0 blocks the caller, and a give with tasks waiting hands the unit straight to the longest-waiting task. The operations are: T1 take, T2 take, T3 take, T1 give, T4 take, T2 give. What is the final state?",
+      "options": [
+        "Count 0; T2 and T3 hold units and T4 is still waiting",
+        "Count 1; T3 holds a unit because T4's take failed",
+        "Count 2; the two gives restored both units",
+        "Count 0; T3 and T4 hold units and no task is waiting"
+      ],
+      "correctIndex": 3,
+      "explanation": "T1 and T2 take both units (count 0) and T3 blocks. T1's give hands its unit to T3, T4 then blocks, and T2's give hands its unit to T4, so the count stays 0 with T3 and T4 holding units.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m008",
+      "questionText": "Semaphore S = 1 uses the blocking implementation in which wait decrements S and blocks the caller if S becomes negative, and signal increments S and wakes the first waiting process if S is then 0 or less. The sequence is: P1 wait, P2 wait, P3 wait, P1 signal, P2 signal. What is S at the end, and which process is in the critical section?",
+      "options": [
+        "S = 0, and P3 is in the critical section",
+        "S = 1, and no process is in the critical section",
+        "S = -1, and P3 is still blocked",
+        "S = 0, and P2 is in the critical section"
+      ],
+      "correctIndex": 0,
+      "explanation": "S goes 1 → 0 (P1 enters) → -1 → -2 (P2 and P3 blocked). P1's signal makes S = -1 and wakes P2; P2's signal makes S = 0 and wakes P3, which now holds the critical section with nobody waiting.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m009",
+      "questionText": "An ISR gives a semaphore three times while the handling task is busy with other work and is not waiting on it. The task then takes the semaphore repeatedly until a take would block. How many takes succeed with a binary semaphore (initially 0), and with a counting semaphore (initial count 0, maximum 10)?",
+      "options": [
+        "3 with both",
+        "1 with both",
+        "0 with the binary semaphore and 3 with the counting semaphore",
+        "1 with the binary semaphore and 3 with the counting semaphore"
+      ],
+      "correctIndex": 3,
+      "explanation": "A binary semaphore saturates at 1, so the second and third gives are lost and only one take succeeds, while a counting semaphore reaches 3 and records all three events. Use a counting semaphore or a queue when events can arrive faster than the task handles them.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m010",
+      "questionText": "Statement A in task T1 must always execute before statement B in task T2. Using one semaphore S, which arrangement guarantees this for every interleaving?",
+      "options": [
+        "S starts at 1; T1 does A then signal(S); T2 does wait(S) then B",
+        "S starts at 0; T1 does A then signal(S); T2 does wait(S) then B",
+        "S starts at 0; T1 does A then wait(S); T2 does signal(S) then B",
+        "S starts at 0; T1 does wait(S) then A; T2 does B then signal(S)"
+      ],
+      "correctIndex": 1,
+      "explanation": "With S = 0, T2's wait cannot succeed until T1 has executed A and signalled. Starting at 1 lets T2 pass at once, the third arrangement does not constrain B at all, and the fourth forces B before A.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m011",
+      "questionText": "Tasks A and B must each reach a meeting point before either continues past it. At the meeting point A executes signal(SA); wait(SB) and B executes signal(SB); wait(SA). What initial values must SA and SB have?",
+      "options": [
+        "SA = 1 and SB = 1",
+        "SA = 0 and SB = 0",
+        "SA = 1 and SB = 0",
+        "SA = 0 and SB = 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each task may pass its wait only after the other has signalled on arrival, so both semaphores must start at 0; any initial 1 lets one task pass before the other arrives. Signalling before waiting also avoids the deadlock that wait-then-signal would cause.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m012",
+      "questionText": "Semaphores S1 and S2 both start at 0, and three tasks run concurrently in any interleaving:\n\nT1: print A; signal(S1); wait(S2); print E\nT2: wait(S1); print B; signal(S2); print C\nT3: print D\n\nWhich output can NOT occur?",
+      "options": [
+        "DABCE",
+        "ADBEC",
+        "ABCED",
+        "AEBCD"
+      ],
+      "correctIndex": 3,
+      "explanation": "B can be printed only after T1's signal(S1), so A comes before B, and E can be printed only after T2's signal(S2), which follows B, so E comes after B. AEBCD breaks the second rule, while D and the relative order of C and E are unconstrained.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m013",
+      "questionText": "Task T locks a recursive mutex three times through nested function calls and then unlocks it twice. Task U now tries to lock the same mutex. What happens?",
+      "options": [
+        "U blocks, because T still owns the mutex with a lock count of 1",
+        "U gets the mutex, because T has already unlocked it",
+        "T deadlocked itself on its second lock",
+        "The RTOS returns an error because a mutex cannot be locked twice"
+      ],
+      "correctIndex": 0,
+      "explanation": "A recursive mutex counts nested locks by its owner and is released only after the owner has unlocked it as many times as it locked it. With a non-recursive mutex, T would have deadlocked on its second lock.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m014",
+      "questionText": "Why must an interrupt service routine never try to take a mutex?",
+      "options": [
+        "Only the idle task is allowed to take a mutex",
+        "Taking a mutex resets the interrupt controller",
+        "A mutex can be shared by at most two tasks",
+        "An ISR cannot block, and mutex ownership and priority inheritance apply only to tasks"
+      ],
+      "correctIndex": 3,
+      "explanation": "If the mutex were already held, the ISR would have to wait, but it has no task context to block in, so the system would hang. ISRs signal tasks with semaphores, queues or event bits instead.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m015",
+      "questionText": "A system requires every task to request all the resources it will ever need in one call before it starts running. Which deadlock condition does this rule break?",
+      "options": [
+        "Hold and wait",
+        "Circular wait",
+        "Mutual exclusion",
+        "No pre-emption"
+      ],
+      "correctIndex": 0,
+      "explanation": "A task never holds some resources while waiting for others, so hold and wait cannot occur; the price is poor resource utilisation and possible starvation.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m016",
+      "questionText": "Which statement about resource-allocation graphs is correct?",
+      "options": [
+        "A cycle always means deadlock, whatever the number of instances",
+        "Deadlock can exist even when the graph has no cycle",
+        "With single-instance resources, a cycle never means deadlock",
+        "If every resource has a single instance, a cycle means deadlock; with several instances per resource, a cycle is necessary but not sufficient"
+      ],
+      "correctIndex": 3,
+      "explanation": "With several instances, a task in the cycle may still receive a unit released by a task outside the cycle, so the cycle can break by itself; with single instances nobody else can release the resources in the cycle.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m017",
+      "questionText": "In a wait-for graph, T1 waits for T2, T2 waits for T3, T3 waits for T1 and T4 waits for T2; each wait is for one resource held by the other task. What is the fewest tasks that must be aborted so that all remaining tasks can finish?",
+      "options": [
+        "Only T4",
+        "All four tasks",
+        "Two tasks: T2 and T4",
+        "One task from the cycle T1 → T2 → T3"
+      ],
+      "correctIndex": 3,
+      "explanation": "The cycle T1-T2-T3 is the deadlock; aborting any one of them releases its resource, the rest of the cycle finishes in turn, and T4 then gets what it is waiting for. Aborting T4 alone breaks nothing.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m018",
+      "questionText": "A system has 12 units of one resource type. Current allocations and maximum claims are: P0 holds 4 (max 9), P1 holds 2 (max 5), P2 holds 3 (max 7) and P3 holds 1 (max 3). Using the Banker's algorithm, which single request can be granted immediately while keeping the system safe?",
+      "options": [
+        "P0 requests 1 unit",
+        "P3 requests 1 unit",
+        "P1 requests 1 unit",
+        "P2 requests 1 unit"
+      ],
+      "correctIndex": 1,
+      "explanation": "Available = 12 - 10 = 2 and the needs are 5, 3, 4 and 2. Granting P3 one unit leaves 1 available with P3 needing only 1, so P3 can finish (available 3), then P1, P2 and P0; any other grant leaves 1 unit while every need is at least 2, so no task could finish.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m019",
+      "questionText": "What distinguishes starvation from deadlock?",
+      "options": [
+        "Starvation needs a cycle of waiting tasks, and deadlock does not",
+        "Deadlock always clears itself after a timeout, and starvation never does",
+        "In starvation one task waits indefinitely while others keep running; in deadlock a set of tasks all wait for each other and none can proceed",
+        "They are two names for the same situation"
+      ],
+      "correctIndex": 2,
+      "explanation": "A starving task could run if it were ever chosen, for example a low-priority task that is always passed over, whereas deadlocked tasks are stuck by their mutual waits whatever the scheduler does.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m020",
+      "questionText": "The Banker's algorithm, which grants a request only if the system stays in a safe state, is an example of which deadlock-handling strategy?",
+      "options": [
+        "Deadlock prevention",
+        "Deadlock avoidance",
+        "Deadlock detection and recovery",
+        "Ignoring deadlock (the ostrich approach)"
+      ],
+      "correctIndex": 1,
+      "explanation": "Avoidance decides at run time, from each task's declared maximum claim, whether granting a request could lead to deadlock; prevention instead removes one of the four conditions by design.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m021",
+      "questionText": "A bounded-buffer producer is written as wait(mutex); wait(empty); insert item; signal(mutex); signal(full), while the consumer uses wait(full); wait(mutex); remove item; signal(mutex); signal(empty). What can happen when the buffer is full?",
+      "options": [
+        "The producer overwrites the oldest item in the buffer",
+        "Nothing goes wrong, because the order of the two waits never matters",
+        "The producer blocks on empty while holding mutex, the consumer then blocks on mutex, and both are deadlocked",
+        "The consumer removes an item without locking and corrupts the buffer"
+      ],
+      "correctIndex": 2,
+      "explanation": "With the buffer full, empty = 0, so the producer sleeps inside the critical section and the consumer can never get mutex to free a slot. Taking the counting semaphore before the mutex, as in the standard solution, avoids this.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m022",
+      "questionText": "Which RTOS object holds at most one message (often a pointer), so that a further post blocks or overwrites until the receiver has taken it?",
+      "options": [
+        "Pipe",
+        "Mailbox",
+        "Counting semaphore",
+        "Event group"
+      ],
+      "correctIndex": 1,
+      "explanation": "A mailbox is a single-slot message holder; a message queue holds several messages and a pipe carries a byte stream.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m023",
+      "questionText": "Which inter-task mechanism carries an unstructured stream of bytes from a writer task to a reader task, in FIFO order and without message boundaries?",
+      "options": [
+        "Mailbox",
+        "Mutex",
+        "Pipe",
+        "Event flags"
+      ],
+      "correctIndex": 2,
+      "explanation": "A pipe is a byte-stream FIFO: the reader may take any number of bytes regardless of how they were written, unlike a queue of fixed-size messages.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m024",
+      "questionText": "A message queue has room for 3 messages. Before the receiver runs, the sender posts m1, m2, m3, m4 and m5 with a non-blocking send that fails (returns an error) when the queue is full. The receiver then reads twice. Which messages does it read, and what is left in the queue?",
+      "options": [
+        "It reads m1 and m2; m3 is left, and m4 and m5 were never queued",
+        "It reads m4 and m5; m3 is left",
+        "It reads m1 and m2; m3, m4 and m5 are left",
+        "It reads m3 and m4; m5 is left"
+      ],
+      "correctIndex": 0,
+      "explanation": "Only m1 to m3 fit, and the sends of m4 and m5 fail because the queue is full. A FIFO queue delivers the oldest messages first, so the two reads return m1 and m2 and leave m3.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m025",
+      "questionText": "During a 100 ms burst an ISR posts 500 messages per second to a queue, while the consumer task removes 300 messages per second. Treating both as steady rates, what is the smallest queue length that avoids losing messages during the burst?",
+      "options": [
+        "20 messages",
+        "50 messages",
+        "30 messages",
+        "80 messages"
+      ],
+      "correctIndex": 0,
+      "explanation": "The queue grows at 500 - 300 = 200 messages/s, so after 0.1 s it holds 200 x 0.1 = 20 messages; 50 would ignore the consumer.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m026",
+      "questionText": "A task sends 2 KB frames through an RTOS queue that copies every message by value. What is the usual way to avoid copying 2 KB on each send and receive?",
+      "options": [
+        "Make the queue longer",
+        "Send the frame through a binary semaphore instead",
+        "Send a pointer to a buffer taken from a memory pool, and let the receiver return the buffer to the pool when it has finished",
+        "Declare the frame volatile"
+      ],
+      "correctIndex": 2,
+      "explanation": "Only the small pointer is copied and ownership of the buffer passes with the message, so the sender must not touch the buffer until the receiver releases it.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m027",
+      "questionText": "A task waits on an event group for bits 0 and 2 with the 'wait for all bits' option and 'clear bits on exit'. The group currently holds 0x0C (binary 1100). An ISR now sets bit 0. What happens?",
+      "options": [
+        "The task stays blocked because bit 1 is not set",
+        "The task wakes, and the group is left holding 0x0D",
+        "The task wakes, and the group is left holding 0x08",
+        "The task had already woken while the group held 0x0C"
+      ],
+      "correctIndex": 2,
+      "explanation": "After the ISR the group holds 0x0D, which has both bit 0 and bit 2 set, so the wait-for-all condition is met; clearing bits 0 and 2 on exit leaves 0x0D AND NOT 0x05 = 0x08. With 'wait for any bit' the task would already have woken at 0x0C.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m028",
+      "questionText": "In an RTOS or POSIX system, what is a signal?",
+      "options": [
+        "A hardware request line from a peripheral to the interrupt controller",
+        "A counting semaphore that only ISRs may use",
+        "A message queue with exactly one slot",
+        "An asynchronous software notification sent to a task that makes it run a registered handler, much like a software interrupt"
+      ],
+      "correctIndex": 3,
+      "explanation": "A signal interrupts the normal flow of the receiving task or process and runs its handler; it carries little or no data, unlike a queue or mailbox.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m029",
+      "questionText": "A task must wait until BOTH an 'ADC conversion done' event and a 'DMA transfer done' event have occurred, in either order. Which single kernel object suits this best?",
+      "options": [
+        "A mutex",
+        "A binary semaphore",
+        "An event group (event flags) with a wait-for-all-bits call",
+        "A pipe"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each event sets its own bit and the task sleeps until both bits are set; a single binary semaphore cannot tell which event occurred.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m030",
+      "questionText": "Which of these is safe to do inside an ISR in a typical RTOS?",
+      "options": [
+        "Wait on a message queue with a 10 ms timeout",
+        "Give a semaphore with the from-ISR version of the call",
+        "Take a mutex that protects a shared buffer",
+        "Call a delay function to wait for the device to settle"
+      ],
+      "correctIndex": 1,
+      "explanation": "ISRs must never block. The from-ISR calls only give or post without waiting, and they report whether a higher-priority task was woken so the kernel can switch tasks on exit.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m031",
+      "questionText": "For a UART receive interrupt, which division of work between the ISR and a task is best?",
+      "options": [
+        "ISR: parse each complete frame and update the display; no task is needed",
+        "ISR: only signal the task; task: read the data register later",
+        "ISR: disable all interrupts until the task has finished with the byte",
+        "ISR: copy the byte from the data register into a ring buffer and signal the task; task: parse and act on the received messages"
+      ],
+      "correctIndex": 3,
+      "explanation": "Reading the data register at once prevents an overrun, and the slow parsing runs later at task level, keeping the ISR short. Leaving the byte in the register risks it being overwritten by the next one.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m032",
+      "questionText": "Which statement about splitting interrupt handling into a top half and a bottom half is correct?",
+      "options": [
+        "The top half does the minimum urgent work in interrupt context; the bottom half runs later, with interrupts enabled, and can take longer",
+        "The bottom half runs first and the top half is deferred to a task",
+        "The bottom half must run with all interrupts disabled",
+        "The split lengthens the time for which interrupts are disabled"
+      ],
+      "correctIndex": 0,
+      "explanation": "In Linux the bottom half is a softirq, tasklet or workqueue item; in an RTOS it is usually a task woken by the ISR. Deferring work shortens interrupt-disabled time and so lowers the latency of other interrupts.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m033",
+      "questionText": "Interrupt X has the lowest priority of three interrupt sources. The longest code section that runs with interrupts disabled lasts 20 µs, the two higher-priority ISRs take 15 µs and 10 µs and each can occur at most once in the interval, and X's own ISR takes 8 µs. Ignoring entry and exit overheads, what is the worst-case time from X's request to the end of its ISR?",
+      "options": [
+        "28 µs",
+        "45 µs",
+        "53 µs",
+        "33 µs"
+      ],
+      "correctIndex": 2,
+      "explanation": "In the worst case X is raised just as interrupts are disabled for 20 µs, both higher-priority interrupts are pending when they are re-enabled and run first (15 + 10 µs), and then X runs for 8 µs: 20 + 15 + 10 + 8 = 53 µs.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m034",
+      "questionText": "An interrupt-driven UART transmit driver enables the 'transmit register empty' interrupt whenever write() puts bytes into its software buffer. What must the ISR do when it finds the software buffer empty?",
+      "options": [
+        "Disable the transmit-empty interrupt, because otherwise it fires again immediately and keeps firing",
+        "Send a 0x00 byte to keep the line busy",
+        "Block on a semaphore until more data is written",
+        "Re-enable global interrupts and return without changing anything"
+      ],
+      "correctIndex": 0,
+      "explanation": "The empty condition stays true while there is nothing to send, so the interrupt would repeat endlessly and starve the CPU; write() re-enables it when new data arrives.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m035",
+      "questionText": "Which device-driver entry point is normally used for device-specific control operations, such as setting a UART's baud rate?",
+      "options": [
+        "read",
+        "open",
+        "ioctl",
+        "close"
+      ],
+      "correctIndex": 2,
+      "explanation": "ioctl (I/O control) carries device-specific commands and parameters that do not fit the generic read and write calls.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m036",
+      "questionText": "In which situation is a polled driver usually a better choice than an interrupt-driven one?",
+      "options": [
+        "The device is almost always ready, or must be checked at a fixed rate anyway, and the code is a simple loop",
+        "The event is rare and occurs at unpredictable times",
+        "The CPU should sleep in a low-power mode until the event happens",
+        "The system must react as fast as possible to a rare event"
+      ],
+      "correctIndex": 0,
+      "explanation": "Polling costs little when the device is nearly always ready and gives simple, deterministic timing; rare or unpredictable events, fast reaction and low-power sleep all favour interrupts.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m037",
+      "questionText": "A driver checks a device status flag from a periodic task every 5 ms. The event can occur at any instant. Ignoring task scheduling delays, what are the worst-case and average delays from the event to the poll that detects it?",
+      "options": [
+        "2.5 ms worst case and 1.25 ms on average",
+        "5 ms worst case and 5 ms on average",
+        "5 ms worst case and 2.5 ms on average",
+        "10 ms worst case and 5 ms on average"
+      ],
+      "correctIndex": 2,
+      "explanation": "An event just after a poll waits a full period of 5 ms, and with events spread evenly over the period the mean wait is half of it, 2.5 ms. An interrupt-driven driver would respond within the interrupt latency instead.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m038",
+      "questionText": "Which order, from the application down to the hardware, matches a typical layered embedded I/O stack?",
+      "options": [
+        "Application → low-level driver (HAL) → RTOS/OS I/O API → device-independent driver layer → device registers",
+        "Application → RTOS/OS I/O API → device-independent driver layer → low-level driver (HAL) → device registers",
+        "Application → device-independent driver layer → device registers → low-level driver (HAL) → RTOS/OS I/O API",
+        "Application → RTOS/OS I/O API → low-level driver (HAL) → device-independent driver layer → device registers"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each layer hides the one below it: the application uses generic calls such as read and write, the device-independent layer handles buffering and naming, and only the low-level driver or HAL touches the memory-mapped or port registers.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m039",
+      "questionText": "A 64-slot ring buffer tells full from empty by always leaving one slot unused (it is full when (head + 1) mod 64 = tail). At most how many items can it hold?",
+      "options": [
+        "64",
+        "62",
+        "32",
+        "63"
+      ],
+      "correctIndex": 3,
+      "explanation": "One slot is sacrificed so that head = tail can mean empty without ambiguity, leaving 64 - 1 = 63 usable slots.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m040",
+      "questionText": "Assume C11. What does this program print?\n\n#include <stdio.h>\n#define N 8\nstatic unsigned char buf[N];\nstatic unsigned head = 0, tail = 0;\n\nstatic int put(unsigned char c) {\n    unsigned next = (head + 1) % N;\n    if (next == tail) return 0;      /* full */\n    buf[head] = c;\n    head = next;\n    return 1;\n}\n\nint main(void) {\n    int ok = 0;\n    for (int i = 0; i < 10; i++) ok += put((unsigned char)i);\n    tail = 3;                          /* reader has taken 3 bytes */\n    for (int i = 0; i < 5; i++) ok += put((unsigned char)i);\n    printf(\"%d %u\\n\", ok, (head - tail + N) % N);\n    return 0;\n}",
+      "options": [
+        "11 8",
+        "10 7",
+        "7 4",
+        "10 1"
+      ],
+      "correctIndex": 1,
+      "explanation": "Because one slot is always left empty, the first loop stores 7 bytes (head = 7). After tail = 3 only 3 more fit (head goes 7 → 0 → 1 → 2, then next = 3 = tail), so ok = 10 and (2 - 3 + 8) % 8 = 7 bytes are waiting.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m041",
+      "questionText": "A bounded buffer with 4 slots uses semaphores empty (initially 4) and full (initially 0) plus a mutex; semaphore counts never go below 0, and a signal with a task waiting hands the unit straight to that task. The producer has higher priority than the consumer and tries to insert 6 items back to back. The consumer then removes exactly one item and goes to sleep on a timer. Once the producer can make no more progress, what are empty and full, and how many items has it inserted?",
+      "options": [
+        "empty = 1 and full = 3; 4 items inserted",
+        "empty = 0 and full = 4; 6 items inserted",
+        "empty = 0 and full = 3; 5 items inserted",
+        "empty = 0 and full = 4; 5 items inserted, with the producer blocked on its 6th"
+      ],
+      "correctIndex": 3,
+      "explanation": "The producer inserts 4 items (empty 0, full 4) and blocks on wait(empty). The consumer's wait(full) makes full 3, and its signal(empty) wakes the producer, which inserts item 5 (full 4) and blocks again on item 6 with empty still 0.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m042",
+      "questionText": "A bounded buffer of N slots is protected by the semaphores empty and full and a binary semaphore mutex. What are their initial values?",
+      "options": [
+        "empty = 0, full = N, mutex = 1",
+        "empty = N, full = N, mutex = 0",
+        "empty = 1, full = 0, mutex = N",
+        "empty = N, full = 0, mutex = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "Initially every slot is free (empty = N), no item is available (full = 0) and the buffer is unlocked (mutex = 1).",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_i52_m043",
+      "questionText": "On a single-core microcontroller with a pre-emptive priority RTOS, a high-priority task busy-waits in a loop on a flag that only a lower-priority task sets. What happens?",
+      "options": [
+        "Both tasks are stuck for good: the spinning task never lets the lower-priority task run, so the flag is never set",
+        "The spinning task wastes some CPU time but soon proceeds",
+        "The kernel raises the lower-priority task's priority until it sets the flag",
+        "The tick interrupt time-slices the two tasks, so the flag is set within one tick"
+      ],
+      "correctIndex": 0,
+      "explanation": "Priority scheduling never runs a lower-priority task while a higher-priority one is ready, and a spinning task is always ready. It should block on a semaphore or event instead; priority inheritance applies to mutexes, not to busy-wait flags.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m044",
+      "questionText": "Peterson's solution for processes P0 and P1 uses flag[2] and turn. To enter, Pi sets flag[i] = true, then turn = j (the other process), and waits while flag[j] && turn == j. Both try to enter at once: P0 sets flag[0], P1 sets flag[1], P0 sets turn = 1, and then P1 sets turn = 0. Which process enters its critical section first?",
+      "options": [
+        "P1, because it was the last to write turn",
+        "P0, because the last write left turn = 0, so only P1 has to wait",
+        "Both, because both flags are true",
+        "Neither, because both processes wait forever"
+      ],
+      "correctIndex": 1,
+      "explanation": "P0 waits only while flag[1] && turn == 1, which is false once turn = 0, while P1 waits while flag[0] && turn == 0, which is true. The process that writes turn last defers to the other, which gives mutual exclusion and progress.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_i52_m045",
+      "questionText": "Four tasks share identical units of one resource type. Each task needs at most 3 units, acquires them one at a time and releases them only when it finishes. What is the smallest number of units that makes deadlock impossible?",
+      "options": [
+        "12",
+        "8",
+        "9",
+        "4"
+      ],
+      "correctIndex": 2,
+      "explanation": "Deadlock needs every task stuck holding fewer than 3 units: with 4 x 2 = 8 units all four can each hold 2 and wait forever. One more unit, 4(3 - 1) + 1 = 9, guarantees that some task can always complete and release its units.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_i52_m046",
+      "questionText": "A counting semaphore guards 3 identical buffers and wakes waiting tasks in FIFO order. Tasks request a buffer at these times and keep it for these durations: T1 at 0 ms for 6 ms, T2 at 1 ms for 3 ms, T3 at 2 ms for 5 ms, T4 at 3 ms for 2 ms and T5 at 5 ms for 3 ms. Ignoring CPU time, when does T5 obtain a buffer, and when is the last buffer released?",
+      "options": [
+        "T5 gets a buffer at 5 ms, and the last buffer is released at 8 ms",
+        "T5 gets a buffer at 7 ms, and the last buffer is released at 10 ms",
+        "T5 gets a buffer at 4 ms, and the last buffer is released at 7 ms",
+        "T5 gets a buffer at 6 ms, and the last buffer is released at 9 ms"
+      ],
+      "correctIndex": 3,
+      "explanation": "T1 to T3 take the three buffers; T4 waits until T2 releases at 4 ms and keeps a buffer until 6 ms. At 5 ms none is free (T1 until 6, T3 until 7, T4 until 6), so T5 gets one at 6 ms and releases it at 9 ms, the last release.",
+      "difficulty": "hard"
+    }
+  ]
+}

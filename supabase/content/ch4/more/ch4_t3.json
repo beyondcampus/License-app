@@ -1,0 +1,731 @@
+{
+  "topicId": "ch4_t3",
+  "theoryAdd": [
+    {
+      "type": "heading",
+      "text": "Going Deeper: Interface Registers, Serial Frames and Bus Arbitration"
+    },
+    {
+      "type": "paragraph",
+      "text": "On a common I/O bus every interface watches the address lines; the one whose decoder recognises its address becomes active and obeys the function code on the control lines, while the others ignore the cycle. The register-select bits come from the lowest address lines, so an interface with four registers occupies four consecutive port addresses. What the processor can ask an interface to do falls into four kinds of I/O command, which the interface carries out with its data, status and control registers."
+    },
+    {
+      "type": "bulletList",
+      "text": "Mano's four types of I/O command:",
+      "items": [
+        "Control command: activates the peripheral and tells it what to do, for example rewind a tape or start the motor; its meaning depends on the device.",
+        "Status command: tests conditions in the interface and the peripheral (ready, busy, error, parity) and returns them through the status register.",
+        "Data output command: moves a word from the data bus into the interface's output data register, from which the device takes it.",
+        "Data input command: the interface places the word received from the device, held in its input data register, on the data bus for the CPU."
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "A UART transmitter has a holding register that the CPU writes and a shift register that adds the start bit, shifts the data out least significant bit first, and appends the optional parity bit and the stop bit or bits. The receiver waits for the 1-to-0 edge of a start bit, checks half a bit later that the line is still 0 (so a noise spike is not taken for a start bit), and then samples every following bit at its centre using a clock of 16 times the baud rate. Three error flags result: a parity error (parity bit wrong), a framing error (stop bit found to be 0) and an overrun error (a new character completed before the previous one was read)."
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 1: send 'C' (43H) as 8 data bits, even parity, 1 stop bit, 9600 baud\n43H = 0100 0011 -> LSB first: 1 1 0 0 0 0 1 0   (three 1s)\neven parity bit = 1  (makes the count of 1s even: 3 + 1 = 4)\nline: idle 1 | start 0 | 1 1 0 0 0 0 1 0 | parity 1 | stop 1 | idle 1 ...\nframe  = 1 + 8 + 1 + 1 = 11 bits\nT_bit  = 1 / 9600 s = 104.17 us\nT_char = 11 x 104.17 us = 1.146 ms  -> 9600 / 11 = 872.7 characters/s"
+    },
+    {
+      "type": "formula",
+      "latex": "T_{bit} = \\frac{1}{\\text{baud}},\\quad R_{data} = \\frac{\\text{baud} \\times d}{1+d+p+s}",
+      "plainText": "Bit time = 1 / baud; useful data rate = baud × d / (1 + d + p + s) on a two-level line"
+    },
+    {
+      "type": "code",
+      "language": "text",
+      "text": "Worked example 2: UART clock divisor and clock tolerance (8N1 frame)\ncrystal 1.8432 MHz, sampling clock = 16 x baud\ndivisor = 1 843 200 / (16 x 9600) = 12   -> 153.6 kHz sampling clock\nstart edge -> wait 8 ticks (centre of start bit) -> then sample every 16 ticks\ndata bit 0 sampled 1.5 bit times after the edge\nstop bit sampled 1 + 8 + 0.5 = 9.5 bit times after the edge\nallowed drift at that point < 0.5 bit\nmax total bit-period mismatch = 0.5 / 9.5 = 5.3 %   (tick quantisation ignored)"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Interface",
+          "Timing",
+          "Signal lines",
+          "Typical use"
+        ],
+        [
+          "UART / RS-232",
+          "Asynchronous; start and stop bits frame each character",
+          "TxD, RxD and ground, optionally RTS/CTS",
+          "Terminals, modems, debug consoles, GPS modules"
+        ],
+        [
+          "SPI",
+          "Synchronous; the master drives the clock",
+          "SCLK, MOSI, MISO and one select line per slave",
+          "Flash chips, ADCs and displays on one board"
+        ],
+        [
+          "I2C",
+          "Synchronous; addressed devices on open-drain lines",
+          "SDA and SCL shared by all devices",
+          "Sensors, small EEPROMs, real-time clocks"
+        ],
+        [
+          "Centronics parallel",
+          "Handshaked parallel bytes",
+          "8 data lines plus STROBE, BUSY, ACK and status lines",
+          "Older printers"
+        ],
+        [
+          "USB",
+          "Serial packets scheduled by the host",
+          "D+, D−, VBUS and ground",
+          "Keyboards, storage and most PC peripherals"
+        ]
+      ]
+    },
+    {
+      "type": "bulletList",
+      "text": "Keyboards, displays and printers as seen from the interface:",
+      "items": [
+        "Keyboard: the keys form a row × column matrix, so r + c lines serve up to r × c keys; the controller drives one row at a time, reads the columns, debounces for 10–20 ms and sends a scan code to the host.",
+        "Rollover: two-key or n-key rollover lets a new key be recognised while an earlier one is still held; a matrix without diodes can show a ghost key when three keys at the corners of a rectangle are pressed.",
+        "Display: a raster frame buffer needs W × H × bits-per-pixel / 8 bytes and is read once per refresh; a multiplexed 7-segment display shares the segment lines and adds one enable line per digit.",
+        "Printer: impact printers (dot-matrix, daisy-wheel, line) strike an inked ribbon, non-impact printers (laser, inkjet, thermal) do not; the Centronics port hands over bytes with STROBE, BUSY and ACK, and the printer's buffer absorbs the speed mismatch."
+      ]
+    },
+    {
+      "type": "formula",
+      "latex": "S_{fb} = \\frac{W \\times H \\times b}{8},\\quad BW = S_{fb} \\times f_{refresh}",
+      "plainText": "Frame buffer bytes = W × H × bits per pixel / 8; refresh bandwidth = frame buffer bytes × refresh rate"
+    },
+    {
+      "type": "table",
+      "rows": [
+        [
+          "Bus arbitration scheme",
+          "Lines needed for N masters",
+          "Priority",
+          "Weakness"
+        ],
+        [
+          "Daisy chain (serial)",
+          "3 shared lines: bus request, daisy-chained grant, bus busy",
+          "Fixed by position in the grant chain",
+          "Grant ripples through every stage; one failed master blocks those after it"
+        ],
+        [
+          "Polling",
+          "About log2 N poll-address lines plus request and busy",
+          "Set by the poll order, which can rotate",
+          "Polling the masters takes time"
+        ],
+        [
+          "Independent requests (parallel)",
+          "N request and N grant lines with a priority encoder and decoder",
+          "Decided by the priority encoder; can be programmable",
+          "Most wires and logic"
+        ]
+      ]
+    },
+    {
+      "type": "warning",
+      "text": "Baud is signal changes (symbols) per second, not bits or bytes per second: the two are equal only on a two-level line. Character rates always divide by the full frame (start + data + parity + stop), and rate answers must keep µs and ms, bits and bytes, and MB = 10^6 versus MiB = 2^20 apart."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_ch4_t3_m001",
+      "questionText": "Stallings groups external devices into human-readable, machine-readable and communication devices. Into which group does a magnetic disk drive fall?",
+      "options": [
+        "Human-readable",
+        "Machine-readable",
+        "Communication",
+        "Transducer devices"
+      ],
+      "correctIndex": 1,
+      "explanation": "Machine-readable devices exchange data with equipment rather than people: magnetic disks and tapes, sensors and actuators. Terminals and printers are human-readable, and modems or network adapters are communication devices.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m002",
+      "questionText": "In Stallings's block diagram of an external device, which part converts between electrical signals and another form of energy, for example a key press into a code or data bits into ink on paper?",
+      "options": [
+        "Buffer",
+        "Control logic",
+        "Status register",
+        "Transducer"
+      ],
+      "correctIndex": 3,
+      "explanation": "The device's control logic acts on commands from the I/O module, the buffer holds the data being transferred, and the transducer converts electrical data into other forms of energy on output and from them on input.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m003",
+      "questionText": "Which of the following is NOT a function of an I/O module?",
+      "options": [
+        "Fetching and decoding the instructions of the user program",
+        "Buffering data between the fast system bus and a slow device",
+        "Detecting errors such as a parity failure or a paper jam and reporting them",
+        "Recognising its own address and decoding commands from the processor"
+      ],
+      "correctIndex": 0,
+      "explanation": "An I/O module provides control and timing, processor communication (command decoding, data, status and address recognition), device communication, data buffering and error detection. Fetching and decoding program instructions is the job of the CPU's control unit.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m004",
+      "questionText": "Stallings distinguishes an I/O channel (I/O processor) from an I/O controller (device controller). Which statement is correct?",
+      "options": [
+        "A device controller executes I/O programs from main memory, whereas an I/O channel needs the CPU to supply every command",
+        "The two terms are synonyms for a module that only buffers data",
+        "An I/O channel takes over most of the detailed I/O processing and presents a high-level interface to the CPU, whereas a device controller is primitive and needs detailed control from the CPU",
+        "An I/O channel serves only keyboards and other slow devices, and a device controller only disks"
+      ],
+      "correctIndex": 2,
+      "explanation": "Stallings calls a module that can execute its own I/O programs with little CPU involvement an I/O channel or I/O processor, and a simple module that the CPU must drive step by step, typical of microcomputers, an I/O controller or device controller.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m005",
+      "questionText": "Mano lists four types of command that an interface may receive over the I/O bus. Which one makes the interface test conditions such as 'device ready' or 'error' and report them?",
+      "options": [
+        "Control command",
+        "Status command",
+        "Data output command",
+        "Data input command"
+      ],
+      "correctIndex": 1,
+      "explanation": "A control command activates the peripheral and tells it what to do, a status command tests conditions in the interface and device, and the data output and data input commands move data between the bus and the interface's data registers.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m006",
+      "questionText": "A computer has two entirely separate sets of data, address and control lines, one for memory and one for I/O. According to Mano, this organisation is typical of systems that",
+      "options": [
+        "include a separate I/O processor (IOP) that controls the I/O bus",
+        "use memory-mapped I/O, so that ordinary load and store instructions reach the ports",
+        "have one common bus with an IO/M line to tell memory and I/O cycles apart",
+        "cannot use interrupts or DMA"
+      ],
+      "correctIndex": 0,
+      "explanation": "Mano describes three arrangements: separate memory and I/O buses (used with an IOP), one common bus with separate memory and I/O control lines (isolated I/O), and one common bus with common control lines (memory-mapped I/O).",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m007",
+      "questionText": "Which statement about isolated and memory-mapped I/O is NOT correct?",
+      "options": [
+        "In isolated I/O a control signal such as IO/M tells memory cycles and I/O cycles apart",
+        "In memory-mapped I/O any instruction that can reference memory can also operate on a port register",
+        "In memory-mapped I/O the address range of the device registers is normally made non-cacheable",
+        "In isolated I/O the port addresses reduce the amount of memory the processor can address"
+      ],
+      "correctIndex": 3,
+      "explanation": "Isolated I/O gives the ports their own address space, so the full memory range stays available; it is memory-mapped I/O that uses up memory addresses. The other statements are correct: IO/M separates the cycles, memory instructions reach mapped ports, and caching device registers would hide their changing contents.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m008",
+      "questionText": "A processor has a 20-bit address bus and uses memory-mapped I/O, with the top 4 KB of the address space (KB = 1024 bytes) reserved for device registers. How many bytes remain available for memory?",
+      "options": [
+        "1,048,576",
+        "1,040,384",
+        "1,044,480",
+        "1,048,572"
+      ],
+      "correctIndex": 2,
+      "explanation": "The address space holds 2^20 = 1,048,576 bytes; reserving 4 × 1024 = 4096 addresses for I/O leaves 1,048,576 − 4096 = 1,044,480 bytes for memory.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m009",
+      "questionText": "The 8086 IN and OUT instructions can take the port address from register DX (16 bits) instead of from an 8-bit immediate value. How many 8-bit I/O ports can be addressed this way?",
+      "options": [
+        "65,536",
+        "256",
+        "512",
+        "1,048,576"
+      ],
+      "correctIndex": 0,
+      "explanation": "A 16-bit port address selects 2^16 = 65,536 byte-wide ports, while the immediate form with an 8-bit port number reaches only 256. The 1,048,576 figure is the 20-bit memory address space.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m010",
+      "questionText": "An 8085 executes IN 40H. During the I/O read machine cycle, what appears on the high-order address lines A15–A8?",
+      "options": [
+        "00H, because the high-order address byte is not used in I/O cycles",
+        "40H, because the 8-bit port address is placed on both A7–A0 and A15–A8",
+        "FFH, because unused address lines float high",
+        "The contents of the accumulator"
+      ],
+      "correctIndex": 1,
+      "explanation": "The 8085 duplicates the 8-bit port address on the low-order (AD7–AD0) and high-order (A15–A8) address lines, with IO/M = 1 marking the cycle as I/O, so a port decoder may use either half of the bus.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m011",
+      "questionText": "Which combination of 8085 control signals indicates an I/O read cycle? (RD and WR are active low; IO/M is 1 for I/O.)",
+      "options": [
+        "IO/M = 0, RD = 0, WR = 1",
+        "IO/M = 1, RD = 1, WR = 0",
+        "IO/M = 0, RD = 1, WR = 0",
+        "IO/M = 1, RD = 0, WR = 1"
+      ],
+      "correctIndex": 3,
+      "explanation": "IO/M = 1 selects the I/O space and RD = 0 marks a read. IO/M = 0 with RD = 0 would be a memory read, and WR = 0 would indicate a write.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m012",
+      "questionText": "An I/O interface has four registers selected by RS1 RS0 = A1 A0: 00 port A, 01 port B, 10 control, 11 status. Its chip select is active when A7–A2 = 100000 (8-bit port addresses, full decoding). What is the port address of the status register?",
+      "options": [
+        "80H",
+        "82H",
+        "83H",
+        "23H"
+      ],
+      "correctIndex": 2,
+      "explanation": "The address is A7–A2 A1 A0 = 100000 11 = 1000 0011 = 83H; port A is at 80H, port B at 81H and the control register at 82H.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m013",
+      "questionText": "A processor has 8-bit I/O port addresses (256 addresses). If every interface unit occupies four consecutive port addresses (two register-select bits) and decoding is complete, how many interface units can be attached?",
+      "options": [
+        "64",
+        "256",
+        "1024",
+        "6"
+      ],
+      "correctIndex": 0,
+      "explanation": "Two of the eight address bits select a register inside the interface, leaving 6 bits for chip select: 2^6 = 64 interfaces, i.e. 256 / 4.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m014",
+      "questionText": "What is the main weakness of source-initiated strobe control in asynchronous data transfer?",
+      "options": [
+        "It needs two control lines between the units",
+        "It works only when both units share a common clock",
+        "The destination must place the data on the bus",
+        "The source has no way of knowing whether the destination actually received the data"
+      ],
+      "correctIndex": 3,
+      "explanation": "With a single strobe line the source places the data, pulses the strobe and simply assumes the destination latched them; there is no reply. Handshaking adds a second line so that every step is acknowledged.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m015",
+      "questionText": "Which sequence correctly describes a source-initiated handshake transfer?",
+      "options": [
+        "Destination raises 'data accepted' → source places data and raises 'data valid' → destination drops 'data accepted' → source drops 'data valid'",
+        "Source places data and raises 'data valid' → destination takes the data and raises 'data accepted' → source drops 'data valid' → destination drops 'data accepted'",
+        "Source places data and raises 'data valid' → source drops 'data valid' → destination raises 'data accepted' → destination drops 'data accepted'",
+        "Source raises 'data valid' → destination drops 'data accepted' → source places data → destination raises 'data accepted'"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each step waits for the other unit's response: the source removes 'data valid' only after seeing 'data accepted', and the destination removes 'data accepted' only after 'data valid' has gone, which leaves both lines ready for the next word.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m016",
+      "questionText": "In a destination-initiated handshake, which event starts the transfer?",
+      "options": [
+        "The destination raises its 'ready for data' (data request) signal",
+        "The source places data on the bus and raises 'data valid'",
+        "The destination raises 'data accepted'",
+        "The source pulses a strobe line"
+      ],
+      "correctIndex": 0,
+      "explanation": "In the destination-initiated version the receiver first signals that it is ready for data; the source then places the data and raises 'data valid', the destination takes them and drops 'ready for data', and finally the source drops 'data valid'.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m017",
+      "questionText": "Two units exchange 16-bit words using a fully interlocked (four-phase) handshake: data valid rises, data accepted rises, data valid falls, data accepted falls. Each signal change takes 20 ns to travel along the cable, and each unit needs 30 ns to respond to a change it sees. If these delays dominate, what is the maximum data rate (MB = 10^6 bytes)?",
+      "options": [
+        "20 MB/s",
+        "5 MB/s",
+        "10 MB/s",
+        "40 MB/s"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each of the 4 transitions costs 20 + 30 = 50 ns, so one word takes 4 × 50 = 200 ns: 1 / 200 ns = 5 × 10^6 words/s × 2 bytes = 10 MB/s. Counting only two transitions gives 20 MB/s, and forgetting the 2-byte word gives 5 MB/s.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m018",
+      "questionText": "What is the duration of one bit on a two-level asynchronous serial line running at 19,200 baud?",
+      "options": [
+        "520.8 µs",
+        "104.2 µs",
+        "5.2 µs",
+        "52.1 µs"
+      ],
+      "correctIndex": 3,
+      "explanation": "On a two-level line each signal change carries one bit, so T_bit = 1 / 19,200 s ≈ 52.1 µs; a 10-bit character then takes about 520.8 µs.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m019",
+      "questionText": "How long does it take to send a 1024-byte file over an asynchronous link at 115,200 baud using 8 data bits, no parity and 1 stop bit, with no gaps between characters?",
+      "options": [
+        "About 71.1 ms",
+        "About 88.9 ms",
+        "About 8.9 ms",
+        "About 97.8 ms"
+      ],
+      "correctIndex": 1,
+      "explanation": "Each byte needs 1 + 8 + 1 = 10 bit times, so 1024 × 10 = 10,240 bits ÷ 115,200 bit/s ≈ 0.0889 s = 88.9 ms. Ignoring the start and stop bits gives 71.1 ms, and treating baud as bytes per second gives 8.9 ms.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m020",
+      "questionText": "What is the line efficiency (data bits ÷ frame bits) of asynchronous characters sent with 7 data bits, even parity and 2 stop bits?",
+      "options": [
+        "63.6%",
+        "70.0%",
+        "77.8%",
+        "72.7%"
+      ],
+      "correctIndex": 0,
+      "explanation": "Frame = 1 start + 7 data + 1 parity + 2 stop = 11 bits, so efficiency = 7 / 11 ≈ 63.6%.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m021",
+      "questionText": "A terminal must deliver at least 1000 characters per second over an asynchronous link using 7 data bits, even parity and 2 stop bits. The UART supports 4800, 9600, 19,200 and 38,400 baud. What is the lowest rate that meets the requirement?",
+      "options": [
+        "4800 baud",
+        "9600 baud",
+        "19,200 baud",
+        "38,400 baud"
+      ],
+      "correctIndex": 2,
+      "explanation": "Each character needs 1 + 7 + 1 + 2 = 11 bits, so the line must carry 1000 × 11 = 11,000 bit/s. 9600 baud gives only 9600 / 11 ≈ 873 characters/s, so 19,200 baud (≈ 1745 characters/s) is the lowest adequate rate; 9600 looks sufficient only if the framing bits are forgotten.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m022",
+      "questionText": "A UART derives its sampling clock by dividing a 1.8432 MHz crystal, and it samples with a clock of 16 times the baud rate. What divisor gives 4800 baud?",
+      "options": [
+        "384",
+        "12",
+        "48",
+        "24"
+      ],
+      "correctIndex": 3,
+      "explanation": "Divisor = f_clk / (16 × baud) = 1,843,200 / (16 × 4800) = 1,843,200 / 76,800 = 24. Omitting the factor 16 gives 384; 12 and 48 are the divisors for 9600 and 2400 baud.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m023",
+      "questionText": "A UART receiver runs its sampling clock at 16 times the baud rate. It detects the falling edge of the start bit, waits 8 ticks to reach the centre of the start bit, and then samples every 16 ticks. At 9600 baud, how long after the start edge is data bit 0 sampled?",
+      "options": [
+        "156.25 µs",
+        "104.17 µs",
+        "52.08 µs",
+        "208.33 µs"
+      ],
+      "correctIndex": 0,
+      "explanation": "The centre of the start bit is 8 ticks (0.5 bit) after the edge and data bit 0 is sampled 16 ticks (1 bit) later, i.e. 1.5 bit times: 1.5 × (1 / 9600) s = 1.5 × 104.17 µs = 156.25 µs.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m024",
+      "questionText": "An asynchronous frame has 1 start bit, 8 data bits, 1 parity bit and 1 stop bit. The receiver resynchronises on the start edge and samples each bit at its nominal centre. Ignoring the quantisation of the sampling clock, what is the largest total mismatch between the transmitter and receiver bit periods, as a fraction of the bit time, that still lets the stop bit be sampled inside the stop bit?",
+      "options": [
+        "About 5.3%",
+        "About 4.8%",
+        "About 9.5%",
+        "About 6.25%"
+      ],
+      "correctIndex": 1,
+      "explanation": "The centre of the stop bit lies 1 + 8 + 1 + 0.5 = 10.5 bit times after the start edge, and the timing error accumulated there, 10.5 × ΔT, must stay below half a bit: ΔT/T < 0.5 / 10.5 ≈ 4.8%. Without the parity bit (8N1) the limit would be 0.5 / 9.5 ≈ 5.3%.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m025",
+      "questionText": "The ASCII character 'A' (41H) is sent in 8N1 format (1 start bit, 8 data bits, no parity, 1 stop bit). Which bit sequence appears on the line, first bit first?",
+      "options": [
+        "0 01000001 1",
+        "1 10000010 0",
+        "0 10000010 1",
+        "1 01000001 0"
+      ],
+      "correctIndex": 2,
+      "explanation": "The start bit is 0, the data go least significant bit first (41H = 0100 0001 is sent as 1,0,0,0,0,0,1,0) and the stop bit is 1, so the line carries 0 10000010 1.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m026",
+      "questionText": "A receiver set for 7 data bits, odd parity and 1 stop bit sees the frame 0 1101001 1 1 (start bit, the 7 data bits in the order received, parity bit, stop bit). What character code was received, and is there a parity error?",
+      "options": [
+        "69H, no parity error",
+        "4BH, parity error",
+        "69H, parity error",
+        "4BH, no parity error"
+      ],
+      "correctIndex": 3,
+      "explanation": "Data arrive LSB first, so b0 to b6 = 1,1,0,1,0,0,1, which is 100 1011 = 4BH ('K'). The data contain four 1s; with the parity bit (1) the total is five, which is odd, so the parity check passes.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m027",
+      "questionText": "A UART reports a framing error. What has it detected?",
+      "options": [
+        "The bit sampled where the stop bit should be was 0 instead of 1",
+        "The number of 1s in the character did not match the selected parity",
+        "A new character arrived before the previous one was read from the receive buffer",
+        "The line stayed at 1 for longer than one character time"
+      ],
+      "correctIndex": 0,
+      "explanation": "A framing error means the stop-bit position did not contain the expected 1, usually because of a baud-rate mismatch, noise or a break. The other options describe a parity error, an overrun error and a normal idle line.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m028",
+      "questionText": "What causes an overrun error in a UART receiver?",
+      "options": [
+        "The stop bit is sampled as 0",
+        "A new character is completely assembled before the CPU has read the previous character from the receive buffer",
+        "The parity bit does not match the number of 1s in the data",
+        "The line is held at 0 for longer than a whole frame"
+      ],
+      "correctIndex": 1,
+      "explanation": "The receiver moves each assembled character into its buffer; if the CPU (or DMA) has not read the previous one in time it is overwritten and the overrun flag is set. A 0 stop bit is a framing error, a wrong parity bit is a parity error, and a line held at 0 for more than a frame is a break.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m029",
+      "questionText": "A modem transmits 2400 symbols per second (2400 baud), and each symbol is one of 16 distinct signal levels. What is its bit rate?",
+      "options": [
+        "2400 bit/s",
+        "38,400 bit/s",
+        "600 bit/s",
+        "9600 bit/s"
+      ],
+      "correctIndex": 3,
+      "explanation": "16 levels carry log2 16 = 4 bits per symbol, so the bit rate = 2400 × 4 = 9600 bit/s. Baud equals bit rate only when each symbol carries one bit.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m030",
+      "questionText": "Compare line efficiency (data bits ÷ total bits): synchronous transmission sends blocks of 512 data bytes with 8 bytes of synchronisation, header and check characters, while asynchronous transmission sends each byte in an 8N1 frame. What are the two efficiencies?",
+      "options": [
+        "Synchronous 80.0%, asynchronous 98.5%",
+        "Synchronous 100%, asynchronous 80.0%",
+        "Synchronous 98.5%, asynchronous 80.0%",
+        "Synchronous 98.5%, asynchronous 72.7%"
+      ],
+      "correctIndex": 2,
+      "explanation": "Synchronous: 512 / (512 + 8) = 512 / 520 ≈ 98.5%. Asynchronous: 8 data bits in a 1 + 8 + 1 = 10-bit frame = 80%. Framing every character is why asynchronous transfer suits slow, irregular traffic and synchronous transfer suits large blocks.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m031",
+      "questionText": "An old teleprinter link runs at 50 baud with 5 data bits, no parity and 1.5 stop bits per character. How many characters per second does it carry?",
+      "options": [
+        "About 6.67",
+        "About 7.14",
+        "10",
+        "6.25"
+      ],
+      "correctIndex": 0,
+      "explanation": "Frame = 1 start + 5 data + 1.5 stop = 7.5 bit times, so 50 / 7.5 ≈ 6.67 characters per second. Using 1 stop bit gives 7.14, and ignoring the framing bits gives 10.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m032",
+      "questionText": "What does a UART do?",
+      "options": [
+        "Transfers blocks between a device and memory without involving the CPU",
+        "Converts parallel data from the CPU into asynchronous serial frames with start, parity and stop bits, and converts received frames back into parallel data",
+        "Sends data together with a shared clock line so that transmitter and receiver stay in lock-step",
+        "Grants the system bus to the highest-priority of several bus masters"
+      ],
+      "correctIndex": 1,
+      "explanation": "A universal asynchronous receiver-transmitter is the standard asynchronous serial interface: its transmitter serialises and frames each byte, and its receiver resynchronises on each start bit and reassembles the byte. Block transfer is DMA, a shared clock describes synchronous links, and granting the bus is arbitration.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m033",
+      "questionText": "Which statement about serial and parallel interfaces is NOT correct?",
+      "options": [
+        "Skew between the lines of a parallel cable limits its length and clock rate",
+        "A serial link needs fewer wires and connector pins than a parallel one",
+        "An asynchronous serial link needs a separate clock wire between the transmitter and the receiver",
+        "High-speed standards such as SATA and PCI Express replaced parallel buses with serial lanes"
+      ],
+      "correctIndex": 2,
+      "explanation": "Asynchronous serial transmission carries no clock; the start bit of each character resynchronises the receiver's own clock. The other statements are correct, which is why modern high-speed links are serial.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m034",
+      "questionText": "In the Centronics parallel printer interface, the computer places a byte on the data lines and pulses STROBE. Which printer signal pulses to tell the computer that the byte has been accepted and the printer is ready for the next one?",
+      "options": [
+        "STROBE",
+        "INIT (initialise)",
+        "PE (paper end)",
+        "ACK (acknowledge)"
+      ],
+      "correctIndex": 3,
+      "explanation": "Centronics transfer is a handshake: STROBE (computer to printer) says the data are valid, BUSY stays high while the printer handles the byte, and a short ACK pulse from the printer confirms acceptance and readiness for the next byte.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m035",
+      "questionText": "A 64-key keypad is wired as an 8 × 8 matrix (rows driven, columns read). How many I/O lines does the interface need, compared with one line per key?",
+      "options": [
+        "16 lines instead of 64",
+        "8 lines instead of 64",
+        "64 lines, the same as one per key",
+        "6 lines instead of 64"
+      ],
+      "correctIndex": 0,
+      "explanation": "A matrix needs one line per row and one per column: 8 + 8 = 16. The controller drives one row at a time and reads the columns to find which key in that row is closed.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m036",
+      "questionText": "Why does a keyboard scanning routine wait about 10–20 ms after first detecting a key closure before accepting the key?",
+      "options": [
+        "The keyboard must wait for the display to refresh",
+        "The CPU must wait for a DMA transfer to finish",
+        "Mechanical contacts bounce, making and breaking several times before they settle",
+        "The key code must first be converted from serial to parallel form"
+      ],
+      "correctIndex": 2,
+      "explanation": "Contact bounce would otherwise be read as several key presses. Debouncing, in hardware or by checking the key again after a short delay, accepts the key only once it is stable.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m037",
+      "questionText": "A 104-key keyboard is to be wired as a rectangular row × column matrix. What is the minimum total number of row and column lines?",
+      "options": [
+        "20",
+        "21",
+        "11",
+        "104"
+      ],
+      "correctIndex": 1,
+      "explanation": "We need r × c ≥ 104 with r + c as small as possible. With 20 lines the best is 10 × 10 = 100 keys, which is too few, while 10 × 11 = 110 (or 8 × 13 = 104) works with 21 lines.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m038",
+      "questionText": "A display of 1920 × 1080 pixels uses 24 bits per pixel. How many bytes of frame-buffer memory does one screen image need?",
+      "options": [
+        "49,766,400 bytes",
+        "2,073,600 bytes",
+        "8,294,400 bytes",
+        "6,220,800 bytes"
+      ],
+      "correctIndex": 3,
+      "explanation": "Frame buffer = 1920 × 1080 × 24 / 8 = 2,073,600 pixels × 3 bytes = 6,220,800 bytes (about 5.9 MiB); 49,766,400 is the size in bits.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m039",
+      "questionText": "A display controller refreshes a 1024 × 768 screen with 16 bits per pixel 60 times per second by reading the frame buffer. What memory bandwidth does the refresh alone consume (MB = 10^6 bytes)?",
+      "options": [
+        "About 94.4 MB/s",
+        "About 47.2 MB/s",
+        "About 755 MB/s",
+        "About 1.57 MB/s"
+      ],
+      "correctIndex": 0,
+      "explanation": "One frame = 1024 × 768 × 2 bytes = 1,572,864 bytes; at 60 frames per second that is 94,371,840 B/s ≈ 94.4 MB/s. The 755 figure is the rate in megabits per second, and 1.57 MB is a single frame.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m040",
+      "questionText": "Four 7-segment digits, each with 8 LED segments including the decimal point, are driven by multiplexing: shared segment lines plus one enable line per digit. How many output lines are needed?",
+      "options": [
+        "32",
+        "11",
+        "12",
+        "36"
+      ],
+      "correctIndex": 2,
+      "explanation": "Multiplexing shares the 8 segment lines among all digits and adds 4 digit-enable lines: 8 + 4 = 12, compared with 4 × 8 = 32 lines for direct drive. The digits are lit one at a time, fast enough that the eye sees all four.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m041",
+      "questionText": "Which of these printers is a non-impact printer?",
+      "options": [
+        "Dot-matrix printer",
+        "Laser printer",
+        "Daisy-wheel printer",
+        "Drum line printer"
+      ],
+      "correctIndex": 1,
+      "explanation": "A laser printer forms the image with a laser, a photosensitive drum and toner fused onto the paper, with no mechanical striking; dot-matrix, daisy-wheel and drum printers all hammer an inked ribbon against the paper.",
+      "difficulty": "easy"
+    },
+    {
+      "id": "q_ch4_t3_m042",
+      "questionText": "A computer sends text to a printer over a 9600-baud 8N1 serial link without pauses, while the printer prints 100 characters per second from a 4096-byte input buffer that starts empty. If the printer never signals the computer to stop, after how long does the buffer become full?",
+      "options": [
+        "About 4.27 s",
+        "About 40.96 s",
+        "About 3.72 s",
+        "About 4.76 s"
+      ],
+      "correctIndex": 3,
+      "explanation": "The link delivers 9600 / 10 = 960 characters/s and the printer removes 100/s, so the buffer fills at 860 characters/s: 4096 / 860 ≈ 4.76 s. This is why printers need flow control such as BUSY or XOFF.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m043",
+      "questionText": "Which statement about daisy-chain (serial) bus arbitration is NOT correct?",
+      "options": [
+        "The number of arbitration lines grows in proportion to the number of bus masters",
+        "Priority is fixed by position: the master nearest the start of the grant chain wins",
+        "A failed master that does not pass the grant on blocks every master further down the chain",
+        "Masters far down the chain may be starved if those ahead of them request the bus continually"
+      ],
+      "correctIndex": 0,
+      "explanation": "Daisy chaining needs only a few shared lines (bus request, the chained bus grant and bus busy) whatever the number of masters, which is its main advantage; the price is fixed positional priority, possible starvation, sensitivity to a single failure and grant propagation delay.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m044",
+      "questionText": "Parallel (independent-request) bus arbitration is used for 8 bus masters: each master's request line goes to a priority encoder, whose output code drives a decoder that asserts one grant line. What sizes are the encoder and the decoder?",
+      "options": [
+        "3-to-8 priority encoder and 8-to-3 decoder",
+        "8-to-3 priority encoder and 3-to-8 decoder",
+        "4-to-2 priority encoder and 2-to-4 decoder",
+        "16-to-4 priority encoder and 4-to-16 decoder"
+      ],
+      "correctIndex": 1,
+      "explanation": "Eight request inputs are encoded into log2 8 = 3 bits identifying the highest-priority requester, and a 3-to-8 decoder turns that code back into one of eight bus-grant lines. Mano's four-master example uses a 4 × 2 encoder and a 2 × 4 decoder.",
+      "difficulty": "medium"
+    },
+    {
+      "id": "q_ch4_t3_m045",
+      "questionText": "A daisy-chained bus arbiter issues the grant 20 ns after a bus request, and the grant then ripples through the masters, each taking 15 ns to pass it from its input to its output. If no master ahead of it is requesting, how long after the request does the 12th master in the chain receive the grant?",
+      "options": [
+        "200 ns",
+        "165 ns",
+        "185 ns",
+        "35 ns"
+      ],
+      "correctIndex": 2,
+      "explanation": "The grant must pass through the 11 masters ahead of the 12th: 20 + 11 × 15 = 185 ns. Counting 12 stage delays gives 200 ns, and forgetting the arbiter's 20 ns gives 165 ns; this growing delay is one reason daisy chains suit only a few masters.",
+      "difficulty": "hard"
+    },
+    {
+      "id": "q_ch4_t3_m046",
+      "questionText": "Assume C11. What does the following embedded C fragment print?\n\n#include <stdio.h>\n#define RX_READY 0x01u\n#define TX_EMPTY 0x02u\nint main(void) {\n    unsigned int status = 0x16u;   /* value read from a UART status register */\n    int rx = (status & RX_READY) != 0;\n    int tx = (status & TX_EMPTY) != 0;\n    unsigned int err = (status >> 3) & 0x3u;\n    printf(\"%d %d %u\\n\", rx, tx, err);\n    return 0;\n}",
+      "options": [
+        "0 2 2",
+        "1 1 2",
+        "0 1 1",
+        "0 1 2"
+      ],
+      "correctIndex": 3,
+      "explanation": "0x16 = 0001 0110. Bit 0 is 0, so rx = 0; bit 1 is 1 and the != 0 comparison turns it into tx = 1; 0x16 >> 3 = 0000 0010 and & 0x3 keeps 2, so the output is 0 1 2.",
+      "difficulty": "medium"
+    }
+  ]
+}
